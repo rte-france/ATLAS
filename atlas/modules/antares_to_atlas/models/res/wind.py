@@ -9,8 +9,8 @@ from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
-from atlas.models.equipment.wind import Wind
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.objects.equipment.wind import Wind
 
 
 def convert_wind_units(

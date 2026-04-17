@@ -37,7 +37,7 @@ wheels = [
 
 [[package]]
 name = "antares-craft"
-version = "0.11.0"
+version = "0.13.0"
 source = { registry = "https://pypi.org/simple/" }
 dependencies = [
     { name = "antares-study-version" },
@@ -51,9 +51,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/40/2b/f3553e5085f99ede8ada2c2f707baab3a9d5ad0e05f902a71d13c2b2b4ad/antares_craft-0.11.0.tar.gz", hash = "sha256:04aa3dac8b888833a6a8d2c1ed1aa3c94b2f35a81bc2ccd007fd34d246240a01", size = 145270, upload-time = "2026-02-24T15:36:04.108Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0e/a5/d45477e3da148b54769491bf3ed6de4406e86694f491902a9240643e7a8a/antares_craft-0.13.0.tar.gz", hash = "sha256:396ddc78e29473991e57bfc77901a34ae0ffb9f8850bef32a660a9238a61c570", size = 167149, upload-time = "2026-04-16T08:37:22.652Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e2/9f/fa7eaaad516bd7221623cd896c0513dcd599a3c03254c9060ea45db76994/antares_craft-0.11.0-py3-none-any.whl", hash = "sha256:25ab9d02966f7e4e2c93409bd3431ed88bdd6fc66f7963618c9402ea090a1882", size = 220028, upload-time = "2026-02-24T15:36:02.681Z" },
+    { url = "https://files.pythonhosted.org/packages/6e/fc/97bfed507d2dfb001597cda7a110318cebade7a52de6983ce8b1fd59e36c/antares_craft-0.13.0-py3-none-any.whl", hash = "sha256:8779d22295496d72303d0c1ed5a82daccb844e9924bd48f20a42c04fcac52b33", size = 243645, upload-time = "2026-04-16T08:37:21.181Z" },
 ]
 
 [[package]]
@@ -245,7 +245,7 @@ docs = [
 
 [package.metadata]
 requires-dist = [
-    { name = "antares-craft", specifier = ">=0.10.4" },
+    { name = "antares-craft", specifier = ">=0.13.0" },
     { name = "dictdiffer", specifier = ">=0.9.0" },
     { name = "fastparquet", specifier = ">=2024.11.0" },
     { name = "h5py", specifier = ">=3.13.0" },
@@ -1010,6 +1010,7 @@ wheels = [
 name = "griffelib"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple/" }
+sdist = { url = "https://files.pythonhosted.org/packages/ad/06/eccbd311c9e2b3ca45dbc063b93134c57a1ccc7607c5e545264ad092c4a9/griffelib-2.0.0.tar.gz", hash = "sha256:e504d637a089f5cab9b5daf18f7645970509bf4f53eda8d79ed71cce8bd97934", size = 166312, upload-time = "2026-03-23T21:06:55.954Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4d/51/c936033e16d12b627ea334aaaaf42229c37620d0f15593456ab69ab48161/griffelib-2.0.0-py3-none-any.whl", hash = "sha256:01284878c966508b6d6f1dbff9b6fa607bc062d8261c5c7253cb285b06422a7f", size = 142004, upload-time = "2026-02-09T19:09:40.561Z" },
 ]

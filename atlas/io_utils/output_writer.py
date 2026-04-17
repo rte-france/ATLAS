@@ -17,7 +17,7 @@ from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.matrix import ScenarioMatrix
-from atlas.models.business_model import BusinessModel
+from atlas.objects.business_model import BusinessModel
 
 
 def save_to_directory(

@@ -41,6 +41,14 @@ uv run pytest .
 
 > Make sure all tests pass before submitting a PR.
 
+### TNR
+
+Some test are mark as TNR, They are longer and are mandatory when merging into main.
+
+```bash
+uv run pytest -v -s --cov=atlas --cov-report=xml --disable-warnings -m "tnr"
+```
+
 ## Code Style
 
 We use `ruff` to format and lint the code:

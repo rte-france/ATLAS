@@ -24,11 +24,6 @@ This module adds the following parameters beyond the common ones:
 
 **`excluded_thermal_strategy`** (list of strings): Thermal strategies to exclude (e.g., `["MUST_RUN"]`)
 
-### Performance Options
-
-**`use_multiprocessing`** (boolean, default: `false`): Enable parallel processing of portfolios
-
-**`max_workers`** (integer): Maximum number of parallel workers (requires `use_multiprocessing=true`)
 
 ## Example Configuration
 
@@ -46,9 +41,7 @@ params = {
 
     # Module-specific parameters
     "is_portfolio_bidding": true,
-    "use_multiprocessing": true,
-    "max_workers": 4,
-    "excluded_technologies": ["LOAD"]
+    "excluded_technologies": ["load"]
 }
 
 module = PortfolioOptimisationModule()

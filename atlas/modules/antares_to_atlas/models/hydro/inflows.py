@@ -3,13 +3,15 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from pathlib import Path
+
+import polars as pl
 from antares.craft.model.area import Area
 from loguru import logger
-from pendulum import duration
 
 from atlas.math.timeseries import Timeseries
-from atlas.models.equipment.hydro import Hydro
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.objects.equipment.hydro import Hydro
 
 
 def add_inflows_from_csv(
@@ -20,187 +22,102 @@ def add_inflows_from_csv(
 ) -> dict:
     """Compute inflows from CSV profiles when ReservoirManagement is False.
 
-    When an Antares node has ReservoirManagement=False, the Modulation time series
-    doesn't represent actual inflows but rather energy production. This function
-    reads generic inflow profiles from CSV files and matches them with modulation
-    scenarios based on total energy.
+    When an Antares node has ReservoirManagement=False, the modulation time series
+    represents energy production rather than actual inflows. This function reads
+    generic inflow profiles from CSV and matches them with modulation scenarios
+    based on total energy.
 
-    The CSV file should contain multiple inflow scenarios (columns) with values
-    that will be scaled to match the total energy in the modulation time series.
-
-    :param area: Antares area
-    :param hydro: Atlas Hydraulic equipment instance
-    :param modulation_ts: Modulation time series from Antares
-    :param parameters: Conversion parameters
-    :return: Dictionary with scenario names as keys and inflow timeseries as values
+    :return: Dictionary mapping scenario names to scaled inflow Timeseries.
     """
     logger.info(f"Adding inflows from CSV for area {area.id}")
 
-    inflows_dictionary = {}
+    if parameters.water_value_scenarios == "all":
+        # TODO: retrieve all available scenarios from area (e.g. area.get_marginal_prices())
+        logger.warning(f"'all' water value scenarios not yet supported for area {area.id}")
+        return {}
 
-    # Determine which scenarios to process for water values
-    # TODO: Verify how to get available scenarios from area
-    # In old code: [ts.Name for ts in node.CalculatedMarginalPrice.TimeSeries]
-    if parameters.water_value_scenarios == "All":
-        # TODO: Get all available scenarios
-        scenarios = []  # TODO: Get from area.get_marginal_prices() or similar
-        logger.debug("TODO: Get all available scenarios for water values")
-    else:
-        scenarios = parameters.water_value_scenarios.split(sep=";")
+    scenarios: list[str] = parameters.water_value_scenarios
 
-    number_of_scenarios = len(scenarios)
-
-    if number_of_scenarios == 0:
+    if not scenarios:
         logger.warning("Water values are requested but no scenarios are indicated")
-        return inflows_dictionary
+        return {}
 
-    # Load inflow profiles from CSV
-    csv_path = parameters.path_inflows / f"{area.id}.csv"
-
+    csv_path = Path(parameters.path_inflows) / f"{area.id}.csv"
     logger.debug(f"Loading inflows from: {csv_path}")
 
-    # TODO: Create curve index for inflows
-    # In old code: API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1), p.inflows_time_step)
-    # This determines the frequency of inflow data (daily, weekly, etc.)
+    inflows_csv_timeseries = _load_inflows_from_csv(csv_path, parameters)
 
-    try:
-        inflows_csv_timeseries = _load_inflows_from_csv(csv_path, parameters)
-
-        if len(inflows_csv_timeseries) < len(scenarios):
-            logger.warning(
-                f"There are {len(scenarios)} water value scenarios, but only "
-                f"{len(inflows_csv_timeseries)} inflow scenarios for node {area.id}. "
-                "Results may be invalid."
-            )
-
-        # Match each water value scenario with the closest inflow profile
-        inflows_dictionary = _match_inflows_to_scenarios(
-            area=area,
-            scenarios=scenarios,
-            inflows_csv_timeseries=inflows_csv_timeseries,
-            modulation_ts=modulation_ts,
-            parameters=parameters,
+    if len(inflows_csv_timeseries) < len(scenarios):
+        logger.warning(
+            f"There are {len(scenarios)} water value scenarios but only "
+            f"{len(inflows_csv_timeseries)} inflow profiles for node {area.id}. "
+            "Results may be invalid."
         )
 
-        # Set the first scenario's inflows on the hydro equipment
-        if scenarios and scenarios[0] in inflows_dictionary:
-            # TODO: Verify how to set inflows on Hydro model
-            # hydro.inflows = inflows_dictionary[scenarios[0]]
-            logger.debug(f"Set inflows for first scenario on {hydro.name}")
+    inflows_dictionary = _match_inflows_to_scenarios(
+        area=area,
+        scenarios=scenarios,
+        inflows_csv_timeseries=inflows_csv_timeseries,
+        modulation_ts=modulation_ts,
+        parameters=parameters,
+    )
 
-    except Exception as e:
-        logger.error(f"Error processing inflows for area {area.id}: {e}")
+    if scenarios and scenarios[0] in inflows_dictionary:
+        hydro.inflows = inflows_dictionary[scenarios[0]]
 
     return inflows_dictionary
 
 
-def _load_inflows_from_csv(csv_path: str, parameters: AntaresToAtlasParameters) -> dict:
-    """Load all inflow profiles from CSV file.
+def _load_inflows_from_csv(csv_path: Path, parameters: AntaresToAtlasParameters) -> dict[int, Timeseries]:
+    """Load inflow profiles from CSV (no header, `;`-separated, rows=timesteps, columns=scenarios, values in GWh).
 
-    Returns dict with column index as keys and Timeseries as values.
+    :return: Dict mapping column index to Timeseries (values converted to MWh).
     """
-    inflows_csv_timeseries = {}
-
-    # TODO: Create proper datetime index for inflows
-    # This should match parameters.inflows_time_step
-    # For now, using a placeholder
-    start_date = parameters.start_date
-    end_date = start_date + duration(years=1)
-
-    try:
-        with open(csv_path) as f:
-            lines_list = f.readlines()
-
-        # Parse CSV
-        for line_index, line in enumerate(lines_list):
-            splitted_line = line.split(";")
-
-            if line_index == 0:
-                # Initialize timeseries for each column
-                for inflow_index in range(len(splitted_line)):
-                    # TODO: Create timeseries with proper index
-                    # For now, creating placeholder
-                    inflows_csv_timeseries[inflow_index] = Timeseries.from_index(
-                        start_date=start_date,
-                        frequency=parameters.inflows_time_step if parameters.inflows_time_step else "7d",
-                        end_date=end_date,
-                        default_value=0.0,
-                    )
-            else:
-                # TODO: Set values at correct timestamps
-                # In old code: uses curve_index[line_index] as timestamp
-                # and multiplies by 1000 to convert from GWh to MWh
-                for inflow_index, inflow_value in enumerate(splitted_line):
-                    try:
-                        value = float(inflow_value) * 1000  # GWh to MWh
-                        # TODO: Set value at correct timestamp
-                        # inflows_csv_timeseries[inflow_index][timestamp] = value
-                    except ValueError:
-                        pass
-
-    except Exception as e:
-        logger.error(f"Error loading CSV file {csv_path}: {e}")
-
-    return inflows_csv_timeseries
+    df = pl.read_csv(csv_path, separator=";", has_header=False)
+    frequency = f"{parameters.inflows_timestep}h"
+    return {
+        i: Timeseries.from_values(
+            start_date=parameters.start_date,
+            frequency=frequency,
+            values=(df[:, i] * 1000).to_list(),  # GWh → MWh
+        )
+        for i in range(df.width)
+    }
 
 
 def _match_inflows_to_scenarios(
     area: Area,
     scenarios: list[str],
-    inflows_csv_timeseries: dict,
+    inflows_csv_timeseries: dict[int, Timeseries],
     modulation_ts: Timeseries,
     parameters: AntaresToAtlasParameters,
-) -> dict:
-    """Match inflow profiles with water value scenarios based on total energy.
+) -> dict[str, Timeseries]:
+    """Match inflow profiles to water value scenarios by closest total energy.
 
-    For each scenario, finds the inflow profile with the closest total energy
-    to the modulation time series for that scenario.
+    For each scenario, picks the unused inflow profile whose total energy is closest
+    to the modulation sum, then scales it to match exactly.
     """
-    inflows_dictionary = {}
-    used_inflow_scenarios = []
+    inflows_dictionary: dict[str, Timeseries] = {}
+    used_indices: set[int] = set()
+    # Weekly → daily conversion when inflows are aggregated per week
+    conversion = 1.0 / 7.0 if parameters.inflows_timestep == 168 else 1.0
 
-    for scenario_index, scenario in enumerate(scenarios):
-        # TODO: Get the hydro scenario for this water value scenario
-        # In old code: local_hydro_sc = node.HydroReservoir.HydroSelectedScenario[int(scenario) - 1]
-        # local_modulation_sum = modulation.GetTimeSeriesByName(str(local_hydro_sc)).Sum()
-        local_modulation_sum = 0.0  # TODO: Get from modulation time series
+    for scenario in scenarios:
+        # TODO: local_hydro_sc = area.hydro.HydroSelectedScenario[int(scenario) - 1]
+        # local_modulation_sum = modulation_ts.get_by_name(str(local_hydro_sc)).sum()
+        local_modulation_sum = 0.0  # TODO: replace once HydroSelectedScenario is available
 
-        # Find the inflow scenario with closest total energy
-        closest_inflow_scenario = 0
-        smallest_energy_gap = abs(local_modulation_sum) if local_modulation_sum > 0 else float("inf")
+        available = {i: ts for i, ts in inflows_csv_timeseries.items() if i not in used_indices}
+        closest = min(available, key=lambda i: abs(available[i].sum() - local_modulation_sum))
+        used_indices.add(closest)
 
-        for inflow_scenario in inflows_csv_timeseries.keys():
-            if inflow_scenario in used_inflow_scenarios:
-                continue
+        inflow_ts = inflows_csv_timeseries[closest]
+        inflow_sum = inflow_ts.sum()
+        if inflow_sum != 0:
+            scale = local_modulation_sum / inflow_sum
+            inflow_ts = (inflow_ts * (conversion * scale)).round()
 
-            # TODO: Calculate sum of inflow timeseries
-            inflow_sum = 0.0  # TODO: inflows_csv_timeseries[inflow_scenario].sum()
-            energy_gap = abs(inflow_sum - local_modulation_sum)
-
-            if energy_gap < smallest_energy_gap:
-                closest_inflow_scenario = inflow_scenario
-                smallest_energy_gap = energy_gap
-
-        used_inflow_scenarios.append(closest_inflow_scenario)
-
-        # Scale the inflow profile to match the modulation energy
-        # TODO: Apply time step conversion (weekly to daily if needed)
-        conversion_coefficient = 1.0
-        if hasattr(parameters, "inflows_time_step") and parameters.inflows_time_step == "7d":
-            conversion_coefficient = 1.0 / 7.0
-        elif hasattr(parameters, "inflows_time_step") and parameters.inflows_time_step != "1d":
-            logger.warning(f"Specific inflow time step: {parameters.inflows_time_step}")
-
-        # TODO: Scale and add inflow to dictionary
-        # if inflows_csv_timeseries[closest_inflow_scenario].sum() == 0:
-        #     inflow_to_add = inflows_csv_timeseries[closest_inflow_scenario]
-        # else:
-        #     scale_factor = local_modulation_sum / inflows_csv_timeseries[closest_inflow_scenario].sum()
-        #     inflow_to_add = inflows_csv_timeseries[closest_inflow_scenario] * conversion_coefficient * scale_factor
-        #     inflow_to_add = inflow_to_add.round()
-
-        # inflows_dictionary[scenario] = inflow_to_add
-
-        logger.debug(f"Matched scenario {scenario} with inflow profile {closest_inflow_scenario}")
+        inflows_dictionary[scenario] = inflow_ts
+        logger.debug(f"Matched scenario {scenario} with inflow profile {closest}")
 
     return inflows_dictionary

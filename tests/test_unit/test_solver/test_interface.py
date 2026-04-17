@@ -483,6 +483,61 @@ class TestOptimisationModel:
         with pytest.raises(ValueError, match="Constraint 'nonexistent' not found"):
             model.get_constraint_bounds("nonexistent")
 
+    def test_deactivate_constraint(self, model, mock_solver):
+        """Test deactivating a constraint."""
+        # Setup mock constraint
+        mock_constraint = MagicMock()
+        mock_constraint.lb.return_value = 5.0
+        mock_constraint.ub.return_value = 10.0
+        mock_constraint.SetBounds = MagicMock()
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        # Add constraint
+        mock_expr = MagicMock()
+        model.add_constraint(mock_expr, "test_constraint")
+
+        # Deactivate constraint
+        model.deactivate_constraint("test_constraint")
+
+        # Verify SetBounds was called with (-inf, +inf)
+        mock_constraint.SetBounds.assert_called_once_with(float("-inf"), float("inf"))
+        mock_solver.LookupConstraint.assert_called_with("test_constraint")
+
+    def test_deactivate_constraint_nonexistent(self, model, mock_solver):
+        """Test deactivating a non-existent constraint."""
+        with pytest.raises(ValueError, match="Constraint 'nonexistent' not found"):
+            model.deactivate_constraint("nonexistent")
+
+    def test_deactivate_constraint_multiple(self, model, mock_solver):
+        """Test deactivating multiple constraints."""
+        # Setup mock constraints
+        mock_constraint1 = MagicMock()
+        mock_constraint1.SetBounds = MagicMock()
+        mock_constraint2 = MagicMock()
+        mock_constraint2.SetBounds = MagicMock()
+
+        # Make LookupConstraint return different constraints
+        def lookup_side_effect(name):
+            if name == "constraint1":
+                return mock_constraint1
+            elif name == "constraint2":
+                return mock_constraint2
+            return None
+
+        mock_solver.LookupConstraint.side_effect = lookup_side_effect
+
+        # Add constraints
+        model.add_constraint(MagicMock(), "constraint1")
+        model.add_constraint(MagicMock(), "constraint2")
+
+        # Deactivate both constraints
+        model.deactivate_constraint("constraint1")
+        model.deactivate_constraint("constraint2")
+
+        # Verify both were deactivated
+        mock_constraint1.SetBounds.assert_called_once_with(float("-inf"), float("inf"))
+        mock_constraint2.SetBounds.assert_called_once_with(float("-inf"), float("inf"))
+
     def test_get_constraint_slack_value_not_solved(self, model):
         model._constraints_name.add("c1")
 

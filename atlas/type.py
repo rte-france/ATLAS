@@ -13,7 +13,7 @@ from pendulum import DateTime
 import atlas.config as cfg
 from atlas.enums import BusinessModelName
 from atlas.io_utils.utils import to_snake_case
-from atlas.models.business_model import BusinessModel
+from atlas.objects.business_model import BusinessModel
 
 
 class TimeseriesDict(TypedDict):

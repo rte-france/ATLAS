@@ -48,8 +48,8 @@ dataset = AtlasDataset.from_pickle("output/dataset.pkl")
 ## Creating a Custom Dataset
 
 ```python
-from atlas.models.node import Node
-from atlas.models.portfolio import Portfolio
+from atlas.objects.node import Node
+from atlas.objects.portfolio import Portfolio
 
 # Create objects
 node1 = Node(name="node_1")

@@ -1,6 +1,6 @@
 # Modules
 
-Atlas provides three simulation modules for electricity market modeling. Each can be run independently or chained together in workflows.
+Atlas provides four simulation modules for electricity market modeling. Each can be run independently or chained together in workflows.
 
 ## Available Modules
 
@@ -21,6 +21,12 @@ Simulates market clearing to determine prices and dispatch based on supply and d
 Generates day-ahead market orders based on asset characteristics and market forecasts.
 
 [Learn more →](day-ahead-orders/index.md)
+
+### Intraday Price Forecast
+
+Computes intraday price forecasts based on consumption changes between day-ahead and intraday markets, weighted by price sensitivity ratios.
+
+[Learn more →](intraday-price-forecast/index.md)
 
 ## Quick Start
 

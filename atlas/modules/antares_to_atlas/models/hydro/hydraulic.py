@@ -3,8 +3,9 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import os
+from pathlib import Path
 
+import polars as pl
 from antares.craft.model.area import Area
 from antares.craft.model.study import Study
 from loguru import logger
@@ -13,9 +14,9 @@ from pendulum import duration
 from atlas.enums import InflowFrequency
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
-from atlas.models.equipment.hydro import Hydro
 from atlas.modules.antares_to_atlas.models.hydro.inflows import add_inflows_from_csv
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.objects.equipment.hydro import Hydro
 
 
 def convert_hydro_units(
@@ -50,8 +51,15 @@ def convert_hydro_units(
         area = areas[area_name]
         logger.debug(f"Processing hydraulic unit for area {area.id}")
 
+<<<<<<< HEAD
         scenario = area.hydro.HydroSelectedScenario[parameters.scenario - 1]  # TODO make an issue to get scenario
         # if sc_hydro in antares_node.HydroReservoir.CalculatedStorageProduction.Index:
+=======
+        study_output = study.get_outputs()[parameters.output_name]
+        scenario = study_output.get_hydro_ts_numbers(area.name)[parameters.scenario]
+        # if scenario in antares_node.HydroReservoir.CalculatedStorageProduction.Index:
+        # if scenario in study_output.
+>>>>>>> 5945a6bec377553610297710302dae9c4a797153
         if area.hydro.get_maxpower().abs().max() == 0:
             logger.debug(f"Skipping hydraulic unit for area {area.id} (max power is 0)")
             continue
@@ -83,49 +91,21 @@ def _load_hydro_reservoirs(parameters: AntaresToAtlasParameters) -> dict:
     - OpenLoopCapacity
     - ClosedLoopCapacity
     """
-    hydro_reservoirs = {}
-
-    if not os.path.isfile(parameters.hydro_reservoirs_file):
+    if not Path(parameters.hydro_reservoirs_file).is_file():
         logger.warning(f"Hydro reservoirs file not found: {parameters.hydro_reservoirs_file}")
-        return hydro_reservoirs
+        return {}
 
     logger.debug(f"Loading hydro reservoirs from: {parameters.hydro_reservoirs_file}")
 
-    try:
-        with open(parameters.hydro_reservoirs_file) as f:
-            lines_list = f.readlines()
+    df = pl.read_csv(parameters.hydro_reservoirs_file, separator=";")
+    # CSV is transposed: rows = properties, first column = property name, other columns = nodes
+    property_col, *node_cols = df.columns
+    hydro_reservoirs = {
+        node: dict(zip(df[property_col].to_list(), df[node].cast(pl.Float64).to_list(), strict=False))
+        for node in node_cols
+    }
 
-        hydro_index = {}
-        headers = []
-
-        for row_index, line in enumerate(lines_list):
-            if row_index == 0:
-                # Parse headers
-                headers = line.split(";")
-                for i in range(1, len(headers)):
-                    node_name = headers[i].strip()
-                    hydro_reservoirs[node_name] = {}
-                    hydro_index[node_name] = i
-            else:
-                # Parse data rows
-                splitted_line = line.split(";")
-                if len(splitted_line) != len(headers):
-                    msg = (
-                        f"Invalid number of columns on line {row_index + 1}. "
-                        "Please modify the HydraulicReservoirs file."
-                    )
-                    raise ValueError(msg)
-
-                property_name = splitted_line[0]
-                for node_name, column_index in hydro_index.items():
-                    hydro_reservoirs[node_name][property_name] = float(splitted_line[column_index])
-
-        logger.debug(f"Loaded hydro reservoirs for {len(hydro_reservoirs)} nodes")
-
-    except Exception as e:
-        logger.error(f"Error loading hydro reservoirs file: {e}")
-        return {}
-
+    logger.debug(f"Loaded hydro reservoirs for {len(hydro_reservoirs)} nodes")
     return hydro_reservoirs
 
 

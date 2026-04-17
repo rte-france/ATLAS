@@ -45,10 +45,11 @@ def minimal_control_block_dict():
 
 
 @pytest.fixture
-def minimal_market_area_dict(minimal_forecasting_matrix, minimal_timeseries):
+def minimal_market_area_dict(minimal_forecasting_matrix, minimal_timeseries, minimal_control_block_dict):
     """Create a minimal MarketArea dictionary for Pydantic validation."""
     return {
         "name": "test_market",
+        "control_block": minimal_control_block_dict["name"],
         "price_forecast_medium": minimal_forecasting_matrix,
         "da_price": minimal_timeseries,
     }

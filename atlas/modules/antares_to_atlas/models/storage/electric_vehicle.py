@@ -11,9 +11,9 @@ from atlas.enums import LoadType, StorageType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.models.equipment.load import Load
-from atlas.models.equipment.storage import Storage
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.objects.equipment.load import Load
+from atlas.objects.equipment.storage import Storage
 
 
 def convert_electric_vehicle_units(

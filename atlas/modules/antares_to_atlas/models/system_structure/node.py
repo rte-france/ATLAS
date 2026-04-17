@@ -12,11 +12,11 @@ from pendulum import duration
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.models.control_block import ControlBlock
-from atlas.models.market.market_area import MarketArea
-from atlas.models.node import Node
-from atlas.models.portfolio import Portfolio
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.objects.market.market_area import MarketArea
+from atlas.objects.market_operator.portfolio import Portfolio
+from atlas.objects.network.node import Node
+from atlas.objects.network_operator.control_block import ControlBlock
 
 
 def convert_system_structure(

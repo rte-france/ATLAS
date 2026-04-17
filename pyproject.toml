@@ -23,7 +23,7 @@ dependencies = [
     "typer>=0.15.2",
     "typing-extensions>=4.13.2",
     "dictdiffer>=0.9.0",
-    "antares-craft>=0.10.4",
+    "antares-craft>=0.13.0",
 ]
 
 [project.scripts]
@@ -102,3 +102,9 @@ omit = ['atlas/io_utils/prometheus_transformer.py']
 [[tool.mypy.overrides]]
 module = ["dictdiffer.*"]
 follow_untyped_imports = true
+
+[tool.pytest.ini_options]
+addopts = "-m 'not integration'"
+markers = [
+    "integration: marks tests as integration tests (run only on pull requests)",
+]

@@ -4,34 +4,16 @@
 
 The Day-Ahead Orders module is configured through `DayAheadOrdersParameters`. Parameters can be provided as a dictionary or loaded from a JSON/YAML file.
 
-## Required Parameters
+## Common Parameters
 
-These parameters are inherited from `AbstractParameters`:
+The common section are :
+```yaml
+temporal:       # Time configuration (required)
+output:         # Output configuration (optional, has defaults)
+solver:         # Solver configuration (optional, has defaults)
+multiprocessing: # Parallel execution (optional, has defaults)
+```
 
-- **`start_date`** (DateTime): Start of the optimization period
-- **`end_date`** (DateTime): End of the optimization period
-- **`execution_date`** (DateTime): Date when the optimization is executed
-
-## Execution Parameters
-
-- **`export_lp_path`** (str, default: ""): Path where the lp exports outputs are exported.
-
-## Optimization Parameters
-
-### Solver configuration
-
-- **`timestep`** (Duration, default: 1 hour): Discretization step of the simulated time interval
-
-- **`solver_name`** (SolverEnum, default: `XPRESS`): Optimization solver to use
-    * Options: `"XPRESS"`, `"PNE"`, `"GLOP"`, `"SCIP"`, `"CP-SAT"`
-
-- **`export_lp`** (bool, default: False): Export solver LP files for debugging and analysis.
-
-- **`solver_timeout`** (Duration, default: 4 minutes): Maximum solve time
-
-- **`solver_duality_gap`** (float, default: 0.0001): Duality gap for optimization
-
-- **`use_presolve`** (bool, default: False): Enable solver presolve mode
 
 ## Penalties & Pricing
 
@@ -82,22 +64,25 @@ These parameters are inherited from `AbstractParameters`:
 - **`thermal_additional_hours`** (Duration, default: 12 hours): Number of extra hours after end date for the optimization programs applied to Thermic instances.
 
 
-## Performance Parameters
-
-- **`use_multiprocessing`** (bool, default: True): Use parallel processing for portfolios
-
-- **`max_workers`** (int, default: None): Max parallel processes (None = CPU count)
-
-
 ## Example Configuration
 
 ```yml
-start_date: "2028-09-27 00:00:00"
-execution_date: "2028-09-26 12:00:00"
-end_date: "2028-09-28 00:00:00"
-export_lp_path: "./lp_exports"
+temporal:
+  start_date:  "2028-09-27 00:00:00"
+  end_date: "2028-09-28 00:00:00"
+  execution_date: "2028-09-26 12:00:00"
+  timestep: "1h"
+solver:
+  solver_name: "SCIP"
+  use_presolve: True
+  export_lp: True
+output:
+  export_result: True
+  export_output_dataset: True
+multiprocessing:
+  enable: True
+  max_workers: 4
 proportional_reserves_penalty: True
-use_presolve: True
 automated_unprocured_reserves_penalty: 10000
 battery_smoothing_factor: 0.1
 ev_energy_coef: 1.5
@@ -107,16 +92,10 @@ hydraulic_minimal_fragment_size: 100
 load_price: 3000
 manual_unprocured_reserves_penalty: 100
 phs_smoothing_factor: 0.2
-solver_duality_gap: 0.0001
 battery_nb_fragments: 3
 ev_nb_fragments: 3
 phs_nb_fragments: 3
-solver_timeout: 240s
-timestep: 1h
 price_forecasts_types: ["Medium"]
-solver_name: "SCIP"
-export_lp: True
-use_multiprocessing: True
 ```
 
 ## Next Steps

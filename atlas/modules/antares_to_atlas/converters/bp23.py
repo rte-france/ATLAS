@@ -8,7 +8,6 @@ BP23 (Bilan Prévisionnel 2023) specific converters.
 from antares.craft.model.study import Study
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.models.business_model import BusinessModel
 from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.models.hydro import compute_initial_levels, compute_water_values
 from atlas.modules.antares_to_atlas.models.load.dsr import convert_dsr_units
@@ -25,6 +24,7 @@ from atlas.modules.antares_to_atlas.models.storage import (
 )
 from atlas.modules.antares_to_atlas.models.thermal import add_nuclear_modulation, convert_mixed_fuel_units
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.objects.business_model import BusinessModel
 
 
 class BatteryConverterBP23(Converter):

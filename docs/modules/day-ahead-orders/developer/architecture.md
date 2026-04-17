@@ -28,7 +28,7 @@ atlas/modules/day_ahead_orders/
 │   ├── storage.py
 │   ├── thermal.py
 │   └── wind.py
-├── optim_models/                        # Specific optim model classes based on OptimisationModel
+├── optim/                        # Specific optim model classes based on OptimisationModel
 │   ├── battery_model.py
 │   ├── electric_vehicle_model.py
 │   └── storage_model.py
@@ -57,7 +57,7 @@ Implements `AbstractModule` with methods:
 
 ### **`DayAheadOrdersParameters`**
 
-Pydantic model inheriting from `AbstractParameters`. Defines all configuration parameters (see [Parameters](../user-guide/input-data.md)).
+Pydantic model inheriting from `AbstractModuleParameters`. Defines all configuration parameters (see [Parameters](../user-guide/input-data.md)).
 
 ### **`DayAheadOrdersInputDataset`**
 

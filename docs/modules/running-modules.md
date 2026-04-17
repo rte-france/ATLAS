@@ -79,7 +79,7 @@ Modules that support parallel execution (e.g., Portfolio Optimisation) can use m
 ```python
 params = {
     # ... other parameters ...
-    "use_multiprocessing": true,
+    "enable": true,
     "max_workers": 4  # Number of parallel workers
 }
 ```

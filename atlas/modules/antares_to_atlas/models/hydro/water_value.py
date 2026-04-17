@@ -11,8 +11,8 @@ from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
-from atlas.models.equipment.hydro import Hydro
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.objects.equipment.hydro import Hydro
 from atlas.timing import generate_datetimes
 
 # Maximum water value (€/MWh) - water values are capped at this value

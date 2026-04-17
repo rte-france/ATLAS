@@ -174,7 +174,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         return cls(df, timezone)
 
     @classmethod
-    def from_timeseries(cls, timeseries: Timeseries, default_value: float | None = None) -> Timeseries:
+    def from_timeseries(cls, timeseries: AbstractTimeseries, default_value: float | None = None) -> Timeseries:
         """Create a Timeseries from another, using its structure.
 
         :param timeseries: The input timeseries object
