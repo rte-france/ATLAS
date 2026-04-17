@@ -113,7 +113,9 @@ class HydraulicStep(AbstractOrderStep):
                 normal_volumes = {
                     key: v for key, v in volumes.items() if v >= self.parameters.hydraulic_minimal_fragment_size
                 }
-                minor_volumes = {key: v for key, v in volumes.items() if v < self.parameters.hydraulic_minimal_fragment_size}
+                minor_volumes = {
+                    key: v for key, v in volumes.items() if v < self.parameters.hydraulic_minimal_fragment_size
+                }
                 if sum(minor_volumes.values()) > 0:
                     reduced_capacity = sum(normal_volumes.values())
                     if reduced_capacity != 0:
