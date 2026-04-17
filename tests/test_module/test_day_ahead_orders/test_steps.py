@@ -5,6 +5,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+import re
+
 from atlas.io_utils.container import Container
 from atlas.io_utils.utils import diff_business_model
 from atlas.modules.day_ahead_orders.steps.abstract_step import StepResult
@@ -40,7 +42,12 @@ def _assert_orders_match(result: StepResult, expected: Container[Order], equipme
     unmatched = []
     for gen_order in remaining[:]:
         try:
-            exp_order = expected.get(gen_order.name)
+            normalized_name = re.sub(
+                r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})[+\-]\d{2}:\d{2}",
+                r"\3_\2_\1_\4_\5_\6",
+                gen_order.name,
+            )
+            exp_order = expected.get(normalized_name)
         except KeyError:
             continue
         diff = _meaningful_diff(gen_order, exp_order)
