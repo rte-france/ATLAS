@@ -49,14 +49,6 @@ Converts business models to portfolio-optimisation-specific models:
 - Creates PO-specific models (ThermalPO, HydroPO, StoragePO, etc.)
 - Calculates optimization time windows
 
-### **`PortfolioOptimisationOrchestrator`**
-
-Coordinates optimization for multiple portfolios:
-
-- Creates `PortfolioOptimisationModel` for each portfolio
-- Handles multiprocessing if enabled
-- Returns optimization results
-
 ### **`PortfolioOptimisationModel`**
 
 Extends `OptimisationModel` (solver interface):
@@ -93,7 +85,7 @@ import_data() → PortfolioOptimisationInputDataset
   ↓
 validate_data() → timestep consistency check
   ↓
-execute() → PortfolioOptimisationOrchestrator
+execute() → Orchestration of the module
   ├→ PortfolioOptimisationModel.build()
   ├→ PortfolioOptimisationModel.solve()
   └→ PortfolioOptimisationResult
