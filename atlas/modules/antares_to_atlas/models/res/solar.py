@@ -33,12 +33,10 @@ def convert_solar_units(
             for res_name in renewables:
                 cluster_res = renewables[res_name]
                 if cluster_res.properties.group == "solar pv" and cluster_res.properties.enabled:
-                    if parameters.scenario - 1 >= len(cluster_res.RenewablesSelectedScenario):  # TODO
-                        continue
-
-                    sc_solar = cluster_res.RenewablesSelectedScenario[parameters.scenario - 1]
-
-                    if str(sc_solar) in area.get_solar_matrix().index:
+                    scenario = (
+                        study.get_output(parameters.output_name).get_solar_ts_numbers().get(parameters.scenario, None)
+                    )
+                    if scenario:
                         if area.get_solar_matrix().abs().max().item() > 0:
                             new_solar = Solar(
                                 name=f"{area_name}_pv",
@@ -69,12 +67,9 @@ def convert_solar_units(
                                 new_solar.installed_capacity += solar_thermal.properties.nominal_capacity
                 solars.append(new_solar)
         else:
-            if parameters.scenario - 1 >= len(area.SolarSelectedScenario):
-                continue
+            scenario = study.get_output(parameters.output_name).get_solar_ts_numbers().get(parameters.scenario, None)
 
-            sc_solar = area.SolarSelectedScenario[parameters.scenario - 1]  # TODO
-
-            if str(sc_solar) in area.get_solar_matrix().index:
+            if scenario:
                 if area.get_solar_matrix().abs().max().item() > 0:
                     solars.append(
                         Solar(

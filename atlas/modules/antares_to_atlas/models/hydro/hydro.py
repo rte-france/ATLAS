@@ -6,7 +6,9 @@ This file is part of the ATLAS project.
 from pathlib import Path
 
 import polars as pl
+from antares.craft import Frequency, MCIndAreasDataType
 from antares.craft.model.area import Area
+from antares.craft.model.output import Output
 from antares.craft.model.study import Study
 from loguru import logger
 from pendulum import duration
@@ -51,32 +53,27 @@ def convert_hydro_units(
         area = areas[area_name]
         logger.debug(f"Processing hydraulic unit for area {area.id}")
 
-<<<<<<< HEAD
-        scenario = area.hydro.HydroSelectedScenario[parameters.scenario - 1]  # TODO make an issue to get scenario
-        # if sc_hydro in antares_node.HydroReservoir.CalculatedStorageProduction.Index:
-=======
-        study_output = study.get_outputs()[parameters.output_name]
-        scenario = study_output.get_hydro_ts_numbers(area.name)[parameters.scenario]
-        # if scenario in antares_node.HydroReservoir.CalculatedStorageProduction.Index:
-        # if scenario in study_output.
->>>>>>> 5945a6bec377553610297710302dae9c4a797153
-        if area.hydro.get_maxpower().abs().max() == 0:
-            logger.debug(f"Skipping hydraulic unit for area {area.id} (max power is 0)")
-            continue
-        if area_name in hydro_reservoirs and area.hydro.properties.reservoir_capacity == 0:
-            logger.debug(f"Skipping hydraulic unit for area {area.id} (reservoir capacity is 0)")
-            continue
+        study_output = study.get_output(parameters.output_name)
+        scenario = study_output.get_hydro_ts_numbers(area.name).get(parameters.scenario, None)
+        if scenario:
+            if area.hydro.get_maxpower().abs().max() == 0:
+                logger.debug(f"Skipping hydraulic unit for area {area.id} (max power is 0)")
+                continue
+            if area_name in hydro_reservoirs and area.hydro.properties.reservoir_capacity == 0:
+                logger.debug(f"Skipping hydraulic unit for area {area.id} (reservoir capacity is 0)")
+                continue
 
-        hydro = _create_hydraulic_equipment(
-            area=area,
-            parameters=parameters,
-            atlas_dataset=atlas_dataset,
-            inflows_dictionary=inflows_dictionary,
-            scenario=scenario,
-        )
+            hydro = _create_hydraulic_equipment(
+                area=area,
+                parameters=parameters,
+                atlas_dataset=atlas_dataset,
+                inflows_dictionary=inflows_dictionary,
+                scenario=scenario,
+                study_output=study_output,
+            )
 
-        if hydro:
-            hydro_units.append(hydro)
+            if hydro:
+                hydro_units.append(hydro)
 
     atlas_dataset.hydro = hydro_units
 
@@ -114,13 +111,13 @@ def _create_hydraulic_equipment(
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
     inflows_dictionary: dict,
-    scenario: str,
+    scenario: int,
+    study_output: Output,
 ) -> Hydro | None:
     """Create a Hydraulic equipment for an area."""
 
     maximum_power_ts = Timeseries(area.hydro.get_maxpower())
 
-    # Create Hydro equipment
     hydro = Hydro(
         name=f"{area.id}_hydro",
         node=atlas_dataset.get("node", area.id),
@@ -149,52 +146,41 @@ def _create_hydraulic_equipment(
         ),
         energy_target_frequency=InflowFrequency.Daily,
         inflow_frequency=InflowFrequency.Daily,
+        has_daily_energy_constraint=True,
+        minimum_daily_energy=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1d",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=0.0,
+        ),
+        maximum_daily_energy=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1d",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=0.0,
+        ),
     )
 
     if (parameters.use_hydro_heuristic or area.hydro.properties.reservoir) and parameters.use_water_value:
         if area.hydro.properties.reservoir:
-            hydro.inflows = area.hydro.get_mod_series()[scenario]
+            hydro.inflows = area.hydro.get_mod_series()[scenario - 1]
             node_inflows_dictionary = _prepare_inflows_for_water_values(area, parameters)
         else:
             node_inflows_dictionary = add_inflows_from_csv(area, hydro, area.hydro.get_mod_series(), parameters)
         inflows_dictionary[area.id] = node_inflows_dictionary
     else:
-        # Use energy target
-        hydro.energy_target = modulation_ts
+        hydro.energy_target = area.hydro.get_mod_series()[scenario - 1]
 
-    # TODO: Set daily energy constraints
-    # In old code: uses CalculatedStorageProduction to calculate daily min/max energy
-    # calculatedstorageproduction to get from outputs (mc-ind lire l'année parameters.scenario "montecarlo", get_mc_ind_area(mc-year=, frequency=, )['H.ROR'])
-
-    hydro.has_daily_energy_constraint = True
-    minimum_daily_energy = Timeseries.from_index(
-        start_date=parameters.start_date,
-        frequency="1d",
-        end_date=parameters.start_date + duration(years=1),
-        default_value=0.0,
-    )
-    maximum_daily_energy = Timeseries.from_index(
-        start_date=parameters.start_date,
-        frequency="1d",
-        end_date=parameters.start_date + duration(years=1),
-        default_value=0.0,
+    power_hourly = Timeseries(
+        study_output.get_mc_ind_area(
+            mc_year=scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.name
+        )[[("H. ROR", "MWh")]]
     )
 
-    power_hourly = area.hydro.CalculatedStorageProduction[parameters.scenario]  # TODO
-    # power_hourly.ChangeIndex(one_year_hours_index)
-    # for time_step in range(len(one_year_days_index) - 1):
-    #     one_day_energy = power_hourly.slice(
-    #         one_year_days_index[time_step], one_year_days_index[time_step].AddDays(1).AddHours(-1)
-    #     )
-    #     hydro.MinimumDailyEnergy[one_year_days_index[time_step]] = (
-    #         one_day_energy.Sum() * parameters.hydro_min_energy_coeff
-    #     )
-    #     hydro.MaximumDailyEnergy[one_year_days_index[time_step]] = (
-    #         one_day_energy.Sum() * parameters.hydro_max_energy_coeff
-    #     )
-
-    hydro.minimum_daily_energy = minimum_daily_energy
-    hydro.maximum_daily_energy = maximum_daily_energy
+    power_hourly.set_frequency("1h")
+    daily_energy = power_hourly.groupby("1d", agg="sum")
+    hydro.minimum_daily_energy = daily_energy * parameters.hydro_min_energy_coeff
+    hydro.maximum_daily_energy = daily_energy * parameters.hydro_max_energy_coeff
 
     local_prices = []
     local_volumes = []

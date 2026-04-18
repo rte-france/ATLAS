@@ -5,7 +5,7 @@ This file is part of the ATLAS project.
 Hydro models conversion from Antares to Atlas.
 """
 
-from atlas.modules.antares_to_atlas.models.hydro.hydraulic import convert_hydro_units
+from atlas.modules.antares_to_atlas.models.hydro.hydro import convert_hydro_units
 from atlas.modules.antares_to_atlas.models.hydro.inflows import add_inflows_from_csv
 from atlas.modules.antares_to_atlas.models.hydro.initial_level import compute_initial_levels
 from atlas.modules.antares_to_atlas.models.hydro.water_value import compute_water_values

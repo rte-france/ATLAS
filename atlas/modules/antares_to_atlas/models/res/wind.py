@@ -33,12 +33,11 @@ def convert_wind_units(
             for res_name in renewables:
                 cluster_res = renewables[res_name]
                 if cluster_res.properties.group == "wind onshore" and cluster_res.properties.enabled:
-                    if parameters.scenario - 1 >= len(cluster_res.RenewablesSelectedScenario):  # TODO
-                        continue
+                    scenario = (
+                        study.get_output(parameters.output_name).get_wind_ts_numbers().get(parameters.scenario, None)
+                    )
 
-                    sc_wind = cluster_res.RenewablesSelectedScenario[parameters.scenario - 1]
-
-                    if str(sc_wind) in area.get_wind_matrix().index:
+                    if scenario:
                         if area.get_wind_matrix().abs().max().item() > 0:
                             new_wind = Wind(
                                 name=f"{area_name}_wind",
@@ -71,12 +70,9 @@ def convert_wind_units(
 
                 winds.append(new_wind)
         else:
-            if parameters.scenario - 1 >= len(area.WindSelectedScenario):
-                continue
+            scenario = study.get_output(parameters.output_name).get_wind_ts_numbers().get(parameters.scenario, None)
 
-            sc_wind = area.WindSelectedScenario[parameters.scenario - 1]  # TODO
-
-            if str(sc_wind) in area.get_wind_matrix().index:
+            if scenario:
                 if area.get_wind_matrix().abs().max().item() > 0:
                     winds.append(
                         Wind(

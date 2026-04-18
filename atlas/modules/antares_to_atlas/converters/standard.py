@@ -7,7 +7,7 @@ from antares.craft.model.study import Study
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.converters.base import Converter
-from atlas.modules.antares_to_atlas.models.hydro.hydraulic import convert_hydro_units
+from atlas.modules.antares_to_atlas.models.hydro.hydro import convert_hydro_units
 from atlas.modules.antares_to_atlas.models.load.load import convert_load_units
 from atlas.modules.antares_to_atlas.models.other.other_non_dispatchable import convert_other_non_dispatchable_units
 from atlas.modules.antares_to_atlas.models.res.solar import convert_solar_units
