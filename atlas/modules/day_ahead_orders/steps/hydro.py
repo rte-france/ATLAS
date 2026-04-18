@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 
 import math
 
-import pendulum
+from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.enums import ComplementDirection, CouplingType, OrderType, Product
@@ -53,37 +53,8 @@ class HydraulicStep(AbstractOrderStep):
                 cfg.logger.debug(f"Equipment {str(equipment.name)} avoided, as its maximum_energy is 0")
                 continue
 
-            if equipment.stored_energy is not None:
-                energy_forecast = equipment.stored_energy.get_forecast(
-                    self.parameters.temporal.execution_date,
-                    self.parameters.temporal.start_date.subtract(days=1),
-                    self.parameters.temporal.start_date - self.parameters.temporal.timestep,
-                )
-                if len(energy_forecast) > 0:
-                    energy_level = energy_forecast.get_value(
-                        self.parameters.temporal.start_date - self.parameters.temporal.timestep
-                    )
-                else:
-                    energy_level = equipment.initial_level.get_value(self.parameters.temporal.start_date)
-            else:
-                energy_level = equipment.initial_level.get_value(self.parameters.temporal.start_date)
-
-            xmin = filter(lambda x: int(x) <= energy_level, equipment.storage_marginal_value.index)
-            xmax = filter(lambda x: int(x) > energy_level, equipment.storage_marginal_value.index)
-
-            if xmin:
-                xpmin = max(xmin, key=lambda x: int(x))
-                level_inf = equipment.storage_marginal_value.select(xpmin).upsample(
-                    frequency=pendulum.Duration(hours=1)
-                )
-            if xmax:
-                xpmax = min(xmax, key=lambda x: int(x))
-                level_sup = equipment.storage_marginal_value.select(xpmax).upsample(
-                    frequency=pendulum.Duration(hours=1)
-                )
-            if xmin and xmax:
-                weight_inf = (int(xpmax) - energy_level) / (int(xpmax) - int(xpmin))
-                weight_sup = (energy_level - int(xpmin)) / (int(xpmax) - int(xpmin))
+            energy_level = self._get_current_energy_level(equipment)
+            marginal_weights = self._calculate_marginal_weights(equipment, energy_level)
 
             if (
                 len(
@@ -137,15 +108,8 @@ class HydraulicStep(AbstractOrderStep):
                             execution_date=self.parameters.temporal.execution_date,
                             start_date=t,
                             end_date=t + self.parameters.temporal.timestep,
+                            price=self._calculate_fragment_price(delta_wu[k][1], marginal_weights, t),
                         )
-                        if not xmin:
-                            bid_output.price = level_sup.get_value(t) + delta_wu[k][1]
-                        elif not xmax:
-                            bid_output.price = level_inf.get_value(t) + delta_wu[k][1]
-                        else:
-                            pmin = level_inf.get_value(t)
-                            pmax = level_sup.get_value(t)
-                            bid_output.price = weight_inf * pmin + weight_sup * pmax + delta_wu[k][1]
 
                         result.orders.append(bid_output)
                         coupling_orders.append(bid_output)
@@ -170,3 +134,60 @@ class HydraulicStep(AbstractOrderStep):
                 equipment.da_sell_submitted_volume += submitted_volumes
 
         return result
+
+    def _get_current_energy_level(self, equipment) -> float:
+        if equipment.stored_energy is not None:
+            energy_forecast = equipment.stored_energy.get_forecast(
+                self.parameters.temporal.execution_date,
+                self.parameters.temporal.start_date.subtract(days=1),
+                self.parameters.temporal.start_date - self.parameters.temporal.timestep,
+            )
+            if len(energy_forecast) > 0:
+                return energy_forecast.get_value(
+                    self.parameters.temporal.start_date - self.parameters.temporal.timestep
+                )
+        return equipment.initial_level.get_value(self.parameters.temporal.start_date)
+
+    def _calculate_marginal_weights(self, equipment, energy_level: float) -> dict:
+        storage_indices = equipment.storage_marginal_value.index
+
+        x_min_candidates = [x for x in storage_indices if int(x) <= energy_level]
+        x_max_candidates = [x for x in storage_indices if int(x) > energy_level]
+
+        weights = {
+            "has_min": bool(x_min_candidates),
+            "has_max": bool(x_max_candidates),
+            "weight_inf": 0.0,
+            "weight_sup": 0.0,
+            "level_inf": None,
+            "level_sup": None,
+        }
+
+        if x_min_candidates:
+            xp_min = max(x_min_candidates, key=lambda x: int(x))
+            weights["level_inf"] = equipment.storage_marginal_value.select(xp_min)
+
+        if x_max_candidates:
+            xp_max = min(x_max_candidates, key=lambda x: int(x))
+            weights["level_sup"] = equipment.storage_marginal_value.select(xp_max)
+
+        if weights["has_min"] and weights["has_max"]:
+            range_diff = int(xp_max) - int(xp_min)
+            weights["weight_inf"] = (int(xp_max) - energy_level) / range_diff
+            weights["weight_sup"] = (energy_level - int(xp_min)) / range_diff
+
+        return weights
+
+    def _calculate_fragment_price(self, fragment_price: float, marginal_weights: dict, time: DateTime) -> float:
+        if not marginal_weights["has_min"] and marginal_weights["has_max"]:
+            marginal_adjustment = marginal_weights["level_sup"].get_value(time)
+        elif marginal_weights["has_min"] and not marginal_weights["has_max"]:
+            marginal_adjustment = marginal_weights["level_inf"].get_value(time)
+        elif marginal_weights["has_min"] and marginal_weights["has_max"]:
+            p_min = marginal_weights["level_inf"].get_value(time)
+            p_max = marginal_weights["level_sup"].get_value(time)
+            marginal_adjustment = marginal_weights["weight_inf"] * p_min + marginal_weights["weight_sup"] * p_max
+        else:
+            marginal_adjustment = 0.0
+
+        return fragment_price + marginal_adjustment
