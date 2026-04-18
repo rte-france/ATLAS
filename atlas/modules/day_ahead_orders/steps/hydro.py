@@ -35,7 +35,7 @@ class HydraulicStep(AbstractOrderStep):
                 delta_wu[category] = (equipment.fragment_volumes[category], equipment.fragment_prices[category])
 
             end_date = self.parameters.penultimate_date
-            local_index = generate_datetimes(
+            local_timewindow = generate_datetimes(
                 self.parameters.temporal.start_date,
                 end_date,
                 self.parameters.temporal.timestep,
@@ -46,7 +46,7 @@ class HydraulicStep(AbstractOrderStep):
 
             local_max_energy = (
                 equipment.maximum_energy.set_frequency(self.parameters.temporal.timestep, False)
-                .filter(item=local_index, inplace=False)
+                .filter(item=local_timewindow, inplace=False)
                 .max()
             )
             if local_max_energy <= 0:

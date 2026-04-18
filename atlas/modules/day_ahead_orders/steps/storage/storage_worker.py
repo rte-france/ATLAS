@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import polars as pl
 from pendulum import DateTime
 
 import atlas.config as cfg
@@ -22,7 +23,6 @@ from atlas.modules.day_ahead_orders.steps.storage.optim.battery import BatteryMo
 from atlas.modules.day_ahead_orders.steps.storage.optim.electric_vehicle import ElectricVehicleModel
 from atlas.modules.day_ahead_orders.steps.storage.optim.storage import StorageModel
 from atlas.solver.models import SolverOptions
-from atlas.timing import generate_datetimes
 
 
 @dataclass
@@ -59,6 +59,7 @@ class StorageOptimizationResult:
 def optimize_single_storage(
     storage: StorageDAO,
     parameters: DayAheadOrdersParameters,
+    local_timewindow: list[DateTime],
 ) -> StorageOptimizationResult:
     """
     Worker function for storage optimization (works for both multiprocessing and sequential).
@@ -74,17 +75,7 @@ def optimize_single_storage(
     :rtype: StorageOptimizationResult
     """
     try:
-        local_index = generate_datetimes(
-            parameters.temporal.start_date,
-            parameters.penultimate_date,
-            parameters.temporal.timestep,
-        )
-
-        local_max_energy = (
-            storage.maximum_energy.set_frequency(parameters.temporal.timestep, False)
-            .filter(item=local_index, inplace=False)
-            .max()
-        )
+        local_max_energy = storage.maximum_energy.filter(item=local_timewindow, inplace=False).max()
 
         if local_max_energy <= 0:
             cfg.logger.debug(f"Equipment {str(storage.name)} avoided, as its maximum_energy is 0")
@@ -92,10 +83,8 @@ def optimize_single_storage(
 
         cfg.logger.debug(f"Optimizing storage equipment {str(storage.name)}")
 
-        # Get initial stock
         initial_stock = _initiate_stock(storage, parameters)
 
-        # Run optimization
         solver_options = SolverOptions(
             presolve=parameters.solver.use_presolve,
             duality_gap=parameters.solver.duality_gap,
@@ -131,7 +120,7 @@ def optimize_single_storage(
         variable_cost = Timeseries.from_values(
             parameters.temporal.start_date,
             parameters.temporal.timestep,
-            [variable_cost] * len(local_index),
+            [variable_cost] * len(local_timewindow),
         )
 
         # Create orders and couplings
@@ -282,15 +271,12 @@ def _price_calculation(
     else:
         raise AttributeError(f"{storage.portfolio.market_area.name} has no attribute 'price_forecast_medium'")
 
-    Qv_empty = all(qv_value == 0 for qv_value in Qv.values())
-    Qa_empty = all(qa_value == 0 for qa_value in Qa.values())
-
     nonzero_qv = [t for t, v in Qv.items() if v != 0]
     if nonzero_qv:
-        P_v_min = min(price_forecast.get_value(t) for t in nonzero_qv)
+        P_v_min = price_forecast.dataframe.filter(pl.col("time").is_in(nonzero_qv)).min().select("value").item()
     nonzero_qa = [t for t, v in Qa.items() if v != 0]
     if nonzero_qa:
-        P_a_max = max(price_forecast.get_value(t) for t in nonzero_qa)
+        P_a_max = price_forecast.dataframe.filter(pl.col("time").is_in(nonzero_qa)).max().select("value").item()
 
     if (storage.storage_type in [StorageType.BATTERY, StorageType.PUMPED_HYDRAULIC_STORAGE]) or (storage.is_v2g):
         if P_a_max <= 0:
@@ -298,10 +284,10 @@ def _price_calculation(
         if P_v_min <= 0:
             P_v_min = 0.0
 
-        if Qa_empty:
+        if not nonzero_qa:
             Psale = P_v_min
             Ppurchase = 0.0
-        elif Qv_empty:
+        elif not nonzero_qv:
             Psale = 0.0
             Ppurchase = P_a_max
         elif P_a_max == 0 and P_v_min == 0:

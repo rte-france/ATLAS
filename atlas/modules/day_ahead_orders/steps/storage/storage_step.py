@@ -10,13 +10,19 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import atlas.config as cfg
 from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
 from atlas.modules.day_ahead_orders.steps.storage.storage_worker import optimize_single_storage
+from atlas.timing import generate_datetimes
 
 
 class StorageStep(AbstractOrderStep):
     def formulate(self) -> StepResult:
+        local_timewindow = generate_datetimes(
+            self.parameters.temporal.start_date,
+            self.parameters.penultimate_date,
+            self.parameters.temporal.timestep,
+        )
         if self.parameters.multiprocessing.enable:
-            return self._formulate_parallel()
-        return self._formulate_sequential()
+            return self._formulate_parallel(local_timewindow)
+        return self._formulate_sequential(local_timewindow)
 
     def _process_unit_result(self, result: StepResult, unit_result, storage) -> None:
         if unit_result.success:
@@ -40,14 +46,14 @@ class StorageStep(AbstractOrderStep):
         else:
             cfg.logger.warning(f"Optimization skipped or failed for storage: {storage.name}")
 
-    def _formulate_parallel(self) -> StepResult:
+    def _formulate_parallel(self, local_timewindow) -> StepResult:
         cfg.logger.info(f"Starting parallel storage optimization for {len(self.dataset.storage)} units")
         result = StepResult()
         storage_by_name = {storage.name: storage for storage in self.dataset.storage}
 
         with ProcessPoolExecutor(max_workers=self.parameters.multiprocessing.max_workers) as executor:
             future_to_storage = {
-                executor.submit(optimize_single_storage, storage, self.parameters): storage.name
+                executor.submit(optimize_single_storage, storage, self.parameters, local_timewindow): storage.name
                 for storage in self.dataset.storage
             }
 
@@ -61,12 +67,12 @@ class StorageStep(AbstractOrderStep):
 
         return result
 
-    def _formulate_sequential(self) -> StepResult:
+    def _formulate_sequential(self, local_timewindow) -> StepResult:
         cfg.logger.info(f"Starting sequential storage optimization for {len(self.dataset.storage)} units")
         result = StepResult()
 
         for storage in self.dataset.storage:
-            unit_result = optimize_single_storage(storage, self.parameters)
+            unit_result = optimize_single_storage(storage, self.parameters, local_timewindow)
             self._process_unit_result(result, unit_result, storage)
 
         return result
