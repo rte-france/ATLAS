@@ -18,9 +18,32 @@ class StorageStep(AbstractOrderStep):
             return self._formulate_parallel()
         return self._formulate_sequential()
 
+    def _process_unit_result(self, result: StepResult, unit_result, storage) -> None:
+        if unit_result.success:
+            result.orders.extend(unit_result.orders)
+            result.order_couplings.extend(unit_result.order_couplings)
+
+            if storage.da_buy_submitted_volume is None:
+                storage.da_buy_submitted_volume = unit_result.buy_submitted_volumes
+            else:
+                storage.da_buy_submitted_volume += unit_result.buy_submitted_volumes
+
+            if storage.da_sell_submitted_volume is None:
+                storage.da_sell_submitted_volume = unit_result.sell_submitted_volumes
+            else:
+                storage.da_sell_submitted_volume += unit_result.sell_submitted_volumes
+
+            if unit_result.variable_cost is not None:
+                storage.variable_cost = unit_result.variable_cost
+
+            cfg.logger.info(f"Completed optimization for storage: {storage.name}")
+        else:
+            cfg.logger.warning(f"Optimization skipped or failed for storage: {storage.name}")
+
     def _formulate_parallel(self) -> StepResult:
         cfg.logger.info(f"Starting parallel storage optimization for {len(self.dataset.storage)} units")
         result = StepResult()
+        storage_by_name = {storage.name: storage for storage in self.dataset.storage}
 
         with ProcessPoolExecutor(max_workers=self.parameters.multiprocessing.max_workers) as executor:
             future_to_storage = {
@@ -32,31 +55,7 @@ class StorageStep(AbstractOrderStep):
                 storage_name = future_to_storage[future]
                 try:
                     unit_result = future.result()
-
-                    if unit_result.success:
-                        result.orders.extend(unit_result.orders)
-                        result.order_couplings.extend(unit_result.order_couplings)
-
-                        for storage in self.dataset.storage:
-                            if storage.name == unit_result.storage_name:
-                                if storage.da_buy_submitted_volume is None:
-                                    storage.da_buy_submitted_volume = unit_result.buy_submitted_volumes
-                                else:
-                                    storage.da_buy_submitted_volume += unit_result.buy_submitted_volumes
-
-                                if storage.da_sell_submitted_volume is None:
-                                    storage.da_sell_submitted_volume = unit_result.sell_submitted_volumes
-                                else:
-                                    storage.da_sell_submitted_volume += unit_result.sell_submitted_volumes
-
-                                if unit_result.variable_cost is not None:
-                                    storage.variable_cost = unit_result.variable_cost
-                                break
-
-                        cfg.logger.info(f"Completed optimization for storage: {storage_name}")
-                    else:
-                        cfg.logger.warning(f"Optimization skipped or failed for storage: {storage_name}")
-
+                    self._process_unit_result(result, unit_result, storage_by_name[unit_result.storage_name])
                 except Exception as e:
                     cfg.logger.error(f"Error processing storage {storage_name}: {e}")
 
@@ -68,26 +67,6 @@ class StorageStep(AbstractOrderStep):
 
         for storage in self.dataset.storage:
             unit_result = optimize_single_storage(storage, self.parameters)
-
-            if unit_result.success:
-                result.orders.extend(unit_result.orders)
-                result.order_couplings.extend(unit_result.order_couplings)
-
-                if storage.da_buy_submitted_volume is None:
-                    storage.da_buy_submitted_volume = unit_result.buy_submitted_volumes
-                else:
-                    storage.da_buy_submitted_volume += unit_result.buy_submitted_volumes
-
-                if storage.da_sell_submitted_volume is None:
-                    storage.da_sell_submitted_volume = unit_result.sell_submitted_volumes
-                else:
-                    storage.da_sell_submitted_volume += unit_result.sell_submitted_volumes
-
-                if unit_result.variable_cost is not None:
-                    storage.variable_cost = unit_result.variable_cost
-
-                cfg.logger.info(f"Completed optimization for storage: {storage.name}")
-            else:
-                cfg.logger.warning(f"Optimization skipped or failed for storage: {storage.name}")
+            self._process_unit_result(result, unit_result, storage)
 
         return result

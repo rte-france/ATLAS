@@ -31,10 +31,6 @@ class WindPVStep(AbstractOrderStep):
                 else:
                     equipment.da_sell_submitted_volume += production_forecast
 
-                variable_costs = None
-                if equipment.variable_cost is not None:
-                    variable_costs = equipment.variable_cost.filter(self.orders_time, inplace=False)
-
                 for t in self.orders_time:
                     if isinstance(equipment, WindDAO):
                         bid_name = f"wind_order_at_{t}_for_unit_{equipment.name}"
@@ -53,7 +49,7 @@ class WindPVStep(AbstractOrderStep):
                                 equipment=equipment,
                                 qmax=max_production_value,
                                 qmin=min_production_value,
-                                price=0.0 if variable_costs is None else variable_costs.get_value(t),
+                                price=0.0 if equipment.variable_cost is None else equipment.variable_cost.get_value(t),
                                 product=Product.DayAhead,
                                 order_type=OrderType.Sell,
                                 is_agent_tso=False,

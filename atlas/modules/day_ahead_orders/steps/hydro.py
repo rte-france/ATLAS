@@ -23,7 +23,6 @@ class HydraulicStep(AbstractOrderStep):
         result = StepResult()
 
         hydraulic_units = [unit for unit in self.dataset.hydro if len(unit.storage_marginal_value.index) > 0]
-
         hydraulic_empty = [unit for unit in self.dataset.hydro if len(unit.storage_marginal_value.index) == 0]
         for equipment in hydraulic_empty:
             cfg.logger.warning(

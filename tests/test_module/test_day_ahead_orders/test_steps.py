@@ -14,6 +14,7 @@ from atlas.modules.day_ahead_orders.steps.hydro import HydraulicStep
 from atlas.modules.day_ahead_orders.steps.load import LoadStep
 from atlas.modules.day_ahead_orders.steps.non_dispatchable import NonDispatchableStep
 from atlas.modules.day_ahead_orders.steps.renewables import WindPVStep
+from atlas.modules.day_ahead_orders.steps.thermal.thermal_bidding_step import ThermalBiddingStep
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 from atlas.timing import generate_datetimes
@@ -172,3 +173,21 @@ class TestHydraulicStep:
         expected_complements = [c for c in expected_couplings if c.coupling_type == CouplingType.COMPLEMENT]
 
         _assert_couplings_match(result.order_couplings, expected_complements)
+
+
+# ---------------------------------------------------------------------------
+# Thermal step (Base and Peak only)
+# ---------------------------------------------------------------------------
+
+THERMAL_BASE_PEAK_EQUIPMENT = {"a_thermal_base_1", "b_thermal_base_1", "a_thermal_peak_1", "b_thermal_peak_1"}
+
+
+class TestThermalBiddingStep:
+    def test_orders_match_expected(self, steps_output_dataset, steps_parameters, expected_orders):
+        result = ThermalBiddingStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+        _assert_orders_match(result, expected_orders, THERMAL_BASE_PEAK_EQUIPMENT)
+
+    def test_order_count(self, steps_output_dataset, steps_parameters, expected_orders):
+        result = ThermalBiddingStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+        expected_count = sum(1 for o in expected_orders if o.equipment.name in THERMAL_BASE_PEAK_EQUIPMENT)
+        assert len([o for o in result.orders if o.equipment.name in THERMAL_BASE_PEAK_EQUIPMENT]) == expected_count
