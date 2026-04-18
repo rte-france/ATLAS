@@ -7,9 +7,15 @@ This file is part of the ATLAS project.
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
+from pendulum import DateTime
+
 import atlas.config as cfg
+from atlas.modules.day_ahead_orders.input_objects.storage import StorageDAO
 from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
-from atlas.modules.day_ahead_orders.steps.storage.storage_worker import optimize_single_storage
+from atlas.modules.day_ahead_orders.steps.storage.storage_worker import (
+    StorageOptimizationResult,
+    optimize_single_storage,
+)
 from atlas.timing import generate_datetimes
 
 
@@ -24,7 +30,9 @@ class StorageStep(AbstractOrderStep):
             return self._formulate_parallel(local_timewindow)
         return self._formulate_sequential(local_timewindow)
 
-    def _process_unit_result(self, result: StepResult, unit_result, storage) -> None:
+    def _process_unit_result(
+        self, result: StepResult, unit_result: StorageOptimizationResult, storage: StorageDAO
+    ) -> None:
         if unit_result.success:
             result.orders.extend(unit_result.orders)
             result.order_couplings.extend(unit_result.order_couplings)
@@ -46,7 +54,7 @@ class StorageStep(AbstractOrderStep):
         else:
             cfg.logger.warning(f"Optimization skipped or failed for storage: {storage.name}")
 
-    def _formulate_parallel(self, local_timewindow) -> StepResult:
+    def _formulate_parallel(self, local_timewindow: list[DateTime]) -> StepResult:
         cfg.logger.info(f"Starting parallel storage optimization for {len(self.dataset.storage)} units")
         result = StepResult()
         storage_by_name = {storage.name: storage for storage in self.dataset.storage}

@@ -50,9 +50,9 @@ class StorageOptimizationResult:
     storage_name: str
     orders: list[OrderDAO] = field(default_factory=list)
     order_couplings: list[OrderCouplingDAO] = field(default_factory=list)
-    buy_submitted_volumes: Timeseries | None = None
-    sell_submitted_volumes: Timeseries | None = None
-    variable_cost: Timeseries | None = None
+    buy_submitted_volumes: Timeseries
+    sell_submitted_volumes: Timeseries
+    variable_cost: Timeseries
     success: bool = True
 
 
