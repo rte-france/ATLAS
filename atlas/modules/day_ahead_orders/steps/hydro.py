@@ -14,6 +14,7 @@ from atlas.enums import ComplementDirection, CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.input_objects.storage import StorageDAO
 from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
 from atlas.timing import generate_datetimes
 
@@ -26,50 +27,39 @@ class HydraulicStep(AbstractOrderStep):
         hydraulic_empty = [unit for unit in self.dataset.hydro if len(unit.storage_marginal_value.index) == 0]
         for equipment in hydraulic_empty:
             cfg.logger.warning(
-                f"There are no water values for instance {equipment.name}. This instance will be ignored in the calculation."
+                f"There are no water values for instance {equipment.name}. This instance will be ignored in the order formulation."
             )
+        local_timewindow = generate_datetimes(
+            self.parameters.temporal.start_date,
+            self.parameters.penultimate_date,
+            self.parameters.temporal.timestep,
+        )
 
         for equipment in hydraulic_units:
             delta_wu: dict[float, tuple[float, float]] = {}
             for category in range(len(equipment.fragment_volumes)):
                 delta_wu[category] = (equipment.fragment_volumes[category], equipment.fragment_prices[category])
 
-            end_date = self.parameters.penultimate_date
-            local_timewindow = generate_datetimes(
-                self.parameters.temporal.start_date,
-                end_date,
-                self.parameters.temporal.timestep,
-            )
             submitted_volumes = Timeseries.from_index(
-                self.parameters.temporal.start_date, self.parameters.temporal.timestep, end_date, 0
+                self.parameters.temporal.start_date,
+                self.parameters.temporal.timestep,
+                self.parameters.penultimate_date,
+                0,
             )
 
-            local_max_energy = (
-                equipment.maximum_energy.set_frequency(self.parameters.temporal.timestep, False)
-                .filter(item=local_timewindow, inplace=False)
-                .max()
-            )
+            local_max_energy = equipment.maximum_energy.filter(item=local_timewindow, inplace=False).max()
             if local_max_energy <= 0:
                 cfg.logger.debug(f"Equipment {str(equipment.name)} avoided, as its maximum_energy is 0")
                 continue
 
             energy_level = self._get_current_energy_level(equipment)
             marginal_weights = self._calculate_marginal_weights(equipment, energy_level)
+            minimum_energy = equipment.minimum_energy.slice(
+                self.parameters.temporal.start_date, self.parameters.temporal.end_date, "both", False
+            )
 
-            if (
-                len(
-                    equipment.minimum_energy.slice(
-                        self.parameters.temporal.start_date, self.parameters.temporal.end_date, "both", False
-                    )
-                )
-                > 0
-            ):
-                complement_energy = -(
-                    energy_level
-                    - equipment.minimum_energy.slice(
-                        self.parameters.temporal.start_date, self.parameters.temporal.end_date, "both", False
-                    ).min()
-                )
+            if len(minimum_energy) > 1:
+                complement_energy = -(energy_level - minimum_energy.min())
             else:
                 complement_energy = -(
                     energy_level - equipment.minimum_energy.get_value(self.parameters.temporal.start_date)
@@ -135,14 +125,14 @@ class HydraulicStep(AbstractOrderStep):
 
         return result
 
-    def _get_current_energy_level(self, equipment) -> float:
+    def _get_current_energy_level(self, equipment: StorageDAO) -> float:
         if equipment.stored_energy is not None:
             energy_forecast = equipment.stored_energy.get_forecast(
                 self.parameters.temporal.execution_date,
                 self.parameters.temporal.start_date.subtract(days=1),
                 self.parameters.temporal.start_date - self.parameters.temporal.timestep,
             )
-            if len(energy_forecast) > 0:
+            if self.parameters.temporal.start_date - self.parameters.temporal.timestep in energy_forecast:
                 return energy_forecast.get_value(
                     self.parameters.temporal.start_date - self.parameters.temporal.timestep
                 )
