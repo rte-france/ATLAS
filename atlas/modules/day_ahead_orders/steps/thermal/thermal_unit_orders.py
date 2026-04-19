@@ -136,7 +136,11 @@ class ThermalUnitOrders:
         q_min = unit.minimum_power.max()
 
         ## See whether the unit will bid inflexible orders over the whole orders_time sequence:
-        null_minimum_power = all(p in unit.minimum_power.index for p in self.orders_time)
+        null_minimum_power = False
+        for local_time in self.orders_time:
+            if unit.minimum_power.get_value(local_time) == 0:
+                null_minimum_power = True
+                break
 
         ## See whether there is a startup or not. Used to know if we need to amortise startup cost over the inflexible
         # orders or not.
@@ -460,7 +464,8 @@ class ThermalUnitOrders:
                     Q += q_sell
 
             # Part 3: inflexible orders at Pmin
-            for t in flexible_time_frame:
+            # TODO: should be inflexible_time_frame, but not working currently for format reasons
+            for t in inflexible_time_frame:
                 bid_output = OrderDAO(
                     name=f"order_at_{t}_for_unit_{unit.name}_under_price_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
@@ -538,7 +543,9 @@ class ThermalUnitOrders:
         # Get the time steps for which the unit is online (defined as a non-zero state):
         # Consistency of the online states wrt the minimum duration is ensured by definition of the
         # determine_baseload_states_sequence function.
-        online_at_t = [pendulum.instance(dt) for dt in set(self.orders_time).intersection(states_sequence.index)]
+        online_at_t = sorted(
+            [pendulum.instance(dt) for dt in set(self.orders_time).intersection(states_sequence.index)]
+        )
 
         # Based on these time steps, deduce the intervals.
         # The intervals bounds are retrieved by comparing the total minutes between to time steps :
