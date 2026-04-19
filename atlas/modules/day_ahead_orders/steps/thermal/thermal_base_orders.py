@@ -23,9 +23,7 @@ from atlas.timing import generate_datetimes
 class ThermalBaseLoadOrders(ThermalUnitOrders):
     """Order formulation for each strategy"""
 
-    def __init__(
-        self, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ):
+    def __init__(self, orders_time: list[DateTime], parameters: DayAheadOrdersParameters):
         """
         :param orders_time: a list of dates over which orders will be formulated.
         :type orders_time: list[DateTime]
@@ -34,7 +32,7 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
         """
         super().__init__(orders_time, parameters)
 
-    def formulate_thermal_baseload_orders(self, unit: ThermalDAO) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
+    def formulate(self, unit: ThermalDAO) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
         """
         This function formulates offers for a thermic baseload unit.
 
@@ -50,8 +48,7 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
         states_sequence, inconsistent = self.determine_baseload_states_sequence(unit)
         if inconsistent:
             cfg.logger.warning(
-                f"Equipment {unit.name}'s states sequence is inconsistent. "
-                "No orders have been formulated for this unit"
+                f"Equipment {unit.name}'s states sequence is inconsistent. No orders have been formulated for this unit"
             )
             return orders, couplings
 

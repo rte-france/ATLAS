@@ -17,9 +17,7 @@ from atlas.objects.equipment.equipment import Equipment
 
 
 class ThermalPeakLoadOrders:
-    def __init__(
-        self, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ):
+    def __init__(self, orders_time: list[DateTime], parameters: DayAheadOrdersParameters):
         """
         :param orders_time: a list of dates over which orders will be formulated.
         :type orders_time: list[DateTime]
@@ -29,7 +27,7 @@ class ThermalPeakLoadOrders:
         self.orders_time = orders_time
         self.parameters = parameters
 
-    def formulate_thermal_peak_load_orders(self, unit: Equipment) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
+    def formulate(self, unit: Equipment) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
         """
         This function formulates orders for a thermic peak load unit. Such orders
         have the particularity of being time-independent, so there is no link between

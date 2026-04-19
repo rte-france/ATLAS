@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 
 import re
 
-from atlas.enums import CouplingType
+from atlas.enums import CouplingType, ThermalStrategy
 from atlas.io_utils.container import Container
 from atlas.io_utils.utils import diff_business_model
 from atlas.modules.day_ahead_orders.steps.abstract_step import StepResult
@@ -15,7 +15,8 @@ from atlas.modules.day_ahead_orders.steps.hydro import HydraulicStep
 from atlas.modules.day_ahead_orders.steps.load import LoadStep
 from atlas.modules.day_ahead_orders.steps.non_dispatchable import NonDispatchableStep
 from atlas.modules.day_ahead_orders.steps.renewables import WindPVStep
-from atlas.modules.day_ahead_orders.steps.thermal.thermal_bidding_step import ThermalBiddingStep
+from atlas.modules.day_ahead_orders.steps.thermal.thermal_base_orders import ThermalBaseLoadOrders
+from atlas.modules.day_ahead_orders.steps.thermal.thermal_peak_orders import ThermalPeakLoadOrders
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 from atlas.timing import generate_datetimes
@@ -176,18 +177,58 @@ class TestHydraulicStep:
 
 
 # ---------------------------------------------------------------------------
-# Thermal step (Base and Peak only)
+# Thermal formulator unit tests (Base and Peak)
 # ---------------------------------------------------------------------------
 
-THERMAL_BASE_PEAK_EQUIPMENT = {"a_thermal_base_1", "b_thermal_base_1", "a_thermal_peak_1", "b_thermal_peak_1"}
+THERMAL_BASE_EQUIPMENT = {"a_thermal_base_1", "b_thermal_base_1"}
+THERMAL_PEAK_EQUIPMENT = {"a_thermal_peak_1", "b_thermal_peak_1"}
 
 
-class TestThermalBiddingStep:
+class TestThermalBaseOrders:
+    def _run(self, steps_output_dataset, steps_parameters) -> StepResult:
+        orders_time = _orders_time(steps_parameters)
+        result = StepResult()
+        for unit in [t for t in steps_output_dataset.thermal if t.strategy == ThermalStrategy.BASE]:
+            unit_orders, unit_couplings = ThermalBaseLoadOrders(orders_time, steps_parameters).formulate(unit)
+            result.orders.extend(unit_orders)
+            result.order_couplings.extend(unit_couplings)
+        return result
+
     def test_orders_match_expected(self, steps_output_dataset, steps_parameters, expected_orders):
-        result = ThermalBiddingStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
-        _assert_orders_match(result, expected_orders, THERMAL_BASE_PEAK_EQUIPMENT)
+        result = self._run(steps_output_dataset, steps_parameters)
+        _assert_orders_match(result, expected_orders, THERMAL_BASE_EQUIPMENT)
 
     def test_order_count(self, steps_output_dataset, steps_parameters, expected_orders):
-        result = ThermalBiddingStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
-        expected_count = sum(1 for o in expected_orders if o.equipment.name in THERMAL_BASE_PEAK_EQUIPMENT)
-        assert len([o for o in result.orders if o.equipment.name in THERMAL_BASE_PEAK_EQUIPMENT]) == expected_count
+        result = self._run(steps_output_dataset, steps_parameters)
+        expected_count = sum(1 for o in expected_orders if o.equipment.name in THERMAL_BASE_EQUIPMENT)
+        assert len(result.orders) == expected_count
+
+    def test_couplings_match_expected(self, steps_output_dataset, steps_parameters, expected_couplings):
+        result = self._run(steps_output_dataset, steps_parameters)
+        expected = [c for c in expected_couplings if any(o.equipment.name in THERMAL_BASE_EQUIPMENT for o in c.orders)]
+        _assert_couplings_match(result.order_couplings, expected)
+
+
+class TestThermalPeakOrders:
+    def _run(self, steps_output_dataset, steps_parameters) -> StepResult:
+        orders_time = _orders_time(steps_parameters)
+        result = StepResult()
+        for unit in [t for t in steps_output_dataset.thermal if t.strategy == ThermalStrategy.PEAK]:
+            unit_orders, unit_couplings = ThermalPeakLoadOrders(orders_time, steps_parameters).formulate(unit)
+            result.orders.extend(unit_orders)
+            result.order_couplings.extend(unit_couplings)
+        return result
+
+    def test_orders_match_expected(self, steps_output_dataset, steps_parameters, expected_orders):
+        result = self._run(steps_output_dataset, steps_parameters)
+        _assert_orders_match(result, expected_orders, THERMAL_PEAK_EQUIPMENT)
+
+    def test_order_count(self, steps_output_dataset, steps_parameters, expected_orders):
+        result = self._run(steps_output_dataset, steps_parameters)
+        expected_count = sum(1 for o in expected_orders if o.equipment.name in THERMAL_PEAK_EQUIPMENT)
+        assert len(result.orders) == expected_count
+
+    def test_couplings_match_expected(self, steps_output_dataset, steps_parameters, expected_couplings):
+        result = self._run(steps_output_dataset, steps_parameters)
+        expected = [c for c in expected_couplings if any(o.equipment.name in THERMAL_PEAK_EQUIPMENT for o in c.orders)]
+        _assert_couplings_match(result.order_couplings, expected)

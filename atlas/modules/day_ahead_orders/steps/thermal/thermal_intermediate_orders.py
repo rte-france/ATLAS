@@ -36,9 +36,7 @@ from atlas.solver.models import SolverOptions
 
 
 class ThermalIntermediateLoadOrders(ThermalUnitOrders):
-    def __init__(
-        self, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ):
+    def __init__(self, orders_time: list[DateTime], parameters: DayAheadOrdersParameters):
         """
         :param orders_time: a list of dates over which orders will be formulated.
         :type orders_time: list[DateTime]
@@ -47,7 +45,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         """
         super().__init__(orders_time, parameters)
 
-    def formulate_thermal_intermediate_load_orders(self, unit: ThermalDAO) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
+    def formulate(self, unit: ThermalDAO) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
         """
         This function formulates orders for a thermic intermediate load unit.
 

@@ -70,13 +70,13 @@ def optimize_single_thermal_unit(
 
         if thermal.strategy == ThermalStrategy.BASE:
             formulator = ThermalBaseLoadOrders(orders_time, parameters)
-            orders, order_couplings = formulator.formulate_thermal_baseload_orders(thermal)
+            orders, order_couplings = formulator.formulate(thermal)
         elif thermal.strategy == ThermalStrategy.INTERMEDIATE:
             formulator_inter = ThermalIntermediateLoadOrders(orders_time, parameters)
-            orders, order_couplings = formulator_inter.formulate_thermal_intermediate_load_orders(thermal)
+            orders, order_couplings = formulator_inter.formulate(thermal)
         elif thermal.strategy == ThermalStrategy.PEAK:
             formulator_peak = ThermalPeakLoadOrders(orders_time, parameters)
-            orders, order_couplings = formulator_peak.formulate_thermal_peak_load_orders(thermal)
+            orders, order_couplings = formulator_peak.formulate(thermal)
         else:
             cfg.logger.warning(f"Unknown thermal strategy {thermal.strategy} for unit {thermal.name}")
             return ThermalOptimizationResult(
