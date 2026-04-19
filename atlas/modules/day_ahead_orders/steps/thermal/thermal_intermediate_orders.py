@@ -12,12 +12,12 @@ from collections.abc import Callable
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.enums import CouplingType, ThermalStrategy
+from atlas.enums import CouplingType
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.steps.thermal import (
     combination_1,
@@ -37,109 +37,105 @@ from atlas.solver.models import SolverOptions
 
 class ThermalIntermediateLoadOrders(ThermalUnitOrders):
     def __init__(
-        self, dataset: DayAheadOrdersOutput, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
+        self, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ):
         """
-        :param dataset: the dataset
-        :type dataset: DayAheadOrdersOutput
         :param orders_time: a list of dates over which orders will be formulated.
         :type orders_time: list[DateTime]
         :param parameters: the parameters
         :type parameters: DayAheadOrdersParameters
         """
-        super().__init__(dataset, orders_time, parameters)
+        super().__init__(orders_time, parameters)
 
-    def formulate_thermal_intermediate_load_orders(self) -> None:
+    def formulate_thermal_intermediate_load_orders(self, unit: ThermalDAO) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
         """
-        This function formulates orders for the thermic intermediate load units.
-        Intermediate load units are identified from an attribute of the thermic class.
-        :return: None
+        This function formulates orders for a thermic intermediate load unit.
+
+        :param unit: the thermal unit to formulate orders for
+        :type unit: ThermalDAO
+        :return: orders and order couplings generated for this unit
+        :rtype: tuple[list[OrderDAO], list[OrderCouplingDAO]]
         """
-
-        # Filter the intermediate load instances
-        equipments_list = [eqt for eqt in self.dataset.thermal if eqt.strategy == ThermalStrategy.INTERMEDIATE]
-
-        # We stop here if there is no intermediate load units in the dataset
-        if not equipments_list:
-            cfg.logger.info("No intermediate load units were found in the dataset.")
-            return None
+        orders: list[OrderDAO] = []
+        couplings: list[OrderCouplingDAO] = []
 
         # Solve the optimisation programs
-        res = self.solve_optimization_programs(equipments_list)
+        res = self.solve_optimization_programs([unit])
 
-        for thermal_unit in equipments_list:
-            # Consider the unique cases
-            cases = self.get_unique_cases(res, thermal_unit)
+        # Consider the unique cases
+        cases = self.get_unique_cases(res, unit)
 
-            # Create a list that will all online time frames across all scenarios
-            online_timeframes: list[tuple[Timeseries, str]] = []
-            for case in cases:
-                # Encode the outcome as a state sequence
-                states_sequence = self.determine_intermediate_load_states_sequence(thermal_unit, res, case)
+        # Create a list that will hold all online time frames across all scenarios
+        online_timeframes: list[tuple[Timeseries, str]] = []
+        for case in cases:
+            # Encode the outcome as a state sequence
+            states_sequence = self.determine_intermediate_load_states_sequence(unit, res, case)
 
-                # Extract the list of online time frames
-                list_of_online_timeframes = self.extract_online_sequences(states_sequence, case)
+            # Extract the list of online time frames
+            list_of_online_timeframes = self.extract_online_sequences(states_sequence, case)
 
-                # Formulate the orders over each online timeframe.
-                for online_timeframe, case_name in list_of_online_timeframes:
-                    online_timeframes.append(
-                        (online_timeframe, case_name)
-                    )  # Add the time frame to the list of time frames
-                    self.formulate_unit_orders(online_timeframe, thermal_unit, case=case_name)
+            # Formulate the orders over each online timeframe.
+            for online_timeframe, case_name in list_of_online_timeframes:
+                online_timeframes.append((online_timeframe, case_name))
+                unit_orders, unit_couplings = self.formulate_unit_orders(online_timeframe, unit, case=case_name)
+                orders.extend(unit_orders)
+                couplings.extend(unit_couplings)
 
-            # Formulate the exclusion links between scenarios
-            # Consider only the time frames that are overlapping
-            overlapping_blocks = self.get_overlapping_timeframes(online_timeframes)
+        # Formulate the exclusion links between scenarios
+        # Consider only the time frames that are overlapping
+        overlapping_blocks = self.get_overlapping_timeframes(online_timeframes)
 
-            if overlapping_blocks:
-                # Retrieve the orders corresponding to the first order of each time frame
-                # time frames are mutually exclusive provided that the unit's minimum power is not null
-                # over the whole orders time sequence
-                if sum(thermal_unit.minimum_power.get_value(t) for t in self.orders_time) > 0.0:
-                    # Create a list of order names to retrieve.
-                    orders_names = []
-                    for (ts1, case1), (ts2, case2) in overlapping_blocks:
-                        # Get the two start dates of the colliding blocks and their names (i.e. cases)
-                        start_date_order_1, start_date_order_2 = ts1.first_date(), ts2.first_date()
-                        case_order_1, case_order_2 = case1, case2
-                        orders_names.append(
-                            f"order_at_{start_date_order_1}_for_unit_{thermal_unit.name}_under_price_{case_order_1}"
-                        )
-                        orders_names.append(
-                            f"order_at_{start_date_order_2}_for_unit_{thermal_unit.name}_under_price_{case_order_2}"
-                        )
+        if overlapping_blocks:
+            # Retrieve the orders corresponding to the first order of each time frame
+            # time frames are mutually exclusive provided that the unit's minimum power is not null
+            # over the whole orders time sequence
+            if sum(unit.minimum_power.get_value(t) for t in self.orders_time) > 0.0:
+                # Create a list of order names to retrieve.
+                orders_names = []
+                for (ts1, case1), (ts2, case2) in overlapping_blocks:
+                    # Get the two start dates of the colliding blocks and their names (i.e. cases)
+                    start_date_order_1, start_date_order_2 = ts1.first_date(), ts2.first_date()
+                    case_order_1, case_order_2 = case1, case2
+                    orders_names.append(
+                        f"order_at_{start_date_order_1}_for_unit_{unit.name}_under_price_{case_order_1}"
+                    )
+                    orders_names.append(
+                        f"order_at_{start_date_order_2}_for_unit_{unit.name}_under_price_{case_order_2}"
+                    )
 
-                    # Filter the orders to keep only those with the relevant name.
-                    orders_list = [order for order in self.dataset.order if order.name in orders_names]
+                # Filter the orders to keep only those with the relevant name.
+                orders_list = [order for order in orders if order.name in orders_names]
 
-                    # Now that we recovered the orders, filter them by case and generate the exclusion links
-                    # across orders of different scenarios.
-                    sorted_orders = []  # Create a list of lists, each list contains orders attached to the same case
-                    for case in cases:
-                        current_case = []
-                        for order in orders_list:
-                            if case in order.name:
-                                current_case.append(order)
-                        sorted_orders.append(current_case)
+                # Now that we recovered the orders, filter them by case and generate the exclusion links
+                # across orders of different scenarios.
+                sorted_orders = []  # Create a list of lists, each list contains orders attached to the same case
+                for case in cases:
+                    current_case = []
+                    for order in orders_list:
+                        if case in order.name:
+                            current_case.append(order)
+                    sorted_orders.append(current_case)
 
-                    for cases_pairs in itertools.combinations(
-                        sorted_orders, 2
-                    ):  # Consider pairwise combination across cases
-                        exclusion_combinations = list(
-                            itertools.product(cases_pairs[0], cases_pairs[1])
-                        )  # Compute all unique pairs across the two lists, i.e. across the orders
-                        # attached to case i and those attached to case j for (i,j) two cases
-                        # belonging to the set of all cases.
-                        for exclusion_combination in exclusion_combinations:  # Create the exclusion links between cases
-                            # Unwrap the two orders
-                            order_1, order_2 = exclusion_combination[0], exclusion_combination[1]
-                            self.dataset.order_coupling.append(
-                                OrderCouplingDAO(
-                                    name=f"EXCLUSION_link_between_orders_{order_1.name}_and_{order_2.name}",
-                                    coupling_type=CouplingType.EXCLUSION,
-                                    orders=[order_1, order_2],  # type: ignore [arg-type]
-                                )
+                for cases_pairs in itertools.combinations(
+                    sorted_orders, 2
+                ):  # Consider pairwise combination across cases
+                    exclusion_combinations = list(
+                        itertools.product(cases_pairs[0], cases_pairs[1])
+                    )  # Compute all unique pairs across the two lists, i.e. across the orders
+                    # attached to case i and those attached to case j for (i,j) two cases
+                    # belonging to the set of all cases.
+                    for exclusion_combination in exclusion_combinations:  # Create the exclusion links between cases
+                        # Unwrap the two orders
+                        order_1, order_2 = exclusion_combination[0], exclusion_combination[1]
+                        couplings.append(
+                            OrderCouplingDAO(
+                                name=f"EXCLUSION_link_between_orders_{order_1.name}_and_{order_2.name}",
+                                coupling_type=CouplingType.EXCLUSION,
+                                orders=[order_1, order_2],  # type: ignore [arg-type]
                             )
+                        )
+
+        return orders, couplings
 
     def get_unique_cases(
         self, results: dict[str, dict[str, dict[str, Timeseries]]], thermal_unit: ThermalDAO

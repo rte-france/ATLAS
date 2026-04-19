@@ -16,7 +16,6 @@ from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.timing import generate_datetimes
 
@@ -25,17 +24,14 @@ class ThermalUnitOrders:
     """Main order formulation function, for base and intermediate units"""
 
     def __init__(
-        self, dataset: DayAheadOrdersOutput, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
+        self, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ):
         """
-        :param dataset: the dataset
-        :type dataset: DayAheadOrdersOutput
         :param orders_time: a list of dates over which orders will be formulated.
         :type orders_time: list[DateTime]
         :param parameters: the parameters
         :type parameters: DayAheadOrdersParameters
         """
-        self.dataset = dataset
         self.orders_time = orders_time
         self.parameters = parameters
 
@@ -44,7 +40,7 @@ class ThermalUnitOrders:
         online_timeframe: Timeseries,
         unit: ThermalDAO,
         case: str = "",
-    ) -> None:
+    ) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
         """
         Formulate orders for one thermic power plant.
 
@@ -57,8 +53,11 @@ class ThermalUnitOrders:
         :type unit: ThermalDAO
         :param case: (optional) a string that aims at identifying the price scenario if relevant
         :type case: str
-        :return: None
+        :return: orders and order couplings generated for this unit
+        :rtype: tuple[list[OrderDAO], list[OrderCouplingDAO]]
         """
+        orders: list[OrderDAO] = []
+        couplings: list[OrderCouplingDAO] = []
 
         # Determine if the unit is offline or not. A sufficient condition is that the online_timeframe doesn't contain a 1
         # since by construction the unit is ON for at least one time step.
@@ -69,7 +68,7 @@ class ThermalUnitOrders:
         if offline:
             """TODO : add the sequence to make message more explicit"""
             cfg.logger.debug(f"Unit {unit.name} is offline. No orders have been formulated for this unit")
-            return None
+            return orders, couplings
 
         # If not offline, start the configuration of variables necessary for order formulation
 
@@ -136,11 +135,10 @@ class ThermalUnitOrders:
         q_min = unit.minimum_power.max()
 
         ## See whether the unit will bid inflexible orders over the whole orders_time sequence:
-        null_minimum_power = False
-        for local_time in self.orders_time:
-            if unit.minimum_power.get_value(local_time) == 0:
-                null_minimum_power = True
-                break
+        if unit.minimum_power.filter(self.orders_time, inplace=False).dataframe["value"].min() == 0:
+            null_minimum_power = True
+        else:
+            null_minimum_power = False
 
         ## See whether there is a startup or not. Used to know if we need to amortise startup cost over the inflexible
         # orders or not.
@@ -290,7 +288,7 @@ class ThermalUnitOrders:
                     start_date=t,
                     end_date=t + self.parameters.temporal.timestep,
                 )
-                self.dataset.order.append(flexible_part)
+                orders.append(flexible_part)
 
             # Part 2: reserve requirement orders
             # Automated downward reserves requirements
@@ -312,7 +310,7 @@ class ThermalUnitOrders:
                     start_date=t,
                     end_date=t + self.parameters.temporal.timestep,
                 )
-                self.dataset.order.append(reserve_bid)
+                orders.append(reserve_bid)
 
             # Manual downard reserves requirements
             if manual_reserves_down_procured.get_value(t) > 0.0:
@@ -333,7 +331,7 @@ class ThermalUnitOrders:
                     start_date=t,
                     end_date=t + self.parameters.temporal.timestep,
                 )
-                self.dataset.order.append(reserve_bid)
+                orders.append(reserve_bid)
 
             # Automated upward reserves requirements
             if automated_reserves_up_procured.get_value(t) > 0.0:
@@ -354,7 +352,7 @@ class ThermalUnitOrders:
                     start_date=t,
                     end_date=t + self.parameters.temporal.timestep,
                 )
-                self.dataset.order.append(reserve_bid)
+                orders.append(reserve_bid)
 
             # Manual upward reserves requirements
             if manual_reserves_up_procured.get_value(t) > 0.0:
@@ -374,7 +372,7 @@ class ThermalUnitOrders:
                     start_date=t,
                     end_date=t + self.parameters.temporal.timestep,
                 )
-                self.dataset.order.append(reserve_bid)
+                orders.append(reserve_bid)
 
         # ------------------------------------------------------- #
         #                                                         #
@@ -427,7 +425,7 @@ class ThermalUnitOrders:
                         start_date=t,
                         end_date=t + self.parameters.temporal.timestep,
                     )
-                    self.dataset.order.append(bid_output)
+                    orders.append(bid_output)
 
                     inflexible_orders.append(bid_output)
                     Q += q_sell
@@ -458,7 +456,7 @@ class ThermalUnitOrders:
                         start_date=t,
                         end_date=t + self.parameters.temporal.timestep,
                     )
-                    self.dataset.order.append(bid_output)
+                    orders.append(bid_output)
 
                     inflexible_orders.append(bid_output)
                     Q += q_sell
@@ -481,7 +479,7 @@ class ThermalUnitOrders:
                     start_date=t,
                     end_date=t + self.parameters.temporal.timestep,
                 )
-                self.dataset.order.append(bid_output)
+                orders.append(bid_output)
 
                 inflexible_orders.append(bid_output)
                 Q += unit.minimum_power.get_value(t)
@@ -497,10 +495,10 @@ class ThermalUnitOrders:
                 for flex_type in flexible_types:
                     config_bid_name = f"_at_{t}_for_unit_{unit.name}_with_scenario_{case}"
                     flexible_bid_name = flex_type + config_bid_name
-                    flexible_bid = next((bid for bid in self.dataset.order if bid.name == flexible_bid_name), None)
+                    flexible_bid = next((bid for bid in orders if bid.name == flexible_bid_name), None)
                     if flexible_bid is not None:
                         # Add parent-children link between the flexible and inflexible parts
-                        self.dataset.order_coupling.append(
+                        couplings.append(
                             OrderCouplingDAO(
                                 name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                                 coupling_type=CouplingType.PARENT_CHILDREN,
@@ -510,7 +508,7 @@ class ThermalUnitOrders:
 
             # Part 4: configure the identical_ratio link between all inflexible orders
             date = inflexible_time_frame[0]
-            self.dataset.order_coupling.append(
+            couplings.append(
                 OrderCouplingDAO(
                     name=f"IDENTICAL_RATIO_inflexible_orders_for_unit_{unit.name}_starting_at_{pendulum.DateTime.instance(date)}_with_scenario_{case}",
                     coupling_type=CouplingType.IDENTICAL_RATIO,
@@ -526,6 +524,8 @@ class ThermalUnitOrders:
                     order.price += amortized_cost
                 else:
                     order.price -= amortized_cost
+
+        return orders, couplings
 
     def extract_online_sequences(self, states_sequence: Timeseries, case: str = "") -> list[tuple[Timeseries, str]]:
         """

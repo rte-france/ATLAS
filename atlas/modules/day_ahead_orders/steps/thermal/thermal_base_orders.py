@@ -12,8 +12,9 @@ from pendulum import DateTime
 import atlas.config as cfg
 from atlas.enums import ThermalStrategy
 from atlas.math.timeseries import Timeseries
+from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
+from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_unit_orders import ThermalUnitOrders
 from atlas.timing import generate_datetimes
@@ -23,51 +24,47 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
     """Order formulation for each strategy"""
 
     def __init__(
-        self, dataset: DayAheadOrdersOutput, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
+        self, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ):
         """
-        :param dataset: the dataset
-        :type dataset: DayAheadOrdersOutput
         :param orders_time: a list of dates over which orders will be formulated.
         :type orders_time: list[DateTime]
         :param parameters: the parameters
         :type parameters: DayAheadOrdersParameters
         """
-        super().__init__(dataset, orders_time, parameters)
+        super().__init__(orders_time, parameters)
 
-    def formulate_thermal_baseload_orders(self) -> None:
+    def formulate_thermal_baseload_orders(self, unit: ThermalDAO) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
         """
-        This function formulates offers for the thermic baseload units.
-        Baseload units are identified based on the attribute "strategy", specific to the thermal class.
+        This function formulates offers for a thermic baseload unit.
 
-        Returns None
+        :param unit: the thermal unit to formulate orders for
+        :type unit: ThermalDAO
+        :return: orders and order couplings generated for this unit
+        :rtype: tuple[list[OrderDAO], list[OrderCouplingDAO]]
         """
+        orders: list[OrderDAO] = []
+        couplings: list[OrderCouplingDAO] = []
 
-        # Filter the baseload instances
-        equipments_list = [eqt for eqt in self.dataset.thermal if eqt.strategy == ThermalStrategy.BASE]
+        # Get the state sequence and the inconsistency status of the unit.
+        states_sequence, inconsistent = self.determine_baseload_states_sequence(unit)
+        if inconsistent:
+            cfg.logger.warning(
+                f"Equipment {unit.name}'s states sequence is inconsistent. "
+                "No orders have been formulated for this unit"
+            )
+            return orders, couplings
 
-        # We stop here if there is no baseload load units in the dataset
-        if not equipments_list:
-            cfg.logger.info("No baseload units were found in the dataset.")
-            return None
+        # Retrieve the time steps over which the unit is online.
+        list_of_online_timeframes = self.extract_online_sequences(states_sequence)
 
-        # Start the formulation of the orders
-        for unit in equipments_list:
-            # Get the state sequence and the inconsistency status of the unit.
-            states_sequence, inconsistent = self.determine_baseload_states_sequence(unit)
-            if inconsistent:  # skip the unit if its state sequence is inconsistent.
-                cfg.logger.warning(
-                    f"Equipment {unit.name}'s states sequence is inconsistent. "
-                    "No orders have been formulated for this unit"
-                )
-                continue
+        # Formulate the orders over each online timeframe.
+        for online_timeframe, case_name in list_of_online_timeframes:
+            unit_orders, unit_couplings = self.formulate_unit_orders(online_timeframe, unit, case=case_name)
+            orders.extend(unit_orders)
+            couplings.extend(unit_couplings)
 
-            # Retrieve the time steps over which the unit is oneline.
-            list_of_online_timeframes = self.extract_online_sequences(states_sequence)
-
-            # Formulate the orders over each online timeframe.
-            for online_timeframe, case_name in list_of_online_timeframes:
-                self.formulate_unit_orders(online_timeframe, unit, case=case_name)
+        return orders, couplings
 
     def determine_baseload_states_sequence(self, unit: ThermalDAO) -> tuple[Timeseries, bool]:
         """

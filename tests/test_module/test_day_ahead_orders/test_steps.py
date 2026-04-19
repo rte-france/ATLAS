@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 
 import re
 
+from atlas.enums import CouplingType
 from atlas.io_utils.container import Container
 from atlas.io_utils.utils import diff_business_model
 from atlas.modules.day_ahead_orders.steps.abstract_step import StepResult
@@ -166,7 +167,6 @@ class TestHydraulicStep:
         assert len(result.orders) == expected_count
 
     def test_complement_couplings(self, steps_output_dataset, steps_parameters, expected_couplings):
-        from atlas.enums import CouplingType
 
         result = HydraulicStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
 
