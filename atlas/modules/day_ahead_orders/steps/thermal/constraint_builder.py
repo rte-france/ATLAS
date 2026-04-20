@@ -122,42 +122,11 @@ class ThermalConstraintBuilder:
 
             if self._has_start or self._has_stop:
                 if q >= q_min:
-                    m.OFF.set_extended(t, 0)
-                    if self._has_stop:
-                        m.STOP.set_extended(t, 0)
-                    if self._has_start:
-                        m.START.set_extended(t, 0)
-                    if not self._has_flat:
-                        # No stable constraint — allow unit full flexibility
-                        m.ON_DOWN.set_extended(t, 1)
-                        m.ON_UP.set_extended(t, 1)
+                    self._init_previous_online(t)
                 elif q > 0:
-                    m.OFF.set_extended(t, 0)
-                    if self._has_stop:
-                        m.STOP.set_extended(t, 1)
-                    if self._has_start:
-                        # Both tentatively set to 1; _distinguish_start_stop resolves ambiguity
-                        m.START.set_extended(t, 1)
-                    if not self._has_flat:
-                        m.ON_UP.set_extended(t, 0)
-                        m.ON_DOWN.set_extended(t, 0)
-                    elif t != m.start_date_minus_one:
-                        m.ON_UP.set_extended(t, 0)
-                        m.ON_DOWN.set_extended(t, 0)
-                        m.ON_FLAT.set_extended(t, 0)
+                    self._init_previous_ramping(t)
                 else:
-                    m.OFF.set_extended(t, 1)
-                    if self._has_stop:
-                        m.STOP.set_extended(t, 0)
-                    if self._has_start:
-                        m.START.set_extended(t, 0)
-                    if not self._has_flat:
-                        m.ON_UP.set_extended(t, 0)
-                        m.ON_DOWN.set_extended(t, 0)
-                    elif t != m.start_date_minus_one:
-                        m.ON_UP.set_extended(t, 0)
-                        m.ON_DOWN.set_extended(t, 0)
-                        m.ON_FLAT.set_extended(t, 0)
+                    self._init_previous_offline(t)
             else:
                 # Combinations 1 and 3: no ramp states
                 if q > 0:
@@ -168,13 +137,46 @@ class ThermalConstraintBuilder:
                     # has_flat: ON_UP/DOWN/FLAT set later by reconstruction
                 else:
                     m.OFF.set_extended(t, 1)
-                    if not self._has_flat:
-                        m.ON_UP.set_extended(t, 0)
-                        m.ON_DOWN.set_extended(t, 0)
-                    elif t != m.start_date_minus_one:
-                        m.ON_UP.set_extended(t, 0)
-                        m.ON_DOWN.set_extended(t, 0)
-                        m.ON_FLAT.set_extended(t, 0)
+                    self._clear_on_states(t)
+
+    def _init_previous_online(self, t: DateTime) -> None:
+        m = self._m
+        m.OFF.set_extended(t, 0)
+        if self._has_stop:
+            m.STOP.set_extended(t, 0)
+        if self._has_start:
+            m.START.set_extended(t, 0)
+        if not self._has_flat:
+            # No stable constraint — allow unit full flexibility
+            m.ON_DOWN.set_extended(t, 1)
+            m.ON_UP.set_extended(t, 1)
+
+    def _init_previous_ramping(self, t: DateTime) -> None:
+        m = self._m
+        m.OFF.set_extended(t, 0)
+        if self._has_stop:
+            m.STOP.set_extended(t, 1)
+        if self._has_start:
+            # Both tentatively set to 1; _distinguish_start_stop resolves ambiguity
+            m.START.set_extended(t, 1)
+        self._clear_on_states(t)
+
+    def _init_previous_offline(self, t: DateTime) -> None:
+        m = self._m
+        m.OFF.set_extended(t, 1)
+        if self._has_stop:
+            m.STOP.set_extended(t, 0)
+        if self._has_start:
+            m.START.set_extended(t, 0)
+        self._clear_on_states(t)
+
+    def _clear_on_states(self, t: DateTime) -> None:
+        """Clear ON_UP, ON_DOWN, and (if applicable) ON_FLAT for a previous time step."""
+        m = self._m
+        m.ON_UP.set_extended(t, 0)
+        m.ON_DOWN.set_extended(t, 0)
+        if self._has_flat and t != m.start_date_minus_one:
+            m.ON_FLAT.set_extended(t, 0)
 
     def _distinguish_start_stop(self) -> None:
         """Resolve ambiguous ramp states using power trajectory (combinations 7 and 8)."""
@@ -312,6 +314,32 @@ class ThermalConstraintBuilder:
         )
 
     # ──────────────────────────────────────────────────────────────────────
+    # Shared constraint helpers
+    # ──────────────────────────────────────────────────────────────────────
+
+    def _add_binary_aux_constraints(self, var: Any, x: Any, y: Any, name: str | None = None) -> None:
+        """Add the three constraints that define a binary auxiliary as var = max(0, y - x).
+
+        Encodes: var <= 1-x, var <= y, var >= y-x.
+        Used for turned_on, turned_off, stable, entered_up, entered_down.
+        """
+        m = self._m
+        m.add_constraint(var <= 1 - x)
+        m.add_constraint(var <= y)
+        m.add_constraint(var >= y - x, name)
+
+    def _add_linearized_product(self, result: Any, expr: Any, binary: Any, name: str | None = None) -> None:
+        """Add the four McCormick constraints linearizing result = expr * binary.
+
+        Encodes: result in [Q_min*b, Q_max*b], result <= expr - Q_min*(1-b), result >= expr - Q_max*(1-b).
+        """
+        m = self._m
+        m.add_constraint(result <= m.Q_max * binary)
+        m.add_constraint(result >= m.Q_min * binary)
+        m.add_constraint(result <= expr - m.Q_min * (1 - binary))
+        m.add_constraint(result >= expr - m.Q_max * (1 - binary), name)
+
+    # ──────────────────────────────────────────────────────────────────────
     # Auxiliary variable constraints (Section B in original files)
     # ──────────────────────────────────────────────────────────────────────
 
@@ -336,10 +364,10 @@ class ThermalConstraintBuilder:
         # Third constraint (>=) is named only when not _has_flat and (_has_stop or _has_start)
         named = not self._has_flat and (self._has_stop or self._has_start)
         for t in m.time_frame:
-            m.add_constraint(m.turned_on.get_value(t) <= 1 - m.OFF.get_value(t))
-            m.add_constraint(m.turned_on.get_value(t) <= m.OFF.get_value(t - ts))
-            m.add_constraint(
-                m.turned_on.get_value(t) >= m.OFF.get_value(t - ts) - m.OFF.get_value(t),
+            self._add_binary_aux_constraints(
+                m.turned_on.get_value(t),
+                m.OFF.get_value(t),
+                m.OFF.get_value(t - ts),
                 f"constraints_defining_turned_on_{t}" if named else None,
             )
 
@@ -351,17 +379,17 @@ class ThermalConstraintBuilder:
         named = not self._has_flat and (self._has_stop or self._has_start)
         for t in m.time_frame:
             if self._has_stop:
-                m.add_constraint(m.turned_off.get_value(t) <= 1 - m.STOP.get_value(t - ts))
-                m.add_constraint(m.turned_off.get_value(t) <= m.STOP.get_value(t))
-                m.add_constraint(
-                    m.turned_off.get_value(t) >= m.STOP.get_value(t) - m.STOP.get_value(t - ts),
+                self._add_binary_aux_constraints(
+                    m.turned_off.get_value(t),
+                    m.STOP.get_value(t - ts),
+                    m.STOP.get_value(t),
                     f"constraints_defining_turned_off_{t}" if named else None,
                 )
             else:
-                m.add_constraint(m.turned_off.get_value(t) <= 1 - m.OFF.get_value(t - ts))
-                m.add_constraint(m.turned_off.get_value(t) <= m.OFF.get_value(t))
-                m.add_constraint(
-                    m.turned_off.get_value(t) >= m.OFF.get_value(t) - m.OFF.get_value(t - ts),
+                self._add_binary_aux_constraints(
+                    m.turned_off.get_value(t),
+                    m.OFF.get_value(t - ts),
+                    m.OFF.get_value(t),
                     f"constraints_defining_turned_off_{t}" if named else None,
                 )
 
@@ -370,21 +398,27 @@ class ThermalConstraintBuilder:
         m = self._m
         ts = m.parameters.temporal.timestep
         for t in m.time_frame_union_minus_one:
-            m.add_constraint(m.stable.get_value(t) <= 1 - m.ON_FLAT.get_value(t - ts))
-            m.add_constraint(m.stable.get_value(t) <= m.ON_FLAT.get_value(t))
-            m.add_constraint(m.stable.get_value(t) >= m.ON_FLAT.get_value(t) - m.ON_FLAT.get_value(t - ts))
+            self._add_binary_aux_constraints(
+                m.stable.get_value(t),
+                m.ON_FLAT.get_value(t - ts),
+                m.ON_FLAT.get_value(t),
+            )
 
     def _add_entered_up_down_constraints(self) -> None:
         """eqs. (7) and (8) — T_stable >= 1 only."""
         m = self._m
         ts = m.parameters.temporal.timestep
         for t in m.time_frame_union_minus_one:
-            m.add_constraint(m.entered_up.get_value(t) <= 1 - m.ON_UP.get_value(t - ts))
-            m.add_constraint(m.entered_up.get_value(t) <= m.ON_UP.get_value(t))
-            m.add_constraint(m.entered_up.get_value(t) >= m.ON_UP.get_value(t) - m.ON_UP.get_value(t - ts))
-            m.add_constraint(m.entered_down.get_value(t) <= 1 - m.ON_DOWN.get_value(t - ts))
-            m.add_constraint(m.entered_down.get_value(t) <= m.ON_DOWN.get_value(t))
-            m.add_constraint(m.entered_down.get_value(t) >= m.ON_DOWN.get_value(t) - m.ON_DOWN.get_value(t - ts))
+            self._add_binary_aux_constraints(
+                m.entered_up.get_value(t),
+                m.ON_UP.get_value(t - ts),
+                m.ON_UP.get_value(t),
+            )
+            self._add_binary_aux_constraints(
+                m.entered_down.get_value(t),
+                m.ON_DOWN.get_value(t - ts),
+                m.ON_DOWN.get_value(t),
+            )
 
     def _add_ud_gradient_auxiliary_constraints(self) -> None:
         """eqs. (27–30): tilde_U, tilde_D, U, D — T_stable >= 1 only."""
@@ -392,49 +426,34 @@ class ThermalConstraintBuilder:
         ts = m.parameters.temporal.timestep
         for t in m.time_frame:
             t_prev = t - ts
+            dq = m.q.get_value(t) - m.q.get_value(t_prev)
             # tilde_U (eq. 28)
-            m.add_constraint(m.get_variable(m.aux_up_grad_at(t)) <= m.Q_max * m.ON_UP.get_value(t_prev))
-            m.add_constraint(m.get_variable(m.aux_up_grad_at(t)) >= m.Q_min * m.ON_UP.get_value(t_prev))
-            m.add_constraint(
-                m.get_variable(m.aux_up_grad_at(t))
-                <= m.q.get_value(t) - m.q.get_value(t_prev) - m.Q_min * (1 - m.ON_UP.get_value(t_prev))
-            )
-            m.add_constraint(
-                m.get_variable(m.aux_up_grad_at(t))
-                >= m.q.get_value(t) - m.q.get_value(t_prev) - m.Q_max * (1 - m.ON_UP.get_value(t_prev)),
+            self._add_linearized_product(
+                m.get_variable(m.aux_up_grad_at(t)),
+                dq,
+                m.ON_UP.get_value(t_prev),
                 f"VALUE_of_tilde_UP_at_{t}",
             )
             # tilde_D (eq. 30)
-            m.add_constraint(m.get_variable(m.aux_down_grad_at(t)) <= m.Q_max * m.ON_DOWN.get_value(t_prev))
-            m.add_constraint(m.get_variable(m.aux_down_grad_at(t)) >= m.Q_min * m.ON_DOWN.get_value(t_prev))
-            m.add_constraint(
-                m.get_variable(m.aux_down_grad_at(t))
-                <= m.q.get_value(t) - m.q.get_value(t_prev) - m.Q_min * (1 - m.ON_DOWN.get_value(t_prev))
-            )
-            m.add_constraint(
-                m.get_variable(m.aux_down_grad_at(t))
-                >= m.q.get_value(t) - m.q.get_value(t_prev) - m.Q_max * (1 - m.ON_DOWN.get_value(t_prev)),
+            self._add_linearized_product(
+                m.get_variable(m.aux_down_grad_at(t)),
+                dq,
+                m.ON_DOWN.get_value(t_prev),
                 f"VALUE_of_tilde_DOWN_at_{t}",
             )
         for t in m.time_frame:
             # U (eq. 27)
-            m.add_constraint(m.U.get_value(t) <= m.Q_max * m.ON_UP.get_value(t))
-            m.add_constraint(m.U.get_value(t) >= m.Q_min * m.ON_UP.get_value(t))
-            m.add_constraint(
-                m.U.get_value(t) <= m.get_variable(m.aux_up_grad_at(t)) - m.Q_min * (1 - m.ON_UP.get_value(t))
-            )
-            m.add_constraint(
-                m.U.get_value(t) >= m.get_variable(m.aux_up_grad_at(t)) - m.Q_max * (1 - m.ON_UP.get_value(t)),
+            self._add_linearized_product(
+                m.U.get_value(t),
+                m.get_variable(m.aux_up_grad_at(t)),
+                m.ON_UP.get_value(t),
                 f"VALUE_of_UP_at_{t}",
             )
             # D (eq. 29)
-            m.add_constraint(m.D.get_value(t) <= m.Q_max * m.ON_DOWN.get_value(t))
-            m.add_constraint(m.D.get_value(t) >= m.Q_min * m.ON_DOWN.get_value(t))
-            m.add_constraint(
-                m.D.get_value(t) <= m.get_variable(m.aux_down_grad_at(t)) - m.Q_min * (1 - m.ON_DOWN.get_value(t))
-            )
-            m.add_constraint(
-                m.D.get_value(t) >= m.get_variable(m.aux_down_grad_at(t)) - m.Q_max * (1 - m.ON_DOWN.get_value(t)),
+            self._add_linearized_product(
+                m.D.get_value(t),
+                m.get_variable(m.aux_down_grad_at(t)),
+                m.ON_DOWN.get_value(t),
                 f"VALUE_of_DOWN_at_{t}",
             )
 
@@ -510,92 +529,99 @@ class ThermalConstraintBuilder:
 
     def _add_transition_constraints(self) -> None:
         """Add all forbidden state transition constraints."""
+        if not self._has_flat and not self._has_start and not self._has_stop:
+            return  # Combination 1: all transitions allowed
+        if self._has_flat:
+            self._add_flat_transition_constraints()
+        else:
+            self._add_no_flat_transition_constraints()
+
+    def _add_flat_transition_constraints(self) -> None:
+        """Transition constraints for combinations with T_stable >= 1 (combs 3, 5, 6, 8)."""
         m = self._m
         ts = m.parameters.temporal.timestep
 
-        if not self._has_flat and not self._has_start and not self._has_stop:
-            return  # Combination 1: all transitions allowed
-
-        if self._has_flat:
-            for t in m.time_frame_union_minus_one:
-                t_prev = t - ts
-                # UP ↔ DOWN forbidden (eq. 25)
-                m.add_constraint(m.ON_UP.get_value(t_prev) + m.ON_DOWN.get_value(t) <= 1)
-                # Named only for comb 3 (flat, no_stop, no_start)
-                down_up_name = (
-                    f"transitions_constraints_at_{t}" if (not self._has_stop and not self._has_start) else None
+        for t in m.time_frame_union_minus_one:
+            t_prev = t - ts
+            # UP ↔ DOWN forbidden (eq. 25)
+            m.add_constraint(m.ON_UP.get_value(t_prev) + m.ON_DOWN.get_value(t) <= 1)
+            # Named only for comb 3 (flat, no_stop, no_start)
+            down_up_name = f"transitions_constraints_at_{t}" if (not self._has_stop and not self._has_start) else None
+            m.add_constraint(m.ON_DOWN.get_value(t_prev) + m.ON_UP.get_value(t) <= 1, down_up_name)
+            if self._has_stop:
+                # STOP → ON forbidden (eq. 13)
+                m.add_constraint(m.STOP.get_value(t_prev) + m.ON_FLAT.get_value(t) <= 1)
+                m.add_constraint(m.STOP.get_value(t_prev) + m.ON_DOWN.get_value(t) <= 1)
+                m.add_constraint(
+                    m.STOP.get_value(t_prev) + m.ON_UP.get_value(t) <= 1,
+                    f"transitions_constraints_on_timeFrame_union_minus_one_at_{t}",
                 )
-                m.add_constraint(m.ON_DOWN.get_value(t_prev) + m.ON_UP.get_value(t) <= 1, down_up_name)
-                if self._has_stop:
-                    # STOP → ON forbidden (eq. 13)
-                    m.add_constraint(m.STOP.get_value(t_prev) + m.ON_FLAT.get_value(t) <= 1)
-                    m.add_constraint(m.STOP.get_value(t_prev) + m.ON_DOWN.get_value(t) <= 1)
-                    m.add_constraint(
-                        m.STOP.get_value(t_prev) + m.ON_UP.get_value(t) <= 1,
-                        f"transitions_constraints_on_timeFrame_union_minus_one_at_{t}",
-                    )
 
-            for t in m.time_frame:
-                t_prev = t - ts
+        for t in m.time_frame:
+            t_prev = t - ts
+            if self._has_stop:
+                m.add_constraint(m.ON_UP.get_value(t_prev) + m.STOP.get_value(t) <= 1)  # eq. (21)
+                # OFF→STOP: named only when no _has_start (comb 5); unnamed for comb 8
+                off_stop_name = f"transitions_constraints_at_{t}" if not self._has_start else None
+                m.add_constraint(m.OFF.get_value(t_prev) + m.STOP.get_value(t) <= 1, off_stop_name)  # eq. (12)
+            if self._has_start:
+                m.add_constraint(m.ON_UP.get_value(t_prev) + m.START.get_value(t) <= 1)  # eq. (10)
+                m.add_constraint(m.ON_DOWN.get_value(t_prev) + m.START.get_value(t) <= 1)  # eq. (10)
+                m.add_constraint(m.ON_FLAT.get_value(t_prev) + m.START.get_value(t) <= 1)  # eq. (10)
+                m.add_constraint(m.START.get_value(t_prev) + m.OFF.get_value(t) <= 1)  # eq. (11)
                 if self._has_stop:
-                    m.add_constraint(m.ON_UP.get_value(t_prev) + m.STOP.get_value(t) <= 1)  # eq. (21)
-                    # OFF→STOP: named only when no _has_start (comb 5); unnamed for comb 8
-                    off_stop_name = f"transitions_constraints_at_{t}" if not self._has_start else None
-                    m.add_constraint(m.OFF.get_value(t_prev) + m.STOP.get_value(t) <= 1, off_stop_name)  # eq. (12)
-                if self._has_start:
-                    m.add_constraint(m.ON_UP.get_value(t_prev) + m.START.get_value(t) <= 1)  # eq. (10)
-                    m.add_constraint(m.ON_DOWN.get_value(t_prev) + m.START.get_value(t) <= 1)  # eq. (10)
-                    m.add_constraint(m.ON_FLAT.get_value(t_prev) + m.START.get_value(t) <= 1)  # eq. (10)
-                    m.add_constraint(m.START.get_value(t_prev) + m.OFF.get_value(t) <= 1)  # eq. (11)
-                    if self._has_stop:
-                        m.add_constraint(m.START.get_value(t_prev) + m.STOP.get_value(t) <= 1)  # eq. (14)
-                        m.add_constraint(m.STOP.get_value(t_prev) + m.START.get_value(t) <= 1)  # eq. (14)
-                    # OFF → ON forbidden (eq. 15) — only when has_start
-                    m.add_constraint(m.OFF.get_value(t_prev) + m.ON_UP.get_value(t) <= 1)
-                    if self._has_stop:
-                        # Comb 8: OFF→ON_FLAT, OFF→ON_DOWN (named last)
-                        m.add_constraint(m.OFF.get_value(t_prev) + m.ON_FLAT.get_value(t) <= 1)
-                        m.add_constraint(
-                            m.OFF.get_value(t_prev) + m.ON_DOWN.get_value(t) <= 1,
-                            f"transitions_constraints_at_{t}",
-                        )
-                    else:
-                        # Comb 6: OFF→ON_DOWN, OFF→ON_FLAT (named last)
-                        m.add_constraint(m.OFF.get_value(t_prev) + m.ON_DOWN.get_value(t) <= 1)
-                        m.add_constraint(
-                            m.OFF.get_value(t_prev) + m.ON_FLAT.get_value(t) <= 1,
-                            f"transitions_constraints_at_{t}",
-                        )
-        else:
-            # No ON_FLAT — simpler transition set (combinations 2, 4, 7)
-            for t in m.time_frame:
-                t_prev = t - ts
+                    m.add_constraint(m.START.get_value(t_prev) + m.STOP.get_value(t) <= 1)  # eq. (14)
+                    m.add_constraint(m.STOP.get_value(t_prev) + m.START.get_value(t) <= 1)  # eq. (14)
+                # OFF → ON forbidden (eq. 15) — only when has_start
+                m.add_constraint(m.OFF.get_value(t_prev) + m.ON_UP.get_value(t) <= 1)
                 if self._has_stop:
-                    m.add_constraint(m.STOP.get_value(t_prev) + m.ON_UP.get_value(t) <= 1)  # eq. (13)
-                    m.add_constraint(m.STOP.get_value(t_prev) + m.ON_DOWN.get_value(t) <= 1)  # eq. (13)
-                    m.add_constraint(m.OFF.get_value(t_prev) + m.STOP.get_value(t) <= 1)  # eq. (12)
-                    m.add_constraint(m.ON_UP.get_value(t_prev) + m.OFF.get_value(t) <= 1)  # eq. (18)
-                    if not self._has_start:
-                        # Comb 2: ON_DOWN→OFF is last and named
-                        m.add_constraint(
-                            m.ON_DOWN.get_value(t_prev) + m.OFF.get_value(t) <= 1,
-                            f"transitions_constraints_at_{t}",
-                        )  # eq. (18)
-                    else:
-                        m.add_constraint(m.ON_DOWN.get_value(t_prev) + m.OFF.get_value(t) <= 1)  # eq. (18)
-                if self._has_start:
-                    m.add_constraint(m.ON_UP.get_value(t_prev) + m.START.get_value(t) <= 1)  # eq. (10)
-                    m.add_constraint(m.ON_DOWN.get_value(t_prev) + m.START.get_value(t) <= 1)  # eq. (10)
-                    m.add_constraint(m.START.get_value(t_prev) + m.OFF.get_value(t) <= 1)  # eq. (11)
-                    if self._has_stop:
-                        # Comb 7: START→STOP, STOP→START before OFF→ON
-                        m.add_constraint(m.START.get_value(t_prev) + m.STOP.get_value(t) <= 1)  # eq. (14)
-                        m.add_constraint(m.STOP.get_value(t_prev) + m.START.get_value(t) <= 1)  # eq. (14)
-                    m.add_constraint(m.OFF.get_value(t_prev) + m.ON_UP.get_value(t) <= 1)  # eq. (15)
+                    # Comb 8: OFF→ON_FLAT, OFF→ON_DOWN (named last)
+                    m.add_constraint(m.OFF.get_value(t_prev) + m.ON_FLAT.get_value(t) <= 1)
                     m.add_constraint(
                         m.OFF.get_value(t_prev) + m.ON_DOWN.get_value(t) <= 1,
                         f"transitions_constraints_at_{t}",
-                    )  # eq. (15)
+                    )
+                else:
+                    # Comb 6: OFF→ON_DOWN, OFF→ON_FLAT (named last)
+                    m.add_constraint(m.OFF.get_value(t_prev) + m.ON_DOWN.get_value(t) <= 1)
+                    m.add_constraint(
+                        m.OFF.get_value(t_prev) + m.ON_FLAT.get_value(t) <= 1,
+                        f"transitions_constraints_at_{t}",
+                    )
+
+    def _add_no_flat_transition_constraints(self) -> None:
+        """Transition constraints for combinations without T_stable (combs 2, 4, 7)."""
+        m = self._m
+        ts = m.parameters.temporal.timestep
+
+        for t in m.time_frame:
+            t_prev = t - ts
+            if self._has_stop:
+                m.add_constraint(m.STOP.get_value(t_prev) + m.ON_UP.get_value(t) <= 1)  # eq. (13)
+                m.add_constraint(m.STOP.get_value(t_prev) + m.ON_DOWN.get_value(t) <= 1)  # eq. (13)
+                m.add_constraint(m.OFF.get_value(t_prev) + m.STOP.get_value(t) <= 1)  # eq. (12)
+                m.add_constraint(m.ON_UP.get_value(t_prev) + m.OFF.get_value(t) <= 1)  # eq. (18)
+                if not self._has_start:
+                    # Comb 2: ON_DOWN→OFF is last and named
+                    m.add_constraint(
+                        m.ON_DOWN.get_value(t_prev) + m.OFF.get_value(t) <= 1,
+                        f"transitions_constraints_at_{t}",
+                    )  # eq. (18)
+                else:
+                    m.add_constraint(m.ON_DOWN.get_value(t_prev) + m.OFF.get_value(t) <= 1)  # eq. (18)
+            if self._has_start:
+                m.add_constraint(m.ON_UP.get_value(t_prev) + m.START.get_value(t) <= 1)  # eq. (10)
+                m.add_constraint(m.ON_DOWN.get_value(t_prev) + m.START.get_value(t) <= 1)  # eq. (10)
+                m.add_constraint(m.START.get_value(t_prev) + m.OFF.get_value(t) <= 1)  # eq. (11)
+                if self._has_stop:
+                    # Comb 7: START→STOP, STOP→START before OFF→ON
+                    m.add_constraint(m.START.get_value(t_prev) + m.STOP.get_value(t) <= 1)  # eq. (14)
+                    m.add_constraint(m.STOP.get_value(t_prev) + m.START.get_value(t) <= 1)  # eq. (14)
+                m.add_constraint(m.OFF.get_value(t_prev) + m.ON_UP.get_value(t) <= 1)  # eq. (15)
+                m.add_constraint(
+                    m.OFF.get_value(t_prev) + m.ON_DOWN.get_value(t) <= 1,
+                    f"transitions_constraints_at_{t}",
+                )  # eq. (15)
 
     def _add_eviction_constraints(self) -> None:
         """Force unit to leave START/STOP after their respective durations."""
@@ -820,19 +846,20 @@ class ThermalConstraintBuilder:
     def _add_daily_energy_constraint(self) -> None:
         """Limit total energy output per calendar day when the unit has a daily energy cap."""
         m = self._m
-        if not m.thermal_unit.has_daily_energy_constraint:
+        if not m.thermal_unit.has_daily_energy_constraint or m.thermal_unit.maximum_daily_energy is None:
             return
-        days = sorted({datetime(t.year, t.month, t.day) for t in m.time_frame})
-        for day in days:
-            steps = [t for t in m.time_frame if t.year == day.year and t.month == day.month and t.day == day.day]
-            if steps and m.thermal_unit.maximum_daily_energy is not None:
-                m.add_constraint(
-                    sum(m.q.get_value(t) for t in steps)
-                    <= m.thermal_unit.maximum_daily_energy.get_value(day)
-                    * m.parameters.temporal.timestep.total_days()
-                    * len(steps),
-                    f"energy_limit_of_{m.thermal_unit.name}_at_{day}",
-                )
+        steps_by_day: dict[datetime, list] = {}
+        for t in m.time_frame:
+            key = datetime(t.year, t.month, t.day)
+            steps_by_day.setdefault(key, []).append(t)
+        for day, steps in steps_by_day.items():
+            m.add_constraint(
+                sum(m.q.get_value(t) for t in steps)
+                <= m.thermal_unit.maximum_daily_energy.get_value(day)
+                * m.parameters.temporal.timestep.total_days()
+                * len(steps),
+                f"energy_limit_of_{m.thermal_unit.name}_at_{day}",
+            )
 
     def _add_gradient_constraints(self) -> None:
         """eqs. (35–38) — upward and downward power gradient constraints."""
