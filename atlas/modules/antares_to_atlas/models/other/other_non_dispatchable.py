@@ -25,29 +25,24 @@ def convert_other_non_dispatchable_units(
     for area_name in parameters.market_areas:
         if area_name not in areas:
             continue
-        # try:
-        #     sc_hydro = antares_node.HydroReservoir.HydroSelectedScenario[parameters.scenario - 1]
-        # except SystemError:
-        #     msg = f"Error with scenario {parameters.scenario} for unit {antares_node.Name}_hydro, potentially out of bounds"
-        #     raise SystemError(msg)
 
-        # if antares_node.HydroReservoir.ROR.Count > sc_hydro - 1:
-        #     ror = antares_node.HydroReservoir.ROR.TimeSeries[sc_hydro - 1]
-        ror = areas[area_name].hydro.get_ror_series()  # TODO antares_node.HydroReservoir.ROR.TimeSeries[sc_hydro - 1]
-        if ror.abs().max().item() > 0:
-            non_disp_units.append(
-                OtherNonDispatchable(
-                    name=f"{area_name}_ror",
-                    portfolio=atlas_dataset.get(
-                        "portfolio",
-                        f"generator_{area_name}"
-                        if parameters.consumption_production_separation
-                        else f"portfolio_{area_name}",
-                    ),
-                    node=atlas_dataset.get("node", area_name),
-                    maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, ror),
+        ror = areas[area_name].hydro.get_ror_series()
+        scenario = study.get_output(parameters.output_name).get_hydro_ts_numbers(area_name).get(parameters.scenario)
+        if scenario - 1 in ror.columns:
+            if ror[parameters.scenario - 1].abs().max().item() > 0:
+                non_disp_units.append(
+                    OtherNonDispatchable(
+                        name=f"{area_name}_ror",
+                        portfolio=atlas_dataset.get(
+                            "portfolio",
+                            f"generator_{area_name}"
+                            if parameters.consumption_production_separation
+                            else f"portfolio_{area_name}",
+                        ),
+                        node=atlas_dataset.get("node", area_name),
+                        maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, ror),
+                    )
                 )
-            )
 
             # for source in antares_node.MiscGenProduction.Index: # TODO get from outputs mc-ind MISC.NDG
             #     prod = antares_node.MiscGenProduction[source]

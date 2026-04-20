@@ -12,9 +12,8 @@ from pendulum import duration
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.models.thermal.thermal import (
-    _apply_thermic_config_properties,
-    _get_duration_average,
-    _get_rate_average,
+    _get_co2_factor,
+    _get_maximum_power,
     _get_variable_cost,
 )
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
@@ -125,11 +124,9 @@ def _process_waste_unit(
 
     waste_name = f"{area.id}_Waste"
 
-    # Look for existing Waste Load in new_load_units (accumulate if found)
     existing_waste = next((u for u in new_load_units if u.name == waste_name), None)
 
-    # Also check already-added loads in atlas_dataset
-    if existing_waste is None and hasattr(atlas_dataset, "load"):
+    if existing_waste is None:
         existing_waste = next((u for u in atlas_dataset.load if u.name == waste_name), None)
 
     if existing_waste is None:
@@ -171,69 +168,17 @@ def _process_classic_mixed_fuel(
         logger.warning(f"Could not detect technology for Mixed_fuel unit {thermal.name}, skipping")
         return None
 
-    # Filter zero-capacity units
-    # TODO: Verify field names NominalCapacity and UnitCount
-    # In old code: antares_thermal.NominalCapacity * antares_thermal.UnitCount == 0.0
-    installed_capacity = 0.0  # TODO: float(thermal.nominal_capacity) * float(thermal.unit_count)
-    if installed_capacity == 0.0:
+    maximum_power_ts = _get_maximum_power(area, thermal, parameters)
+    if maximum_power_ts is None:
         return None
 
-    # Maximum power
-    try:
-        # TODO: Get ThermalSelectedScenario and Disponibility
-        # In old code:
-        #   sc = antares_thermal.ThermalSelectedScenario[p.scenario - 1]
-        #   equipment.MaximumPower = antares_thermal.Disponibility[sc - 1]
-        maximum_power_ts = None  # TODO
-        if maximum_power_ts is None:
-            raise ValueError("Disponibility not available")
-    except Exception:
-        # Fallback: compute from nominal capacity
-        # TODO: NominalCapacity * UnitCount * CapacityModulation * (1 - FORate) * (1 - PORate)
-        maximum_power_ts = Timeseries.from_index(
-            start_date=parameters.start_date,
-            frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
-            default_value=0.0,
-        )  # TODO: Replace with actual computation
-
-    # Minimum power from MinStablePower
-    # TODO: Verify field name
-    min_stable_power = 0.0  # TODO: float(thermal.min_stable_power)
-    minimum_power_ts = Timeseries.from_index(
-        start_date=parameters.start_date,
-        frequency="1h",
-        end_date=parameters.start_date + duration(years=1),
-        default_value=min_stable_power,
-    )
+    installed_capacity = thermal.properties.nominal_capacity * thermal.properties.unit_count
+    if installed_capacity == 0:
+        return None
 
     # Variable cost
     variable_cost_ts = _get_variable_cost(thermal, parameters)
-
-    # Startup cost
-    startup_cost_value = 0.0  # TODO: float(thermal.startup_cost)
-    startup_cost_ts = Timeseries.from_index(
-        start_date=parameters.start_date,
-        frequency="1h",
-        end_date=parameters.start_date + duration(years=1),
-        default_value=startup_cost_value,
-    )
-
-    # CO2 factor: use antares value if non-zero, else look up by technology
-    # TODO: Verify field name for CO2
-    co2_value = 0.0  # TODO: float(thermal.co2)
-    co2_factor = co2_value if co2_value != 0.0 else parameters.co2_emission_factors.get(techno)
-
-    # Outage/shutdown statistics
-    outage_mean_duration = _get_duration_average(thermal, "fo_duration")
-    scheduled_shutdown_mean_duration = _get_duration_average(thermal, "po_duration")
-    outage_probability = _get_rate_average(thermal, "fo_rate")
-    scheduled_shutdown_probability = _get_rate_average(thermal, "po_rate")
-
-    # Min up/down times
-    minimum_time_off = None  # TODO: duration(hours=thermal.min_down_time)
-    minimum_time_on = None  # TODO: duration(hours=thermal.min_up_time)
-    unit_count = None  # TODO: int(thermal.unit_count)
+    thermal_group_params = parameters.thermal.get(thermal.properties.group)
 
     equipment = Thermal(
         name=thermal.name,
@@ -244,21 +189,36 @@ def _process_classic_mixed_fuel(
         ),
         has_daily_energy_constraint=False,
         maximum_power=maximum_power_ts,
-        minimum_power=minimum_power_ts,
+        minimum_power=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=thermal.properties.min_stable_power,
+        ),
         installed_capacity=installed_capacity,
         variable_cost=variable_cost_ts,
-        startup_cost=startup_cost_ts,
-        co2_emission_factor=co2_factor,
-        outage_mean_duration=outage_mean_duration,
-        scheduled_shutdown_mean_duration=scheduled_shutdown_mean_duration,
-        outage_probability=outage_probability,
-        scheduled_shutdown_probability=scheduled_shutdown_probability,
-        minimum_time_off=minimum_time_off,
-        minimum_time_on=minimum_time_on,
-        unit_count=unit_count,
+        startup_cost=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=thermal.properties.startup_cost,
+        ),
+        co2_emission_factor=_get_co2_factor(thermal, thermal.name, thermal.properties.group, parameters),
+        outage_mean_duration=thermal.get_prepro_data_matrix()[0].mean(),  # FODuration
+        scheduled_shutdown_mean_duration=thermal.get_prepro_data_matrix()[1].mean(),  # PODuration
+        outage_probability=thermal.get_prepro_data_matrix()[2].mean(),  # FORate
+        scheduled_shutdown_probability=thermal.get_prepro_data_matrix()[0].mean(),  # PORate
+        minimum_time_off=duration(hours=thermal.properties.min_down_time),
+        minimum_time_on=duration(hours=thermal.properties.min_up_time),
+        unit_count=thermal.properties.unit_count,
+        minimum_stable_power_duration=thermal_group_params.minimum_stable_power_duration,
+        startup_delay_probability=thermal_group_params.startup_delay_probability,
+        startup_duration=thermal_group_params.startup_duration,
+        shutdown_duration=thermal_group_params.shutdown_duration,
+        maximum_gradient=thermal_group_params.maximum_gradient * thermal.properties.unit_count,
+        strategy=thermal_group_params.strategy,
+        setup_delay=thermal_group_params.setup_delay,
     )
-
-    _apply_thermic_config_properties(equipment, thermal.name, techno, parameters.thermal, unit_count)
 
     logger.debug(f"Created mixed fuel thermal unit: {thermal.name} ({techno})")
     return equipment

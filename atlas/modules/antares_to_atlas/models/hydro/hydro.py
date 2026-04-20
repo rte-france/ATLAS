@@ -151,7 +151,6 @@ def _create_hydraulic_equipment(
         )[[("H. ROR", "MWh")]]
     )
 
-    power_hourly.set_frequency("1h")
     daily_energy = power_hourly.groupby("1d", agg="sum")
     hydro.minimum_daily_energy = daily_energy * parameters.hydro.min_energy_coeff
     hydro.maximum_daily_energy = daily_energy * parameters.hydro.max_energy_coeff
