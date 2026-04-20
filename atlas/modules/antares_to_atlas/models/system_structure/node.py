@@ -5,6 +5,7 @@ This file is part of the ATLAS project.
 Node, MarketArea, Portfolio and ControlBlock conversion.
 """
 
+from antares.craft import Frequency, MCIndAreasDataType
 from antares.craft.model.study import Study
 from loguru import logger
 from pendulum import duration
@@ -57,14 +58,19 @@ def convert_system_structure(
         # Create Control Block
         ctrl_block = ControlBlock(name=area_name)
         control_blocks.append(ctrl_block)
+        try:
+            marginal_price = study.get_output(parameters.output_name).get_mc_ind_area(
+                parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.name
+            )[("MRG. PRICE", "Euro")]
 
-        if str(parameters.scenario) in area.CalculatedMarginalPrice.Index:  # TODO
             market_area = MarketArea(
                 name=area_name,
                 control_block=ctrl_block,
                 price_forecast_medium=ForecastingMatrix().add(
                     index=parameters.execution_date,
-                    timeseries=area.CalculatedMarginalPrice.GetTimeSeriesByName[parameters.scenario],  # TODO
+                    timeseries=Timeseries.from_values(
+                        start_date=parameters.start_date, frequency="1h", values=marginal_price
+                    ),  # TODO
                 ),
                 minimum_price=Timeseries.from_index(
                     parameters.start_date,
@@ -79,43 +85,45 @@ def convert_system_structure(
                     default_value=parameters.maximum_price,
                 ),
             )
-        market_areas.append(market_area)
+            market_areas.append(market_area)
 
-        # Create Node
-        node = Node(
-            name=area_name,
-            control_block=ctrl_block,
-            market_area=market_area,
-        )
-        nodes.append(node)
-
-        # Create Portfolio(s)
-        if parameters.consumption_production_separation:
-            logger.debug(f"  Creating separate producer/consumer portfolios for {area_name}")
-
-            # Generator portfolio
-            portfolio_gen = Portfolio(
-                name=f"generator_{area_name}",
-                market_area=market_area,
+            # Create Node
+            node = Node(
+                name=area_name,
                 control_block=ctrl_block,
+                market_area=market_area,
             )
-            portfolios.append(portfolio_gen)
+            nodes.append(node)
 
-            # Supplier portfolio
-            portfolio_load = Portfolio(
-                name=f"supplier_{area_name}",
-                market_area=market_area,
-                control_block=ctrl_block,
-            )
-            portfolios.append(portfolio_load)
-        else:
-            logger.debug(f"  Creating unified portfolio for {area_name}")
-            portfolio = Portfolio(
-                name=f"portfolio_{area_name}",
-                market_area=market_area,
-                control_block=ctrl_block,
-            )
-            portfolios.append(portfolio)
+            # Create Portfolio(s)
+            if parameters.consumption_production_separation:
+                logger.debug(f"  Creating separate producer/consumer portfolios for {area_name}")
+
+                # Generator portfolio
+                portfolio_gen = Portfolio(
+                    name=f"generator_{area_name}",
+                    market_area=market_area,
+                    control_block=ctrl_block,
+                )
+                portfolios.append(portfolio_gen)
+
+                # Supplier portfolio
+                portfolio_load = Portfolio(
+                    name=f"supplier_{area_name}",
+                    market_area=market_area,
+                    control_block=ctrl_block,
+                )
+                portfolios.append(portfolio_load)
+            else:
+                logger.debug(f"  Creating unified portfolio for {area_name}")
+                portfolio = Portfolio(
+                    name=f"portfolio_{area_name}",
+                    market_area=market_area,
+                    control_block=ctrl_block,
+                )
+                portfolios.append(portfolio)
+        except Exception:
+            logger.warning("Scenario selected not found. Can not proceed to conversion.")
 
     logger.info(f"Converted {len(nodes)} nodes, {len(market_areas)} market areas, {len(portfolios)} portfolios")
 

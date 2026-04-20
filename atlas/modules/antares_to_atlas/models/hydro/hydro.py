@@ -50,8 +50,8 @@ def convert_hydro_units(
         logger.debug(f"Processing hydraulic unit for area {area.id}")
 
         study_output = study.get_output(parameters.output_name)
-        scenario = study_output.get_hydro_ts_numbers(area.name).get(parameters.scenario, None)
-        if scenario:
+        if parameters.scenario in study_output.get_hydro_ts_numbers(area.name):
+            scenario = study_output.get_hydro_ts_numbers(area.name).get(parameters.scenario, None)
             if area.hydro.get_maxpower().abs().max() == 0:
                 logger.debug(f"Skipping hydraulic unit for area {area.id} (max power is 0)")
                 continue
@@ -87,6 +87,8 @@ def _create_hydraulic_equipment(
     """Create a Hydraulic equipment for an area."""
 
     maximum_power_ts = Timeseries(area.hydro.get_maxpower())
+
+    fragment = parameters.hydro.get_fragment(area.id)
 
     hydro = Hydro(
         name=f"{area.id}_hydro",
@@ -129,6 +131,8 @@ def _create_hydraulic_equipment(
             end_date=parameters.start_date + duration(years=1),
             default_value=0.0,
         ),
+        fragment_prices=fragment.prices,
+        fragment_volumes=fragment.volumes,
     )
 
     if (parameters.hydro.use_heuristic or area.hydro.properties.reservoir) and parameters.hydro.use_water_value:
@@ -152,11 +156,7 @@ def _create_hydraulic_equipment(
     hydro.minimum_daily_energy = daily_energy * parameters.hydro.min_energy_coeff
     hydro.maximum_daily_energy = daily_energy * parameters.hydro.max_energy_coeff
 
-    fragment = parameters.hydro.get_fragment(area.id)
-    hydro.fragment_prices = fragment.prices
-    hydro.fragment_volumes = fragment.volumes
-
-    logger.debug(f"Created hydraulic equipment for area: {area.id}")
+    logger.info(f"Created hydraulic equipment for area: {area.id}")
     return hydro
 
 
