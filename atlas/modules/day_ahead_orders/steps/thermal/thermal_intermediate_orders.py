@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 
 import itertools
 import math
-from collections.abc import Callable
 
 from pendulum import DateTime
 
@@ -19,16 +18,7 @@ from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.steps.thermal import (
-    combination_1,
-    combination_2,
-    combination_3,
-    combination_4,
-    combination_5,
-    combination_6,
-    combination_7,
-    combination_8,
-)
+from atlas.modules.day_ahead_orders.steps.thermal.constraint_builder import ThermalConstraintBuilder
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_optimization_model import ThermalOptimizationModel
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_unit_orders import ThermalUnitOrders
 from atlas.objects.equipment.thermal import Thermal
@@ -409,19 +399,8 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
             for price, price_type in zip(prices, price_types, strict=False):
                 model = ThermalOptimizationModel(self.parameters, unit, price, price_type, solver_options)
                 model.create_objective_function("maximize")
-                combination_functions: dict[int, Callable[..., None]] = {
-                    1: combination_1.execute,
-                    2: combination_2.execute,
-                    3: combination_3.execute,
-                    4: combination_4.execute,
-                    5: combination_5.execute,
-                    6: combination_6.execute,
-                    7: combination_7.execute,
-                    8: combination_8.execute,
-                }
-                combination_function = combination_functions.get(model.determine_combination(), combination_1.execute)
                 day_zero = model.is_day_zero()
-                combination_function(model=model, day_zero=day_zero)
+                ThermalConstraintBuilder(model).build(day_zero)
 
                 # Add daily energy constraint after all combination constraints
                 model.add_daily_energy_constraint()
