@@ -172,56 +172,34 @@ def _convert_single_thermal(
     if maximum_power_ts is None:
         return None
 
-    # Filter zero-capacity units
-    # TODO: Verify how to get NominalCapacity and UnitCount
-    # In old code: antares_thermal.NominalCapacity * antares_thermal.UnitCount == 0.0
-    installed_capacity = _get_installed_capacity(thermal)
-    if installed_capacity == 0.0:
+    installed_capacity = thermal.properties.nominal_capacity * thermal.properties.unit_count
+    if installed_capacity == 0:
         return None
 
-    # Build minimum power timeseries from MinStablePower
-    # TODO: Verify how to get MinStablePower from thermal cluster
-    # In old code: float(antares_thermal.MinStablePower)
-    min_stable_power = 0.0  # TODO: thermal.min_stable_power
     minimum_power_ts = Timeseries.from_index(
         start_date=parameters.start_date,
         frequency="1h",
         end_date=parameters.start_date + duration(years=1),
-        default_value=min_stable_power,
+        default_value=thermal.properties.min_stable_power,
     )
 
-    # Variable cost: prefer MarketBidCost, fall back to MarginalCost
-    # TODO: Verify how to get MarketBidCost, MarginalCost and modulation time series
     variable_cost_ts = _get_variable_cost(thermal, parameters)
 
-    # Startup cost timeseries
-    # TODO: Verify how to get StartupCost from thermal cluster
-    startup_cost_value = 0.0  # TODO: float(thermal.startup_cost)
     startup_cost_ts = Timeseries.from_index(
         start_date=parameters.start_date,
         frequency="1h",
         end_date=parameters.start_date + duration(years=1),
-        default_value=startup_cost_value,
+        default_value=thermal.properties.startup_cost,
     )
 
-    # CO2 emission factor
     co2_factor = _get_co2_factor(thermal, thermal_name, thermal_group, parameters)
-
-    # Outage and scheduled shutdown statistics
-    # TODO: Verify how to get FODuration, PODuration, FORate, PORate
-    outage_mean_duration = _get_duration_average(thermal, "fo_duration")
-    scheduled_shutdown_mean_duration = _get_duration_average(thermal, "po_duration")
-    outage_probability = _get_rate_average(thermal, "fo_rate")
-    scheduled_shutdown_probability = _get_rate_average(thermal, "po_rate")
-
-    # Min up/down times
-    # TODO: Verify field names for MinDownTime and MinUpTime
-    minimum_time_off = None  # TODO: duration(hours=thermal.min_down_time)
-    minimum_time_on = None  # TODO: duration(hours=thermal.min_up_time)
-
-    # Unit count
-    # TODO: Verify how to get UnitCount
-    unit_count = None  # TODO: int(thermal.unit_count)
+    outage_mean_duration = thermal.get_prepro_data_matrix()[0].mean()  # FODuration
+    scheduled_shutdown_mean_duration = thermal.get_prepro_data_matrix()[1].mean()  # PODuration
+    outage_probability = thermal.get_prepro_data_matrix()[2].mean()  # FORate
+    scheduled_shutdown_probability = thermal.get_prepro_data_matrix()[0].mean()  # PORate
+    minimum_time_off = thermal.properties.min_down_time
+    minimum_time_on = thermal.properties.min_up_time
+    unit_count = thermal.properties.unit_count
 
     equipment = Thermal(
         name=thermal_name,
@@ -246,7 +224,6 @@ def _convert_single_thermal(
         unit_count=unit_count,
     )
 
-    # Apply extra properties from thermic config CSV
     _apply_thermic_config_properties(equipment, thermal_name, thermal_group, thermic_parameter, unit_count)
 
     logger.debug(f"Created thermal unit: {thermal_name}")
@@ -275,51 +252,50 @@ def _get_maximum_power(
             raise ValueError("Disponibility not available")
 
     except Exception:
-        # Fallback: compute from nominal capacity
-        # TODO: Verify field names NominalCapacity, UnitCount, CapacityModulation, FORate, PORate
-        # In old code:
-        #   NominalCapacity * UnitCount * CapacityModulation * (1 - FORate) * (1 - PORate)
+        default_value = (
+            thermal.properties.nominal_capacity
+            * thermal.properties.unit_count
+            * thermal.get_prepro_modulation_matrix()[2]  # Capacity Modulation
+            * (1 - thermal.get_prepro_data_matrix()[2])  # FORate
+            * (1 - thermal.get_prepro_data_matrix()[3])  # PORate
+        )
+
         logger.debug(f"Falling back to computed maximum power for {getattr(thermal, 'name', thermal)}")
-        maximum_power_ts = Timeseries.from_index(
+        maximum_power_ts = Timeseries.from_values(
             start_date=parameters.start_date,
             frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
-            default_value=0.0,
-        )  # TODO: Replace with actual computation
+            values=default_value,
+        )
 
-    # Filter zero-power units
-    # TODO: Verify .abs().max() equivalent on Timeseries
-    # if maximum_power_ts.abs().max() == 0.0:
-    #     return None
+    if maximum_power_ts.abs().max() == 0.0:
+        return None
 
     return maximum_power_ts
 
 
-def _get_installed_capacity(thermal: ThermalCluster) -> float:
-    """Get installed capacity = NominalCapacity * UnitCount."""
-    # TODO: Verify field names on ThermalCluster
-    # In old code: antares_thermal.NominalCapacity * antares_thermal.UnitCount
-    return 0.0  # TODO: float(thermal.nominal_capacity) * float(thermal.unit_count)
-
-
-def _get_variable_cost(thermal: ThermalCluster, parameters: AntaresToAtlasParameters) -> Timeseries | None:
+def _get_variable_cost(thermal: ThermalCluster, parameters: AntaresToAtlasParameters) -> Timeseries:
     """Get variable cost timeseries.
 
     Prefers MarketBidCost * MarketBidModulation if MarketBidCost > 0,
     otherwise falls back to MarginalCost * MarginalCostModulation.
     """
-    # TODO: Verify field names on ThermalCluster
-    # In old code:
-    #   if antares_thermal.MarketBidCost > 0:
-    #       equipment.VariableCost = float(antares_thermal.MarketBidCost) * antares_thermal.MarketBidModulation
-    #   else:
-    #       equipment.VariableCost = float(antares_thermal.MarginalCost) * antares_thermal.MarginalCostModulation
-    return None  # TODO
+
+    if thermal.properties.market_bid_cost > 0:
+        return Timeseries.from_values(
+            parameters.start_date,
+            frequency="1h",
+            values=thermal.get_prepro_modulation_matrix()[1],  # MarketBidModulation
+        )
+    else:
+        return Timeseries.from_values(
+            parameters.start_date,
+            frequency="1h",
+            values=thermal.get_prepro_modulation_matrix()[0],  # MarginalCostModulation
+        )
 
 
 def _get_co2_factor(
     thermal: ThermalCluster,
-    thermal_name: str,
     thermal_group: str,
     parameters: AntaresToAtlasParameters,
 ) -> float | None:
@@ -328,40 +304,20 @@ def _get_co2_factor(
     Uses antares CO2 field if non-zero, otherwise looks up by technology keyword
     from parameters.co2_emission_factors.
     """
-    # TODO: Verify field name for CO2 on ThermalCluster
-    # In old code: antares_thermal.CO2
-    co2_value = 0.0  # TODO: float(thermal.co2)
+
+    co2_value = thermal.properties.co2
 
     if co2_value != 0.0:
         return co2_value
 
-    # Fallback: match by technology keyword
     for techno in _CO2_TECHNOLOGY_KEYWORDS:
-        if techno in thermal_name or techno in thermal_group:
+        if techno in thermal.name or techno in thermal_group:
             return parameters.co2_emission_factors.get(techno)
 
     logger.warning(
-        f"Thermal {thermal_name} did not match any known technology group. CO2EmissionFactor set to default."
+        f"Thermal {thermal.name} did not match any known technology group. CO2EmissionFactor set to default."
     )
     return None
-
-
-def _get_duration_average(thermal: ThermalCluster, field: str) -> float | None:
-    """Get average duration in hours (multiplied by 24 to convert from days)."""
-    # TODO: Verify field names and how to check if empty / get average
-    # In old code:
-    #   if antares_thermal.FODuration.IsEmpty: return 0
-    #   else: return antares_thermal.FODuration.Average() * 24
-    return None  # TODO
-
-
-def _get_rate_average(thermal: ThermalCluster, field: str) -> float | None:
-    """Get average rate (probability between 0 and 1)."""
-    # TODO: Verify field names and how to check if empty / get average
-    # In old code:
-    #   if antares_thermal.FORate.IsEmpty: return 0
-    #   else: return antares_thermal.FORate.Average()
-    return None  # TODO
 
 
 def _apply_thermic_config_properties(
