@@ -8,8 +8,9 @@ Parameters for Antares to Atlas conversion module.
 from pathlib import Path
 from typing import Literal
 
-from pendulum import Duration
-from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
+from pendulum import Duration, duration
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic_extra_types.pendulum_dt import DateTime
 from typing_extensions import Self
 
 from atlas.enums import ThermalStrategy
@@ -113,6 +114,139 @@ class ThermalParameters(BaseModel):
         return getattr(self, key, None)
 
 
+class StorageParameters(BaseModel):
+    battery_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="Battery initial level")
+    ev_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="EV initial level")
+    phs_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="PHS initial level")
+
+
+class ResParameters(BaseModel):
+    wind_max_curtailment_ratio: float = Field(default=1.0, ge=0.0, le=1.0, description="Max wind curtailment ratio")
+    pv_max_curtailment_ratio: float = Field(default=1.0, ge=0.0, le=1.0, description="Max solar curtailment ratio")
+    wind_curtailment_cost: float = Field(default=0.01, description="Wind curtailment cost (€/MWh)")
+    pv_curtailment_cost: float = Field(default=0.01, description="Solar curtailment cost (€/MWh)")
+
+
+class HydroReservoirConfig(BaseModel):
+    reservoir_capacity: float = 0.0
+    open_loop_capacity: float = 0.0
+    closed_loop_capacity: float = 0.0
+
+
+class HydroFragmentConfig(BaseModel):
+    prices: list[float]
+    volumes: list[float]
+
+
+def _default_reservoirs() -> dict[str, HydroReservoirConfig]:
+    _data = {
+        "at": (770000, 1700000, 2000),
+        "be": (0, 0, 6000),
+        "ch": (8100000, 0, 670000),
+        "cz": (2500, 2300, 3700),
+        "de": (260000, 420000, 350000),
+        "dkw": (0, 0, 0),
+        "es": (11600000, 6000000, 100000),
+        "fr": (10000000, 90000, 10000),
+        "ukgb": (0, 0, 26000),
+        "ie": (0, 0, 1700),
+        "itca": (572000, 0, 0),
+        "itcn": (187000, 0, 0),
+        "itcs": (800000, 100000, 4300),
+        "itn": (3700000, 194000, 31000),
+        "its": (154000, 0, 0),
+        "itsar": (144000, 0, 7800),
+        "itsic": (81000, 20000, 7400),
+        "lu": (0, 0, 5000),
+        "ukni": (0, 0, 0),
+        "nl": (0, 0, 0),
+        "nom": (0, 8600000, 0),
+        "non": (0, 21300000, 0),
+        "nos": (0, 57300000, 0),
+        "pl": (800, 1500, 6300),
+        "pt": (1290000, 2018000, 0),
+        "se1": (14430000, 0, 0),
+        "se2": (14800000, 0, 0),
+        "se3": (2635000, 0, 0),
+        "se4": (71000, 0, 0),
+    }
+    return {
+        node: HydroReservoirConfig(
+            reservoir_capacity=rc,
+            open_loop_capacity=ol,
+            closed_loop_capacity=cl,
+        )
+        for node, (rc, ol, cl) in _data.items()
+    }
+
+
+def _default_fragments() -> dict[str, HydroFragmentConfig]:
+    _generic = HydroFragmentConfig(
+        prices=[-25.963, -15.631, -7.411, 11.13, 20.769, 30.889, 39.475],
+        volumes=[0.0569, 0.1742, 0.23, 0.1213, 0.3121, 0.0514, 0.0541],
+    )
+    return {
+        "Generic": _generic,
+        "fr": HydroFragmentConfig(
+            prices=[-25.963, -15.631, -7.411, 11.13, 20.769, 30.889, 39.475],
+            volumes=[0.0569, 0.1742, 0.23, 0.1213, 0.3121, 0.0514, 0.0541],
+        ),
+    }
+
+
+class HydroParameters(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    # Management
+    use_heuristic: bool = Field(default=True, description="Use hydro heuristic")
+    min_energy_coeff: float = Field(default=0.0, description="Hydro min energy coefficient")
+    max_energy_coeff: float = Field(default=1.0, description="Hydro max energy coefficient")
+
+    # Water value
+    use_water_value: bool = Field(default=False, description="Enable water value computation")
+    water_value_scenarios: list[str] | Literal["all"] = Field(
+        default=1, ge=1, description="Number of water value scenarios"
+    )
+    water_value_nb_years: int = Field(default=2, ge=2, description="Number of years for water value")
+    storage_subdivision: int = Field(default=1, ge=1, description="Storage subdivision for water value")
+    beta: float = Field(default=0.0, description="Beta parameter for Bellman computation")
+    water_value_timestep: Duration = Field(
+        default=duration(hours=168), ge=1, description="Water value time step (hours)"
+    )
+    use_bellman_interpolation: bool = Field(default=False, description="Use Bellman interpolation")
+    nb_storage_levels: int = Field(default=100, ge=1, description="Number of storage levels")
+    inflows_timestep: Duration = Field(default=duration(hours=168), ge=1, description="Inflows time step (hours)")
+
+    # File paths
+    initialization_curve: Path | None = Field(default=None, description="Hydro initialization curve file")
+    path_inflows: Path | None = Field(default=None, description="Path to inflows directory")
+
+    # Per-node data
+    reservoirs: dict[str, HydroReservoirConfig] = Field(default_factory=_default_reservoirs)
+    fragments: dict[str, HydroFragmentConfig] = Field(default_factory=_default_fragments)
+
+    def get_reservoir(self, node: str) -> HydroReservoirConfig | None:
+        return self.reservoirs.get(node)
+
+    def get_fragment(self, area: str) -> HydroFragmentConfig:
+        return self.fragments.get(area) or self.fragments["Generic"]
+
+    @field_validator("inflows_timestep", "water_value_timestep", mode="before")
+    @classmethod
+    def parse_duration(cls, v):
+        return convert_to_duration(v)
+
+    @model_validator(mode="after")
+    def validate_paths(self) -> Self:
+        if self.initialization_curve is not None and not Path(self.initialization_curve).exists():
+            raise ValueError(f"initialization_curve: File not found at {self.initialization_curve}")
+        if self.path_inflows is not None:
+            p = Path(self.path_inflows)
+            if not p.exists() or not p.is_dir():
+                raise ValueError(f"path_inflows: Directory not found at {self.path_inflows}")
+        return self
+
+
 class AntaresToAtlasParameters(Parameters):
     """Parameters for Antares to Atlas data conversion.
 
@@ -121,6 +255,7 @@ class AntaresToAtlasParameters(Parameters):
     """
 
     # Version and hypothesis
+    start_date: DateTime
     hypothesis: str | None = Field(None, description="Hypothesis identifier (e.g., 'BP23', 'BP24')")
     output_name: str
 
@@ -133,44 +268,17 @@ class AntaresToAtlasParameters(Parameters):
     minimum_price: float = Field(default=-500.0, description="Minimum price (€/MWh)")
     maximum_price: float = Field(default=3000.0, description="Maximum price (€/MWh)")
 
-    # RES curtailment
-    wind_max_curtailment_ratio: float = Field(default=1.0, ge=0.0, le=1.0, description="Max wind curtailment ratio")
-    pv_max_curtailment_ratio: float = Field(default=1.0, ge=0.0, le=1.0, description="Max Solar curtailment ratio")
-    wind_curtailment_cost: float = Field(default=0.01, description="Wind curtailment cost (€/MWh)")
-    pv_curtailment_cost: float = Field(default=0.01, description="Solar curtailment cost (€/MWh)")
-
-    # Hydro management
-    use_hydro_heuristic: bool = Field(default=True, description="Use hydro heuristic")
-    hydro_min_energy_coeff: float = Field(default=0.0, description="Hydro min energy coefficient")
-    hydro_max_energy_coeff: float = Field(default=1.0, description="Hydro max energy coefficient")
-
-    # Water value
-    use_water_value: bool = Field(default=False, description="Enable water value computation")
-    water_value_scenarios: list[str] | Literal["all"] = Field(
-        default=1, ge=1, description="Number of water value scenarios"
+    renewables: ResParameters = Field(default_factory=ResParameters, description="Renewable energy parameters")
+    hydro: HydroParameters = Field(default_factory=HydroParameters, description="Hydraulic parameters")
+    storage: StorageParameters = Field(
+        default_factory=StorageParameters, description="Storage initial level parameters"
     )
-    water_value_nb_years: int = Field(default=2, ge=2, description="Number of years for water value")
-    hydro_storage_subdivision: int = Field(default=1, ge=1, description="Storage subdivision for water value")
-    beta: float = Field(default=0.0, description="Beta parameter for Bellman computation")
-    water_value_timestep: Duration = Field(default=168, ge=1, description="Water value time step (hours)")
-    use_bellman_interpolation: bool = Field(default=False, description="Use Bellman interpolation")
-    nb_storage_levels: int = Field(default=100, ge=1, description="Number of storage levels")
-    inflows_timestep: Duration = Field(default=168, ge=1, description="Inflows time step (hours)")
-
-    # File paths
-    hydro_initialization_curve: Path | None = Field(default=None, description="Hydro initialization curve file")
-    path_inflows: Path | None = Field(default=None, description="Path to inflows directory")
-    hydro_reservoirs_file: Path | None = Field(default=None, description="Hydraulic reservoirs file")
-    hydraulic_fragments_file: Path | None = Field(default=None, description="Hydraulic fragments file")
+    thermal: ThermalParameters = Field(
+        default_factory=ThermalParameters, description="Per-technology thermal parameters"
+    )
     baseline_displacement_energy: Path | None = Field(default=None, description="Baseline displacement energy file")
     disp_energy_node_parameters: Path | None = Field(default=None, description="Displacement energy node parameters")
-    thermal_parameters: ThermalParameters = Field(default_factory=ThermalParameters, description="Per-technology thermal parameters")
     co2_emission_factors_file: Path | None = Field(default=None, description="CO2 emission factors file")
-
-    # Storage initial levels
-    battery_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="Battery initial level")
-    ev_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="EV initial level")
-    phs_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="PHS initial level")
 
     # Portfolio settings
     consumption_production_separation: bool = Field(
@@ -201,9 +309,6 @@ class AntaresToAtlasParameters(Parameters):
     def validate_file_paths(self) -> Self:
         """Validate that referenced files exist if provided."""
         file_fields = [
-            "hydro_initialization_curve",
-            "hydro_reservoirs_file",
-            "hydraulic_fragments_file",
             "baseline_displacement_energy",
             "disp_energy_node_parameters",
             "co2_emission_factors_file",
@@ -216,25 +321,4 @@ class AntaresToAtlasParameters(Parameters):
                 if not path.exists():
                     raise ValueError(f"{field_name}: File not found at {path}")
 
-        if self.path_inflows is not None:
-            inflows_path = Path(self.path_inflows)
-            if not inflows_path.exists() or not inflows_path.is_dir():
-                raise ValueError(f"path_inflows: Directory not found at {inflows_path}")
-
         return self
-
-    @field_validator(
-        "inflows_timestep",
-        "water_value_timestep",
-        mode="before",
-    )
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
-
-    @computed_field
-    @property
-    def fragment_prices(self) -> dict[str, float]:
-        pass
-        # TODO Parse fragment_prices file

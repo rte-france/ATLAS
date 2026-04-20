@@ -3,9 +3,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pathlib import Path
-
-import polars as pl
 from antares.craft import Frequency, MCIndAreasDataType
 from antares.craft.model.area import Area
 from antares.craft.model.output import Output
@@ -39,9 +36,8 @@ def convert_hydro_units(
     """
     logger.info("Converting Hydraulic units")
 
-    # Load hydraulic reservoirs data from CSV
-    hydro_reservoirs = _load_hydro_reservoirs(parameters)
     inflows_dictionary = {}
+    hydro_reservoirs = parameters.hydro.reservoirs
 
     areas = study.get_areas()
     hydro_units: list[Hydro] = []
@@ -78,32 +74,6 @@ def convert_hydro_units(
     atlas_dataset.hydro = hydro_units
 
     return atlas_dataset, inflows_dictionary, hydro_reservoirs
-
-
-def _load_hydro_reservoirs(parameters: AntaresToAtlasParameters) -> dict:
-    """Load hydraulic reservoirs data from CSV file.
-
-    Returns dict with node names as keys and reservoir properties as values:
-    - ReservoirCapacity
-    - OpenLoopCapacity
-    - ClosedLoopCapacity
-    """
-    if not Path(parameters.hydro_reservoirs_file).is_file():
-        logger.warning(f"Hydro reservoirs file not found: {parameters.hydro_reservoirs_file}")
-        return {}
-
-    logger.debug(f"Loading hydro reservoirs from: {parameters.hydro_reservoirs_file}")
-
-    df = pl.read_csv(parameters.hydro_reservoirs_file, separator=";")
-    # CSV is transposed: rows = properties, first column = property name, other columns = nodes
-    property_col, *node_cols = df.columns
-    hydro_reservoirs = {
-        node: dict(zip(df[property_col].to_list(), df[node].cast(pl.Float64).to_list(), strict=False))
-        for node in node_cols
-    }
-
-    logger.debug(f"Loaded hydro reservoirs for {len(hydro_reservoirs)} nodes")
-    return hydro_reservoirs
 
 
 def _create_hydraulic_equipment(
@@ -161,7 +131,7 @@ def _create_hydraulic_equipment(
         ),
     )
 
-    if (parameters.use_hydro_heuristic or area.hydro.properties.reservoir) and parameters.use_water_value:
+    if (parameters.hydro.use_heuristic or area.hydro.properties.reservoir) and parameters.hydro.use_water_value:
         if area.hydro.properties.reservoir:
             hydro.inflows = area.hydro.get_mod_series()[scenario - 1]
             node_inflows_dictionary = _prepare_inflows_for_water_values(area, parameters)
@@ -179,22 +149,12 @@ def _create_hydraulic_equipment(
 
     power_hourly.set_frequency("1h")
     daily_energy = power_hourly.groupby("1d", agg="sum")
-    hydro.minimum_daily_energy = daily_energy * parameters.hydro_min_energy_coeff
-    hydro.maximum_daily_energy = daily_energy * parameters.hydro_max_energy_coeff
+    hydro.minimum_daily_energy = daily_energy * parameters.hydro.min_energy_coeff
+    hydro.maximum_daily_energy = daily_energy * parameters.hydro.max_energy_coeff
 
-    local_prices = []
-    local_volumes = []
-    if area.id in parameters.fragment_prices:
-        local_prices.append(parameters.fragment_prices[area.id])
-    else:
-        local_prices.append(parameters.fragment_prices["Generic"])
-    hydro.fragment_prices = local_prices
-
-    if area.id in parameters.fragment_volumes:
-        local_volumes = parameters.fragment_volumes[area.id]
-    else:
-        local_volumes = parameters.fragment_volumes["Generic"]
-    hydro.fragment_volumes = local_volumes
+    fragment = parameters.hydro.get_fragment(area.id)
+    hydro.fragment_prices = fragment.prices
+    hydro.fragment_volumes = fragment.volumes
 
     logger.debug(f"Created hydraulic equipment for area: {area.id}")
     return hydro
@@ -203,10 +163,10 @@ def _create_hydraulic_equipment(
 def _prepare_inflows_for_water_values(area: Area, parameters: AntaresToAtlasParameters) -> dict:
     node_inflows_dictionary = {}
 
-    if parameters.water_value_scenarios == "all":
+    if parameters.hydro.water_value_scenarios == "all":
         scenarios = area.CalculatedMarginalPrice.columns  # TODO
     else:
-        scenarios = parameters.water_value_scenarios
+        scenarios = parameters.hydro.water_value_scenarios
 
     for scenario in scenarios:
         local_hydro_sc = area.hydro.HydroSelectedScenario[int(scenario) - 1]  # TODO

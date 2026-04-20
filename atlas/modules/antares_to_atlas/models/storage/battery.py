@@ -158,7 +158,7 @@ def _convert_normal_battery(
         ),
         charge_efficiency=charge_efficiency,
         discharge_efficiency=discharge_efficiency,
-        storage_initial_level=parameters.battery_initial_level,
+        storage_initial_level=parameters.storage.battery_initial_level,
         unit_count=1,
         power=ForecastingMatrix().add(power_ts, parameters.execution_date),
     )
@@ -252,7 +252,7 @@ def _convert_pcomp_battery(
         ),
         charge_efficiency=charge_efficiency,
         discharge_efficiency=discharge_efficiency,
-        storage_initial_level=parameters.battery_initial_level,
+        storage_initial_level=parameters.storage.battery_initial_level,
         unit_count=1,
         power=ForecastingMatrix().add(power_ts, parameters.execution_date),
     )

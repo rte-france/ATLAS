@@ -128,7 +128,7 @@ def _convert_single_thermal(
         unit_count=unit_count,
     )
 
-    _apply_thermic_config_properties(equipment, thermal_name, thermal_group, parameters.thermal_parameters, unit_count)
+    _apply_thermic_config_properties(equipment, thermal_name, thermal_group, parameters.thermal, unit_count)
 
     logger.debug(f"Created thermal unit: {thermal_name}")
     return equipment
@@ -229,7 +229,7 @@ def _apply_thermic_config_properties(
     equipment: Thermal,
     thermal_name: str,
     thermal_group: str,
-    thermal_parameters: ThermalParameters,
+    thermal: ThermalParameters,
     unit_count: int | None,
 ) -> None:
     """Apply per-technology properties to the equipment.
@@ -237,7 +237,7 @@ def _apply_thermic_config_properties(
     Instance-level config takes priority over group-level.
     MaximumGradient is multiplied by UnitCount (it is defined per unit).
     """
-    tech_config = thermal_parameters.get(thermal_name) or thermal_parameters.get(str(thermal_group))
+    tech_config = thermal.get(thermal_name) or thermal.get(str(thermal_group))
     if tech_config is None:
         return
 

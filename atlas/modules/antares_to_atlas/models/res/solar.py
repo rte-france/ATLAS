@@ -51,13 +51,13 @@ def convert_solar_units(
                                     start_date=parameters.start_date,
                                     frequency="1h",
                                     end_date=parameters.start_date + duration(years=1),
-                                    default_value=parameters.pv_max_curtailment_ratio,
+                                    default_value=parameters.renewables.pv_max_curtailment_ratio,
                                 ),
                                 curtailment_cost=Timeseries.from_index(
                                     start_date=parameters.start_date,
                                     frequency="1h",
                                     end_date=parameters.start_date + duration(years=1),
-                                    default_value=parameters.pv_curtailment_cost,
+                                    default_value=parameters.renewables.pv_curtailment_cost,
                                 ),
                                 installed_capacity=cluster_res.properties.nominal_capacity,
                             )
@@ -85,7 +85,7 @@ def convert_solar_units(
                                 start_date=parameters.start_date,
                                 frequency="1h",
                                 end_date=parameters.start_date + duration(years=1),
-                                default_value=parameters.pv_max_curtailment_ratio,
+                                default_value=parameters.renewables.pv_max_curtailment_ratio,
                             ),
                         )
                     )

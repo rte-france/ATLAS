@@ -94,10 +94,10 @@ def _compute_node_water_values(
     # In old code: [int(ts.Name) for ts in antares_node.CalculatedMarginalPrice.TimeSeries]
     available_scenarios: list[str] = []
 
-    if parameters.water_value_scenarios == "all":
+    if parameters.hydro.water_value_scenarios == "all":
         scenarios = available_scenarios
     else:
-        scenarios = parameters.water_value_scenarios
+        scenarios = parameters.hydro.water_value_scenarios
 
     logger.info(f"Water value scenarios for {area.id}: {scenarios}")
 
@@ -108,9 +108,9 @@ def _compute_node_water_values(
     n_time_steps = generate_datetimes(
         start_date=parameters.start_date,
         end_date=parameters.start_date + duration(years=1),
-        frequency=f"{parameters.water_value_timestep}m",
+        frequency=f"{parameters.hydro.water_value_timestep}m",
     )
-    total_time_steps = n_time_steps * parameters.water_value_nb_years
+    total_time_steps = n_time_steps * parameters.hydro.water_value_nb_years
 
     # Prepare hourly inflows for each scenario (daily inflows / 24)
     inflows_per_scenario: list[Timeseries] = []
@@ -128,7 +128,7 @@ def _compute_node_water_values(
         logger.warning(f"Cannot compute water values for {area.id}: zero power or capacity")
         return
 
-    capacity_step = int(power_average / parameters.hydro_storage_subdivision)
+    capacity_step = int(power_average / parameters.hydro.storage_subdivision)
 
     stock_levels = list(range(0, int(capacity), capacity_step))
     logger.info(f"Capacity: {capacity}, step: {capacity_step}, levels: {len(stock_levels)}")
@@ -214,8 +214,8 @@ def _run_bellman_iteration(
                     # - Cases j>0: turbine at fractions of max power
                     # - Interpolation between stock levels
                     # - Penalty for going below minimum stock (price = -5000)
-                    # - Optional Bellman interpolation (parameters.use_bellman_interpolation)
-                    bellman[t][level_idx] = parameters.beta * bellman[t + 1][level_idx]
+                    # - Optional Bellman interpolation (parameters.hydro.use_bellman_interpolation)
+                    bellman[t][level_idx] = parameters.hydro.beta * bellman[t + 1][level_idx]
 
                 # Store water value for first year
                 if level_idx > 0 and t < n_time_steps:
@@ -257,7 +257,7 @@ def _store_water_values(
         logger.debug(f"TODO: Store water values on {hydro.name}")
         return
 
-    n_scenarios = len(parameters.water_value_scenarios) if parameters.water_value_scenarios != "all" else 1
+    n_scenarios = len(parameters.hydro.water_value_scenarios) if parameters.hydro.water_value_scenarios != "all" else 1
 
     # Determine which levels to store (subsample if nb_storage_levels is set)
     levels_to_store = _select_storage_levels(stock_levels, parameters)
@@ -282,15 +282,15 @@ def _select_storage_levels(stock_levels: list[int], parameters: AntaresToAtlasPa
     Otherwise: subsample evenly and trim symmetrically to reach the target count.
     """
 
-    if parameters.nb_storage_levels == 0:
+    if parameters.hydro.nb_storage_levels == 0:
         return list(range(1, len(stock_levels)))
 
-    step = int(len(stock_levels) / parameters.nb_storage_levels)
+    step = int(len(stock_levels) / parameters.hydro.nb_storage_levels)
     if step == 0:
         return list(range(1, len(stock_levels)))
 
     candidate_levels = [level for level in range(1, len(stock_levels)) if (level - 1) % step == 0]
-    delta = len(candidate_levels) - parameters.nb_storage_levels
+    delta = len(candidate_levels) - parameters.hydro.nb_storage_levels
 
     if delta <= 0:
         return candidate_levels

@@ -221,7 +221,7 @@ def _convert_standard_evs(
             ),
             charge_efficiency=charge_efficiency,
             discharge_efficiency=discharge_efficiency,
-            storage_initial_level=parameters.ev_initial_level,
+            storage_initial_level=parameters.storage.ev_initial_level,
             displacement_energy=displacement_energy_ts,
         )
 

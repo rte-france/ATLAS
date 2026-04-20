@@ -211,7 +211,7 @@ def _create_open_phs(
         ),
         charge_efficiency=charge_efficiency,
         discharge_efficiency=discharge_efficiency,
-        storage_initial_level=parameters.phs_initial_level,
+        storage_initial_level=parameters.storage.phs_initial_level,
         transition_duration=duration(hours=0),
     )
 
@@ -323,7 +323,7 @@ def convert_phs_open_fr(
         ),
         charge_efficiency=charge_efficiency,
         discharge_efficiency=discharge_efficiency,
-        storage_initial_level=parameters.phs_initial_level,
+        storage_initial_level=parameters.storage.phs_initial_level,
         transition_duration=duration(hours=0),
         is_v2g=False,
     )

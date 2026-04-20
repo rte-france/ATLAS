@@ -91,14 +91,14 @@ def _load_initialization_curve(parameters: AntaresToAtlasParameters) -> Timeseri
     :return: Timeseries of reservoir fill percentages, or None if file not found
     """
 
-    if parameters.hydro_initialization_curve.is_file():
-        logger.warning(f"Hydro initialization curve file not found: {parameters.hydro_initialization_curve}")
+    if parameters.hydro.initialization_curve.is_file():
+        logger.warning(f"Hydro initialization curve file not found: {parameters.hydro.initialization_curve}")
         return None
 
-    logger.debug(f"Loading hydro initialization curve from: {parameters.hydro_initialization_curve}")
+    logger.debug(f"Loading hydro initialization curve from: {parameters.hydro.initialization_curve}")
 
     try:
-        with open(parameters.hydro_initialization_curve) as f:
+        with open(parameters.hydro.initialization_curve) as f:
             lines_list = f.readlines()
 
         curve_values = [float(line.strip()) for line in lines_list if line.strip()]

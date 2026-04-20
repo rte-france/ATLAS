@@ -268,7 +268,7 @@ def _process_classic_mixed_fuel(
         unit_count=unit_count,
     )
 
-    _apply_thermic_config_properties(equipment, thermal_name, techno, parameters.thermal_parameters, unit_count)
+    _apply_thermic_config_properties(equipment, thermal_name, techno, parameters.thermal, unit_count)
 
     logger.debug(f"Created mixed fuel thermal unit: {thermal_name} ({techno})")
     return equipment

@@ -206,7 +206,7 @@ def _create_phs_from_turb_link(
         ),
         charge_efficiency=charge_efficiency,
         discharge_efficiency=discharge_efficiency,
-        storage_initial_level=parameters.phs_initial_level,
+        storage_initial_level=parameters.storage.phs_initial_level,
         transition_duration=duration(hours=0),
         # setup_delay=duration(hours=0),  # TODO: Verify if this field exists in new model
     )
@@ -281,7 +281,7 @@ def _create_phs_from_pump_link(
         ),
         charge_efficiency=charge_efficiency,
         discharge_efficiency=discharge_efficiency,
-        storage_initial_level=parameters.phs_initial_level,
+        storage_initial_level=parameters.storage.phs_initial_level,
         transition_duration=duration(hours=0),
     )
 
