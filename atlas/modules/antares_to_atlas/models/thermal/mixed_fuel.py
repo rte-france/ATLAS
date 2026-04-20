@@ -67,21 +67,14 @@ def convert_mixed_fuel_units(
             continue
 
         for _, thermal in thermals.items():
-            # TODO: Verify how to get the Group from ThermalCluster
-            # In old code: antares_thermal.Group
-            thermal_group = thermal.group if hasattr(thermal, "group") else ""
-
-            if thermal_group != "Mixed_fuel":
+            if thermal.properties.group != "Mixed_fuel":
                 continue
 
-            thermal_name = thermal.name if hasattr(thermal, "name") else str(thermal)
-
             # Waste sub-technologies -> OtherNonDispatchable Load
-            if "Waste" in thermal_name:
+            if "Waste" in thermal.name:
                 _process_waste_unit(
                     area=area,
                     thermal=thermal,
-                    thermal_name=thermal_name,
                     parameters=parameters,
                     atlas_dataset=atlas_dataset,
                     new_load_units=new_load_units,
@@ -92,7 +85,6 @@ def convert_mixed_fuel_units(
             thermal_unit = _process_classic_mixed_fuel(
                 area=area,
                 thermal=thermal,
-                thermal_name=thermal_name,
                 parameters=parameters,
                 atlas_dataset=atlas_dataset,
             )
@@ -109,7 +101,6 @@ def convert_mixed_fuel_units(
 def _process_waste_unit(
     area: Area,
     thermal: ThermalCluster,
-    thermal_name: str,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
     new_load_units: list[Load],
@@ -170,15 +161,14 @@ def _process_waste_unit(
 def _process_classic_mixed_fuel(
     area: Area,
     thermal: ThermalCluster,
-    thermal_name: str,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
 ) -> Thermal | None:
     """Convert a classic Mixed_fuel cluster (Coal, CCGT, OCGT, Oil, Lignite) to Thermal equipment."""
     # Detect technology from name
-    techno = _detect_mixed_fuel_technology(thermal_name)
+    techno = _detect_mixed_fuel_technology(thermal.name)
     if techno is None:
-        logger.warning(f"Could not detect technology for Mixed_fuel unit {thermal_name}, skipping")
+        logger.warning(f"Could not detect technology for Mixed_fuel unit {thermal.name}, skipping")
         return None
 
     # Filter zero-capacity units
@@ -246,7 +236,7 @@ def _process_classic_mixed_fuel(
     unit_count = None  # TODO: int(thermal.unit_count)
 
     equipment = Thermal(
-        name=thermal_name,
+        name=thermal.name,
         node=atlas_dataset.get("node", area.id),
         portfolio=atlas_dataset.get(
             "portfolio",
@@ -268,15 +258,15 @@ def _process_classic_mixed_fuel(
         unit_count=unit_count,
     )
 
-    _apply_thermic_config_properties(equipment, thermal_name, techno, parameters.thermal, unit_count)
+    _apply_thermic_config_properties(equipment, thermal.name, techno, parameters.thermal, unit_count)
 
-    logger.debug(f"Created mixed fuel thermal unit: {thermal_name} ({techno})")
+    logger.debug(f"Created mixed fuel thermal unit: {thermal.name} ({techno})")
     return equipment
 
 
-def _detect_mixed_fuel_technology(thermal_name: str) -> str | None:
+def _detect_mixed_fuel_technology(thermal: ThermalCluster) -> str | None:
     """Detect the canonical technology name from a Mixed_fuel cluster name."""
     for keyword, techno in _MIXED_FUEL_TECH_MAP.items():
-        if keyword in thermal_name:
+        if keyword in thermal.name:
             return techno
     return None

@@ -11,7 +11,7 @@ from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
-from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters, ThermalParameters
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.objects.equipment.thermal import Thermal
 
 # Technology name fragments for CO2 factor fallback matching
@@ -80,30 +80,7 @@ def _convert_single_thermal(
     if installed_capacity == 0:
         return None
 
-    minimum_power_ts = Timeseries.from_index(
-        start_date=parameters.start_date,
-        frequency="1h",
-        end_date=parameters.start_date + duration(years=1),
-        default_value=thermal.properties.min_stable_power,
-    )
-
-    variable_cost_ts = _get_variable_cost(thermal, parameters)
-
-    startup_cost_ts = Timeseries.from_index(
-        start_date=parameters.start_date,
-        frequency="1h",
-        end_date=parameters.start_date + duration(years=1),
-        default_value=thermal.properties.startup_cost,
-    )
-
-    co2_factor = _get_co2_factor(thermal, thermal_name, thermal_group, parameters)
-    outage_mean_duration = thermal.get_prepro_data_matrix()[0].mean()  # FODuration
-    scheduled_shutdown_mean_duration = thermal.get_prepro_data_matrix()[1].mean()  # PODuration
-    outage_probability = thermal.get_prepro_data_matrix()[2].mean()  # FORate
-    scheduled_shutdown_probability = thermal.get_prepro_data_matrix()[0].mean()  # PORate
-    minimum_time_off = duration(hours=thermal.properties.min_down_time)
-    minimum_time_on = duration(hours=thermal.properties.min_up_time)
-    unit_count = thermal.properties.unit_count
+    thermal_group_params = parameters.thermal.get(thermal_group)
 
     equipment = Thermal(
         name=thermal_name,
@@ -114,21 +91,36 @@ def _convert_single_thermal(
         ),
         has_daily_energy_constraint=False,
         maximum_power=maximum_power_ts,
-        minimum_power=minimum_power_ts,
+        minimum_power=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=thermal.properties.min_stable_power,
+        ),
         installed_capacity=installed_capacity,
-        variable_cost=variable_cost_ts,
-        startup_cost=startup_cost_ts,
-        co2_emission_factor=co2_factor,
-        outage_mean_duration=outage_mean_duration,
-        scheduled_shutdown_mean_duration=scheduled_shutdown_mean_duration,
-        outage_probability=outage_probability,
-        scheduled_shutdown_probability=scheduled_shutdown_probability,
-        minimum_time_off=minimum_time_off,
-        minimum_time_on=minimum_time_on,
-        unit_count=unit_count,
+        variable_cost=_get_variable_cost(thermal, parameters),
+        startup_cost=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=thermal.properties.startup_cost,
+        ),
+        co2_emission_factor=_get_co2_factor(thermal, thermal_name, thermal_group, parameters),
+        outage_mean_duration=thermal.get_prepro_data_matrix()[0].mean(),  # FODuration
+        scheduled_shutdown_mean_duration=thermal.get_prepro_data_matrix()[1].mean(),  # PODuration
+        outage_probability=thermal.get_prepro_data_matrix()[2].mean(),  # FORate
+        scheduled_shutdown_probability=thermal.get_prepro_data_matrix()[0].mean(),  # PORate
+        minimum_time_off=duration(hours=thermal.properties.min_down_time),
+        minimum_time_on=duration(hours=thermal.properties.min_up_time),
+        unit_count=thermal.properties.unit_count,
+        minimum_stable_power_duration=thermal_group_params.minimum_stable_power_duration,
+        startup_delay_probability=thermal_group_params.startup_delay_probability,
+        startup_duration=thermal_group_params.startup_duration,
+        shutdown_duration=thermal_group_params.shutdown_duration,
+        maximum_gradient=thermal_group_params.maximum_gradient * thermal.properties.unit_count,
+        strategy=thermal_group_params.strategy,
+        setup_delay=thermal_group_params.setup_delay,
     )
-
-    _apply_thermic_config_properties(equipment, thermal_name, thermal_group, parameters.thermal, unit_count)
 
     logger.debug(f"Created thermal unit: {thermal_name}")
     return equipment
@@ -223,25 +215,3 @@ def _get_co2_factor(
         f"Thermal {thermal_name} did not match any known technology group. CO2EmissionFactor set to default."
     )
     return None
-
-
-def _apply_thermic_config_properties(
-    equipment: Thermal,
-    thermal_name: str,
-    thermal_group: str,
-    thermal: ThermalParameters,
-    unit_count: int | None,
-) -> None:
-    """Apply per-technology properties to the equipment.
-
-    Instance-level config takes priority over group-level.
-    MaximumGradient is multiplied by UnitCount (it is defined per unit).
-    """
-    tech_config = thermal.get(thermal_name) or thermal.get(str(thermal_group))
-    if tech_config is None:
-        return
-
-    for field_name, value in tech_config.model_dump().items():
-        if field_name == "maximum_gradient" and unit_count:
-            value = value * unit_count
-        setattr(equipment, field_name, value)
