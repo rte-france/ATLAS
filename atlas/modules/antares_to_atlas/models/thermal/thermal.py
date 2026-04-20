@@ -11,21 +11,8 @@ from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
-from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters, ThermalParameters
 from atlas.objects.equipment.thermal import Thermal
-
-_THERMIC_PROPERTIES = [
-    "MinimumStablePowerDuration",
-    "StartupDelayProbability",
-    "StartupDuration",
-    "ShutdownDuration",
-    "MaximumGradient",
-    "Strategy",
-    "SetupDelay",
-]
-
-# Antares technology group names
-_ANTARES_TECHNOLOGIES = ["Nuclear", "Lignite", "Oil", "Other", "Hard_Coal", "Mixed_fuel", "Gas"]
 
 # Technology name fragments for CO2 factor fallback matching
 _CO2_TECHNOLOGY_KEYWORDS = ["Nuclear", "Lignite", "Oil", "Gas", "Coal", "CCGT", "OCGT"]
@@ -35,21 +22,15 @@ def convert_thermal_units(
     study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-) -> tuple[AtlasDataset, dict, list]:
+) -> AtlasDataset:
     """Convert Thermal cluster units from Antares to Atlas Thermal equipment.
 
-    Loads optional thermal parameters from the thermic config CSV, then creates
-    one Thermal equipment per cluster that:
+    Creates one Thermal equipment per cluster that:
     - Belongs to a market area in parameters.market_areas
     - Is not in an excluded group (parameters.excluded_thermic_groups)
     - Has non-zero maximum power and installed capacity
-
-    :return: Tuple of (atlas_dataset, thermic_parameter, thermic_properties)
-             thermic_parameter and thermic_properties are passed to mixed_fuel conversion.
     """
     logger.info("Converting Thermal units")
-
-    thermic_parameter = _load_thermic_config(parameters)
 
     areas = study.get_areas()
     thermal_units: list[Thermal] = []
@@ -60,15 +41,12 @@ def convert_thermal_units(
 
         area = areas[area_name]
 
-        thermals = area.get_thermals()
-
-        for _, thermal in thermals.items():
+        for _, thermal in area.get_thermals().items():
             thermal_unit = _convert_single_thermal(
                 area=area,
                 thermal=thermal,
                 parameters=parameters,
                 atlas_dataset=atlas_dataset,
-                thermic_parameter=thermic_parameter,
             )
             if thermal_unit:
                 thermal_units.append(thermal_unit)
@@ -76,78 +54,7 @@ def convert_thermal_units(
     atlas_dataset.thermal = thermal_units
 
     logger.info(f"Converted {len(thermal_units)} thermal units")
-    return atlas_dataset, thermic_parameter, _THERMIC_PROPERTIES
-
-
-def _load_thermic_config(parameters: AntaresToAtlasParameters) -> dict:
-    """Load optional per-technology/per-instance thermal parameters from CSV.
-
-    The CSV columns map to _THERMIC_PROPERTIES. Rows are either an Antares
-    technology group name or a specific thermal cluster instance name.
-
-    Returns dict[property_name][tech_or_instance_name] = value
-    """
-    thermic_parameter: dict = {}
-
-    if parameters.thermic_config_file:
-        logger.debug("No thermic config file found, using defaults")
-        return thermic_parameter
-
-    logger.debug(f"Loading thermic config from: {parameters.thermic_config_file}")
-
-    try:
-        with open(parameters.thermic_config_file) as f:
-            lines_list = f.readlines()
-
-        headers: list[str] = []
-        thermic_index: dict[str, int] = {}
-
-        for row_index, line in enumerate(lines_list):
-            splitted_line = line.split(";")
-
-            if row_index == 0:
-                headers = splitted_line
-                for i, header in enumerate(headers):
-                    if header.strip() in _THERMIC_PROPERTIES:
-                        thermic_parameter[header.strip()] = {}
-                        thermic_index[header.strip()] = i
-                continue
-
-            if len(splitted_line) != len(headers):
-                raise ValueError(
-                    f"Invalid number of columns on line {row_index + 1}. Please modify the ThermicParameters file."
-                )
-
-            row_name = splitted_line[0]
-
-            # TODO: Verify how to check if a thermal instance exists in the new API
-            # In old code: antares_dataset.ThermalTechnology.CheckInstanceExists(row_name)
-            is_known = row_name in _ANTARES_TECHNOLOGIES  # TODO: also check instance existence
-
-            if not is_known:
-                logger.warning(
-                    f"{row_name} on line {row_index + 1} in ThermicParameters does not match a known "
-                    "technology or instance. It will be ignored."
-                )
-                continue
-
-            for prop_name, col_index in thermic_index.items():
-                value = splitted_line[col_index].strip()
-                if prop_name == "Strategy":
-                    thermic_parameter[prop_name][row_name] = value
-                else:
-                    thermic_parameter[prop_name][row_name] = float(value)
-
-    except Exception as e:
-        logger.error(f"Error loading thermic config file: {e}")
-        return {}
-
-    # Log loaded values
-    for prop_name in _THERMIC_PROPERTIES:
-        if prop_name in thermic_parameter:
-            logger.debug(f"{prop_name} values: {thermic_parameter[prop_name]}")
-
-    return thermic_parameter
+    return atlas_dataset
 
 
 def _convert_single_thermal(
@@ -155,19 +62,16 @@ def _convert_single_thermal(
     thermal: ThermalCluster,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-    thermic_parameter: dict,
 ) -> Thermal | None:
     """Convert a single Antares thermal cluster to Atlas Thermal equipment."""
     # TODO: Verify how to get the thermal cluster name and group
     # In old code: antares_thermal.Name (e.g. "fr_Nuclear_1") and antares_thermal.Group (e.g. "Nuclear")
     thermal_name = thermal.name
     thermal_group = thermal.properties.group
-    # Filter excluded groups
 
     if thermal_group in parameters.excluded_thermic_groups:
         return None
 
-    # Compute maximum power
     maximum_power_ts = _get_maximum_power(area, thermal, parameters)
     if maximum_power_ts is None:
         return None
@@ -197,8 +101,8 @@ def _convert_single_thermal(
     scheduled_shutdown_mean_duration = thermal.get_prepro_data_matrix()[1].mean()  # PODuration
     outage_probability = thermal.get_prepro_data_matrix()[2].mean()  # FORate
     scheduled_shutdown_probability = thermal.get_prepro_data_matrix()[0].mean()  # PORate
-    minimum_time_off = thermal.properties.min_down_time
-    minimum_time_on = thermal.properties.min_up_time
+    minimum_time_off = duration(hours=thermal.properties.min_down_time)
+    minimum_time_on = duration(hours=thermal.properties.min_up_time)
     unit_count = thermal.properties.unit_count
 
     equipment = Thermal(
@@ -224,7 +128,7 @@ def _convert_single_thermal(
         unit_count=unit_count,
     )
 
-    _apply_thermic_config_properties(equipment, thermal_name, thermal_group, thermic_parameter, unit_count)
+    _apply_thermic_config_properties(equipment, thermal_name, thermal_group, parameters.thermal_parameters, unit_count)
 
     logger.debug(f"Created thermal unit: {thermal_name}")
     return equipment
@@ -296,6 +200,7 @@ def _get_variable_cost(thermal: ThermalCluster, parameters: AntaresToAtlasParame
 
 def _get_co2_factor(
     thermal: ThermalCluster,
+    thermal_name: str,
     thermal_group: str,
     parameters: AntaresToAtlasParameters,
 ) -> float | None:
@@ -311,11 +216,11 @@ def _get_co2_factor(
         return co2_value
 
     for techno in _CO2_TECHNOLOGY_KEYWORDS:
-        if techno in thermal.name or techno in thermal_group:
+        if techno in thermal_name or techno in thermal_group:
             return parameters.co2_emission_factors.get(techno)
 
     logger.warning(
-        f"Thermal {thermal.name} did not match any known technology group. CO2EmissionFactor set to default."
+        f"Thermal {thermal_name} did not match any known technology group. CO2EmissionFactor set to default."
     )
     return None
 
@@ -324,54 +229,19 @@ def _apply_thermic_config_properties(
     equipment: Thermal,
     thermal_name: str,
     thermal_group: str,
-    thermic_parameter: dict,
+    thermal_parameters: ThermalParameters,
     unit_count: int | None,
 ) -> None:
-    """Apply extra properties from the thermic config CSV to the equipment.
+    """Apply per-technology properties to the equipment.
 
+    Instance-level config takes priority over group-level.
     MaximumGradient is multiplied by UnitCount (it is defined per unit).
-    All other properties are set as-is, with instance-level values taking
-    priority over group-level values.
     """
-    for prop_name in _THERMIC_PROPERTIES:
-        if prop_name not in thermic_parameter:
-            continue
+    tech_config = thermal_parameters.get(thermal_name) or thermal_parameters.get(str(thermal_group))
+    if tech_config is None:
+        return
 
-        prop_values = thermic_parameter[prop_name]
-
-        # Resolve value: instance-level takes priority over group-level
-        if thermal_name in prop_values:
-            value = prop_values[thermal_name]
-        elif thermal_group in prop_values:
-            value = prop_values[thermal_group]
-        else:
-            continue
-
-        # MaximumGradient is per-unit and must be scaled by UnitCount
-        if prop_name == "MaximumGradient" and unit_count:
+    for field_name, value in tech_config.model_dump().items():
+        if field_name == "maximum_gradient" and unit_count:
             value = value * unit_count
-
-        # TODO: Map CSV property names to Thermal model field names
-        # In old code: equipment.SetPropertyByName(name, value)
-        # Mapping:
-        #   "MinimumStablePowerDuration" -> equipment.minimum_stable_power_duration
-        #   "StartupDelayProbability"    -> equipment.startup_delay_probability
-        #   "StartupDuration"            -> equipment.startup_duration
-        #   "ShutdownDuration"           -> equipment.shutdown_duration
-        #   "MaximumGradient"            -> equipment.maximum_gradient
-        #   "Strategy"                   -> equipment.strategy (ThermalStrategy enum)
-        #   "SetupDelay"                 -> equipment.setup_delay
-        _PROP_NAME_MAP = {
-            "MinimumStablePowerDuration": "minimum_stable_power_duration",
-            "StartupDelayProbability": "startup_delay_probability",
-            "StartupDuration": "startup_duration",
-            "ShutdownDuration": "shutdown_duration",
-            "MaximumGradient": "maximum_gradient",
-            "Strategy": "strategy",
-            "SetupDelay": "setup_delay",
-        }
-        atlas_field = _PROP_NAME_MAP.get(prop_name)
-        if atlas_field:
-            # TODO: For duration fields, wrap value in duration(hours=value)
-            # For Strategy, convert string to ThermalStrategy enum
-            setattr(equipment, atlas_field, value)
+        setattr(equipment, field_name, value)

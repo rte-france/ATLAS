@@ -40,7 +40,6 @@ def convert_mixed_fuel_units(
     study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-    thermic_parameter: dict,
 ) -> AtlasDataset:
     """Convert Mixed_fuel thermal clusters from Antares to Atlas equipment.
 
@@ -48,8 +47,6 @@ def convert_mixed_fuel_units(
     - "Waste" sub-technologies become OtherNonDispatchable (Load) equipment
     - Classic sub-technologies (Coal, CCGT, etc.) become Thermal equipment
     - Waste units from the same area are aggregated into a single Load equipment
-
-    The thermic_parameter dict (from thermal.py) is reused to apply CSV-defined properties.
     """
     logger.info("Converting Mixed_fuel units")
 
@@ -98,7 +95,6 @@ def convert_mixed_fuel_units(
                 thermal_name=thermal_name,
                 parameters=parameters,
                 atlas_dataset=atlas_dataset,
-                thermic_parameter=thermic_parameter,
             )
             if thermal_unit:
                 new_thermal_units.append(thermal_unit)
@@ -177,7 +173,6 @@ def _process_classic_mixed_fuel(
     thermal_name: str,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-    thermic_parameter: dict,
 ) -> Thermal | None:
     """Convert a classic Mixed_fuel cluster (Coal, CCGT, OCGT, Oil, Lignite) to Thermal equipment."""
     # Detect technology from name
@@ -273,8 +268,7 @@ def _process_classic_mixed_fuel(
         unit_count=unit_count,
     )
 
-    # Apply extra properties from thermic config (using techno as group key)
-    _apply_thermic_config_properties(equipment, thermal_name, techno, thermic_parameter, unit_count)
+    _apply_thermic_config_properties(equipment, thermal_name, techno, parameters.thermal_parameters, unit_count)
 
     logger.debug(f"Created mixed fuel thermal unit: {thermal_name} ({techno})")
     return equipment

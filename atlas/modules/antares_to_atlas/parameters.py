@@ -9,11 +9,108 @@ from pathlib import Path
 from typing import Literal
 
 from pendulum import Duration
-from pydantic import Field, computed_field, field_validator, model_validator
+from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 from typing_extensions import Self
 
+from atlas.enums import ThermalStrategy
 from atlas.io_utils.parameters import Parameters
 from atlas.validators import convert_to_duration
+
+
+class ThermalTechnologyConfig(BaseModel):
+    minimum_stable_power_duration: float = 0.0
+    startup_delay_probability: float = 0.0
+    startup_duration: float = 0.0
+    shutdown_duration: float = 0.0
+    maximum_gradient: float = 0.0
+    strategy: ThermalStrategy = ThermalStrategy.BASE
+    setup_delay: float = 0.0
+
+
+class ThermalParameters(BaseModel):
+    nuclear: ThermalTechnologyConfig = Field(
+        default_factory=lambda: ThermalTechnologyConfig(
+            minimum_stable_power_duration=2,
+            startup_delay_probability=0.82,
+            startup_duration=10,
+            shutdown_duration=10,
+            maximum_gradient=25,
+            strategy=ThermalStrategy.BASE,
+            setup_delay=0,
+        )
+    )
+    lignite: ThermalTechnologyConfig = Field(
+        default_factory=lambda: ThermalTechnologyConfig(
+            minimum_stable_power_duration=0.5,
+            startup_delay_probability=0.41,
+            startup_duration=10,
+            shutdown_duration=10,
+            maximum_gradient=5,
+            strategy=ThermalStrategy.BASE,
+            setup_delay=0,
+        )
+    )
+    oil: ThermalTechnologyConfig = Field(
+        default_factory=lambda: ThermalTechnologyConfig(
+            minimum_stable_power_duration=0,
+            startup_delay_probability=0.59,
+            startup_duration=0.25,
+            shutdown_duration=0.25,
+            maximum_gradient=10,
+            strategy=ThermalStrategy.PEAK,
+            setup_delay=0,
+        )
+    )
+    gas: ThermalTechnologyConfig = Field(
+        default_factory=lambda: ThermalTechnologyConfig(
+            minimum_stable_power_duration=0.25,
+            startup_delay_probability=0.26,
+            startup_duration=0.5,
+            shutdown_duration=0.5,
+            maximum_gradient=30,
+            strategy=ThermalStrategy.INTERMEDIATE,
+            setup_delay=0.5,
+        )
+    )
+    hard_coal: ThermalTechnologyConfig = Field(
+        default_factory=lambda: ThermalTechnologyConfig(
+            minimum_stable_power_duration=0.5,
+            startup_delay_probability=0.41,
+            startup_duration=1,
+            shutdown_duration=1,
+            maximum_gradient=5,
+            strategy=ThermalStrategy.INTERMEDIATE,
+            setup_delay=0,
+        )
+    )
+    ccgt: ThermalTechnologyConfig = Field(
+        default_factory=lambda: ThermalTechnologyConfig(
+            minimum_stable_power_duration=0.25,
+            startup_delay_probability=0.26,
+            startup_duration=1,
+            shutdown_duration=1,
+            maximum_gradient=30,
+            strategy=ThermalStrategy.INTERMEDIATE,
+            setup_delay=0,
+        )
+    )
+    ocgt: ThermalTechnologyConfig = Field(
+        default_factory=lambda: ThermalTechnologyConfig(
+            minimum_stable_power_duration=0.25,
+            startup_delay_probability=0.26,
+            startup_duration=0.4,
+            shutdown_duration=0.4,
+            maximum_gradient=10,
+            strategy=ThermalStrategy.PEAK,
+            setup_delay=0,
+        )
+    )
+
+    def get(self, name: str) -> ThermalTechnologyConfig | None:
+        _ALIASES = {"coal": "hard_coal"}
+        key = name.lower()
+        key = _ALIASES.get(key, key)
+        return getattr(self, key, None)
 
 
 class AntaresToAtlasParameters(Parameters):
@@ -67,7 +164,7 @@ class AntaresToAtlasParameters(Parameters):
     hydraulic_fragments_file: Path | None = Field(default=None, description="Hydraulic fragments file")
     baseline_displacement_energy: Path | None = Field(default=None, description="Baseline displacement energy file")
     disp_energy_node_parameters: Path | None = Field(default=None, description="Displacement energy node parameters")
-    thermic_config_file: Path | None = Field(default=None, description="Thermic parameters file")
+    thermal_parameters: ThermalParameters = Field(default_factory=ThermalParameters, description="Per-technology thermal parameters")
     co2_emission_factors_file: Path | None = Field(default=None, description="CO2 emission factors file")
 
     # Storage initial levels
@@ -109,7 +206,6 @@ class AntaresToAtlasParameters(Parameters):
             "hydraulic_fragments_file",
             "baseline_displacement_energy",
             "disp_energy_node_parameters",
-            "thermic_config_file",
             "co2_emission_factors_file",
         ]
 
