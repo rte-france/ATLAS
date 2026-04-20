@@ -64,7 +64,9 @@ class ThermalConstraintBuilder:
             # Comb 5 (no_start): DD_at_{t}_equip_{name}; comb 8 (has_start): DD_{t}_equip_{name}
             dd_prefix = "DD" if self._has_start else "DD_at"
             for t in m.gradients_time_frame:
-                self._DD[t] = m.add_continuous_variable(f"{dd_prefix}_{t}_equip_{m.thermal_unit.name}", m.Q_min, m.Q_max)
+                self._DD[t] = m.add_continuous_variable(
+                    f"{dd_prefix}_{t}_equip_{m.thermal_unit.name}", m.Q_min, m.Q_max
+                )
 
     def _set_initial_conditions(self, day_zero: bool) -> None:
         if day_zero:
@@ -499,7 +501,11 @@ class ThermalConstraintBuilder:
                 expr = expr + m.STOP.get_value(t)
             if self._has_start:
                 expr = expr + m.START.get_value(t)
-            name = None if (not self._has_flat and not self._has_start and not self._has_stop) else f"mutual_exclusion_at_{t}"
+            name = (
+                None
+                if (not self._has_flat and not self._has_start and not self._has_stop)
+                else f"mutual_exclusion_at_{t}"
+            )
             m.add_constraint(expr == 1, name)
 
     def _add_transition_constraints(self) -> None:
@@ -681,7 +687,11 @@ class ThermalConstraintBuilder:
 
         if m.T_start >= 2:
             # Combination 4 (has_start, no_stop, no_flat) uses "startup_ramp_of_" (no space)
-            ramp_prefix = "startup_ramp_of_" if (self._has_start and not self._has_stop and not self._has_flat) else "start_up_ramp_of_"
+            ramp_prefix = (
+                "startup_ramp_of_"
+                if (self._has_start and not self._has_stop and not self._has_flat)
+                else "start_up_ramp_of_"
+            )
             for t in m.time_frame:
                 for s in m.start_time_steps:
                     t_ref = t - s * ts
@@ -788,7 +798,6 @@ class ThermalConstraintBuilder:
         """eqs. (33) and (34) — lower and upper bounds on q."""
         m = self._m
         q_min = m.thermal_unit.minimum_power.max()
-        q_step_up = q_min / m.T_start if self._has_start else 0
         q_step_down = q_min / m.T_stop if self._has_stop else 0
 
         for t in m.time_frame:

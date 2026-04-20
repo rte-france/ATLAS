@@ -23,9 +23,7 @@ from atlas.timing import generate_datetimes
 class ThermalUnitOrders:
     """Main order formulation function, for base and intermediate units"""
 
-    def __init__(
-        self, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ):
+    def __init__(self, orders_time: list[DateTime], parameters: DayAheadOrdersParameters):
         """
         :param orders_time: a list of dates over which orders will be formulated.
         :type orders_time: list[DateTime]
