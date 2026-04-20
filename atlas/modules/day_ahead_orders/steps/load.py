@@ -50,8 +50,8 @@ class LoadStep(AbstractOrderStep):
                                     order_type=OrderType.Buy,
                                     is_agent_tso=False,
                                     execution_date=self.parameters.temporal.execution_date,
-                                    start_date=t,
-                                    end_date=t + self.parameters.temporal.timestep,
+                                    start_date=t,  # type: ignore [arg-type]
+                                    end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
                                     price=load.variable_cost.get_value(t)
                                     if load.load_type == LoadType.POWER_TO_GAS
                                     else self.parameters.load_price,
