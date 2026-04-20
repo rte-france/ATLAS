@@ -22,29 +22,73 @@ class ThermalConstraintBuilder:
     Builds the full constraint set for a ThermalOptimizationModel based on T_start, T_stop,
     and T_stable. Replaces the 8 combination_*.py files with conditional composition.
 
-    The 8 original combinations mapped to (T_stop >= 1, T_start >= 1, T_stable >= 1):
+    Combination index encodes (T_stop >= 1, T_start >= 1, T_stable >= 1):
         1: (0, 0, 0)   2: (1, 0, 0)   3: (0, 0, 1)   4: (0, 1, 0)
         5: (1, 0, 1)   6: (0, 1, 1)   7: (1, 1, 0)   8: (1, 1, 1)
     """
+
+    _COMBINATION_MAP: dict[tuple[bool, bool, bool], int] = {
+        (False, False, False): 1,
+        (True,  False, False): 2,
+        (False, False, True):  3,
+        (False, True,  False): 4,
+        (True,  False, True):  5,
+        (False, True,  True):  6,
+        (True,  True,  False): 7,
+        (True,  True,  True):  8,
+    }
 
     def __init__(self, model: "ThermalOptimizationModel") -> None:
         self._m = model
         self._has_stop = model.T_stop >= 1
         self._has_start = model.T_start >= 1
         self._has_flat = model.T_stable >= 1
+        self._combination = self._COMBINATION_MAP[(self._has_stop, self._has_start, self._has_flat)]
         # Local auxiliaries created conditionally
-        self._down_to_stop: dict[DateTime, Any] = {}  # T_stop >= 1, T_stable == 0
-        self._flat_down_stop: dict[DateTime, Any] = {}  # T_stop >= 1, T_stable >= 1
-        self._DD: dict[DateTime, Any] = {}  # T_stop >= 1, T_stable >= 1
+        self._down_to_stop: dict[DateTime, Any] = {}  # combinations 2, 7
+        self._flat_down_stop: dict[DateTime, Any] = {}  # combinations 5, 8
+        self._DD: dict[DateTime, Any] = {}  # combinations 5, 8
 
     def build(self, day_zero: bool) -> None:
-        """Add all initial conditions and constraints to the model."""
+        """Build constraints for the active combination (see _COMBINATION_MAP)."""
+        cfg.logger.debug(
+            f"Building constraints for {self._m.thermal_unit.name} — combination {self._combination} "
+            f"(T_stop={int(self._has_stop)}, T_start={int(self._has_start)}, T_stable={int(self._has_flat)})"
+        )
         self._create_local_auxiliaries()
         self._set_initial_conditions(day_zero)
-        self._add_auxiliary_variable_constraints()
-        self._add_state_variable_constraints()
-        self._add_control_variable_constraints()
-        self._add_daily_energy_constraint()
+
+        # ── Auxiliary variables ──────────────────────────────────────────────
+        self._add_turned_on_constraints()           # all combinations
+        self._add_turned_off_constraints()          # all combinations
+        if self._has_flat:                          # combinations 3, 5, 6, 8
+            self._add_stable_constraints()
+            if self._flat_down_stop:               # combinations 5, 8
+                self._add_flat_down_stop_constraints()
+            self._add_entered_up_down_constraints()
+            self._add_ud_gradient_auxiliary_constraints()
+        if self._down_to_stop:                     # combinations 2, 7
+            self._add_down_to_stop_constraints()
+        if self._DD:                               # combinations 5, 8
+            self._add_dd_gradient_auxiliary_constraints()
+
+        # ── State variables ──────────────────────────────────────────────────
+        self._add_mutual_exclusion()               # all combinations
+        self._add_transition_constraints()         # all combinations (comb 1: no-op)
+        if self._has_start or self._has_stop:      # combinations 2, 4, 5, 6, 7, 8
+            self._add_eviction_constraints()
+        self._add_minimum_time_constraints()       # all combinations (guards inside)
+
+        # ── Control variables ────────────────────────────────────────────────
+        self._add_contracted_diff_constraints()    # all combinations
+        self._add_fill_up_constraints()            # all combinations
+        self._add_relaxed_reserve_constraint()     # all combinations
+        self._add_reserve_capacity_constraints()   # all combinations
+        self._add_power_bounds()                   # all combinations
+        self._add_gradient_constraints()           # all combinations
+
+        # ── Energy ──────────────────────────────────────────────────────────
+        self._add_daily_energy_constraint()        # all combinations (early-exit if no cap)
 
     def _create_local_auxiliaries(self) -> None:
         m = self._m
@@ -343,20 +387,6 @@ class ThermalConstraintBuilder:
     # Auxiliary variable constraints (Section B in original files)
     # ──────────────────────────────────────────────────────────────────────
 
-    def _add_auxiliary_variable_constraints(self) -> None:
-        self._add_turned_on_constraints()
-        self._add_turned_off_constraints()
-        if self._has_flat:
-            self._add_stable_constraints()
-            if self._flat_down_stop:
-                self._add_flat_down_stop_constraints()
-            self._add_entered_up_down_constraints()
-            self._add_ud_gradient_auxiliary_constraints()
-        if self._down_to_stop:
-            self._add_down_to_stop_constraints()
-        if self._DD:
-            self._add_dd_gradient_auxiliary_constraints()
-
     def _add_turned_on_constraints(self) -> None:
         """eq. (3) — identical in all combinations."""
         m = self._m
@@ -499,13 +529,6 @@ class ThermalConstraintBuilder:
     # ──────────────────────────────────────────────────────────────────────
     # State variable constraints (Section C in original files)
     # ──────────────────────────────────────────────────────────────────────
-
-    def _add_state_variable_constraints(self) -> None:
-        self._add_mutual_exclusion()
-        self._add_transition_constraints()
-        if self._has_start or self._has_stop:
-            self._add_eviction_constraints()
-        self._add_minimum_time_constraints()
 
     def _add_mutual_exclusion(self) -> None:
         """eq. (9) — all active state variables must sum to 1."""
@@ -729,14 +752,6 @@ class ThermalConstraintBuilder:
     # ──────────────────────────────────────────────────────────────────────
     # Control variable constraints (Section D in original files)
     # ──────────────────────────────────────────────────────────────────────
-
-    def _add_control_variable_constraints(self) -> None:
-        self._add_contracted_diff_constraints()
-        self._add_fill_up_constraints()
-        self._add_relaxed_reserve_constraint()
-        self._add_reserve_capacity_constraints()
-        self._add_power_bounds()
-        self._add_gradient_constraints()
 
     def _add_contracted_diff_constraints(self) -> None:
         """eqs. (39) and (40) — contracted difference for manual and automated reserves."""
