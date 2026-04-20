@@ -8,7 +8,6 @@ from atlas.timing import timer
 WORKFLOW_CONFIG = Path("tests/dataset/parameters/workflow.yml")
 
 
-@pytest.mark.integration
 @pytest.mark.skipif(
     not WORKFLOW_CONFIG.exists(),
     reason=f"Workflow config not found: {WORKFLOW_CONFIG}",

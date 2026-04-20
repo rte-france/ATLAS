@@ -132,7 +132,7 @@ class ChangeSetHandler:
         # Determine which class to use for type lookup
         target_class = cast(type[BusinessModel], model_class if model_class is not None else obj.__class__)
         # Determine operation type for error messages
-        operation = "set" if model_class is not None else "update"
+        operation = "add" if model_class is not None else "update"
 
         for key, value in data.items():
             if key == "name":
