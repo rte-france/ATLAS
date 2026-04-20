@@ -11,6 +11,7 @@ from pathlib import Path
 
 from atlas.abstract_class.dataset import AbstractDataset
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
+from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.workflow.job import Step, WorkflowJob
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
 
@@ -28,13 +29,16 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         """
         self.parameters = parameters
         self._jobs: list[WorkflowJob] = []
-
+        print(parameters.context)
         self.build_jobs()
+        print(parameters.context)
 
     @classmethod
-    def from_file(cls, file_path: str | Path) -> Workflow:
+    def from_file(cls, file_path: str | Path, context: ContextParameters | None = None) -> Workflow:
         file_path = Path(file_path)
         parameters = WorkflowParameters.from_file(file_path=file_path)
+        if context is not None:
+            parameters.context.use(context)
         parameters._orchestrator_path = file_path.parent
         return cls(parameters=parameters)
 
@@ -43,7 +47,9 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
         for step in self.parameters.steps:
             parameters = (
-                step.module.value().get_parameters_class().from_file(self.parameters.resolve_path(step.parameters_path))
+                step.module.value()
+                .get_parameters_class()
+                .from_file(self.parameters.resolve_path(step.parameters_path), self.parameters.context)
             )
             parameters.output.output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
             workflow_job = WorkflowJob(step.name, step.module.value, parameters)
