@@ -279,13 +279,6 @@ class ThermalOptimizationModel(OptimisationModel):
         return f"{self.AUX_UP_GRAD_AT_KEY}{t}_equip_{self.thermal_unit.name}"
 
     def _initial_setup(self) -> None:
-        if self.parameters.temporal.start_date > self.parameters.temporal.end_date + self.thermal_unit.additional_hours:
-            cfg.logger.error(
-                "The end_optimization_date is earlier than or identical to the start_date. \n"
-                "The time frame cannot be defined. Please check the values of start_date, end date and AdditionalHours"
-            )
-            raise ValueError("Improper dates")
-
         self._compute_duration_params()
         self._build_time_frames()
         self._setup_bounds()
@@ -423,84 +416,45 @@ class ThermalOptimizationModel(OptimisationModel):
         #    - the power output of the unit
         #    - the reserves of the unit and the mirror variables
         #    - contracted difference which corresponds to max(procured - provided, 0).
-        # Define the main optimization variable. Bounds : O and self.q_upper
         for t in self.time_frame:
+            q_upper_t = self.q_upper.get_value(t)
+            # Control variables
             self.q.set_model_var(t)
-
-        # Define the reserves variables
-        # reserves_up and reserves_down are defined no matter the value of self.T_stable. Only the type of reserves it encompasses changes.
-        for t in self.time_frame:
-            self.add_continuous_variable(self.reserves_up_equip_at(t), 0, self.q_upper.get_value(t))
-            self.add_continuous_variable(self.reserves_down_equip_at(t), 0, self.q_upper.get_value(t))
-            self.add_continuous_variable(self.unprovided_reserves_up_at(t), 0, self.q_upper.get_value(t))
-            self.add_continuous_variable(self.unprovided_reserves_down_at(t), 0, self.q_upper.get_value(t))
+            self.add_continuous_variable(self.reserves_up_equip_at(t), 0, q_upper_t)
+            self.add_continuous_variable(self.reserves_down_equip_at(t), 0, q_upper_t)
+            self.add_continuous_variable(self.unprovided_reserves_up_at(t), 0, q_upper_t)
+            self.add_continuous_variable(self.unprovided_reserves_down_at(t), 0, q_upper_t)
             self.add_continuous_variable(self.relaxed_reserves_at(t), 0, self.q_lower.get_value(t))
-
-        # create the automatedReserves control variables.
-        for t in self.time_frame:
             self.add_continuous_variable(self.automated_reserves_up_at(t), 0, self.maximum_automated)
             self.add_continuous_variable(self.automated_reserves_down_at(t), 0, self.maximum_automated)
-
-        # Create the contractedDifference variables. These variables are implemented as control variables will be included in the
-        # objective function and constrained by constraint (40).
-        for t in self.time_frame:
-            self.add_continuous_variable(self.contracted_difference_up_at(t), 0, self.q_upper.get_value(t))
-            self.add_continuous_variable(self.contracted_difference_down_at(t), 0, self.q_upper.get_value(t))
-
-        # Automated contracted difference variables. These variables will be constrained by equation (39).
-        for t in self.time_frame:
-            self.add_continuous_variable(self.automated_contracted_difference_up_at(t), 0, self.q_upper.get_value(t))
-            self.add_continuous_variable(self.automated_contracted_difference_down_at(t), 0, self.q_upper.get_value(t))
-
-        # 1.2. State variables (always in upper case)
-
-        # 1.2.1. Initialization of the state variables that are always defined :
-        # OFF, ON_UP, ON_FLAT and ON_DOWN
-
-        # Create the state variables for each time step over the extended time frame.
-        for t in self.time_frame:
+            self.add_continuous_variable(self.contracted_difference_up_at(t), 0, q_upper_t)
+            self.add_continuous_variable(self.contracted_difference_down_at(t), 0, q_upper_t)
+            self.add_continuous_variable(self.automated_contracted_difference_up_at(t), 0, q_upper_t)
+            self.add_continuous_variable(self.automated_contracted_difference_down_at(t), 0, q_upper_t)
+            # State variables
             self.OFF.set_model_var(t)
             self.ON_UP.set_model_var(t)
             self.ON_DOWN.set_model_var(t)
-
-        # 1.2.2. 'Conditional' state variables : defined only if a certain criteria on T is met.
-        if self.T_start >= 1:
-            # Define the start_time_steps range, i.e. the interval {1,...,T_start - 1}
-            self.start_time_steps = range(1, self.T_start - 1)
-
-            # Define the START state variable.
-            for t in self.time_frame:
-                self.START.set_model_var(t)
-
-        if self.T_stop >= 1:
-            # Define the stop_time_steps range.
-            self.stop_time_steps = range(1, self.T_stop - 1)
-
-            # Define the STOP state variable
-            for t in self.time_frame:
-                self.STOP.set_model_var(t)
-
-        if self.T_stable >= 1:
-            self.start_date_minus_one = self.parameters.temporal.start_date - self.parameters.temporal.timestep
-            for t in self.time_frame:
-                self.ON_FLAT.set_model_var(t)
-
-            # For the time step start_date - 1, create optimization avariables for ON_FLAT, ON_UP and ON_DOWN
-            self.ON_FLAT.set_model_var(self.start_date_minus_one)
-
-            self.ON_DOWN.set_model_var(self.start_date_minus_one)
-            self.ON_UP.set_model_var(self.start_date_minus_one)
-
-        # 1.3. Auxiliary variables
-        # Remark. Auxiliary variables are formally binary variables but due to their
-        # defining constraints (see below), they can be defined as continuous values comprised in [0,1].
-        # Constraints will ensure that the value they take is always 0 or 1.
-        # Convention : auxiliary variables are written in lower case
-
-        # 1.3.1. Create the auxiliary variables that will always be defined
-        for t in self.time_frame:
+            # Auxiliary variables
             self.turned_on.set_model_var(t)
             self.turned_off.set_model_var(t)
+            # Conditional state variables
+            if self.T_start >= 1:
+                self.START.set_model_var(t)
+            if self.T_stop >= 1:
+                self.STOP.set_model_var(t)
+            if self.T_stable >= 1:
+                self.ON_FLAT.set_model_var(t)
+
+        if self.T_start >= 1:
+            self.start_time_steps = range(1, self.T_start - 1)
+        if self.T_stop >= 1:
+            self.stop_time_steps = range(1, self.T_stop - 1)
+        if self.T_stable >= 1:
+            self.start_date_minus_one = self.parameters.temporal.start_date - self.parameters.temporal.timestep
+            self.ON_FLAT.set_model_var(self.start_date_minus_one)
+            self.ON_DOWN.set_model_var(self.start_date_minus_one)
+            self.ON_UP.set_model_var(self.start_date_minus_one)
 
         # 1.3.2. Create the condtionnal auxiliary variables if necessary.
 
