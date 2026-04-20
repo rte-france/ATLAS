@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 """
 
 import math
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from pendulum import DateTime
@@ -43,6 +44,7 @@ class ThermalConstraintBuilder:
         self._add_auxiliary_variable_constraints()
         self._add_state_variable_constraints()
         self._add_control_variable_constraints()
+        self._add_daily_energy_constraint()
 
     def _create_local_auxiliaries(self) -> None:
         m = self._m
@@ -693,19 +695,59 @@ class ThermalConstraintBuilder:
     # ──────────────────────────────────────────────────────────────────────
 
     def _add_control_variable_constraints(self) -> None:
-        m = self._m
-        m.create_contracted_diff_constraints(
-            m.time_frame,
-            m.reserves_up_procured,
-            m.reserves_down_procured,
-            m.feasible_automated_reserves_up_procured,
-            m.feasible_automated_reserves_down_procured,
-        )
-        m.create_fill_up_constraints(m.time_frame, m.q, m.q_upper, m.parameters.epsilon, m.q_lower)
+        self._add_contracted_diff_constraints()
+        self._add_fill_up_constraints()
         self._add_relaxed_reserve_constraint()
         self._add_reserve_capacity_constraints()
         self._add_power_bounds()
         self._add_gradient_constraints()
+
+    def _add_contracted_diff_constraints(self) -> None:
+        """eqs. (39) and (40) — contracted difference for manual and automated reserves."""
+        m = self._m
+        for t in m.time_frame:
+            m.add_constraint(
+                m.get_variable(m.contracted_difference_up_at(t))
+                >= m.reserves_up_procured.get_value(t) - m.get_variable(m.reserves_up_equip_at(t))
+            )
+            m.add_constraint(
+                m.get_variable(m.contracted_difference_down_at(t))
+                >= m.reserves_down_procured.get_value(t) - m.get_variable(m.reserves_down_equip_at(t))
+            )
+            m.add_constraint(
+                m.get_variable(m.automated_contracted_difference_up_at(t))
+                >= m.feasible_automated_reserves_up_procured.get_value(t)
+                - m.get_variable(m.automated_reserves_up_at(t))
+            )
+            m.add_constraint(
+                m.get_variable(m.automated_contracted_difference_down_at(t))
+                >= m.feasible_automated_reserves_down_procured.get_value(t)
+                - m.get_variable(m.automated_reserves_down_at(t))
+            )
+
+    def _add_fill_up_constraints(self) -> None:
+        """eqs. (41) and (42) — upward and downward fill-up constraints."""
+        m = self._m
+        eps = m.parameters.epsilon
+        for t in m.time_frame:
+            up_sum = (
+                m.q.get_value(t)
+                + m.get_variable(m.reserves_up_equip_at(t))
+                + m.get_variable(m.automated_reserves_up_at(t))
+                + m.get_variable(m.unprovided_reserves_up_at(t))
+            )
+            m.add_constraint(up_sum <= m.q_upper.get_value(t) + eps)
+            m.add_constraint(up_sum >= m.q_upper.get_value(t) - eps)
+
+            down_sum = (
+                m.q.get_value(t)
+                - m.get_variable(m.reserves_down_equip_at(t))
+                - m.get_variable(m.automated_reserves_down_at(t))
+                - m.get_variable(m.unprovided_reserves_down_at(t))
+                + m.get_variable(m.relaxed_reserves_at(t))
+            )
+            m.add_constraint(down_sum <= m.q_lower.get_value(t) + eps)
+            m.add_constraint(down_sum >= m.q_lower.get_value(t) - eps)
 
     def _add_relaxed_reserve_constraint(self) -> None:
         """eq. (43)."""
@@ -765,6 +807,23 @@ class ThermalConstraintBuilder:
             if self._has_start:
                 ub = ub + m.START.get_value(t) * q_min
             m.add_constraint(m.q.get_value(t) <= ub, f"upper_bound_of_{m.thermal_unit.name}_at_{t}")
+
+    def _add_daily_energy_constraint(self) -> None:
+        """Limit total energy output per calendar day when the unit has a daily energy cap."""
+        m = self._m
+        if not m.thermal_unit.has_daily_energy_constraint:
+            return
+        days = sorted({datetime(t.year, t.month, t.day) for t in m.time_frame})
+        for day in days:
+            steps = [t for t in m.time_frame if t.year == day.year and t.month == day.month and t.day == day.day]
+            if steps and m.thermal_unit.maximum_daily_energy is not None:
+                m.add_constraint(
+                    sum(m.q.get_value(t) for t in steps)
+                    <= m.thermal_unit.maximum_daily_energy.get_value(day)
+                    * m.parameters.temporal.timestep.total_days()
+                    * len(steps),
+                    f"energy_limit_of_{m.thermal_unit.name}_at_{day}",
+                )
 
     def _add_gradient_constraints(self) -> None:
         """eqs. (35–38) — upward and downward power gradient constraints."""
