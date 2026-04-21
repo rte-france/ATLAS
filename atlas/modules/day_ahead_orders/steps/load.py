@@ -40,7 +40,7 @@ class LoadStep(AbstractOrderStep):
                         if max_consumption_value > 0:
                             result.orders.append(
                                 OrderDAO(
-                                    name=f"load_order_at_{t}_for_unit_{load.name}",
+                                    name=f"load_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{load.name}",
                                     market_area=load.portfolio.market_area,
                                     portfolio=load.portfolio,
                                     equipment=load,
@@ -50,8 +50,8 @@ class LoadStep(AbstractOrderStep):
                                     order_type=OrderType.Buy,
                                     is_agent_tso=False,
                                     execution_date=self.parameters.temporal.execution_date,
-                                    start_date=t,
-                                    end_date=t + self.parameters.temporal.timestep,
+                                    start_date=t,  # type: ignore [arg-type]
+                                    end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
                                     price=load.variable_cost.get_value(t)
                                     if load.load_type == LoadType.POWER_TO_GAS
                                     else self.parameters.load_price,

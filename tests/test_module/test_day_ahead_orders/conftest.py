@@ -17,6 +17,7 @@ from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
+DAY_AHEAD_INPUT_DIR = Path("tests/dataset/day_ahead_input")
 MARKET_CLEARING_INPUT_DIR = Path("tests/dataset/market_clearing_input")
 
 STEPS_PARAMS_DICT = {
@@ -38,6 +39,15 @@ def steps_parameters() -> DayAheadOrdersParameters:
 
 
 @pytest.fixture(scope="session")
+def day_ahead_atlas_data(steps_parameters) -> AtlasDataset:
+    if not DAY_AHEAD_INPUT_DIR.exists():
+        pytest.skip(f"Day ahead input dataset not found: {DAY_AHEAD_INPUT_DIR}")
+    data = AtlasDataset.from_directory(DAY_AHEAD_INPUT_DIR)
+    data.set_frequency_all(steps_parameters.temporal.timestep, inplace=True)
+    return data
+
+
+@pytest.fixture(scope="session")
 def market_clearing_atlas_data(steps_parameters) -> AtlasDataset:
     if not MARKET_CLEARING_INPUT_DIR.exists():
         pytest.skip(f"Market clearing input dataset not found: {MARKET_CLEARING_INPUT_DIR}")
@@ -46,12 +56,12 @@ def market_clearing_atlas_data(steps_parameters) -> AtlasDataset:
     return data
 
 
-@pytest.fixture
-def steps_input_dataset(market_clearing_atlas_data, steps_parameters) -> DayAheadOrdersInputDataset:
-    return DayAheadOrdersInputDataset(market_clearing_atlas_data, steps_parameters)
+@pytest.fixture(scope="class")
+def steps_input_dataset(day_ahead_atlas_data, steps_parameters) -> DayAheadOrdersInputDataset:
+    return DayAheadOrdersInputDataset(day_ahead_atlas_data, steps_parameters)
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def steps_output_dataset(steps_input_dataset) -> DayAheadOrdersOutput:
     return DayAheadOrdersOutput(steps_input_dataset)
 

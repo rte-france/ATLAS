@@ -12,9 +12,9 @@ from pendulum import DateTime
 import atlas.config as cfg
 from atlas.enums import ComplementDirection, CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
+from atlas.modules.day_ahead_orders.input_objects.hydro import HydroDAO
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.input_objects.storage import StorageDAO
 from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
 from atlas.timing import generate_datetimes
 
@@ -86,7 +86,7 @@ class HydraulicStep(AbstractOrderStep):
                 for k, v in volumes.items():
                     if v != 0:
                         bid_output = OrderDAO(
-                            name=f"hydraulic_order_fragment_{str(k)}_at_{t}_for_unit_{equipment.name}",
+                            name=f"hydraulic_order_fragment_{str(k)}_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{equipment.name}",
                             market_area=equipment.portfolio.market_area,
                             portfolio=equipment.portfolio,
                             equipment=equipment,
@@ -96,8 +96,8 @@ class HydraulicStep(AbstractOrderStep):
                             order_type=OrderType.Sell,
                             is_agent_tso=False,
                             execution_date=self.parameters.temporal.execution_date,
-                            start_date=t,
-                            end_date=t + self.parameters.temporal.timestep,
+                            start_date=t,  # type: ignore [arg-type]
+                            end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
                             price=self._calculate_fragment_price(delta_wu[k][1], marginal_weights, t),
                         )
 
@@ -105,13 +105,13 @@ class HydraulicStep(AbstractOrderStep):
                         coupling_orders.append(bid_output)
 
                         if t in submitted_volumes:
-                            submitted_volumes.set_value(t, v)
+                            submitted_volumes.set_value(t, submitted_volumes.get_value(t) + v)
                         else:
                             submitted_volumes.add_index(t, v)
 
             result.order_couplings.append(
                 OrderCouplingDAO(
-                    name=f"COMPLEMENT_{str(equipment.name)}_{self.parameters.temporal.execution_date}",
+                    name=f"complement_{str(equipment.name)}_{self.parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}",
                     coupling_type=CouplingType.COMPLEMENT,
                     complement_direction=ComplementDirection.GreaterThan,
                     complement_energy=complement_energy,
@@ -125,7 +125,7 @@ class HydraulicStep(AbstractOrderStep):
 
         return result
 
-    def _get_current_energy_level(self, equipment: StorageDAO) -> float:
+    def _get_current_energy_level(self, equipment: HydroDAO) -> float:
         if equipment.stored_energy is not None:
             energy_forecast = equipment.stored_energy.get_forecast(
                 self.parameters.temporal.execution_date,
