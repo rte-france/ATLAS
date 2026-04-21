@@ -59,6 +59,8 @@ class Task(BaseModel):
     from_: DateTime  # FIXME change name, "from" isn't available in python
     until: DateTime
     frequency: Duration
+    offset_start_date: Duration
+    offset_end_date: Duration
 
     @field_validator("module", mode="before")
     @classmethod

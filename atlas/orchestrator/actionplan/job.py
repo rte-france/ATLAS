@@ -17,6 +17,7 @@ from atlas import WorkflowParameters
 from atlas.abstract_class.job import AbstractJob
 from atlas.abstract_class.module import AbstractModule
 from atlas.abstract_class.parameters import AbstractModuleParameters
+from atlas.io_utils.utils import deep_update
 from atlas.orchestrator.actionplan.parameters import Task
 from atlas.orchestrator.workflow.workflow import Workflow
 
@@ -38,6 +39,14 @@ class TaskIterator(ABC):
     task: Task
     next_date: DateTime
     root_output_dir: Path
+
+    @property
+    def next_start_date(self):
+        return self.task.offset_start_date + self.next_date
+
+    @property
+    def next_end_date(self):
+        return self.task.offset_end_date + self.next_date
 
     def __iter__(self):
         self.next_date = self.task.from_
@@ -85,8 +94,8 @@ class ModuleTaskIterator(TaskIterator):
     def build_current_parameters(self) -> AbstractModuleParameters:
         parameters = copy.deepcopy(self.parameters)
         parameters.output.output_dir = self.root_output_dir / self.next_date
-        # FIXME parameters.temporal.start_date = MISSING_DATA
-        # FIXME parameters.temporal.end_date = MISSING_DATA
+        parameters.temporal.start_date = self.next_start_date
+        parameters.temporal.end_date = self.next_end_date
         parameters.temporal.execution_date = self.next_date
         return parameters
 
@@ -101,13 +110,20 @@ class WorkflowTaskIterator(TaskIterator):
 
     def build_current_parameters(self) -> WorkflowParameters:
         parameters = copy.deepcopy(self.parameters)
-        # FIXME We should be able to build a Workflow with static parameters that override the associated parameters in module
-        #  - DateParameters
-        #  - OutputParameters
-        # FIXME update all module parameters["output"]["output_dir"] = self.root_output_dir / self.next_date
-        # FIXME update all module parameters["temporal"]["start_date"] = MISSING_DATA
-        # FIXME update all module parameters["temporal"]["end_date"] = MISSING_DATA
-        # FIXME update all module parameters["temporal"]["execution_date"] = self.next_date
+        deep_update(
+            parameters.context.forced,
+            {
+                "temporal": {
+                    "execution_date": self.task.until,
+                    "start_date": self.next_start_date,
+                    "end_date": self.next_end_date,
+                },
+                "output": {
+                    "output_dir": self.root_output_dir / self.next_date,
+                },
+            },
+            True,
+        )
         return parameters
 
     def build_jobs(self) -> list[AbstractJob]:
