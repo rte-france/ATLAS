@@ -24,7 +24,6 @@ Each job is broken down into:
 
 | Column | What it measures |
 |--------|-----------------|
-| `filter` | `cis.filter_dataset()` — dataset filtering before the module runs |
 | `build` | Python model construction — variables, constraints, objective |
 | `solve` | `SolverInterface.solve()` — solver call (LP/MIP, external C++) |
 | `run` | `job.run()` — total of build + solve |
@@ -34,28 +33,32 @@ Each job is broken down into:
 **Usage:**
 
 ```bash
-python profiling_level1.py --parameters workflow.yaml
+uv run python profiling_level1.py --parameters workflow.yaml
 ```
 
 **Example output:**
 
 ```
 ──────────────────────────────────────────────────────────────
-  Atlas Workflow — Level 1 Profile   wall=104.41s
+  Atlas Workflow — Level 1 Profile   wall=332.79s
 ──────────────────────────────────────────────────────────────
-  Workflow.from_file                       0.01s    0%
-  CurrentInputState.from_directory         0.66s    1%
-  Job                    filter   build   solve     run   apply  export   total  %
+  Workflow.from_file                       0.04s    0%
+  CurrentInputState.from_directory         4.33s    1%
+
+  Job                     build   solve     run   apply  export   total  %
   ──────────────────────────────────────────────────────────────────────────────────
-  DayAheadOrders          0.01s  63.48s   3.16s  66.64s   0.07s   0.00s  66.72s  64%  ████████████
-  MarketClearing          0.67s  19.84s   0.15s  20.00s   0.10s   0.00s  20.77s  20%  ███
-  PortfolioOptimisation   0.02s  14.55s   0.13s  14.67s   0.08s   0.00s  14.77s  14%  ██
+  DayAheadOrders         72.23s   3.46s  75.69s   0.12s   0.00s  75.81s  23%  ████
+  MarketClearing         22.73s   0.11s  22.83s   0.11s   0.00s  22.94s   7%  █
+  PortfolioOptimisation  27.22s  199.08s  226.30s   0.10s   0.00s  226.40s  68%  █████████████
   ──────────────────────────────────────────────────────────────────────────────────
-  TOTAL                   0.70s  97.87s   3.44s 101.31s   0.25s   0.00s 102.26s  98%
+  TOTAL                  122.18s  202.65s  324.83s   0.32s   0.00s  325.15s  98%
+
   Bottlenecks (> 5%):
-    → DayAheadOrders · build                    63.48s  (61%)
-    → MarketClearing · build                    19.84s  (19%)
-    → PortfolioOptimisation · build             14.55s  (14%)
+    → PortfolioOptimisation · solve             199.08s  (60%)
+    → DayAheadOrders · build                    72.23s  (22%)
+    → PortfolioOptimisation · build             27.22s  (8%)
+    → MarketClearing · build                    22.73s  (7%)
+
   build=yellow  solve=green  run=build+solve (dim)
 ──────────────────────────────────────────────────────────────
 ```
@@ -64,7 +67,7 @@ python profiling_level1.py --parameters workflow.yaml
 
 - `build` dominates → go to Level 2 on that module
 - `solve` dominates → LP or MIP is independent of Python code — LP/MIP formulation may need to change
-- `filter` or `apply` dominates → I/O or serialization issue, investigate the CIS layer
+- `apply` dominates → I/O or serialization issue, investigate the CIS layer
 - `export` dominates → disk write bottleneck, check output volume
 
 ---
@@ -73,14 +76,12 @@ python profiling_level1.py --parameters workflow.yaml
 
 **Goal:** Identify which functions inside the slow module consume the most CPU time.
 
-**Tool:** Python standard library `cProfile`
-
-**How it works:** Wraps the module's `run()` call with a profiler. Reports cumulative time (`cumtime`) and self time (`tottime`) per function. No modification to the source code required.
+**Tool:** Python standard library `pyinstrument`
 
 **Usage:**
 
 ```bash
-python profiling_level2.py --parameters workflow.yaml --module DayAheadOrders
+uv run python atlas/profiling/profiling_module.py path/to/parameters --module ModuleName --dataset path/to/dataset --output where/to/export/html
 ```
 
 **What to look for:**
@@ -124,7 +125,7 @@ run >>
   │
   ├── solver dominates : LP/MIP formulation issue, not a Python-level fix
   │
-  └── filter/apply dominates : Check on Atlas API function
+  └── apply dominates : Check on Atlas API function
 ```
 
 ---
