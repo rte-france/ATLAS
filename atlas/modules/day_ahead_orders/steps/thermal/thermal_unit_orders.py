@@ -23,9 +23,7 @@ from atlas.timing import generate_datetimes
 class ThermalUnitOrders:
     """Main order formulation function, for base and intermediate units"""
 
-    def __init__(
-        self, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ):
+    def __init__(self, orders_time: list[DateTime], parameters: DayAheadOrdersParameters):
         """
         :param orders_time: a list of dates over which orders will be formulated.
         :type orders_time: list[DateTime]
@@ -295,7 +293,7 @@ class ThermalUnitOrders:
             if automated_reserves_down_procured.get_value(t) > 0.0:
                 # This order will be the child of the current inflexible order.
                 reserve_bid = OrderDAO(
-                    name=f"automated_downward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
+                    name=f"automated_downward_reserve_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
@@ -316,7 +314,7 @@ class ThermalUnitOrders:
             if manual_reserves_down_procured.get_value(t) > 0.0:
                 # This order will be the child of the current inflexible order.
                 reserve_bid = OrderDAO(
-                    name=f"manual_downward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
+                    name=f"manual_downward_reserve_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
@@ -358,7 +356,7 @@ class ThermalUnitOrders:
             if manual_reserves_up_procured.get_value(t) > 0.0:
                 # This order will be the child of the current flexible order.
                 reserve_bid = OrderDAO(
-                    name=f"manual_upward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
+                    name=f"manual_upward_reserve_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
@@ -500,17 +498,17 @@ class ThermalUnitOrders:
                         # Add parent-children link between the flexible and inflexible parts
                         couplings.append(
                             OrderCouplingDAO(
-                                name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
+                                name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_with_scenario_{case}",
                                 coupling_type=CouplingType.PARENT_CHILDREN,
                                 orders=[bid_output, flexible_bid],
                             )
                         )
 
             # Part 4: configure the identical_ratio link between all inflexible orders
-            date = inflexible_time_frame[0]
+            date = pendulum.DateTime.instance(inflexible_time_frame[0])
             couplings.append(
                 OrderCouplingDAO(
-                    name=f"IDENTICAL_RATIO_inflexible_orders_for_unit_{unit.name}_starting_at_{pendulum.DateTime.instance(date)}_with_scenario_{case}",
+                    name=f"IDENTICAL_RATIO_inflexible_orders_for_unit_{unit.name}_starting_at_{date.format('DD_MM_YYYY_HH_mm_ss')}_with_scenario_{case}",
                     coupling_type=CouplingType.IDENTICAL_RATIO,
                     orders=inflexible_orders,  # type: ignore [arg-type]
                 )
