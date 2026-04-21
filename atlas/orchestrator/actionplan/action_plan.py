@@ -46,12 +46,16 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
         if task.module is not None:
             module_parameters = (
-                task.module.value().get_parameters_class().from_file(self.parameters.resolve_path(task.parameters_path))
+                task.module.value()
+                .get_parameters_class()
+                .from_file(self.parameters.resolve_path(task.parameters_path), self.parameters.context)
             )
             self._push_iterator(ModuleTaskIterator(task, module_parameters, root_output_dir))
 
         if task.workflow is not None:
-            workflow_parameters = WorkflowParameters.from_file(self.parameters.resolve_path(task.parameters_path))
+            workflow_parameters = WorkflowParameters.from_file(
+                self.parameters.resolve_path(task.parameters_path), self.parameters.context
+            )
             self._push_iterator(WorkflowTaskIterator(task, workflow_parameters, root_output_dir))
 
     def _push_iterator(self, iterator: TaskIterator):
