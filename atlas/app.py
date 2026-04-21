@@ -86,7 +86,7 @@ def run(
                 module = module_class()
                 parameters = cast(AbstractModuleParameters, module.get_parameters_class()).from_file(config_path)
 
-                output_dataset = module.run(cis.get_data(copy=False), parameters)
+                output_dataset = module.run(cis.get_data(), parameters)
 
                 if parameters.output.export_output_dataset:
                     CISHandler.apply(output_dataset.change_sets, cis)
