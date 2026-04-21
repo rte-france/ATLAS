@@ -29,13 +29,13 @@ class ThermalConstraintBuilder:
 
     _COMBINATION_MAP: dict[tuple[bool, bool, bool], int] = {
         (False, False, False): 1,
-        (True,  False, False): 2,
-        (False, False, True):  3,
-        (False, True,  False): 4,
-        (True,  False, True):  5,
-        (False, True,  True):  6,
-        (True,  True,  False): 7,
-        (True,  True,  True):  8,
+        (True, False, False): 2,
+        (False, False, True): 3,
+        (False, True, False): 4,
+        (True, False, True): 5,
+        (False, True, True): 6,
+        (True, True, False): 7,
+        (True, True, True): 8,
     }
 
     def __init__(self, model: "ThermalOptimizationModel") -> None:
@@ -59,36 +59,36 @@ class ThermalConstraintBuilder:
         self._set_initial_conditions(day_zero)
 
         # ── Auxiliary variables ──────────────────────────────────────────────
-        self._add_turned_on_constraints()           # all combinations
-        self._add_turned_off_constraints()          # all combinations
-        if self._has_flat:                          # combinations 3, 5, 6, 8
+        self._add_turned_on_constraints()  # all combinations
+        self._add_turned_off_constraints()  # all combinations
+        if self._has_flat:  # combinations 3, 5, 6, 8
             self._add_stable_constraints()
-            if self._flat_down_stop:               # combinations 5, 8
+            if self._flat_down_stop:  # combinations 5, 8
                 self._add_flat_down_stop_constraints()
             self._add_entered_up_down_constraints()
             self._add_ud_gradient_auxiliary_constraints()
-        if self._down_to_stop:                     # combinations 2, 7
+        if self._down_to_stop:  # combinations 2, 7
             self._add_down_to_stop_constraints()
-        if self._DD:                               # combinations 5, 8
+        if self._DD:  # combinations 5, 8
             self._add_dd_gradient_auxiliary_constraints()
 
         # ── State variables ──────────────────────────────────────────────────
-        self._add_mutual_exclusion()               # all combinations
-        self._add_transition_constraints()         # all combinations (comb 1: no-op)
-        if self._has_start or self._has_stop:      # combinations 2, 4, 5, 6, 7, 8
+        self._add_mutual_exclusion()  # all combinations
+        self._add_transition_constraints()  # all combinations (comb 1: no-op)
+        if self._has_start or self._has_stop:  # combinations 2, 4, 5, 6, 7, 8
             self._add_eviction_constraints()
-        self._add_minimum_time_constraints()       # all combinations (guards inside)
+        self._add_minimum_time_constraints()  # all combinations (guards inside)
 
         # ── Control variables ────────────────────────────────────────────────
-        self._add_contracted_diff_constraints()    # all combinations
-        self._add_fill_up_constraints()            # all combinations
-        self._add_relaxed_reserve_constraint()     # all combinations
-        self._add_reserve_capacity_constraints()   # all combinations
-        self._add_power_bounds()                   # all combinations
-        self._add_gradient_constraints()           # all combinations
+        self._add_contracted_diff_constraints()  # all combinations
+        self._add_fill_up_constraints()  # all combinations
+        self._add_relaxed_reserve_constraint()  # all combinations
+        self._add_reserve_capacity_constraints()  # all combinations
+        self._add_power_bounds()  # all combinations
+        self._add_gradient_constraints()  # all combinations
 
         # ── Energy ──────────────────────────────────────────────────────────
-        self._add_daily_energy_constraint()        # all combinations (early-exit if no cap)
+        self._add_daily_energy_constraint()  # all combinations (early-exit if no cap)
 
     def _create_local_auxiliaries(self) -> None:
         m = self._m

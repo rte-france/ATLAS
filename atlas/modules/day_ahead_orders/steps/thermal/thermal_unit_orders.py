@@ -6,12 +6,14 @@ This file is part of the ATLAS project.
 """
 
 import math
+from typing import cast
 
 import pendulum
 from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.enums import CouplingType, OrderType, Product
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
@@ -135,10 +137,14 @@ class ThermalUnitOrders:
         q_min = unit.minimum_power.max()
 
         ## See whether the unit will bid inflexible orders over the whole orders_time sequence:
-        if unit.minimum_power.filter(self.orders_time, inplace=False).dataframe["value"].min() == 0:
-            null_minimum_power = True
+        if isinstance(unit.minimum_power, LazyTimeseries):
+            min_power = unit.minimum_power.collect()
         else:
-            null_minimum_power = False
+            min_power = cast(Timeseries, unit.minimum_power)
+            if min_power.filter(self.orders_time, inplace=False).dataframe["value"].min() == 0:
+                null_minimum_power = True
+            else:
+                null_minimum_power = False
 
         ## See whether there is a startup or not. Used to know if we need to amortise startup cost over the inflexible
         # orders or not.
@@ -285,8 +291,8 @@ class ThermalUnitOrders:
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
                     execution_date=self.parameters.temporal.execution_date,
-                    start_date=t,
-                    end_date=t + self.parameters.temporal.timestep,
+                    start_date=t,  # type: ignore [arg-type]
+                    end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
                 )
                 orders.append(flexible_part)
 
@@ -307,8 +313,8 @@ class ThermalUnitOrders:
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
                     execution_date=self.parameters.temporal.execution_date,
-                    start_date=t,
-                    end_date=t + self.parameters.temporal.timestep,
+                    start_date=t,  # type: ignore [arg-type]
+                    end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
                 )
                 orders.append(reserve_bid)
 
@@ -328,8 +334,8 @@ class ThermalUnitOrders:
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
                     execution_date=self.parameters.temporal.execution_date,
-                    start_date=t,
-                    end_date=t + self.parameters.temporal.timestep,
+                    start_date=t,  # type: ignore [arg-type]
+                    end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
                 )
                 orders.append(reserve_bid)
 
@@ -349,8 +355,8 @@ class ThermalUnitOrders:
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
                     execution_date=self.parameters.temporal.execution_date,
-                    start_date=t,
-                    end_date=t + self.parameters.temporal.timestep,
+                    start_date=t,  # type: ignore [arg-type]
+                    end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
                 )
                 orders.append(reserve_bid)
 
@@ -369,8 +375,8 @@ class ThermalUnitOrders:
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
                     execution_date=self.parameters.temporal.execution_date,
-                    start_date=t,
-                    end_date=t + self.parameters.temporal.timestep,
+                    start_date=t,  # type: ignore [arg-type]
+                    end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
                 )
                 orders.append(reserve_bid)
 
@@ -422,8 +428,8 @@ class ThermalUnitOrders:
                         order_type=OrderType.Sell,
                         is_agent_tso=False,
                         execution_date=self.parameters.temporal.execution_date,
-                        start_date=t,
-                        end_date=t + self.parameters.temporal.timestep,
+                        start_date=t,  # type: ignore [arg-type]
+                        end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
                     )
                     orders.append(bid_output)
 
@@ -453,8 +459,8 @@ class ThermalUnitOrders:
                         order_type=OrderType.Sell,
                         is_agent_tso=False,
                         execution_date=self.parameters.temporal.execution_date,
-                        start_date=t,
-                        end_date=t + self.parameters.temporal.timestep,
+                        start_date=t,  # type: ignore [arg-type]
+                        end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
                     )
                     orders.append(bid_output)
 
@@ -482,8 +488,8 @@ class ThermalUnitOrders:
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
                     execution_date=self.parameters.temporal.execution_date,
-                    start_date=t,
-                    end_date=t + self.parameters.temporal.timestep,
+                    start_date=t,  # type: ignore [arg-type]
+                    end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
                 )
                 orders.append(bid_output)
 
