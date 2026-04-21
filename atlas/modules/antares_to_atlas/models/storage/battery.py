@@ -86,6 +86,15 @@ def _convert_normal_battery(
 
     binding_constraints = study.get_binding_constraints()
     binding_constraint = binding_constraints.get(f"batteries_{area.id}", None)
+    scenario = (
+        study.get_output(parameters.output_name)
+        .get_thermal_ts_numbers(area.id, f"batteries_{area.id}")
+        .get(parameters.scenario, None)
+    )
+
+    if scenario is None:
+        logger.warning(f"No scenario found for batteries_{area.id}, skipping battery conversion for area {area.id}")
+        return None
 
     if binding_constraint:
         thermals = area.get_thermals()
@@ -95,42 +104,38 @@ def _convert_normal_battery(
         if not batteries_inj_thermal:
             return None
 
-        maximum_power_df = batteries_inj_thermal.get_series_matrix()[parameters.scenario]  # TODO: Get dispo
-        power_discharge_df = batteries_inj_thermal.get_series_matrix()[parameters.scenario]  # TODO: Get dispo
+        maximum_power_df = batteries_inj_thermal.get_series_matrix()[scenario - 1]
+        power_discharge_df = batteries_inj_thermal.get_series_matrix()[scenario - 1]
 
         if maximum_power_df.abs().max().max() == 0:
             return None
 
-        maximum_power_ts = Timeseries(maximum_power_df)
-        power_discharge_ts = Timeseries(power_discharge_df)
+        maximum_power_ts = Timeseries.from_values(
+            start_date=parameters.start_date, frequency="1h", values=maximum_power_df
+        )
+        power_discharge_ts = Timeseries.from_values(
+            start_date=parameters.start_date, frequency="1h", values=power_discharge_df
+        )
 
         z_batteries_thermals = areas["z_batteries"].get_thermals()
         stock_thermal = z_batteries_thermals.get(f"z_batteries_batteries_{area.id}_1", None)
-        maximum_energy_df = stock_thermal.get_series_matrix()[parameters.scenario]  # TODO: Get Disponibility
-        maximum_energy_ts = Timeseries(maximum_energy_df)
 
-        # In old code: binding_constraint.Weights[0] and binding_constraint.Weights[1]
-        # TODO: Extract efficiencies from binding constraint terms = binding_constraint.get_terms()
-        charge_efficiency = 1.0
-        discharge_efficiency = 1.0
+        maximum_energy_df = stock_thermal.get_series_matrix()[scenario - 1]
+        maximum_energy_ts = Timeseries.from_values(
+            start_date=parameters.start_date, frequency="1h", values=maximum_energy_df
+        )
 
-        # In old code: link.CalculatedTransit[str(p.scenario)]
-        power_charge_df = link.get_capacity_direct()[parameters.scenario]  # TODO: Get correct transit data
-        power_charge_ts = Timeseries(power_charge_df * -1.0)
+        charge_efficiency = binding_constraint.get_terms()[""].weight  # TODO
+        discharge_efficiency = binding_constraint.get_terms()[""].offset
 
-        if power_discharge_ts is None:
-            power_discharge_ts = Timeseries.from_index(
-                start_date=parameters.start_date,
-                frequency="1h",
-                end_date=parameters.start_date + duration(years=1),
-                default_value=0.0,
-            )
+        power_charge_df = link.get_capacity_direct()[scenario - 1]
+        power_charge_ts = Timeseries.from_values(
+            start_date=parameters.start_date, frequency="1h", values=power_charge_df * -1.0
+        )
 
         power_ts = power_discharge_ts + power_charge_ts
 
-        # TODO: Verify how to get DirectTransferCapacity time series
-        minimum_power_df = link.get_capacity_direct()[parameters.scenario]
-        minimum_power_value = float(minimum_power_df.abs().max().max())
+        minimum_power_value = float(power_charge_df.abs().max().max())
         minimum_power_ts = Timeseries.from_index(
             start_date=parameters.start_date,
             frequency="1h",
@@ -184,6 +189,18 @@ def _convert_pcomp_battery(
     binding_constraints = study.get_binding_constraints()
     binding_constraint = binding_constraints.get(f"batteries_pcomp_{area.id}", None)
 
+    scenario = (
+        study.get_output(parameters.output_name)
+        .get_thermal_ts_numbers(area.id, f"batteries_pcomp_{area.id}")
+        .get(parameters.scenario, None)
+    )
+
+    if scenario is None:
+        logger.warning(
+            f"No scenario found for batteries_pcomp_{area.id}, skipping battery conversion for area {area.id}"
+        )
+        return None
+
     if binding_constraint:
         thermals = area.get_thermals()
         areas = study.get_areas()
@@ -192,26 +209,26 @@ def _convert_pcomp_battery(
         if not batteries_inj_thermal:
             return None
 
-        maximum_power_df = batteries_inj_thermal.get_series_matrix()[parameters.scenario]  # TODO: Get dispo
-        power_discharge_df = batteries_inj_thermal.get_series_matrix()[parameters.scenario]  # TODO: Get dispo
+        maximum_power_df = batteries_inj_thermal.get_series_matrix()[scenario - 1]
+        power_discharge_df = batteries_inj_thermal.get_series_matrix()[scenario - 1]
 
         if maximum_power_df.abs().max().max() == 0:
             return None
 
-        maximum_power_ts = Timeseries(maximum_power_df)
-        power_discharge_ts = Timeseries(power_discharge_df)
+        maximum_power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=maximum_power_df)
+        power_discharge_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=power_discharge_df)
 
         z_batteries_thermals = areas["z_batteries_pcomp"].get_thermals()
         stock_thermal = z_batteries_thermals.get(f"z_batteries_pcomp_batteries_pcomp_{area.id}_1", None)
-        maximum_energy_df = stock_thermal.get_series_matrix()[parameters.scenario]  # TODO: Get Disponibility
-        maximum_energy_ts = Timeseries(maximum_energy_df)
+        maximum_energy_df = stock_thermal.get_series_matrix()[scenario - 1]
+        maximum_energy_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=maximum_energy_df)
 
         # TODO: Extract efficiencies from binding constraint terms
         charge_efficiency = 1.0
         discharge_efficiency = 1.0
 
-        power_charge_df = link.get_capacity_direct()[parameters.scenario]  # TODO: Get correct transit data
-        power_charge_ts = Timeseries(power_charge_df * -1.0)
+        power_charge_df = link.get_capacity_direct()[scenario - 1]
+        power_charge_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=power_charge_df * -1.0)
 
         if power_discharge_ts is None:
             power_discharge_ts = Timeseries.from_index(

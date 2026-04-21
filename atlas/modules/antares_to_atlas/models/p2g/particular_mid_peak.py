@@ -131,7 +131,11 @@ def _create_pcomp_equipment(
 ) -> Thermal | None:
     """Create a new Thermal equipment for a pcomp cluster."""
 
-    scenario = study.get_output(parameters.output_name).get_thermal_ts_numbers(thermal.name).get(parameters.scenario)
+    scenario = (
+        study.get_output(parameters.output_name)
+        .get_thermal_ts_numbers(area_name, thermal.name)
+        .get(parameters.scenario)
+    )
     maximum_power_ts = Timeseries.from_values(
         start_date=parameters.start_date, frequency="1h", values=thermal.get_series_matrix()[scenario - 1]
     )
