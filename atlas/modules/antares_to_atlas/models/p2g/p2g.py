@@ -80,10 +80,7 @@ def convert_p2g_units(
 
 
 def _convert_p2g_base(
-    area: Area,
-    parameters: AntaresToAtlasParameters,
-    atlas_dataset: AtlasDataset,
-    links: dict[str, Link],
+    area: Area, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset, links: dict[str, Link], study: Study
 ) -> Load | None:
     """Convert P2G base unit (fatal load)."""
     link_name = f"{area.id}_z_p2g_base"
@@ -93,16 +90,19 @@ def _convert_p2g_base(
     if not link:
         return None
 
-    try:
-        capacity_df = link.get_capacity_direct()  # TODO link.DirectTransferCapacity.GetTimeSeriesByName("1")
-        # refaire le truc de choper l'index du scenario basé sur SelectedScenario
+    scenario = (
+        study.get_output(parameters.output_name)
+        .get_link_ts_numbers(link.area_from_id, link.area_to_id)
+        .get(parameters.scenario, None)
+    )
+    if scenario:
+        capacity_df = link.get_capacity_direct()[scenario - 1]
         if capacity_df.abs().max().max() == 0:
             return None
 
-        capacity_ts = Timeseries(capacity_df * -1.0)
-    except Exception as e:
-        logger.warning(f"Could not get capacity for link {link_name}: {e}")
-        return None
+        capacity_ts = Timeseries.from_values(
+            start_date=parameters.start_date, frequency="1h", values=capacity_df * -1.0
+        )
 
     p2g_base = Load(
         name=f"{area.id}_p2g_base",
@@ -125,6 +125,7 @@ def _convert_p2g_marg(
     atlas_dataset: AtlasDataset,
     areas: dict[str, Area],
     links: dict[str, Link],
+    study: Study,
 ) -> Load | None:
     """Convert P2G marginal unit (dispatchable load)."""
     link_name = f"{area.id}_z_p2g_marg"
@@ -134,15 +135,19 @@ def _convert_p2g_marg(
     if not link:
         return None
 
-    try:
-        capacity_df = link.get_capacity_direct()  # TODO
+    scenario = (
+        study.get_output(parameters.output_name)
+        .get_link_ts_numbers(link.area_from_id, link.area_to_id)
+        .get(parameters.scenario, None)
+    )
+
+    if scenario:
+        capacity_df = link.get_capacity_direct()[scenario - 1]
         if capacity_df.abs().max().max() == 0:
             return None
-
-        capacity_ts = Timeseries(capacity_df * -1.0)
-    except Exception as e:
-        logger.warning(f"Could not get capacity for link {link_name}: {e}")
-        return None
+        capacity_ts = Timeseries.from_values(
+            start_date=parameters.start_date, frequency="1h", values=capacity_df * -1.0
+        )
 
     thermal_name = "z_p2g_marg_z_P2G_marg_marg"
     variable_cost_value = (
@@ -180,6 +185,7 @@ def _convert_p2g_methanation(
     atlas_dataset: AtlasDataset,
     areas: dict[str, Area],
     links: dict[str, Link],
+    study: Study,
 ) -> Load | None:
     """Convert P2G methanation unit (dispatchable load)."""
     link_name = f"{area.id}_z_p2g_methanation"
@@ -189,15 +195,20 @@ def _convert_p2g_methanation(
     if not link:
         return None
 
-    try:
-        capacity_df = link.get_capacity_direct()  # TODO
+    scenario = (
+        study.get_output(parameters.output_name)
+        .get_link_ts_numbers(link.area_from_id, link.area_to_id)
+        .get(parameters.scenario, None)
+    )
+
+    if scenario:
+        capacity_df = link.get_capacity_direct()[scenario - 1]
         if capacity_df.abs().max().max() == 0:
             return None
 
-        capacity_ts = Timeseries(capacity_df * -1.0)
-    except Exception as e:
-        logger.warning(f"Could not get capacity for link {link_name}: {e}")
-        return None
+        capacity_ts = Timeseries.from_values(
+            start_date=parameters.start_date, frequency="1h", values=capacity_df * -1.0
+        )
 
     thermal_name = "z_p2g_methanation_z_P2G_methanation_methanation"
     variable_cost_value = (
