@@ -149,8 +149,6 @@ def _convert_standard_evs(
             logger.debug(f"No binding constraint found for EV in area {area.id}")
             continue
 
-        # TODO: Get storage thermal cluster
-        # In old code: ThermalTechnology.GetInstanceByName(f"ve_vhr_storage_VE_VHR_storage_VE_{node_special_format}_1")
         ev_stor_thermal = thermals.get(f"ve_vhr_storage_ve_vhr_storage_ve_{area_name}_1", None)
 
         if not ev_stor_thermal:
