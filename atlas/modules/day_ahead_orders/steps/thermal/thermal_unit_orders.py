@@ -220,7 +220,7 @@ class ThermalUnitOrders:
         # to be removed from the flexible_time_frame.
         # In case of shutdown: the first shutdown timestep, at Pmin, is the last one of the previous stable state sequence,
         # to be removed from the flexible_time_frame.
-        flexible_time_frame = []
+        flexible_time_frame: list[DateTime] = []
         for t in self.orders_time:
             if t in online_timeframe.index and online_timeframe.get_value(t) == 1:
                 flexible_time_frame.append(t)
@@ -272,7 +272,7 @@ class ThermalUnitOrders:
             else:
                 # Flexible part of the order
                 flexible_part = OrderDAO(
-                    name=f"flexible_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
+                    name=f"flexible_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
@@ -462,8 +462,9 @@ class ThermalUnitOrders:
             # Part 3: inflexible orders at Pmin
             # TODO: should be inflexible_time_frame, but not working currently for format reasons
             for t in inflexible_time_frame:
+                t = pendulum.instance(t)
                 bid_output = OrderDAO(
-                    name=f"order_at_{t}_for_unit_{unit.name}_under_price_{case}",
+                    name=f"order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_under_price_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
