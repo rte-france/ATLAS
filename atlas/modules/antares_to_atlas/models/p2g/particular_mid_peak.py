@@ -8,35 +8,11 @@ from antares.craft.model.thermal import ThermalCluster
 from loguru import logger
 from pendulum import duration
 
-from atlas.enums import ThermalStrategy
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
-from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.models.thermal.thermal import _get_variable_cost
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters, ThermalTechnologyConfig
 from atlas.objects.equipment.thermal import Thermal
-
-# Hardcoded properties for pcomp_mid (CCG / Gas)
-_PCOMP_MID_PROPERTIES = {
-    "minimum_stable_power_duration": duration(minutes=30),  # 0.5h
-    "startup_delay_probability": 0.26,
-    "startup_duration": duration(hours=1),
-    "shutdown_duration": duration(hours=1),
-    "maximum_gradient_per_unit": 30.0,  # MW/h per unit
-    "strategy": ThermalStrategy.INTERMEDIATE,
-    "setup_delay": 0.0,
-    "co2_factor_key": "H2_CCG",
-}
-
-# Hardcoded properties for pcomp_peak (TAC)
-_PCOMP_PEAK_PROPERTIES = {
-    "minimum_stable_power_duration": duration(minutes=0),
-    "startup_delay_probability": 0.26,
-    "startup_duration": duration(minutes=24),  # 0.4h
-    "shutdown_duration": duration(minutes=24),  # 0.4h
-    "maximum_gradient_per_unit": 30.0,  # MW/h per unit
-    "strategy": ThermalStrategy.PEAK,
-    "setup_delay": 0.0,
-    "co2_factor_key": "H2_TAC",
-}
 
 
 def convert_pcomp_mid_units(
@@ -61,7 +37,7 @@ def convert_pcomp_mid_units(
         parameters=parameters,
         atlas_dataset=atlas_dataset,
         suffix="Gas_pcomp_mid",
-        properties=_PCOMP_MID_PROPERTIES,
+        properties=parameters.thermal.pcomp_mid,
     )
 
     atlas_dataset.thermal.add(new_units)
@@ -87,7 +63,7 @@ def convert_pcomp_peak_units(
         parameters=parameters,
         atlas_dataset=atlas_dataset,
         suffix="Gas_pcomp_peak",
-        properties=_PCOMP_PEAK_PROPERTIES,
+        properties=parameters.thermal.pcomp_peak,
     )
 
     atlas_dataset.thermal.add(new_units)
@@ -100,7 +76,7 @@ def _convert_pcomp_units(
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
     suffix: str,
-    properties: dict,
+    properties: ThermalTechnologyConfig,
 ) -> list[Thermal]:
     """Generic helper to convert pcomp_mid or pcomp_peak clusters."""
     areas = study.get_areas()
@@ -150,15 +126,15 @@ def _create_pcomp_equipment(
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
     installed_capacity: float,
-    properties: dict,
+    properties: ThermalTechnologyConfig,
+    study: Study,
 ) -> Thermal | None:
     """Create a new Thermal equipment for a pcomp cluster."""
 
-    # TODO: Verify how to get ThermalSelectedScenario and Disponibility
-    # In old code:
-    #   sc = antares_instance.ThermalSelectedScenario[p.scenario - 1]
-    #   maximum_power_ts thermal.get_series_matrix()[sc - 1]
-
+    scenario = study.get_output(parameters.output_name).get_thermal_ts_numbers(thermal.name).get(parameters.scenario)
+    maximum_power_ts = Timeseries.from_values(
+        start_date=parameters.start_date, frequency="1h", values=thermal.get_series_matrix()[scenario - 1]
+    )
     minimum_power_ts = Timeseries.from_index(
         start_date=parameters.start_date,
         frequency="1h",
@@ -170,7 +146,7 @@ def _create_pcomp_equipment(
         start_date=parameters.start_date,
         frequency="1h",
         end_date=parameters.start_date + duration(years=1),
-        default_value=_get_variable_cost(thermal),
+        default_value=_get_variable_cost(thermal, parameters),
     )
 
     startup_cost_ts = Timeseries.from_index(
@@ -194,33 +170,14 @@ def _create_pcomp_equipment(
         startup_cost=startup_cost_ts,
         co2_emission_factor=thermal.properties.co2,
         minimum_stable_power_duration=thermal.properties.min_stable_power,  # TODO a recupérer dans csv et pas via antares
-        startup_delay_probability=thermal.properties.startup_delay_probability,
-        startup_duration=thermal.properties.startup_duration,
-        shutdown_duration=thermal.properties.shutdown_duration,
-        maximum_gradient=thermal.properties.max_gradient_per_unit,
-        strategy=thermal.properties.strategy,
-        setup_delay=thermal.properties.setup_delay,
+        startup_delay_probability=properties.startup_delay_probability,
+        startup_duration=properties.startup_duration,
+        shutdown_duration=properties.shutdown_duration,
+        maximum_gradient=properties.maximum_gradient,
+        strategy=properties.strategy,
+        setup_delay=properties.setup_delay,
         unit_count=thermal.properties.unit_count,
     )
 
     logger.debug(f"Created pcomp thermal unit: {thermal.name}")
     return equipment
-
-
-def _get_variable_cost(thermal: ThermalCluster) -> Timeseries | None:
-    """Get variable cost: MarketBidCost * modulation if > 0, else MarginalCost * modulation."""
-
-    # In old code: # TODO
-    #   if antares_instance.MarketBidCost > 0:
-    #       return float(antares_instance.MarketBidCost) * antares_instance.MarketBidModulation
-    #   else:
-    #       return float(antares_instance.MarginalCost) * antares_instance.MarginalCostModulation
-
-    # thermal.get_prepro_modulation_matrix()['<column_name>'] TODO
-    # marginal_cost_modulation : 0
-    # market_bid_modulation : 1
-    return (
-        thermal.properties.market_bid_cost * thermal.properties.market_bid_modulation
-        if thermal.properties.market_bid_cost > 0
-        else thermal.properties.marginal_cost * thermal.properties.marginal_cost_modulation
-    )

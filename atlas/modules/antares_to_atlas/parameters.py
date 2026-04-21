@@ -107,6 +107,29 @@ class ThermalParameters(BaseModel):
         )
     )
 
+    pcomp_mid: ThermalTechnologyConfig = Field(
+        default_factory=lambda: ThermalTechnologyConfig(
+            minimum_stable_power_duration=0.5,
+            startup_delay_probability=0.26,
+            startup_duration=1.0,
+            shutdown_duration=1.0,
+            maximum_gradient=30.0,
+            strategy=ThermalStrategy.INTERMEDIATE,
+            setup_delay=0.0,
+        )
+    )
+    pcomp_peak: ThermalTechnologyConfig = Field(
+        default_factory=lambda: ThermalTechnologyConfig(
+            minimum_stable_power_duration=0.0,
+            startup_delay_probability=0.26,
+            startup_duration=0.4,
+            shutdown_duration=0.4,
+            maximum_gradient=30.0,
+            strategy=ThermalStrategy.PEAK,
+            setup_delay=0.0,
+        )
+    )
+
     def get(self, name: str) -> ThermalTechnologyConfig | None:
         _ALIASES = {"coal": "hard_coal"}
         key = name.lower()
