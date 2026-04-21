@@ -498,7 +498,7 @@ class ThermalUnitOrders:
                         # Add parent-children link between the flexible and inflexible parts
                         couplings.append(
                             OrderCouplingDAO(
-                                name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_with_scenario_{case}",
+                                name=f"parent_children_inflexible_flexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_with_scenario_{case}",
                                 coupling_type=CouplingType.PARENT_CHILDREN,
                                 orders=[bid_output, flexible_bid],
                             )
