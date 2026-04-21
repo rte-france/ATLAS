@@ -14,9 +14,6 @@ from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.objects.equipment.thermal import Thermal
 
-# Technology name fragments for CO2 factor fallback matching
-_CO2_TECHNOLOGY_KEYWORDS = ["Nuclear", "Lignite", "Oil", "Gas", "Coal", "CCGT", "OCGT"]
-
 
 def convert_thermal_units(
     study: Study,
@@ -105,7 +102,7 @@ def _convert_single_thermal(
             end_date=parameters.start_date + duration(years=1),
             default_value=thermal.properties.startup_cost,
         ),
-        co2_emission_factor=_get_co2_factor(thermal, thermal_name, thermal_group, parameters),
+        co2_emission_factor=_get_co2_factor(thermal, thermal_group, parameters),
         outage_mean_duration=thermal.get_prepro_data_matrix()[0].mean(),  # FODuration
         scheduled_shutdown_mean_duration=thermal.get_prepro_data_matrix()[1].mean(),  # PODuration
         outage_probability=thermal.get_prepro_data_matrix()[2].mean(),  # FORate
@@ -192,26 +189,19 @@ def _get_variable_cost(thermal: ThermalCluster, parameters: AntaresToAtlasParame
 
 def _get_co2_factor(
     thermal: ThermalCluster,
-    thermal_name: str,
     thermal_group: str,
     parameters: AntaresToAtlasParameters,
 ) -> float | None:
     """Get CO2 emission factor.
 
-    Uses antares CO2 field if non-zero, otherwise looks up by technology keyword
-    from parameters.co2_emission_factors.
+    Uses antares CO2 field if non-zero, otherwise looks up by group from
+    parameters.co2_emission_factors.
     """
-
     co2_value = thermal.properties.co2
-
     if co2_value != 0.0:
         return co2_value
 
-    for techno in _CO2_TECHNOLOGY_KEYWORDS:
-        if techno in thermal_name or techno in thermal_group:
-            return parameters.co2_emission_factors.get(techno)
-
-    logger.warning(
-        f"Thermal {thermal_name} did not match any known technology group. CO2EmissionFactor set to default."
-    )
-    return None
+    factor = parameters.co2_emission_factors.get(thermal_group)
+    if factor is None:
+        logger.warning(f"Thermal {thermal.name}: group '{thermal_group}' has no CO2 factor configured.")
+    return factor

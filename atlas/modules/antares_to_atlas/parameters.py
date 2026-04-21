@@ -117,14 +117,18 @@ class ThermalParameters(BaseModel):
 class Co2EmissionFactors(BaseModel):
     nuclear: float = Field(default=0.0, description="Nuclear CO2 emission factor (tCO2/MWh)")
     lignite: float = Field(default=0.0, description="Lignite CO2 emission factor (tCO2/MWh)")
-    oil: float = Field(default=0.0, description="Oil CO2 emission factor (tCO2/MWh)")
+    hard_coal: float = Field(default=0.0, description="Hard coal CO2 emission factor (tCO2/MWh)")
     gas: float = Field(default=0.0, description="Gas CO2 emission factor (tCO2/MWh)")
-    coal: float = Field(default=0.0, description="Hard coal CO2 emission factor (tCO2/MWh)")
-    ccgt: float = Field(default=0.0, description="CCGT CO2 emission factor (tCO2/MWh)")
-    ocgt: float = Field(default=0.0, description="OCGT CO2 emission factor (tCO2/MWh)")
+    oil: float = Field(default=0.0, description="Oil CO2 emission factor (tCO2/MWh)")
+    mixed_fuel: float = Field(default=0.0, description="Mixed fuel CO2 emission factor (tCO2/MWh)")
+    other_1: float = Field(default=0.0, description="Other 1 CO2 emission factor (tCO2/MWh)")
+    other_2: float = Field(default=0.0, description="Other 2 CO2 emission factor (tCO2/MWh)")
+    other_3: float = Field(default=0.0, description="Other 3 CO2 emission factor (tCO2/MWh)")
+    other_4: float = Field(default=0.0, description="Other 4 CO2 emission factor (tCO2/MWh)")
 
-    def get(self, name: str) -> float | None:
-        return getattr(self, name.lower(), None)
+    def get(self, group: str) -> float | None:
+        key = group.lower().replace(" ", "_")
+        return getattr(self, key, None)
 
 
 class StorageParameters(BaseModel):
