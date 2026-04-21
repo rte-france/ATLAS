@@ -8,6 +8,7 @@ from loguru import logger
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.utils import get_cluster_weights_from_bc
 
 
 def add_nuclear_modulation(
@@ -75,26 +76,16 @@ def _get_nuclear_modulation_factor(study: Study) -> float | None:
 
     Returns abs(weights[5]) of the binding constraint, or None if not found.
     """
-    try:
-        binding_constraints = study.get_binding_constraints()
-
-        for bc_id, bc_obj in binding_constraints.items():
-            if "nuc_modulation_daily" in bc_id.lower():
-                # TODO: Verify how to get weights from binding constraint
-                # In old code: binding_constraint.Weights[5]
-                # May need to access terms or coefficients
-                terms = bc_obj.get_terms()
-                # TODO: Extract weight at index 5 from terms
-                # factor = abs(terms[5].weight) or similar
-                logger.debug("TODO: Extract weight[5] from nuc_modulation_daily binding constraint")
-                return None  # TODO: return abs(weight)
-
-        logger.warning("Binding constraint 'nuc_modulation_daily' not found")
+    weights = get_cluster_weights_from_bc(study, "nuc_modulation_daily")
+    if not weights:
         return None
 
-    except Exception as e:
-        logger.error(f"Error getting nuclear modulation factor: {e}")
+    values = list(weights.values())
+    if len(values) <= 5:
+        logger.warning(f"nuc_modulation_daily has only {len(values)} terms, expected at least 6")
         return None
+
+    return abs(values[5])
 
 
 def _set_maximum_daily_energy(equipment, modulation_factor: float, parameters: AntaresToAtlasParameters) -> None:

@@ -14,6 +14,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.utils import get_weight_for_cluster
 from atlas.objects.equipment.storage import Storage
 
 
@@ -125,8 +126,9 @@ def _convert_normal_battery(
             start_date=parameters.start_date, frequency="1h", values=maximum_energy_df
         )
 
-        charge_efficiency = binding_constraint.get_terms()[""].weight  # TODO
-        discharge_efficiency = binding_constraint.get_terms()[""].offset
+        weight = get_weight_for_cluster(study, area.id, "batteries_inj")
+        charge_efficiency = weight if weight is not None else 1.0
+        discharge_efficiency = 1.0 / weight if weight is not None else 1.0
 
         power_charge_df = link.get_capacity_direct()[scenario - 1]
         power_charge_ts = Timeseries.from_values(
@@ -223,9 +225,9 @@ def _convert_pcomp_battery(
         maximum_energy_df = stock_thermal.get_series_matrix()[scenario - 1]
         maximum_energy_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=maximum_energy_df)
 
-        # TODO: Extract efficiencies from binding constraint terms
-        charge_efficiency = 1.0
-        discharge_efficiency = 1.0
+        weight = get_weight_for_cluster(study, area.id, "batteries_pcomp_inj")
+        charge_efficiency = weight if weight is not None else 1.0
+        discharge_efficiency = 1.0 / weight if weight is not None else 1.0
 
         power_charge_df = link.get_capacity_direct()[scenario - 1]
         power_charge_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=power_charge_df * -1.0)

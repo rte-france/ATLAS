@@ -12,6 +12,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.utils import get_weight_for_cluster
 from atlas.objects.equipment.load import Load
 from atlas.objects.equipment.storage import Storage
 
@@ -187,10 +188,10 @@ def _convert_standard_evs(
             logger.warning(f"Could not get time series for EV in area {area.id}: {e}")
             continue
 
-        # TODO: Get efficiencies from binding constraint
-        # In old code: ev_stock_bc.Weights[0] (charge) and 1/Weights[1] (discharge)
-        charge_efficiency = 1.0
-        discharge_efficiency = 1.0
+        charge_weight = get_weight_for_cluster(study, area_name, "ve_vhr_inj")  # TODO verify cluster name
+        discharge_weight = get_weight_for_cluster(study, area_name, "ve_vhr_turb")  # TODO verify cluster name
+        charge_efficiency = charge_weight if charge_weight is not None else 1.0
+        discharge_efficiency = 1.0 / discharge_weight if discharge_weight is not None and discharge_weight != 0 else 1.0
 
         # TODO: Calculate displacement energy
         # Uses baseline_displacement_energy_ts * scale factor, then shifted by time offset
@@ -250,7 +251,6 @@ def _convert_france_evs(
 
     areas = study.get_areas()
     links = study.get_links()
-    binding_constraints = study.get_binding_constraints()
     ev_units: list[Storage] = []
 
     if "fr" not in areas:

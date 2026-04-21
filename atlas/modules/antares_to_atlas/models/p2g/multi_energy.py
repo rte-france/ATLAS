@@ -3,13 +3,14 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from antares.craft import ClusterData, Frequency, MCIndAreasDataType
+from antares.craft import Frequency, MCIndAreasDataType
 from antares.craft.model.study import Study
 from loguru import logger
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.utils import get_cluster_weights_from_bc
 
 
 def update_variable_cost_for_gas_units(
@@ -37,8 +38,8 @@ def update_variable_cost_for_gas_units(
     marginal_price_h2 = _get_marginal_price(study, "v_me_h2", parameters)
     marginal_price_ch4 = _get_marginal_price(study, "v_me_ch4", parameters)
 
-    ch4_yields = _get_yields_from_binding_constraint(study, "me_prod_ch4")
-    h2_yields = _get_yields_from_binding_constraint(study, "me_prod_h2")
+    ch4_yields = get_cluster_weights_from_bc(study, "me_prod_ch4")
+    h2_yields = get_cluster_weights_from_bc(study, "me_prod_h2")
 
     if marginal_price_ch4 is not None:
         for thermal_name in ch4_yields:
@@ -88,34 +89,3 @@ def _get_marginal_price(
     return study.get_output(parameters.output_name).get_mc_ind_area(
         mc_year=parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=node_name
     )[("MRG. PRICE", "Euro")]
-
-
-def _get_yields_from_binding_constraint(study: Study, bc_name: str) -> dict[str, float]:
-    """Get thermal cluster names and their yield weights from a binding constraint.
-
-    Returns dict[thermal_cluster_name, yield_weight].
-
-    :param bc_name: Binding constraint name (e.g. "me_prod_ch4", "me_prod_h2")
-    """
-    binding_constraints = study.get_binding_constraints()
-
-    bc = binding_constraints.get(bc_name, None)
-    if bc is None:
-        logger.warning(f"Binding constraint {bc_name} not found")
-        return {}
-
-    try:
-        yields: dict[str, float] = {}
-        bc.get_terms()
-        for term in bc.get_terms().values():
-            data = term.data
-            if isinstance(data, ClusterData):
-                yields[data.cluster] = term.weight
-            else:
-                continue
-
-        return yields
-
-    except Exception as e:
-        logger.warning(f"Could not get yields from binding constraint {bc_name}: {e}")
-        return {}

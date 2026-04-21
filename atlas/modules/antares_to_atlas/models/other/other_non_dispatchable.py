@@ -27,8 +27,10 @@ def convert_other_non_dispatchable_units(
             continue
 
         ror = areas[area_name].hydro.get_ror_series()
-        scenario = study.get_output(parameters.output_name).get_hydro_ts_numbers(area_name).get(parameters.scenario)
-        if scenario - 1 in ror.columns:
+        scenario = (
+            study.get_output(parameters.output_name).get_hydro_ts_numbers(area_name).get(parameters.scenario, None)
+        )
+        if scenario is not None:
             if ror[parameters.scenario - 1].abs().max().item() > 0:
                 non_disp_units.append(
                     OtherNonDispatchable(

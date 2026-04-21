@@ -13,6 +13,7 @@ from atlas.enums import StorageType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.utils import get_weight_for_cluster
 from atlas.objects.equipment.storage import Storage
 
 
@@ -128,16 +129,10 @@ def _get_binding_constraint_for_phs(study: Study, area_id: str) -> tuple[float, 
         tuple: (charge_efficiency, discharge_efficiency)
     """
 
-    binding_constraints = study.get_binding_constraints()
-    bc_name = f"{area_id}_phs_closed"  # TODO define properly
-    bc_obj = binding_constraints.get(bc_name, None)
-    if bc_obj:
-        bc_terms = bc_obj.get_terms()
-        term_name = f"{area_id}_phs_closed_charge_efficiency"  # TODO define properly
-        term = bc_terms.get(term_name, None)
-        if term:
-            charge_efficiency = term.weight  # TODO not sure how to access
-            discharge_efficiency = term.offset
+    weight = get_weight_for_cluster(study, area_id, "phs_closed_inj")
+    if weight is not None:
+        charge_efficiency = weight
+        discharge_efficiency = 1.0 / weight
 
     return charge_efficiency, discharge_efficiency
 
