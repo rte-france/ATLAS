@@ -38,7 +38,7 @@ def convert_wind_units(
                     )
 
                     if scenario:
-                        if area.get_wind_matrix().abs().max().item() > 0:
+                        if area.get_wind_matrix()[scenario - 1].abs().max().item() > 0:
                             new_wind = Wind(
                                 name=f"{area_name}_wind",
                                 node=atlas_dataset.get("node", area_name),
@@ -73,7 +73,7 @@ def convert_wind_units(
             scenario = study.get_output(parameters.output_name).get_wind_ts_numbers().get(parameters.scenario, None)
 
             if scenario:
-                if area.get_wind_matrix().abs().max().item() > 0:
+                if area.get_wind_matrix()[scenario - 1].abs().max().item() > 0:
                     winds.append(
                         Wind(
                             name=f"{area_name}_wind",

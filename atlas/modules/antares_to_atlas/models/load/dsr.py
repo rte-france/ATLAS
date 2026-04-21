@@ -59,6 +59,7 @@ def convert_dsr_units(
             atlas_dataset=atlas_dataset,
             area=areas[area_name],
             binding_constraints=binding_constraints,
+            study=study,
         )
 
         if dsr_unit:
@@ -74,6 +75,7 @@ def _convert_dsr_fr(
     atlas_dataset: AtlasDataset,
     area: Area,
     binding_constraints: dict[str, BindingConstraint],
+    study: Study,
 ) -> list[Thermal]:
     """Convert France-specific DSR units (industrie, tertiaire, implicite)."""
     dsr_units = []
@@ -115,11 +117,9 @@ def _convert_dsr_fr(
 
         cluster = thermals[thermal_name]
 
-        disponibility = cluster.get_series_matrix()[
-            parameters.scenario - 1
-        ]  # TODO instance.Disponibility[str(p.scenario)]
+        scenario = study.get_output(parameters.output_name).get_thermal_ts_numbers().get(parameters.scenario, None)
+        disponibility = cluster.get_series_matrix()[scenario - 1]
 
-        # Create variable cost timeseries
         variable_cost = Timeseries.from_index(
             start_date=parameters.start_date,
             frequency="1h",
@@ -152,6 +152,7 @@ def _convert_dsr_other_country(
     atlas_dataset: AtlasDataset,
     area: Area,
     binding_constraints: dict[str, BindingConstraint],
+    study: Study,
 ) -> Thermal | None:
     """Convert DSR unit for a non-France country."""
 
@@ -174,12 +175,12 @@ def _convert_dsr_other_country(
     cluster = thermals[thermal_name]
 
     try:
-        maximum_power_df = cluster.get_series_matrix()[
-            parameters.scenario - 1
-        ]  # TODO instance.Disponibility[str(p.scenario)]
+        scenario = study.get_output(parameters.output_name).get_thermal_ts_numbers().get(parameters.scenario, None)
+        maximum_power_df = cluster.get_series_matrix()[scenario - 1]
+
         if maximum_power_df.abs().max() == 0:
             return None
-        maximum_power = Timeseries(maximum_power_df)
+        maximum_power = Timeseries.from_values(parameters.start_date, frequency="1h", values=maximum_power_df)
     except Exception as e:
         logger.warning(f"Could not get availability for {thermal_name}: {e}")
         return None

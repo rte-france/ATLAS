@@ -37,7 +37,7 @@ def convert_solar_units(
                         study.get_output(parameters.output_name).get_solar_ts_numbers().get(parameters.scenario, None)
                     )
                     if scenario:
-                        if area.get_solar_matrix().abs().max().item() > 0:
+                        if area.get_solar_matrix()[scenario - 1].abs().max().item() > 0:
                             new_solar = Solar(
                                 name=f"{area_name}_pv",
                                 node=atlas_dataset.get("node", area_name),
@@ -70,7 +70,7 @@ def convert_solar_units(
             scenario = study.get_output(parameters.output_name).get_solar_ts_numbers().get(parameters.scenario, None)
 
             if scenario:
-                if area.get_solar_matrix().abs().max().item() > 0:
+                if area.get_solar_matrix()[scenario - 1].abs().max().item() > 0:
                     solars.append(
                         Solar(
                             name=f"{area_name}_pv",
