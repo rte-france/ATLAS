@@ -29,9 +29,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         """
         self.parameters = parameters
         self._jobs: list[WorkflowJob] = []
-        print(parameters.context)
         self.build_jobs()
-        print(parameters.context)
 
     @classmethod
     def from_file(cls, file_path: str | Path, context: ContextParameters | None = None) -> Workflow:
