@@ -114,6 +114,19 @@ class ThermalParameters(BaseModel):
         return getattr(self, key, None)
 
 
+class Co2EmissionFactors(BaseModel):
+    nuclear: float = Field(default=0.0, description="Nuclear CO2 emission factor (tCO2/MWh)")
+    lignite: float = Field(default=0.0, description="Lignite CO2 emission factor (tCO2/MWh)")
+    oil: float = Field(default=0.0, description="Oil CO2 emission factor (tCO2/MWh)")
+    gas: float = Field(default=0.0, description="Gas CO2 emission factor (tCO2/MWh)")
+    coal: float = Field(default=0.0, description="Hard coal CO2 emission factor (tCO2/MWh)")
+    ccgt: float = Field(default=0.0, description="CCGT CO2 emission factor (tCO2/MWh)")
+    ocgt: float = Field(default=0.0, description="OCGT CO2 emission factor (tCO2/MWh)")
+
+    def get(self, name: str) -> float | None:
+        return getattr(self, name.lower(), None)
+
+
 class StorageParameters(BaseModel):
     battery_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="Battery initial level")
     ev_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="EV initial level")
@@ -278,7 +291,9 @@ class AntaresToAtlasParameters(Parameters):
     )
     baseline_displacement_energy: Path | None = Field(default=None, description="Baseline displacement energy file")
     disp_energy_node_parameters: Path | None = Field(default=None, description="Displacement energy node parameters")
-    co2_emission_factors_file: Path | None = Field(default=None, description="CO2 emission factors file")
+    co2_emission_factors: Co2EmissionFactors = Field(
+        default_factory=Co2EmissionFactors, description="Per-technology CO2 emission factors (tCO2/MWh)"
+    )
 
     # Portfolio settings
     consumption_production_separation: bool = Field(
@@ -311,7 +326,6 @@ class AntaresToAtlasParameters(Parameters):
         file_fields = [
             "baseline_displacement_energy",
             "disp_energy_node_parameters",
-            "co2_emission_factors_file",
         ]
 
         for field_name in file_fields:
