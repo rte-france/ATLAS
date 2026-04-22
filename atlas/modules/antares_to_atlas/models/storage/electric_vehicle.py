@@ -3,6 +3,10 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from pathlib import Path
+
+import numpy as np
+from antares.craft import Frequency, MCIndAreasDataType, MCIndLinksDataType
 from antares.craft.model.study import Study
 from loguru import logger
 from pendulum import duration
@@ -12,7 +16,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-from atlas.modules.antares_to_atlas.utils import get_weight_for_cluster
+from atlas.modules.antares_to_atlas.utils import get_cluster_weights_from_bc
 from atlas.objects.equipment.load import Load
 from atlas.objects.equipment.storage import Storage
 
@@ -33,17 +37,9 @@ def convert_electric_vehicle_units(
     """
     logger.info("Converting Electric Vehicle units")
 
-    # TODO: Load displacement energy baseline from CSV
-    # In old code: reads from p.baseline_displacement_energy CSV file
-    # and creates a timeseries with it
     baseline_displacement_energy_ts = _load_baseline_displacement_energy(parameters)
-
-    # TODO: Load node-specific parameters from CSV
-    # In old code: reads from p.disp_energy_node_parameters CSV file
-    # Contains shift and scale factors per node
     specific_node_parameters = _load_specific_node_parameters(parameters)
 
-    # Convert standard EVs
     ev_units = _convert_standard_evs(
         study=study,
         parameters=parameters,
@@ -52,7 +48,6 @@ def convert_electric_vehicle_units(
         specific_node_parameters=specific_node_parameters,
     )
 
-    # Convert France EVs (special case)
     if "fr" in parameters.market_areas:
         ev_units += _convert_france_evs(
             study=study,
@@ -62,7 +57,6 @@ def convert_electric_vehicle_units(
             specific_node_parameters=specific_node_parameters,
         )
 
-        # Convert France heavy vehicles
         hv_units = _convert_france_heavy_vehicles(
             study=study,
             parameters=parameters,
@@ -76,32 +70,79 @@ def convert_electric_vehicle_units(
 
 
 def _load_baseline_displacement_energy(parameters: AntaresToAtlasParameters) -> Timeseries | None:
-    """Load baseline displacement energy from CSV file.
+    """Load baseline displacement energy from CSV file (first column, semicolon-separated, header skipped)."""
+    if parameters.baseline_displacement_energy is None:
+        logger.warning("baseline_displacement_energy parameter not set, skipping EV displacement energy")
+        return None
 
-    TODO: Implement CSV reading logic
-    In old code: reads from p.baseline_displacement_energy file
-    """
-    # TODO: Check if file exists and read it
-    # if os.path.isfile(parameters.baseline_displacement_energy):
-    #     Read CSV and create timeseries
-    # For now, return None with a TODO
-    logger.debug("TODO: Load baseline displacement energy from CSV")
-    return None
+    file_path = Path(parameters.baseline_displacement_energy)
+    if not file_path.exists():
+        logger.warning(f"Baseline displacement energy file not found: {file_path}")
+        return None
+
+    values: list[float] = []
+    with open(file_path) as f:
+        lines = f.readlines()
+
+    for line in lines[1:]:  # skip header
+        parts = line.strip().split(";")
+        if parts and parts[0].strip():
+            values.append(round(float(parts[0].strip())))
+
+    if len(values) < 2:
+        logger.warning("Baseline displacement energy file has insufficient data")
+        return None
+
+    return Timeseries.from_values(start_date=parameters.start_date, frequency="1h", values=values)
 
 
-def _load_specific_node_parameters(parameters: AntaresToAtlasParameters) -> dict:
-    """Load node-specific EV parameters from CSV file.
+def _load_specific_node_parameters(parameters: AntaresToAtlasParameters) -> dict[str, tuple[int, float]]:
+    """Load node-specific EV parameters from CSV: columns [node_name, shift_hours, scale_factor]."""
+    if parameters.disp_energy_node_parameters is None:
+        logger.warning("disp_energy_node_parameters parameter not set")
+        return {}
 
-    Returns dict with node names as keys and [shift, scale] as values.
+    file_path = Path(parameters.disp_energy_node_parameters)
+    if not file_path.exists():
+        logger.warning(f"Node parameters file not found: {file_path}")
+        return {}
 
-    TODO: Implement CSV reading logic
-    In old code: reads from p.disp_energy_node_parameters file
-    """
-    # TODO: Check if file exists and read it
-    # if os.path.isfile(parameters.disp_energy_node_parameters):
-    #     Read CSV and create dictionary
-    logger.debug("TODO: Load node-specific parameters from CSV")
-    return {}
+    params: dict[str, tuple[int, float]] = {}
+    with open(file_path) as f:
+        lines = f.readlines()
+
+    for line in lines[1:]:  # skip header
+        parts = line.strip().split(";")
+        if len(parts) >= 3:
+            node = parts[0].lower().strip()
+            try:
+                shift_h = int(parts[1].strip())
+                scale = float(parts[2].strip())
+                params[node] = (shift_h, scale)
+            except ValueError:
+                logger.warning(f"Invalid EV node parameters for node '{parts[0]}': {parts[1:]}")
+
+    return params
+
+
+def _compute_displacement_energy(
+    area_id: str,
+    baseline_ts: Timeseries | None,
+    specific_node_parameters: dict[str, tuple[int, float]],
+    start_date,
+) -> Timeseries | None:
+    """Scale baseline displacement energy by node scale factor and shift index by node shift hours."""
+    if baseline_ts is None or area_id not in specific_node_parameters:
+        return None
+
+    shift_h, scale = specific_node_parameters[area_id]
+    scaled_values = [round(v * scale) for v in baseline_ts.values]
+
+    if len(scaled_values) < 2:
+        return None
+
+    shifted_start = start_date.subtract(hours=shift_h)
+    return Timeseries.from_values(start_date=shifted_start, frequency="1h", values=scaled_values)
 
 
 def _convert_standard_evs(
@@ -109,9 +150,9 @@ def _convert_standard_evs(
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
     baseline_displacement_energy_ts: Timeseries | None,
-    specific_node_parameters: dict,
+    specific_node_parameters: dict[str, tuple[int, float]],
 ) -> list[Storage]:
-    """Convert standard EV units for all areas (except France)."""
+    """Convert standard EV units for all areas except France."""
     logger.info("Converting standard EV units")
 
     areas = study.get_areas()
@@ -123,89 +164,80 @@ def _convert_standard_evs(
         if area_name not in areas:
             continue
 
-        # France is handled separately
         if area_name.lower() == "fr":
             continue
 
         area = areas[area_name]
         thermals = area.get_thermals()
-        logger.debug(f"Processing EV for area {area.id}")
 
-        ev_inj_thermal = thermals.get(f"{area_name}_ve_inj", None)
-
+        # Cluster name pattern: "{area}_{area}_ve_inj" (lowercased from "{area}_{AREA}_VE_inj")
+        ev_inj_name = f"{area_name}_{area_name}_ve_inj"
+        ev_inj_thermal = thermals.get(ev_inj_name, None)
         if not ev_inj_thermal:
-            logger.debug(f"No EV injection thermal found for area {area.id}")
+            logger.debug(f"No EV injection thermal '{ev_inj_name}' found for area {area_name}, skipping")
             continue
 
         ev_link = links.get(f"{area_name}_ve_eu", None)
-
         if not ev_link:
-            logger.debug(f"No EV link found for area {area.id}")
+            logger.debug(f"No EV link '{area_name}_ve_eu' found for area {area_name}, skipping")
             continue
 
         ev_stock_bc = binding_constraints.get(f"ve_stock_{area_name}", None)
-
         if not ev_stock_bc:
-            logger.debug(f"No binding constraint found for EV in area {area.id}")
+            logger.debug(f"No binding constraint 've_stock_{area_name}' found, skipping EV for area {area_name}")
             continue
 
-        ev_stor_thermal = thermals.get(f"ve_vhr_storage_ve_vhr_storage_ve_{area_name}_1", None)
-
+        ev_stor_name = f"ve_vhr_storage_ve_vhr_storage_ve_{area_name}_1"
+        ev_stor_thermal = thermals.get(ev_stor_name, None)
         if not ev_stor_thermal:
+            logger.debug(f"No EV storage thermal '{ev_stor_name}' found for area {area_name}, skipping")
             continue
 
-        # TODO: Get time series data
-        # - Maximum power from ev_inj.Disponibility[scenario]
-        # - Minimum power from ev_link.DirectTransferCapacity["1"]
-        # - Maximum energy from ev_stor.Disponibility[scenario]
-        # - Efficiencies from binding constraint weights
-        try:
-            maximum_power_ts = Timeseries.from_index(
-                start_date=parameters.start_date,
-                frequency="1h",
-                end_date=parameters.start_date + duration(years=1),
-                default_value=0.0,
-            )
-            minimum_power_ts = Timeseries.from_index(
-                start_date=parameters.start_date,
-                frequency="1h",
-                end_date=parameters.start_date + duration(years=1),
-                default_value=0.0,
-            )
-            maximum_energy_ts = Timeseries.from_index(
-                start_date=parameters.start_date,
-                frequency="1h",
-                end_date=parameters.start_date + duration(years=1),
-                default_value=0.0,
-            )
+        scenario = (
+            study.get_output(parameters.output_name)
+            .get_thermal_ts_numbers(area_name, ev_inj_name)
+            .get(parameters.scenario, None)
+        )
+        if scenario is None:
+            logger.warning(f"No scenario found for EV in area {area_name}, skipping")
+            continue
 
-            if maximum_power_ts.max() == 0.0 or maximum_energy_ts.max() == 0.0:
+        try:
+            max_power_vals = ev_inj_thermal.get_series_matrix()[scenario - 1]
+            max_energy_vals = ev_stor_thermal.get_series_matrix()[scenario - 1]
+
+            maximum_power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=max_power_vals)
+            maximum_energy_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=max_energy_vals)
+
+            if maximum_power_ts.abs().max() == 0.0 or maximum_energy_ts.abs().max() == 0.0:
                 continue
 
+            # MinimumPower = -1 * link direct capacity (first scenario, capacity is constant)
+            min_power_vals = ev_link.get_capacity_direct()[0]
+            minimum_power_ts = Timeseries.from_values(
+                parameters.start_date, frequency="1h", values=min_power_vals * -1.0
+            )
+
         except Exception as e:
-            logger.warning(f"Could not get time series for EV in area {area.id}: {e}")
+            logger.warning(f"Could not get time series for EV in area {area_name}: {e}")
             continue
 
-        charge_weight = get_weight_for_cluster(study, area_name, "ve_vhr_inj")  # TODO verify cluster name
-        discharge_weight = get_weight_for_cluster(study, area_name, "ve_vhr_turb")  # TODO verify cluster name
-        charge_efficiency = charge_weight if charge_weight is not None else 1.0
-        discharge_efficiency = 1.0 / discharge_weight if discharge_weight is not None and discharge_weight != 0 else 1.0
+        # Efficiencies from ve_stock BC weights (positional: [0]=charge, [1]=discharge)
+        bc_weights = get_cluster_weights_from_bc(study, f"ve_stock_{area_name}")
+        weights = list(bc_weights.values())
+        charge_efficiency = abs(weights[0]) if weights else 1.0
+        discharge_efficiency = abs(1.0 / weights[1]) if len(weights) > 1 and weights[1] != 0 else 1.0
 
-        # TODO: Calculate displacement energy
-        # Uses baseline_displacement_energy_ts * scale factor, then shifted by time offset
-        # Both from specific_node_parameters[area.id]
-        displacement_energy_ts = None
-        if baseline_displacement_energy_ts and area.id in specific_node_parameters:
-            # TODO: Apply scale and shift from specific_node_parameters
-            pass
+        displacement_energy_ts = _compute_displacement_energy(
+            area_name, baseline_displacement_energy_ts, specific_node_parameters, parameters.start_date
+        )
 
-        # Create EV equipment
         ev = Storage(
-            name=f"{area.id}_ev",
-            node=atlas_dataset.get("node", area.id),
+            name=f"{area_name}_ev",
+            node=atlas_dataset.get("node", area_name),
             portfolio=atlas_dataset.get(
                 "portfolio",
-                f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
+                f"generator_{area_name}" if parameters.consumption_production_separation else f"portfolio_{area_name}",
             ),
             storage_type=StorageType.ELECTRIC_VEHICLE,
             is_v2g=True,
@@ -223,9 +255,8 @@ def _convert_standard_evs(
             storage_initial_level=parameters.storage.ev_initial_level,
             displacement_energy=displacement_energy_ts,
         )
-
         ev_units.append(ev)
-        logger.debug(f"Created EV for area: {area.id}")
+        logger.debug(f"Created EV for area: {area_name}")
 
     logger.info("Standard EV conversion done")
     return ev_units
@@ -236,43 +267,186 @@ def _convert_france_evs(
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
     baseline_displacement_energy_ts: Timeseries | None,
-    specific_node_parameters: dict,
+    specific_node_parameters: dict[str, tuple[int, float]],
 ) -> list[Storage]:
     """Convert France EV units (night-only and regular).
 
-    France has special EV modeling with:
-    - Night-only EVs: connected only during night hours
-    - Regular EVs: connected during day and night
-    The split is calculated from binding constraints.
+    France has special EV modeling:
+    - Night-only EVs: capacities multiplied by the night ratio (derived from binding constraints)
+    - Regular EVs: residual capacity after subtracting the night share
     """
     logger.info("Converting FR EV units")
 
     areas = study.get_areas()
     links = study.get_links()
+    binding_constraints = study.get_binding_constraints()
     ev_units: list[Storage] = []
 
     if "fr" not in areas:
         return ev_units
 
     area = areas["fr"]
+    thermals = area.get_thermals()
 
-    # TODO: This is complex and requires:
-    # 1. Getting thermal clusters for FR_VE_inj and VE_VHR_storage_VE_FR_1
-    # 2. Getting links to ve_fr_load_total
-    # 3. Getting multiple binding constraints:
-    #    - ve_fr_load_min
-    #    - ve_fr_night_load_min
-    #    - ve_stock_fr
-    # 4. Calculating night-only ratio from binding constraints
-    # 5. Creating two EV instances with split capacities
+    ev_inj_name = "fr_fr_ve_inj"
+    ev_inj_thermal = thermals.get(ev_inj_name, None)
+    if not ev_inj_thermal:
+        logger.warning(f"FR EV: No injection thermal '{ev_inj_name}' found, skipping")
+        return ev_units
 
-    # For now, leaving detailed TODOs
-    logger.debug("TODO: Implement France EV conversion with night-only and regular EVs")
-    logger.debug("TODO: Calculate night-only ratio from ve_fr_load_min and ve_fr_night_load_min binding constraints")
-    logger.debug("TODO: Create fr_ev_night with capacities multiplied by night ratio")
-    logger.debug("TODO: Create fr_ev_regular with remaining capacities")
+    ev_stor_name = "ve_vhr_storage_ve_vhr_storage_ve_fr_1"
+    ev_stor_thermal = thermals.get(ev_stor_name, None)
+    if not ev_stor_thermal:
+        logger.warning(f"FR EV: No storage thermal '{ev_stor_name}' found, skipping")
+        return ev_units
 
-    logger.info("FR EV conversion done (TODO)")
+    ev_link_total = links.get("fr_ve_fr_load_total", None)
+    if not ev_link_total:
+        logger.warning("FR EV: No link 'fr_ve_fr_load_total' found, skipping")
+        return ev_units
+
+    ve_fr_load_min_bc = binding_constraints.get("ve_fr_load_min", None)
+    ve_fr_night_load_min_bc = binding_constraints.get("ve_fr_night_load_min", None)
+    ve_stock_fr_bc = binding_constraints.get("ve_stock_fr", None)
+
+    if not (ve_fr_load_min_bc and ve_fr_night_load_min_bc and ve_stock_fr_bc):
+        logger.warning("FR EV: Missing one or more required binding constraints, skipping")
+        return ev_units
+
+    scenario = (
+        study.get_output(parameters.output_name)
+        .get_thermal_ts_numbers("fr", ev_inj_name)
+        .get(parameters.scenario, None)
+    )
+    if scenario is None:
+        logger.warning("FR EV: No scenario found for fr_fr_ve_inj, skipping")
+        return ev_units
+
+    try:
+        ev_inj_vals = ev_inj_thermal.get_series_matrix()[scenario - 1]
+        ev_stor_vals = ev_stor_thermal.get_series_matrix()[scenario - 1]
+    except Exception as e:
+        logger.warning(f"FR EV: Could not get series data: {e}")
+        return ev_units
+
+    # Night connection capacity: normalized binary-like timeseries (0/1)
+    night_cap_arr = ev_link_total.get_capacity_direct()[0]
+    max_cap = night_cap_arr.max()
+    night_connection_arr = night_cap_arr / max_cap if max_cap != 0 else night_cap_arr
+
+    # Night-only EV ratio from binding constraints:
+    # where ve_fr_load_min > 0: ratio = ve_fr_night_load_min / ve_fr_load_min
+    load_min_arr = Timeseries(ve_fr_load_min_bc.get_greater_term_matrix()).values
+    night_load_min_arr = Timeseries(ve_fr_night_load_min_bc.get_greater_term_matrix()).values
+
+    raw_ratio = np.where(load_min_arr != 0, night_load_min_arr / load_min_arr, 0.0)
+    night_only_ev_ratio: float = float(raw_ratio.mean())
+
+    # Per-timestep ratio timeseries: night_connection * ratio where load_min != 0
+    ratio_ts_arr = np.where(load_min_arr != 0, night_connection_arr * night_only_ev_ratio, 0.0)
+
+    # Efficiencies from ve_stock_fr BC weights (positional: [0]=charge, [2]=discharge)
+    bc_weights = get_cluster_weights_from_bc(study, "ve_stock_fr")
+    weights = list(bc_weights.values())
+    charge_efficiency = abs(weights[0]) if weights else 1.0
+    discharge_efficiency = abs(1.0 / weights[2]) if len(weights) > 2 and weights[2] != 0 else 1.0
+
+    portfolio_name = "generator_fr" if parameters.consumption_production_separation else "portfolio_fr"
+    portfolio = atlas_dataset.get("portfolio", portfolio_name)
+    node = atlas_dataset.get("node", "fr")
+
+    # MinimumPower requires ROW balance of virtual node ve_fr_load_total (output data)
+    try:
+        row_balance_arr = (
+            study.get_output(parameters.output_name).get_mc_ind_area(
+                mc_year=parameters.scenario,
+                frequency=Frequency.HOURLY,
+                data_type=MCIndAreasDataType.VALUES,
+                area="ve_fr_load_total",
+            )[("ROW BAL.", "MWh")],
+        )  # TODO verify column name in antares craft output API
+
+    except Exception as e:
+        logger.warning(f"FR EV: Could not get ROW balance for ve_fr_load_total: {e}. Setting MinimumPower to 0.")
+        row_balance_arr = np.zeros(len(ev_inj_vals))
+
+    # --- Night-only EV ---
+    night_max_power = np.round(ratio_ts_arr * ev_inj_vals).tolist()
+    night_min_power = np.round(ratio_ts_arr * row_balance_arr).tolist()
+
+    night_max_energy_raw = np.round(ratio_ts_arr * ev_stor_vals)
+    # Forward-fill zeros so that MaximumEnergy stays constant during hours the unit is off
+    # (legacy "Quick Fix": Antares sets MaximumEnergy=0 during day, Atlas disables unit via MaximumPower)
+    night_max_energy: list[float] = []
+    for v in night_max_energy_raw:
+        if v == 0.0 and night_max_energy:
+            night_max_energy.append(night_max_energy[-1])
+        else:
+            night_max_energy.append(float(v))
+
+    shifted_disp_ts = _compute_displacement_energy(
+        "fr", baseline_displacement_energy_ts, specific_node_parameters, parameters.start_date
+    )
+    if shifted_disp_ts is not None:
+        night_disp_ts: Timeseries | None = (shifted_disp_ts * night_only_ev_ratio).round()
+    else:
+        night_disp_ts = None
+
+    night_ev = Storage(
+        name="fr_ev_night",
+        node=node,
+        portfolio=portfolio,
+        storage_type=StorageType.ELECTRIC_VEHICLE,
+        is_v2g=True,
+        maximum_power=Timeseries.from_values(parameters.start_date, frequency="1h", values=night_max_power),
+        minimum_power=Timeseries.from_values(parameters.start_date, frequency="1h", values=night_min_power),
+        maximum_energy=Timeseries.from_values(parameters.start_date, frequency="1h", values=night_max_energy),
+        minimum_state_of_charge=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=0.3,
+        ),
+        charge_efficiency=charge_efficiency,
+        discharge_efficiency=discharge_efficiency,
+        storage_initial_level=parameters.storage.ev_initial_level,
+        displacement_energy=night_disp_ts,
+    )
+    ev_units.append(night_ev)
+
+    # --- Regular EV ---
+    regular_max_power = np.round(ev_inj_vals - ratio_ts_arr * ev_inj_vals).tolist()
+    regular_min_power = np.round(row_balance_arr - ratio_ts_arr * row_balance_arr).tolist()
+    regular_max_energy = (ev_stor_vals - ratio_ts_arr * ev_stor_vals).tolist()
+
+    if shifted_disp_ts is not None and night_disp_ts is not None:
+        regular_disp_ts: Timeseries | None = (shifted_disp_ts - night_disp_ts).round()
+    else:
+        regular_disp_ts = None
+
+    regular_ev = Storage(
+        name="fr_ev_regular",
+        node=node,
+        portfolio=portfolio,
+        storage_type=StorageType.ELECTRIC_VEHICLE,
+        is_v2g=True,
+        maximum_power=Timeseries.from_values(parameters.start_date, frequency="1h", values=regular_max_power),
+        minimum_power=Timeseries.from_values(parameters.start_date, frequency="1h", values=regular_min_power),
+        maximum_energy=Timeseries.from_values(parameters.start_date, frequency="1h", values=regular_max_energy),
+        minimum_state_of_charge=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=0.3,
+        ),
+        charge_efficiency=charge_efficiency,
+        discharge_efficiency=discharge_efficiency,
+        storage_initial_level=parameters.storage.ev_initial_level,
+        displacement_energy=regular_disp_ts,
+    )
+    ev_units.append(regular_ev)
+
+    logger.info("FR EV conversion done")
     return ev_units
 
 
@@ -284,23 +458,28 @@ def _convert_france_heavy_vehicles(
     """Convert France heavy vehicles (mobilite lourde) as Load equipment."""
     logger.info("Converting FR heavy vehicles")
 
-    areas = study.get_areas()
     links = study.get_links()
-
-    if "fr" not in areas:
-        return []
-
     hv_link = links.get("fr_ve_fr_mobilite_lourde", None)
 
     if not hv_link:
-        logger.debug("No heavy vehicle link found for FR")
+        logger.debug("No heavy vehicle link 'fr_ve_fr_mobilite_lourde' found for FR")
         return []
 
     try:
-        transit_df = hv_link.get_capacity_direct()[
-            parameters.scenario
-        ]  # TODO HV_link.CalculatedTransit.GetTimeSeriesByName(str(p.scenario))
-        maximum_power_ts = Timeseries(transit_df * -1.0)
+        # CalculatedTransit is an MC output, not an input capacity
+        transit_df = study.get_output(parameters.output_name).get_mc_ind_link(
+            parameters.scenario,
+            frequency=Frequency.HOURLY,
+            data_type=MCIndLinksDataType.VALUES,
+            area_from=hv_link.area_from_id,
+            area_to=hv_link.area_to_id,
+        )[("FLOW LIN.", "MWh")]
+        maximum_power_ts = Timeseries.from_values(
+            parameters.start_date,
+            frequency="1h",
+            values=transit_df,
+            dtype=float * -1,
+        )
     except Exception as e:
         logger.warning(f"Could not get transit data for FR heavy vehicles: {e}")
         return []
