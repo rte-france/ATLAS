@@ -30,7 +30,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         :type parameters: WorkflowParameters
         """
         self.parameters = parameters
-        self.priority_queue: list[TaskIterator] = []
+        self._priority_queue: list[TaskIterator] = []
 
         self.build_priority_queue()
 
@@ -59,10 +59,10 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
             self._push_iterator(WorkflowTaskIterator(task, workflow_parameters, root_output_dir))
 
     def _push_iterator(self, iterator: TaskIterator):
-        heapq.heappush(self.priority_queue, iterator)
+        heapq.heappush(self._priority_queue, iterator)
 
     def _pop_iterator(self) -> TaskIterator:
-        return heapq.heappop(self.priority_queue)
+        return heapq.heappop(self._priority_queue)
 
     def build_priority_queue(self) -> None:
         for task in self.parameters.tasks:
@@ -75,7 +75,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
         :return: The list of ActionPlanJob instances.
         """
-        while len(self.priority_queue) > 0:
+        while len(self._priority_queue) > 0:
             priority_task_itr = self._pop_iterator()
             job = next(priority_task_itr, None)
             if job is not None:
