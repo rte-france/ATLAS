@@ -15,7 +15,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-from atlas.modules.antares_to_atlas.utils import get_weight_for_cluster
+from atlas.modules.antares_to_atlas.utils import get_binding_constraint_for_phs
 from atlas.objects.equipment.storage import Storage
 
 
@@ -114,21 +114,6 @@ def convert_phs_closed_units(
     return atlas_dataset
 
 
-def _get_binding_constraint_for_phs(study: Study, area_id: str) -> tuple[float, float]:
-    """Get charge and discharge efficiency from binding constraint.
-
-    Returns:
-        tuple: (charge_efficiency, discharge_efficiency)
-    """
-
-    weight = get_weight_for_cluster(study, area_id, "phs_closed_inj")
-    if weight is not None:
-        charge_efficiency = weight
-        discharge_efficiency = 1.0 / weight
-
-    return charge_efficiency, discharge_efficiency
-
-
 def _create_phs_from_turb_link(
     area: Area,
     link: Link,
@@ -152,7 +137,7 @@ def _create_phs_from_turb_link(
 
     maximum_power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=capacity_df)
 
-    charge_efficiency, discharge_efficiency = _get_binding_constraint_for_phs(study, link, area.id)
+    charge_efficiency, discharge_efficiency = get_binding_constraint_for_phs(study, area.id)
 
     transit_df = study.get_output(parameters.output_name).get_mc_ind_link(
         parameters.scenario,
@@ -220,7 +205,7 @@ def _create_phs_from_pump_link(
 
     minimum_power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=capacity_df * -1.0)
 
-    charge_efficiency, discharge_efficiency = _get_binding_constraint_for_phs(study, link, area.id)
+    charge_efficiency, discharge_efficiency = get_binding_constraint_for_phs(study, area.id)
 
     transit_df = study.get_output(parameters.output_name).get_mc_ind_link(
         parameters.scenario,

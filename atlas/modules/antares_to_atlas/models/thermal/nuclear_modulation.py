@@ -8,7 +8,7 @@ from loguru import logger
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-from atlas.modules.antares_to_atlas.utils import get_cluster_weights_from_bc
+from atlas.modules.antares_to_atlas.utils import get_nuclear_modulation_factor
 
 
 def add_nuclear_modulation(
@@ -34,7 +34,7 @@ def add_nuclear_modulation(
         return atlas_dataset
 
     # Get the modulation factor from binding constraint
-    modulation_factor = _get_nuclear_modulation_factor(study)
+    modulation_factor = get_nuclear_modulation_factor(study)
 
     # Process FR nuclear units
     units_to_remove: list[str] = []
@@ -69,23 +69,6 @@ def add_nuclear_modulation(
 
     logger.info("Nuclear modulation done")
     return atlas_dataset
-
-
-def _get_nuclear_modulation_factor(study: Study) -> float | None:
-    """Get nuclear modulation factor from binding constraint 'nuc_modulation_daily'.
-
-    Returns abs(weights[5]) of the binding constraint, or None if not found.
-    """
-    weights = get_cluster_weights_from_bc(study, "nuc_modulation_daily")
-    if not weights:
-        return None
-
-    values = list(weights.values())
-    if len(values) <= 5:
-        logger.warning(f"nuc_modulation_daily has only {len(values)} terms, expected at least 6")
-        return None
-
-    return abs(values[5])
 
 
 def _set_maximum_daily_energy(equipment, modulation_factor: float, parameters: AntaresToAtlasParameters) -> None:

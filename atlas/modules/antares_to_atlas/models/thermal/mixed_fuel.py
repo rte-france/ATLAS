@@ -11,12 +11,8 @@ from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
-from atlas.modules.antares_to_atlas.models.thermal.thermal import (
-    _get_co2_factor,
-    _get_maximum_power,
-    _get_variable_cost,
-)
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.utils import get_co2_factor, get_maximum_power, get_variable_cost
 from atlas.objects.equipment.load import Load
 from atlas.objects.equipment.thermal import Thermal
 
@@ -165,7 +161,7 @@ def _process_classic_mixed_fuel(
         logger.warning(f"Could not detect technology for Mixed_fuel unit {thermal.name}, skipping")
         return None
 
-    maximum_power_ts = _get_maximum_power(area, thermal, parameters)
+    maximum_power_ts = get_maximum_power(area, thermal, parameters)
     if maximum_power_ts is None:
         return None
 
@@ -174,7 +170,7 @@ def _process_classic_mixed_fuel(
         return None
 
     # Variable cost
-    variable_cost_ts = _get_variable_cost(thermal, parameters)
+    variable_cost_ts = get_variable_cost(thermal, parameters)
     thermal_group_params = parameters.thermal.get(thermal.properties.group)
 
     equipment = Thermal(
@@ -200,7 +196,7 @@ def _process_classic_mixed_fuel(
             end_date=parameters.start_date + duration(years=1),
             default_value=thermal.properties.startup_cost,
         ),
-        co2_emission_factor=_get_co2_factor(thermal, thermal.name, thermal.properties.group, parameters),
+        co2_emission_factor=get_co2_factor(thermal, thermal.properties.group, parameters),
         outage_mean_duration=thermal.get_prepro_data_matrix()[0].mean(),  # FODuration
         scheduled_shutdown_mean_duration=thermal.get_prepro_data_matrix()[1].mean(),  # PODuration
         outage_probability=thermal.get_prepro_data_matrix()[2].mean(),  # FORate

@@ -12,6 +12,7 @@ from pendulum import duration
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.utils import get_co2_factor, get_maximum_power, get_variable_cost
 from atlas.objects.equipment.thermal import Thermal
 
 
@@ -69,7 +70,7 @@ def _convert_single_thermal(
     if thermal_group in parameters.excluded_thermic_groups:
         return None
 
-    maximum_power_ts = _get_maximum_power(area, thermal, parameters)
+    maximum_power_ts = get_maximum_power(area, thermal, parameters)
     if maximum_power_ts is None:
         return None
 
@@ -95,14 +96,14 @@ def _convert_single_thermal(
             default_value=thermal.properties.min_stable_power,
         ),
         installed_capacity=installed_capacity,
-        variable_cost=_get_variable_cost(thermal, parameters),
+        variable_cost=get_variable_cost(thermal, parameters),
         startup_cost=Timeseries.from_index(
             start_date=parameters.start_date,
             frequency="1h",
             end_date=parameters.start_date + duration(years=1),
             default_value=thermal.properties.startup_cost,
         ),
-        co2_emission_factor=_get_co2_factor(thermal, thermal_group, parameters),
+        co2_emission_factor=get_co2_factor(thermal, thermal_group, parameters),
         outage_mean_duration=thermal.get_prepro_data_matrix()[0].mean(),  # FODuration
         scheduled_shutdown_mean_duration=thermal.get_prepro_data_matrix()[1].mean(),  # PODuration
         outage_probability=thermal.get_prepro_data_matrix()[2].mean(),  # FORate
@@ -121,87 +122,3 @@ def _convert_single_thermal(
 
     logger.debug(f"Created thermal unit: {thermal_name}")
     return equipment
-
-
-def _get_maximum_power(
-    area: Area,
-    thermal: ThermalCluster,
-    parameters: AntaresToAtlasParameters,
-) -> Timeseries | None:
-    """Get maximum power timeseries for a thermal cluster.
-
-    Tries to use the pre-computed Disponibility time series for the selected scenario.
-    Falls back to computing from NominalCapacity * UnitCount * CapacityModulation * (1 - FORate) * (1 - PORate).
-    Returns None if the resulting timeseries is all zeros.
-    """
-    try:
-        # TODO: Verify how to get ThermalSelectedScenario and Disponibility
-        # In old code:
-        #   sc = antares_thermal.ThermalSelectedScenario[p.scenario - 1]
-        #   maximum_power_ts = antares_thermal.Disponibility[sc - 1]
-        maximum_power_ts = None  # TODO
-
-        if maximum_power_ts is None:
-            raise ValueError("Disponibility not available")
-
-    except Exception:
-        default_value = (
-            thermal.properties.nominal_capacity
-            * thermal.properties.unit_count
-            * thermal.get_prepro_modulation_matrix()[2]  # Capacity Modulation
-            * (1 - thermal.get_prepro_data_matrix()[2])  # FORate
-            * (1 - thermal.get_prepro_data_matrix()[3])  # PORate
-        )
-
-        logger.debug(f"Falling back to computed maximum power for {getattr(thermal, 'name', thermal)}")
-        maximum_power_ts = Timeseries.from_values(
-            start_date=parameters.start_date,
-            frequency="1h",
-            values=default_value,
-        )
-
-    if maximum_power_ts.abs().max() == 0.0:
-        return None
-
-    return maximum_power_ts
-
-
-def _get_variable_cost(thermal: ThermalCluster, parameters: AntaresToAtlasParameters) -> Timeseries:
-    """Get variable cost timeseries.
-
-    Prefers MarketBidCost * MarketBidModulation if MarketBidCost > 0,
-    otherwise falls back to MarginalCost * MarginalCostModulation.
-    """
-
-    if thermal.properties.market_bid_cost > 0:
-        return Timeseries.from_values(
-            parameters.start_date,
-            frequency="1h",
-            values=thermal.get_prepro_modulation_matrix()[1],  # MarketBidModulation
-        )
-    else:
-        return Timeseries.from_values(
-            parameters.start_date,
-            frequency="1h",
-            values=thermal.get_prepro_modulation_matrix()[0],  # MarginalCostModulation
-        )
-
-
-def _get_co2_factor(
-    thermal: ThermalCluster,
-    thermal_group: str,
-    parameters: AntaresToAtlasParameters,
-) -> float | None:
-    """Get CO2 emission factor.
-
-    Uses antares CO2 field if non-zero, otherwise looks up by group from
-    parameters.co2_emission_factors.
-    """
-    co2_value = thermal.properties.co2
-    if co2_value != 0.0:
-        return co2_value
-
-    factor = parameters.co2_emission_factors.get(thermal_group)
-    if factor is None:
-        logger.warning(f"Thermal {thermal.name}: group '{thermal_group}' has no CO2 factor configured.")
-    return factor

@@ -10,7 +10,7 @@ from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
-from atlas.modules.antares_to_atlas.models.thermal.thermal import _get_variable_cost
+from atlas.modules.antares_to_atlas.utils import get_variable_cost
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters, ThermalTechnologyConfig
 from atlas.objects.equipment.thermal import Thermal
 
@@ -150,7 +150,7 @@ def _create_pcomp_equipment(
         start_date=parameters.start_date,
         frequency="1h",
         end_date=parameters.start_date + duration(years=1),
-        default_value=_get_variable_cost(thermal, parameters),
+        default_value=get_variable_cost(thermal, parameters),
     )
 
     startup_cost_ts = Timeseries.from_index(

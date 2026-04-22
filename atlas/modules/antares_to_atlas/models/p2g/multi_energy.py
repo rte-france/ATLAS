@@ -3,14 +3,13 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from antares.craft import Frequency, MCIndAreasDataType
 from antares.craft.model.study import Study
 from loguru import logger
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-from atlas.modules.antares_to_atlas.utils import get_cluster_weights_from_bc
+from atlas.modules.antares_to_atlas.utils import get_cluster_weights_from_bc, get_marginal_price
 
 
 def update_variable_cost_for_gas_units(
@@ -35,8 +34,8 @@ def update_variable_cost_for_gas_units(
         logger.debug("No thermal equipment found, skipping multi-energy variable cost update")
         return atlas_dataset
 
-    marginal_price_h2 = _get_marginal_price(study, "v_me_h2", parameters)
-    marginal_price_ch4 = _get_marginal_price(study, "v_me_ch4", parameters)
+    marginal_price_h2 = get_marginal_price(study, "v_me_h2", parameters)
+    marginal_price_ch4 = get_marginal_price(study, "v_me_ch4", parameters)
 
     ch4_yields = get_cluster_weights_from_bc(study, "me_prod_ch4")
     h2_yields = get_cluster_weights_from_bc(study, "me_prod_h2")
@@ -67,25 +66,3 @@ def update_variable_cost_for_gas_units(
 
     logger.info("Variable cost update for gas units done")
     return atlas_dataset
-
-
-def _get_marginal_price(
-    study: Study,
-    node_name: str,
-    parameters: AntaresToAtlasParameters,
-) -> Timeseries | None:
-    """Get the calculated marginal price time series for a virtual node.
-
-    :param node_name: Virtual node name (e.g. "v_me_h2", "v_me_ch4")
-    :param parameters: Conversion parameters (used to select the scenario)
-    :return: Marginal price Timeseries, or None if not found
-    """
-    areas = study.get_areas()
-
-    if node_name not in areas:
-        logger.warning(f"Virtual node {node_name} not found in study")
-        return None
-
-    return study.get_output(parameters.output_name).get_mc_ind_area(
-        mc_year=parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=node_name
-    )[("MRG. PRICE", "Euro")]
