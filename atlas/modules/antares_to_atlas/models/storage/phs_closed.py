@@ -95,6 +95,7 @@ def convert_phs_closed_units(
                     phs=existing_phs,
                     link=pump_link,
                     parameters=parameters,
+                    study=study,
                 )
             else:
                 # Create PHS from pump link if turb link didn't exist
@@ -148,6 +149,8 @@ def _create_phs_from_turb_link(
     )[("FLOW LIN.", "MWh")]
 
     power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=transit_df * -1.0)
+    power_fm = ForecastingMatrix()
+    power_fm.add(power_ts, parameters.execution_date)
 
     phs = Storage(
         name=f"{area.id}_phs",
@@ -174,8 +177,7 @@ def _create_phs_from_turb_link(
         discharge_efficiency=discharge_efficiency,
         storage_initial_level=parameters.storage.phs_initial_level,
         transition_duration=duration(hours=0),
-        power=ForecastingMatrix().add(parameters.execution_date, power_ts),
-        # setup_delay=duration(hours=0),  # TODO: Verify if this field exists in new model
+        power=power_fm,
     )
 
     logger.debug(f"Created closed PHS from turb link for area: {area.id}")
@@ -216,6 +218,8 @@ def _create_phs_from_pump_link(
     )[("FLOW LIN.", "MWh")]
 
     power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=transit_df * -1.0)
+    power_fm = ForecastingMatrix()
+    power_fm.add(power_ts, parameters.execution_date)
 
     phs = Storage(
         name=f"{area.id}_phs",
@@ -242,7 +246,7 @@ def _create_phs_from_pump_link(
         discharge_efficiency=discharge_efficiency,
         storage_initial_level=parameters.storage.phs_initial_level,
         transition_duration=duration(hours=0),
-        power=ForecastingMatrix().add(parameters.execution_date, power_ts),
+        power=power_fm,
     )
 
     logger.debug(f"Created closed PHS from pump link for area: {area.id}")
@@ -275,6 +279,18 @@ def _update_phs_with_pump_link(phs: Storage, link: Link, parameters: AntaresToAt
 
         power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=transit_df * -1.0)
 
-        # TODO Merge with existing power time series
+        # Merge pump power into existing turb power for the same execution date
+        if phs.power is not None:
+            fm = phs.power
+            exec_key = parameters.execution_date.format(fm.date_format)
+            if exec_key in fm.indexes:
+                prev_ts = fm[exec_key]
+                fm.replace(parameters.execution_date, prev_ts + power_ts)
+            else:
+                fm.add(power_ts, parameters.execution_date)
+        else:
+            power_fm = ForecastingMatrix()
+            power_fm.add(power_ts, parameters.execution_date)
+            phs.power = power_fm
     else:
         logger.warning("Could not update PHS with pump link: scenario not found for link")

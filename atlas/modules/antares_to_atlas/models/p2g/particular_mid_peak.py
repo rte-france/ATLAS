@@ -10,8 +10,8 @@ from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
-from atlas.modules.antares_to_atlas.utils import get_variable_cost
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters, ThermalTechnologyConfig
+from atlas.modules.antares_to_atlas.utils import get_variable_cost
 from atlas.objects.equipment.thermal import Thermal
 
 

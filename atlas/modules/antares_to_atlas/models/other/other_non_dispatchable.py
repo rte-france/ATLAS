@@ -3,6 +3,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from antares.craft import Frequency, MCIndAreasDataType
 from antares.craft.model.study import Study
 from loguru import logger
 
@@ -46,23 +47,24 @@ def convert_other_non_dispatchable_units(
                     )
                 )
 
-            # for source in antares_node.MiscGenProduction.Index: # TODO get from outputs mc-ind MISC.NDG
-            #     prod = antares_node.MiscGenProduction[source]
-            #     if prod.Abs().Max() > 0:
+            prod = study.get_output(parameters.output_name).get_mc_ind_area(
+                parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area_name
+            )[("MISC.NDG", "MWh")]
 
-            non_disp_units.append(
-                OtherNonDispatchable(
-                    name=f"{area_name}_{source}",
-                    portfolio=atlas_dataset.get(
-                        "portfolio",
-                        f"generator_{area_name}"
-                        if parameters.consumption_production_separation
-                        else f"portfolio_{area_name}",
-                    ),
-                    node=atlas_dataset.get("node", area_name),
-                    maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, prod),
+            if prod.abs().max() > 0:
+                non_disp_units.append(
+                    OtherNonDispatchable(
+                        name=f"{area_name}_{scenario}",
+                        portfolio=atlas_dataset.get(
+                            "portfolio",
+                            f"generator_{area_name}"
+                            if parameters.consumption_production_separation
+                            else f"portfolio_{area_name}",
+                        ),
+                        node=atlas_dataset.get("node", area_name),
+                        maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, prod),
+                    )
                 )
-            )
 
     atlas_dataset.other_non_dispatchable.add(non_disp_units)
 

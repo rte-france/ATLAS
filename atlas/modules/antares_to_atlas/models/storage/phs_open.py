@@ -3,6 +3,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+import numpy as np
+from antares.craft import Frequency, MCIndLinksDataType
 from antares.craft.model.area import Area
 from antares.craft.model.link import Link
 from antares.craft.model.study import Study
@@ -11,9 +13,10 @@ from pendulum import duration
 
 from atlas.enums import StorageType
 from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-from atlas.modules.antares_to_atlas.utils import get_weight_for_cluster
+from atlas.modules.antares_to_atlas.utils import get_binding_constraint_for_phs
 from atlas.objects.equipment.storage import Storage
 
 
@@ -21,19 +24,18 @@ def convert_phs_open_units(
     study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-    hydro_reservoirs: dict,
     inflows_dictionary: dict,
 ) -> tuple[AtlasDataset, dict]:
     """Convert open-loop Pumped Hydraulic Storage from Antares to Atlas.
 
     Open PHS are modeled differently than closed PHS:
-    - They connect to w_hydro_open_{node} virtual nodes
-    - Part of the capacity is integrated into the hydro equipment
-    - The remaining part becomes a PHS equipment
+    - They connect to w_hydro_open_{node} virtual nodes via link w_hydro_open_{node}_x_open_turb
+    - Part of the capacity is integrated into the existing hydro equipment (open part)
+    - The remaining part becomes a PHS storage equipment (closed part)
 
-    The split is calculated based on the difference between:
-    - Link capacity from PHS turb to w_hydro_open node
-    - Link capacity from w_hydro_open node to actual node
+    The split is calculated from the difference between:
+    - Link capacity from w_hydro_open to x_open_turb (turb capacity)
+    - Link capacity from w_hydro_open to area node (w_hydro indirect capacity)
 
     :return: Tuple of (updated atlas_dataset, updated inflows_dictionary)
     """
@@ -47,29 +49,22 @@ def convert_phs_open_units(
         if area_name not in areas:
             continue
 
-        # Skip France (handled separately in old code)
         if area_name.lower() == "fr":
             continue
 
         area = areas[area_name]
+        reservoir = parameters.hydro.reservoirs.get(area_name)
 
-        # TODO: Verify how to access hydro reservoir capacity
-        if area_name not in hydro_reservoirs or hydro_reservoirs[area_name].get("OpenLoopCapacity", 0.0) == 0.0:
+        if reservoir is None or reservoir.open_loop_capacity == 0.0:
             continue
 
         logger.debug(f"Processing open PHS for area {area.id}")
-
-        # Look for link to x_open_turb from w_hydro_open_{node}
-        # TODO: Need to find the w_hydro_open_{node} area and its link to x_open_turb
-        # In old code: searches for links where DownhillNode.Name == "x_open_turb"
-        # and UphillNode.Name contains the node name
 
         phs = _create_open_phs(
             area=area,
             study=study,
             parameters=parameters,
             atlas_dataset=atlas_dataset,
-            hydro_reservoirs=hydro_reservoirs,
             inflows_dictionary=inflows_dictionary,
             links=links,
         )
@@ -87,101 +82,95 @@ def _create_open_phs(
     study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-    hydro_reservoirs: dict,
     inflows_dictionary: dict,
     links: dict[str, Link],
 ) -> Storage | None:
-    """Create open-loop PHS equipment.
+    """Create open-loop PHS equipment and update the corresponding hydro equipment.
 
-    This is complex because:
-    1. Find link from w_hydro_open_{node} to x_open_turb
-    2. Find link from {node} to w_hydro_open_{node}
-    3. Calculate the split between closed and open parts
-    4. Update the hydro equipment with the open part
-    5. Create PHS with the closed part
+    The open PHS is split into two parts:
+    - Closed part → becomes the PHS Storage equipment
+    - Open part → is added to the hydro equipment (MaximumPower, MaximumEnergy)
     """
-    # TODO: Find the w_hydro_open_{area_name} virtual area
-    areas_dict = study.get_areas()
-    w_hydro_open_name = f"w_hydro_open_{area.id}"
+    open_loop_capacity = parameters.hydro.reservoirs[area.id].open_loop_capacity
 
-    # In old code, the link naming is: area links to w_hydro_open_{area}
-    # and w_hydro_open_{area} links to x_open_turb
-
-    # Step 1: Find link from w_hydro_open to x_open_turb
-    turb_link = None
-    for link_id, link_obj in links.items():
-        # TODO: Verify link naming and how to check endpoints
-        if w_hydro_open_name.lower() in link_id.lower() and "x_open_turb" in link_id.lower():
-            turb_link = link_obj
-            break
-
+    # Turb link: w_hydro_open_{area} → x_open_turb
+    turb_link_name = f"w_hydro_open_{area.id}_x_open_turb"
+    turb_link = links.get(turb_link_name, None)
     if not turb_link:
-        logger.debug(f"No turb link found for open PHS in area {area.id}")
+        logger.debug(f"No turb link '{turb_link_name}' found for open PHS in area {area.id}")
         return None
 
-    # Check capacity
-    try:
-        # TODO: Verify how to get IndirectTransferCapacity
-        turb_capacity_df = turb_link.get_capacity_indirect()
-        if turb_capacity_df.abs().max().max() == 0.0:
-            return None
-        turb_capacity_ts = Timeseries(turb_capacity_df)
-    except Exception as e:
-        logger.warning(f"Could not get turb capacity for open PHS in area {area.id}: {e}")
+    # Capacity check on turb link indirect (first scenario = static capacity)
+    turb_cap_df = turb_link.get_capacity_indirect()[0]
+    if turb_cap_df.max() == 0.0:
         return None
 
-    # Step 2: Find link from area to w_hydro_open
-    w_hydro_open_link = None
-    w_hydro_link_name = f"{area.id}_{w_hydro_open_name}"
-    for link_id, link_obj in links.items():
-        if w_hydro_link_name.lower() in link_id.lower():
-            w_hydro_open_link = link_obj
-            break
-
+    # w_hydro link: area → w_hydro_open_{area}
+    w_hydro_link_name = f"{area.id}_w_hydro_open_{area.id}"
+    w_hydro_open_link = links.get(w_hydro_link_name, None)
     if not w_hydro_open_link:
-        logger.warning(f"No link found from {area.id} to {w_hydro_open_name}")
+        logger.warning(f"No link '{w_hydro_link_name}' found for open PHS in area {area.id}")
         return None
 
-    # Get w_hydro link capacity
-    try:
-        # TODO: Verify how to get IndirectTransferCapacity
-        w_hydro_capacity_df = w_hydro_open_link.get_capacity_indirect()
-        w_hydro_capacity_ts = Timeseries(w_hydro_capacity_df)
-    except Exception as e:
-        logger.warning(f"Could not get w_hydro capacity for open PHS in area {area.id}: {e}")
-        return None
+    # w_hydro indirect capacity (power from w_hydro node to area)
+    w_hydro_cap_df = w_hydro_open_link.get_capacity_indirect()[0]
 
-    # Step 3: Get minimum power from DirectTransferCapacity
-    try:
-        # TODO: Verify how to get DirectTransferCapacity
-        minimum_power_df = w_hydro_open_link.get_capacity_direct()
-        minimum_power_ts = Timeseries(minimum_power_df * -1.0)
-    except Exception as e:
-        logger.warning(f"Could not get minimum power for open PHS in area {area.id}: {e}")
-        minimum_power_ts = Timeseries.from_index(
-            start_date=parameters.start_date,
-            frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
-            default_value=0.0,
+    # MinimumPower from w_hydro direct capacity (charge direction)
+    min_power_df = w_hydro_open_link.get_capacity_direct()[0]
+    minimum_power_ts = Timeseries.from_values(
+        parameters.start_date, frequency="1h", values=(np.asarray(min_power_df, dtype=float) * -1.0).tolist()
+    )
+
+    # Efficiencies from binding constraint (same lookup as closed PHS)
+    charge_efficiency, discharge_efficiency = get_binding_constraint_for_phs(study, area.id)
+
+    # --- Split calculation ---
+    # closed_delta: how much capacity goes to the closed PHS (positive remainder)
+    closed_delta_arr = np.maximum(0.0, w_hydro_cap_df - turb_cap_df)
+    # closed_ratio: fraction of open_loop_capacity that stays with hydro (open part)
+    closed_ratio_arr = np.where(w_hydro_cap_df > 0, closed_delta_arr / w_hydro_cap_df, 0.0)
+
+    # --- Update existing hydro equipment with the open part ---
+    hydro = atlas_dataset.get("hydro", f"{area.id}_hydro")
+    if hydro is not None:
+        # Add closed_delta to hydro MaximumPower
+        delta_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=closed_delta_arr.tolist())
+        if hydro.maximum_power is not None:
+            hydro.maximum_power = hydro.maximum_power + delta_ts
+        else:
+            hydro.maximum_power = delta_ts
+
+        # Add open part of reservoir capacity to hydro MaximumEnergy
+        additional_energy_arr = np.round(open_loop_capacity * closed_ratio_arr)
+        additional_energy_ts = Timeseries.from_values(
+            parameters.start_date, frequency="1h", values=additional_energy_arr.tolist()
         )
+        if hydro.maximum_energy is not None:
+            hydro.maximum_energy = hydro.maximum_energy + additional_energy_ts
+        else:
+            hydro.maximum_energy = additional_energy_ts
 
-    # Step 4: Calculate split between closed and open parts
-    # TODO: This calculation is complex and involves:
-    # - Calculating the difference between w_hydro capacity and turb capacity
-    # - Using this to split the reservoir capacity
-    # - Updating the hydro equipment with the open part
-    # - Creating the PHS with the closed part
-    # For now, leaving this with TODO comments
+        # --- TODO: Update hydro inflows from {area.id}_phs.csv ---
+        # The legacy code reads {path_inflows}/{area.id}_phs.csv and matches scenarios
+        # by closest total energy to w_hydro_open_node.HydroReservoir.Modulation[scenario].
+        # This requires access to antares craft hydro modulation timeseries which is not yet mapped.
+        # See add_inflows_from_csv in hydro/inflows.py for the pattern.
 
-    weight = get_weight_for_cluster(study, area.id, "phs_open_inj")
-    if weight is not None:
-        charge_efficiency = weight
-        discharge_efficiency = 1.0 / weight
+        # --- TODO: Update hydro daily energy constraints ---
+        # The legacy code computes MaximumDailyEnergy and MinimumDailyEnergy from the
+        # calculated transit on w_hydro_open_link scaled by closed_ratio.
+        # The Hydro object doesn't have minimum_daily_energy / maximum_daily_energy fields
+        # in the current data model — these need to be added or mapped to an equivalent.
 
-    # TODO: Calculate the split ratio and update hydro equipment
-    # This involves complex logic from the old code around lines 139-187
+    else:
+        logger.debug(
+            f"No hydro equipment '{area.id}_hydro' found in atlas_dataset; open part of PHS will not be added to hydro."
+        )
+        additional_energy_arr = np.zeros_like(closed_ratio_arr)
 
-    # Create PHS equipment with closed part
+    # PHS MaximumEnergy = closed part of reservoir (total - open part added to hydro)
+    phs_max_energy_arr = np.round(open_loop_capacity - (open_loop_capacity * closed_ratio_arr))
+
     phs = Storage(
         name=f"{area.id}_phs_open",
         node=atlas_dataset.get("node", area.id),
@@ -190,13 +179,10 @@ def _create_open_phs(
             f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
         ),
         storage_type=StorageType.PUMPED_HYDRAULIC_STORAGE,
-        maximum_power=turb_capacity_ts,
+        maximum_power=Timeseries.from_values(parameters.start_date, frequency="1h", values=turb_cap_df),
         minimum_power=minimum_power_ts,
-        maximum_energy=Timeseries.from_index(
-            start_date=parameters.start_date,
-            frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
-            default_value=float(hydro_reservoirs[area.id]["OpenLoopCapacity"]),
+        maximum_energy=Timeseries.from_values(
+            parameters.start_date, frequency="1h", values=phs_max_energy_arr.tolist()
         ),
         minimum_state_of_charge=Timeseries.from_index(
             start_date=parameters.start_date,
@@ -210,19 +196,6 @@ def _create_open_phs(
         transition_duration=duration(hours=0),
     )
 
-    # TODO: Update hydro equipment with the open part
-    # This involves:
-    # - Getting or creating the hydro equipment
-    # - Adding the open part of MaximumPower
-    # - Adding the open part of MaximumEnergy
-    # - Updating inflows from CSV files
-    # - Updating daily energy constraints
-    # See old code lines 67-309 for detailed logic
-
-    # TODO: Update inflows_dictionary with PHS inflows from CSV
-    # This requires reading CSV files and matching scenarios
-    # See old code lines 192-286 for detailed logic
-
     logger.debug(f"Created open PHS for area: {area.id}")
     return phs
 
@@ -231,12 +204,11 @@ def convert_phs_open_fr(
     study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-    hydro_reservoirs: dict,
 ) -> AtlasDataset:
     """Convert open-loop PHS for France (special case).
 
-    France's open PHS is modeled differently and doesn't split
-    into hydro equipment.
+    France's open PHS uses the fr_x_open_turb link directly and does not
+    split into a hydro component.
     """
     if "fr" not in parameters.market_areas:
         return atlas_dataset
@@ -249,45 +221,46 @@ def convert_phs_open_fr(
     if "fr" not in areas:
         return atlas_dataset
 
-    area = areas["fr"]
-
-    # Find link from fr to x_open_turb
-    link = None
-    for link_id, link_obj in links.items():
-        if "fr_x_open_turb" in link_id.lower():
-            link = link_obj
-            break
-
+    link = links.get("fr_x_open_turb", None)
     if not link:
-        logger.debug("No open turb link found for FR")
+        logger.debug("No open turb link 'fr_x_open_turb' found for FR")
         return atlas_dataset
 
-    # Get efficiencies from binding constraint
-    charge_efficiency = 1.0
-    discharge_efficiency = 1.0
+    fr_reservoir = parameters.hydro.reservoirs.get("fr")
+    if fr_reservoir is None:
+        logger.warning("No hydro reservoir config found for FR, skipping FR open PHS")
+        return atlas_dataset
 
-    weight = get_weight_for_cluster(study, area.id, "phs_open_fr_inj")  # TODO verify cluster name
-    if weight is not None:
-        charge_efficiency = weight
-        discharge_efficiency = 1.0 / weight
+    charge_efficiency, discharge_efficiency = get_binding_constraint_for_phs(study, "fr")
 
-    # Get capacities
+    # Capacities from indirect transfer capacity (first scenario = static)
+    turb_cap_df = link.get_capacity_indirect()[0]
+    turb_cap_arr = np.asarray(turb_cap_df, dtype=float)
+
+    maximum_power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=turb_cap_arr.tolist())
+    # FR PHS: MinimumPower = -MaximumPower (symmetric, uses same indirect capacity)
+    minimum_power_ts = Timeseries.from_values(
+        parameters.start_date, frequency="1h", values=(turb_cap_arr * -1.0).tolist()
+    )
+
+    # Power forecast from MC output (CalculatedTransit on fr_x_open_turb link)
     try:
-        # TODO: Verify how to get IndirectTransferCapacity
-        maximum_power_df = link.get_capacity_indirect()
-        maximum_power_ts = Timeseries(maximum_power_df)
-
-        minimum_power_df = link.get_capacity_indirect()
-        minimum_power_ts = Timeseries(minimum_power_df * -1.0)
+        transit_df = study.get_output(parameters.output_name).get_mc_ind_link(
+            parameters.scenario,
+            frequency=Frequency.HOURLY,
+            data_type=MCIndLinksDataType.VALUES,
+            area_from=link.area_from_id,
+            area_to=link.area_to_id,
+        )[("FLOW LIN.", "MWh")]
+        power_ts = Timeseries.from_values(
+            parameters.start_date, frequency="1h", values=(np.asarray(transit_df, dtype=float) * -1.0).tolist()
+        )
+        power_fm = ForecastingMatrix()
+        power_fm.add(power_ts, parameters.execution_date)
     except Exception as e:
-        logger.warning(f"Could not get capacities for FR open PHS: {e}")
-        return atlas_dataset
+        logger.warning(f"Could not get power transit for FR open PHS: {e}")
+        power_fm = None
 
-    # TODO: Get power time series from CalculatedTransit
-    # power_transit_df = link.get_calculated_transit(str(parameters.scenario))
-    # power_ts = Timeseries(power_transit_df * -1.0)
-
-    # Create PHS equipment
     phs = Storage(
         name="fr_phs_open",
         node=atlas_dataset.get("node", "fr"),
@@ -302,7 +275,7 @@ def convert_phs_open_fr(
             start_date=parameters.start_date,
             frequency="1h",
             end_date=parameters.start_date + duration(years=1),
-            default_value=float(hydro_reservoirs["fr"]["OpenLoopCapacity"]),
+            default_value=float(fr_reservoir.open_loop_capacity),
         ),
         minimum_state_of_charge=Timeseries.from_index(
             start_date=parameters.start_date,
@@ -315,10 +288,8 @@ def convert_phs_open_fr(
         storage_initial_level=parameters.storage.phs_initial_level,
         transition_duration=duration(hours=0),
         is_v2g=False,
+        power=power_fm,
     )
-
-    # TODO: Add power forecast
-    # phs.power.add(parameters.execution_date, power_ts)
 
     atlas_dataset.storage.add(phs)
 
