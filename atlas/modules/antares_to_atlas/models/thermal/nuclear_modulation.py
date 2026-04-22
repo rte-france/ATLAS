@@ -57,7 +57,8 @@ def add_nuclear_modulation(
 
         # Compute MaximumDailyEnergy per day
         if modulation_factor is not None and equipment.maximum_power is not None:
-            _set_maximum_daily_energy(equipment, modulation_factor, parameters)
+            maximum_daily_energy = equipment.maximum_power.groupby("1d", agg="sum", inplace=False)
+            equipment.maximum_daily_energy = maximum_daily_energy * abs(modulation_factor)
         else:
             logger.warning(
                 f"Could not set MaximumDailyEnergy for {equipment.name}: missing modulation factor or maximum power"
@@ -69,24 +70,3 @@ def add_nuclear_modulation(
 
     logger.info("Nuclear modulation done")
     return atlas_dataset
-
-
-def _set_maximum_daily_energy(equipment, modulation_factor: float, parameters: AntaresToAtlasParameters) -> None:
-    """Set MaximumDailyEnergy for each day of the year.
-
-    For each day: MaximumDailyEnergy = round(sum(MaximumPower over 24h) * modulation_factor)
-    """
-    # TODO: Implement daily energy computation
-    # In old code:
-    #   one_year_days_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1).AddHours(-1), "1d")
-    #   for time_index in one_year_days_index:
-    #       day_index = API.DatetimeIndex.NewIndex(time_index, time_index.AddDays(1).AddHours(-1), "1h")
-    #       one_day_energy = equipment.MaximumPower.Extract("", day_index)
-    #       equipment.MaximumDailyEnergy[time_index] = round(one_day_energy.Sum() * modulation_factor)
-    #
-    # This requires:
-    # - Iterating over daily timestamps for the year
-    # - Slicing maximum_power for each 24h window
-    # - Computing the sum and multiplying by modulation_factor
-    # - Setting maximum_daily_energy at each daily timestamp
-    logger.debug(f"TODO: Compute and set MaximumDailyEnergy for {equipment.name} with factor {modulation_factor}")

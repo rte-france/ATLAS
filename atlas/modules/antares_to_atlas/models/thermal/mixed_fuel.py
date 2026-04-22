@@ -10,13 +10,14 @@ from loguru import logger
 from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.modules.antares_to_atlas.utils import get_co2_factor, get_maximum_power, get_variable_cost
-from atlas.objects.equipment.load import Load
+from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.objects.equipment.thermal import Thermal
 
-# Mapping from name keyword to canonical technology name (for CO2 lookup)
+# Mapping from name keyword to canonical technology name (for CO2 / config lookup)
 _MIXED_FUEL_TECH_MAP = {
     "Coal": "Coal",
     "coal": "Coal",
@@ -36,15 +37,15 @@ def convert_mixed_fuel_units(
     """Convert Mixed_fuel thermal clusters from Antares to Atlas equipment.
 
     Mixed_fuel clusters are handled separately from standard thermals because:
-    - "Waste" sub-technologies become OtherNonDispatchable (Load) equipment
+    - "Waste" sub-technologies become OtherNonDispatchable equipment
     - Classic sub-technologies (Coal, CCGT, etc.) become Thermal equipment
-    - Waste units from the same area are aggregated into a single Load equipment
+    - Waste units from the same area are aggregated into a single OtherNonDispatchable
     """
     logger.info("Converting Mixed_fuel units")
 
     areas = study.get_areas()
     new_thermal_units: list[Thermal] = []
-    new_load_units: list[Load] = []
+    new_waste_units: list[OtherNonDispatchable] = []
 
     for area_name in parameters.market_areas:
         if area_name not in areas:
@@ -62,14 +63,15 @@ def convert_mixed_fuel_units(
             if thermal.properties.group != "Mixed_fuel":
                 continue
 
-            # Waste sub-technologies -> OtherNonDispatchable Load
+            # Waste sub-technologies -> OtherNonDispatchable
             if "Waste" in thermal.name:
                 _process_waste_unit(
                     area=area,
                     thermal=thermal,
                     parameters=parameters,
                     atlas_dataset=atlas_dataset,
-                    new_load_units=new_load_units,
+                    new_waste_units=new_waste_units,
+                    study=study,
                 )
                 continue
 
@@ -84,9 +86,9 @@ def convert_mixed_fuel_units(
                 new_thermal_units.append(thermal_unit)
 
     atlas_dataset.thermal.add(new_thermal_units)
-    atlas_dataset.load.add(new_load_units)
+    atlas_dataset.other_non_dispatchable.add(new_waste_units)
 
-    logger.info(f"Converted {len(new_thermal_units)} mixed fuel thermal units and {len(new_load_units)} waste units")
+    logger.info(f"Converted {len(new_thermal_units)} mixed fuel thermal units and {len(new_waste_units)} waste units")
     return atlas_dataset
 
 
@@ -95,57 +97,56 @@ def _process_waste_unit(
     thermal: ThermalCluster,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-    new_load_units: list[Load],
+    new_waste_units: list[OtherNonDispatchable],
+    study: Study,
 ) -> None:
-    """Convert a Waste Mixed_fuel cluster to OtherNonDispatchable Load equipment.
+    """Convert a Waste Mixed_fuel cluster to OtherNonDispatchable equipment.
 
     Waste units from the same area are merged (power is accumulated) into a
-    single Load equipment named "{area}_Waste".
+    single OtherNonDispatchable named "{area}_Waste".
     """
-    # TODO: Get production time series
-    # In old code:
-    #   sc = antares_thermal.ThermalSelectedScenario[p.scenario - 1]
-    #   prod = antares_thermal.Disponibility[sc - 1]
-    prod_ts = None  # TODO: Get Disponibility for selected scenario
+    scenario = study.get_output(parameters.output_name).get_thermal_ts_numbers(area.name).get(parameters.scenario, None)
+    if scenario is None:
+        logger.warning(f"Could not find thermal time series for area {area.id} and scenario {parameters.scenario}")
+        return
+
+    prod_ts = Timeseries.from_values(
+        parameters.start_date, frequency="1h", values=thermal.get_series_matrix()[scenario - 1]
+    )
 
     if prod_ts is None:
         return
 
-    # TODO: Check if prod_ts has non-zero values
-    # if prod_ts.abs().max() == 0:
-    #     return
+    if prod_ts.abs().max() == 0:
+        return
 
     waste_name = f"{area.id}_Waste"
 
-    existing_waste = next((u for u in new_load_units if u.name == waste_name), None)
+    existing_waste = next((u for u in new_waste_units if u.name == waste_name), None)
 
     if existing_waste is None:
-        existing_waste = next((u for u in atlas_dataset.load if u.name == waste_name), None)
+        existing_waste = next((u for u in atlas_dataset.other_non_dispatchable if u.name == waste_name), None)
 
     if existing_waste is None:
-        # Create new Waste Load equipment
-        waste_load = Load(
+        waste_unit = OtherNonDispatchable(
             name=waste_name,
             node=atlas_dataset.get("node", area.id),
             portfolio=atlas_dataset.get(
                 "portfolio",
                 f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
             ),
-            # TODO: Set maximum_power_forecast with ForecastingMatrix
-            # In old code: waste_equipment.MaximumPowerForecast.AddTimeSeries(p.execution_date, prod)
+            maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, prod_ts),
         )
-        new_load_units.append(waste_load)
-        logger.debug(f"Created Waste load unit: {waste_name}")
+        new_waste_units.append(waste_unit)
+        logger.debug(f"Created Waste unit: {waste_name}")
 
     else:
-        # Accumulate power into existing Waste Load
-        # TODO: Add prod_ts to existing waste power forecast
-        # In old code:
-        #   previous_power = waste_equipment.Power[p.execution_date]
-        #   new_power = previous_power + prod
-        #   waste_equipment.MaximumPowerForecast.DeleteTimeSeries(p.execution_date)
-        #   waste_equipment.MaximumPowerForecast.AddTimeSeries(p.execution_date, new_power)
-        logger.debug(f"TODO: Accumulate power into existing Waste load unit {waste_name}")
+        # Accumulate power into existing Waste unit for the same execution date
+        fm = existing_waste.maximum_power_forecast
+        exec_key = parameters.execution_date.format(fm.date_format)
+        prev_ts = fm[exec_key]
+        fm.replace(parameters.execution_date, prev_ts + prod_ts)
+        logger.debug(f"Accumulated power into existing Waste unit {waste_name}")
 
 
 def _process_classic_mixed_fuel(
@@ -155,8 +156,7 @@ def _process_classic_mixed_fuel(
     atlas_dataset: AtlasDataset,
 ) -> Thermal | None:
     """Convert a classic Mixed_fuel cluster (Coal, CCGT, OCGT, Oil, Lignite) to Thermal equipment."""
-    # Detect technology from name
-    techno = _detect_mixed_fuel_technology(thermal.name)
+    techno = _detect_mixed_fuel_technology(thermal)
     if techno is None:
         logger.warning(f"Could not detect technology for Mixed_fuel unit {thermal.name}, skipping")
         return None
@@ -169,9 +169,10 @@ def _process_classic_mixed_fuel(
     if installed_capacity == 0:
         return None
 
-    # Variable cost
-    variable_cost_ts = get_variable_cost(thermal, parameters)
-    thermal_group_params = parameters.thermal.get(thermal.properties.group)
+    thermal_group_params = parameters.thermal.get(techno)
+    if thermal_group_params is None:
+        logger.warning(f"No thermal config found for Mixed_fuel technology {techno}, skipping {thermal.name}")
+        return None
 
     equipment = Thermal(
         name=thermal.name,
@@ -189,18 +190,18 @@ def _process_classic_mixed_fuel(
             default_value=thermal.properties.min_stable_power,
         ),
         installed_capacity=installed_capacity,
-        variable_cost=variable_cost_ts,
+        variable_cost=get_variable_cost(thermal, parameters),
         startup_cost=Timeseries.from_index(
             start_date=parameters.start_date,
             frequency="1h",
             end_date=parameters.start_date + duration(years=1),
             default_value=thermal.properties.startup_cost,
         ),
-        co2_emission_factor=get_co2_factor(thermal, thermal.properties.group, parameters),
+        co2_emission_factor=get_co2_factor(thermal, techno, parameters),
         outage_mean_duration=thermal.get_prepro_data_matrix()[0].mean(),  # FODuration
         scheduled_shutdown_mean_duration=thermal.get_prepro_data_matrix()[1].mean(),  # PODuration
         outage_probability=thermal.get_prepro_data_matrix()[2].mean(),  # FORate
-        scheduled_shutdown_probability=thermal.get_prepro_data_matrix()[0].mean(),  # PORate
+        scheduled_shutdown_probability=thermal.get_prepro_data_matrix()[3].mean(),  # PORate
         minimum_time_off=duration(hours=thermal.properties.min_down_time),
         minimum_time_on=duration(hours=thermal.properties.min_up_time),
         unit_count=thermal.properties.unit_count,

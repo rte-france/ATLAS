@@ -296,6 +296,7 @@ class AntaresToAtlasParameters(Parameters):
 
     # Version and hypothesis
     start_date: DateTime
+    execution_date: DateTime
     hypothesis: str | None = Field(None, description="Hypothesis identifier (e.g., 'BP23', 'BP24')")
     output_name: str
 
