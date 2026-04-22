@@ -81,41 +81,18 @@ def _convert_dsr_fr(
     dsr_units = []
     thermals = area.get_thermals()
 
-    dsr_types = [
-        {
-            "name": "fr_dsr_indus",
-            "bc_name": "fr_dsr_industrie_stock",
-            "thermal_name": "fr_FR_DSR_industrie",
-            "has_daily_constraint": True,
-        },
-        {
-            "name": "fr_dsr_tert",
-            "bc_name": "fr_dsr_tertiaire_stock",
-            "thermal_name": "fr_FR_DSR_tertiaire",
-            "has_daily_constraint": True,
-        },
-        {
-            "name": "fr_dsr_implicite",
-            "bc_name": None,  # No binding constraint for implicite
-            "thermal_name": "fr_FR_DSR_implicite",
-            "has_daily_constraint": False,
-        },
-    ]
-
-    for dsr_config in dsr_types:
+    for dsr_config in parameters.dsr.fr_types:
         maximum_daily_energy = None
-        bc_name = dsr_config.get("bc_name", None)
-        if bc_name:
-            bc = binding_constraints.get(bc_name, None)
+        if dsr_config.bc_name:
+            bc = binding_constraints.get(dsr_config.bc_name, None)
             if bc is not None:
                 maximum_daily_energy = Timeseries(bc.get_less_term_matrix())
 
-        thermal_name = dsr_config["thermal_name"]
-        if thermal_name not in thermals:
-            logger.warning(f"DSR cluster name {thermal_name} not found in thermals clusters, skipping")
+        if dsr_config.thermal_name not in thermals:
+            logger.warning(f"DSR cluster name {dsr_config.thermal_name} not found in thermals clusters, skipping")
             continue
 
-        cluster = thermals[thermal_name]
+        cluster = thermals[dsr_config.thermal_name]
 
         scenario = study.get_output(parameters.output_name).get_thermal_ts_numbers().get(parameters.scenario, None)
         disponibility = cluster.get_series_matrix()[scenario - 1]
@@ -127,14 +104,13 @@ def _convert_dsr_fr(
             default_value=cluster.properties.marginal_cost,
         )
 
-        # Create DSR equipment
         dsr_unit = Thermal(
-            name=dsr_config["name"],
+            name=dsr_config.name,
             node=atlas_dataset.get("node", "fr"),
             portfolio=atlas_dataset.get(
                 "portfolio", "generator_fr" if parameters.consumption_production_separation else "portfolio_fr"
             ),
-            has_daily_energy_constraint=dsr_config["has_daily_constraint"],
+            has_daily_energy_constraint=dsr_config.has_daily_constraint,
             maximum_daily_energy=maximum_daily_energy,
             maximum_power=disponibility,
             variable_cost=variable_cost,
@@ -142,7 +118,7 @@ def _convert_dsr_fr(
         )
 
         dsr_units.append(dsr_unit)
-        logger.debug(f"Created DSR unit: {dsr_config['name']}")
+        logger.debug(f"Created DSR unit: {dsr_config.name}")
 
     return dsr_units
 

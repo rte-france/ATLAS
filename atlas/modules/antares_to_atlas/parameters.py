@@ -154,6 +154,38 @@ class Co2EmissionFactors(BaseModel):
         return getattr(self, key, None)
 
 
+class DsrTypeConfig(BaseModel):
+    name: str
+    bc_name: str | None = None
+    thermal_name: str
+    has_daily_constraint: bool
+
+
+class DsrParameters(BaseModel):
+    fr_types: list[DsrTypeConfig] = Field(
+        default_factory=lambda: [
+            DsrTypeConfig(
+                name="fr_dsr_indus",
+                bc_name="fr_dsr_industrie_stock",
+                thermal_name="fr_FR_DSR_industrie",
+                has_daily_constraint=True,
+            ),
+            DsrTypeConfig(
+                name="fr_dsr_tert",
+                bc_name="fr_dsr_tertiaire_stock",
+                thermal_name="fr_FR_DSR_tertiaire",
+                has_daily_constraint=True,
+            ),
+            DsrTypeConfig(
+                name="fr_dsr_implicite",
+                bc_name=None,
+                thermal_name="fr_FR_DSR_implicite",
+                has_daily_constraint=False,
+            ),
+        ]
+    )
+
+
 class StorageParameters(BaseModel):
     battery_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="Battery initial level")
     ev_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="EV initial level")
@@ -322,6 +354,7 @@ class AntaresToAtlasParameters(Parameters):
     co2_emission_factors: Co2EmissionFactors = Field(
         default_factory=Co2EmissionFactors, description="Per-technology CO2 emission factors (tCO2/MWh)"
     )
+    dsr: DsrParameters = Field(default_factory=DsrParameters, description="DSR unit configurations")
 
     # Portfolio settings
     consumption_production_separation: bool = Field(
