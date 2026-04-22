@@ -70,7 +70,7 @@ def convert_system_structure(
                     index=parameters.execution_date,
                     timeseries=Timeseries.from_values(
                         start_date=parameters.start_date, frequency="1h", values=marginal_price
-                    ),  # TODO
+                    ),
                 ),
                 minimum_price=Timeseries.from_index(
                     parameters.start_date,

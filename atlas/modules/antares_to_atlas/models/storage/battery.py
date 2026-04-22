@@ -3,6 +3,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from antares.craft import Frequency, MCIndAreasDataType
 from antares.craft.model.area import Area
 from antares.craft.model.link import Link
 from antares.craft.model.study import Study
@@ -33,33 +34,33 @@ def convert_battery_units(
     """
     logger.info("Converting Battery units")
 
-    areas = study.get_areas()
     links = study.get_links()
     batteries: list[Storage] = []
 
-    for area_name in parameters.market_areas:
-        if area_name not in areas:
-            continue
+    link = links.get("z_batteries", None)
+    link_pcomp = links.get("z_batteries_pcomp", None)
 
-        area = areas[area_name]
-        logger.debug(f"Processing battery units for area {area.id}")
+    if link is not None:
+        area = link.area_to_id
+        if area in parameters.market_areas:
+            normal_battery = _convert_normal_battery(
+                area=area,
+                study=study,
+                parameters=parameters,
+                atlas_dataset=atlas_dataset,
+                links=link,
+            )
 
-        # Process normal battery
-        normal_battery = _convert_normal_battery(
-            area=area,
-            study=study,
-            parameters=parameters,
-            atlas_dataset=atlas_dataset,
-            links=links,
-        )
-
-        pcomp_battery = _convert_pcomp_battery(
-            area=area,
-            study=study,
-            parameters=parameters,
-            atlas_dataset=atlas_dataset,
-            links=links,
-        )
+    if link_pcomp is not None:
+        area = link.area_to_id
+        if area in parameters.market_areas:
+            pcomp_battery = _convert_pcomp_battery(
+                area=area,
+                study=study,
+                parameters=parameters,
+                atlas_dataset=atlas_dataset,
+                links=link,
+            )
 
         # Merge if both exist
         if normal_battery and pcomp_battery:
@@ -72,18 +73,9 @@ def convert_battery_units(
 
 
 def _convert_normal_battery(
-    area: Area,
-    study: Study,
-    parameters: AntaresToAtlasParameters,
-    atlas_dataset: AtlasDataset,
-    links: dict[str, Link],
+    area: Area, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset, link: Link
 ) -> Storage | None:
     """Convert normal battery unit."""
-
-    link = links.get(f"{area.id}_z_batteries", None)
-
-    if not link:
-        return None
 
     binding_constraints = study.get_binding_constraints()
     binding_constraint = binding_constraints.get(f"batteries_{area.id}", None)
@@ -99,16 +91,17 @@ def _convert_normal_battery(
 
     if binding_constraint:
         thermals = area.get_thermals()
-        areas = study.get_areas()
         batteries_inj_thermal = thermals.get("batteries_inj", None)
 
         if not batteries_inj_thermal:
             return None
 
         maximum_power_df = batteries_inj_thermal.get_series_matrix()[scenario - 1]
-        power_discharge_df = batteries_inj_thermal.get_series_matrix()[scenario - 1]
+        power_discharge_df = study.get_output(parameters.output_name).get_mc_ind_area(
+            parameters.scenario, Frequency.HOURLY, data_type=MCIndAreasDataType, area=area.id
+        )[()]  # TODO get the columns corresponding to CalculatedPower
 
-        if maximum_power_df.abs().max().max() == 0:
+        if maximum_power_df.abs().max().max() or power_discharge_df.abs().max().max() == 0:
             return None
 
         maximum_power_ts = Timeseries.from_values(
@@ -118,8 +111,7 @@ def _convert_normal_battery(
             start_date=parameters.start_date, frequency="1h", values=power_discharge_df
         )
 
-        z_batteries_thermals = areas["z_batteries"].get_thermals()
-        stock_thermal = z_batteries_thermals.get(f"z_batteries_batteries_{area.id}_1", None)
+        stock_thermal = thermals.get(f"z_batteries_batteries_{area.id}_1", None)
 
         maximum_energy_df = stock_thermal.get_series_matrix()[scenario - 1]
         maximum_energy_ts = Timeseries.from_values(
@@ -175,18 +167,9 @@ def _convert_normal_battery(
 
 
 def _convert_pcomp_battery(
-    area: Area,
-    study: Study,
-    parameters: AntaresToAtlasParameters,
-    atlas_dataset: AtlasDataset,
-    links: dict[str, Link],
+    area: Area, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset, link: Link
 ) -> Storage | None:
     """Convert PCOMP battery unit."""
-
-    link = links.get(f"{area.id}_z_batteries_pcomp", None)
-
-    if not link:
-        return None
 
     binding_constraints = study.get_binding_constraints()
     binding_constraint = binding_constraints.get(f"batteries_pcomp_{area.id}", None)
@@ -205,23 +188,23 @@ def _convert_pcomp_battery(
 
     if binding_constraint:
         thermals = area.get_thermals()
-        areas = study.get_areas()
         batteries_inj_thermal = thermals.get("batteries_pcomp_inj", None)
 
         if not batteries_inj_thermal:
             return None
 
         maximum_power_df = batteries_inj_thermal.get_series_matrix()[scenario - 1]
-        power_discharge_df = batteries_inj_thermal.get_series_matrix()[scenario - 1]
+        power_discharge_df = study.get_output(parameters.output_name).get_mc_ind_area(
+            parameters.scenario, Frequency.HOURLY, data_type=MCIndAreasDataType, area=area.id
+        )[()]  # TODO get the columns corresponding to CalculatedPower
 
-        if maximum_power_df.abs().max().max() == 0:
+        if maximum_power_df.abs().max().max() or power_discharge_df.abs().max().max() == 0:
             return None
 
         maximum_power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=maximum_power_df)
         power_discharge_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=power_discharge_df)
 
-        z_batteries_thermals = areas["z_batteries_pcomp"].get_thermals()
-        stock_thermal = z_batteries_thermals.get(f"z_batteries_pcomp_batteries_pcomp_{area.id}_1", None)
+        stock_thermal = thermals.get(f"z_batteries_pcomp_batteries_pcomp_{area.id}_1", None)
         maximum_energy_df = stock_thermal.get_series_matrix()[scenario - 1]
         maximum_energy_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=maximum_energy_df)
 
@@ -242,7 +225,7 @@ def _convert_pcomp_battery(
 
         power_ts = power_discharge_ts + power_charge_ts
 
-        minimum_power_df = link.get_capacity_direct()[parameters.scenario]
+        minimum_power_df = link.get_capacity_direct()[scenario - 1]
         minimum_power_value = float(minimum_power_df.abs().max().max())
         minimum_power_ts = Timeseries.from_index(
             start_date=parameters.start_date,

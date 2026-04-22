@@ -20,9 +20,6 @@ from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.objects.equipment.load import Load
 from atlas.objects.equipment.thermal import Thermal
 
-# Technology keywords used to classify Mixed_fuel clusters
-_MIXED_FUEL_TECH_KEYWORDS = ["Coal", "coal", "Lignite", "CCGT", "OCGT", "Oil", "oil"]
-
 # Mapping from name keyword to canonical technology name (for CO2 lookup)
 _MIXED_FUEL_TECH_MAP = {
     "Coal": "Coal",

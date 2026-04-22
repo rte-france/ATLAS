@@ -26,10 +26,7 @@ def convert_links(study: Study, parameters: AntaresToAtlasParameters, atlas_data
 
         if not (uphill_node in parameters.market_areas and downhill_node in parameters.market_areas):
             continue
-        if (
-            link.get_capacity_direct().abs().max().item() == 0
-            and link.get_capacity_indirect().abs().max().item() == 0.0
-        ):
+        if link.get_capacity_direct()[0].abs().max() == 0 and link.get_capacity_indirect()[0].abs().max() == 0.0:
             continue
 
         node_1 = atlas_dataset.get("node", uphill_node)

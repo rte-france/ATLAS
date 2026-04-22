@@ -159,16 +159,15 @@ def _create_hydraulic_equipment(
     return hydro
 
 
-def _prepare_inflows_for_water_values(area: Area, parameters: AntaresToAtlasParameters) -> dict:
+def _prepare_inflows_for_water_values(area: Area, parameters: AntaresToAtlasParameters, study: Study) -> dict:
     node_inflows_dictionary = {}
 
+    mapping_mc_ts = study.get_output(parameters.output_name).get_hydro_ts_numbers(area.id)
     if parameters.hydro.water_value_scenarios == "all":
-        scenarios = area.CalculatedMarginalPrice.columns  # TODO
+        scenarios = mapping_mc_ts.keys()
     else:
         scenarios = parameters.hydro.water_value_scenarios
 
     for scenario in scenarios:
-        local_hydro_sc = area.hydro.HydroSelectedScenario[int(scenario) - 1]  # TODO
-
-        node_inflows_dictionary[scenario] = area.hydro.get_mod_series()[local_hydro_sc]
+        node_inflows_dictionary[scenario] = area.hydro.get_mod_series()[mapping_mc_ts[scenario]]
     return node_inflows_dictionary
