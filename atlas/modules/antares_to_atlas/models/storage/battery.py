@@ -37,8 +37,8 @@ def convert_battery_units(
     links = study.get_links()
     batteries: list[Storage] = []
 
-    link = links.get("z_batteries", None)
-    link_pcomp = links.get("z_batteries_pcomp", None)
+    link = links.get(parameters.storage.battery_normal_link, None)
+    link_pcomp = links.get(parameters.storage.battery_pcomp_link, None)
 
     normal_battery = None
     pcomp_battery = None
@@ -46,14 +46,14 @@ def convert_battery_units(
     if link is not None:
         area = link.area_to_id
         if area in parameters.market_areas:
-            normal_battery = _convert_battery(area, study, parameters, atlas_dataset, link, prefix="batteries")
+            prefix = parameters.storage.battery_normal_link.lstrip("z_")
+            normal_battery = _convert_battery(area, study, parameters, atlas_dataset, link, prefix=prefix)
 
     if link_pcomp is not None:
         area = link_pcomp.area_to_id
         if area in parameters.market_areas:
-            pcomp_battery = _convert_battery(
-                area, study, parameters, atlas_dataset, link_pcomp, prefix="batteries_pcomp"
-            )
+            prefix = parameters.storage.battery_pcomp_link.lstrip("z_")
+            pcomp_battery = _convert_battery(area, study, parameters, atlas_dataset, link_pcomp, prefix=prefix)
 
     if normal_battery and pcomp_battery:
         logger.debug(f"Merging normal and pcomp batteries for area {area.id}")

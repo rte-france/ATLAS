@@ -132,15 +132,14 @@ def _convert_dsr_other_country(
 ) -> Thermal | None:
     """Convert DSR unit for a non-France country."""
 
-    # Look for binding constraint matching pattern: "dsr_{area_name}_stock"
-    bc_name = f"dsr_{area.id}_stock"
+    bc_name = parameters.dsr.other_bc_pattern.format(area_id=area.id)
 
     bc = binding_constraints.get(bc_name, None)
 
     if bc is not None:
         maximum_daily_energy = Timeseries(bc.get_less_term_matrix())
 
-    thermal_name = f"{area.id}_{area.upper()}_DSR_0"
+    thermal_name = parameters.dsr.other_thermal_pattern.format(area_id=area.id, area_upper=area.id.upper())
 
     thermals = area.get_thermals()
 

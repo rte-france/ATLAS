@@ -49,7 +49,7 @@ def convert_other_non_dispatchable_units(
 
             prod = study.get_output(parameters.output_name).get_mc_ind_area(
                 parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area_name
-            )[("MISC.NDG", "MWh")]
+            )[(parameters.output.misc_ndg_column, "MWh")]
 
             if prod.abs().max() > 0:
                 non_disp_units.append(

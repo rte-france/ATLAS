@@ -60,11 +60,11 @@ def convert_mixed_fuel_units(
             continue
 
         for _, thermal in thermals.items():
-            if thermal.properties.group != "Mixed_fuel":
+            if thermal.properties.group != parameters.thermal.mixed_fuel_group:
                 continue
 
             # Waste sub-technologies -> OtherNonDispatchable
-            if "Waste" in thermal.name:
+            if parameters.thermal.waste_identifier in thermal.name:
                 _process_waste_unit(
                     area=area,
                     thermal=thermal,

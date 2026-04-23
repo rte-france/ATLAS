@@ -148,7 +148,7 @@ def _create_hydraulic_equipment(
     power_hourly = Timeseries(
         study_output.get_mc_ind_area(
             mc_year=scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.name
-        )[[("H. ROR", "MWh")]]
+        )[[(parameters.output.ror_column, "MWh")]]
     )
 
     daily_energy = power_hourly.groupby("1d", agg="sum")

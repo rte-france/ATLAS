@@ -61,7 +61,7 @@ def convert_system_structure(
         try:
             marginal_price = study.get_output(parameters.output_name).get_mc_ind_area(
                 parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.name
-            )[("MRG. PRICE", "Euro")]
+            )[(parameters.output.marginal_price_column, "Euro")]
 
             market_area = MarketArea(
                 name=area_name,

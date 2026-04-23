@@ -130,6 +130,13 @@ class ThermalParameters(BaseModel):
         )
     )
 
+    mixed_fuel_group: str = Field(
+        default="Mixed_fuel", description="Antares group name identifying mixed fuel clusters"
+    )
+    waste_identifier: str = Field(
+        default="Waste", description="Keyword in cluster name identifying waste sub-technology"
+    )
+
     def get(self, name: str) -> ThermalTechnologyConfig | None:
         _ALIASES = {"coal": "hard_coal"}
         key = name.lower()
@@ -184,12 +191,26 @@ class DsrParameters(BaseModel):
             ),
         ]
     )
+    other_bc_pattern: str = Field(
+        default="dsr_{area_id}_stock",
+        description="Binding constraint name pattern for non-FR DSR (use {area_id})",
+    )
+    other_thermal_pattern: str = Field(
+        default="{area_id}_{area_upper}_DSR_0",
+        description="Thermal cluster name pattern for non-FR DSR (use {area_id}, {area_upper})",
+    )
 
 
 class StorageParameters(BaseModel):
     battery_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="Battery initial level")
     ev_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="EV initial level")
     phs_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="PHS initial level")
+    battery_normal_link: str = Field(
+        default="z_batteries", description="Antares link name for normal batteries virtual node"
+    )
+    battery_pcomp_link: str = Field(
+        default="z_batteries_pcomp", description="Antares link name for PCOMP batteries virtual node"
+    )
 
 
 class ResParameters(BaseModel):
@@ -197,6 +218,29 @@ class ResParameters(BaseModel):
     pv_max_curtailment_ratio: float = Field(default=1.0, ge=0.0, le=1.0, description="Max solar curtailment ratio")
     wind_curtailment_cost: float = Field(default=0.01, description="Wind curtailment cost (€/MWh)")
     pv_curtailment_cost: float = Field(default=0.01, description="Solar curtailment cost (€/MWh)")
+    wind_onshore_group: str = Field(
+        default="wind onshore", description="Antares renewable group name for wind onshore clusters"
+    )
+    wind_offshore_suffix: str = Field(
+        default="_wind_offshore", description="Suffix appended to area name to find offshore wind cluster"
+    )
+    wind_offshore_excluded_areas: list[str] = Field(
+        default=["dekf", "dkkf"], description="Areas excluded from offshore wind capacity merging"
+    )
+    solar_pv_group: str = Field(default="solar pv", description="Antares renewable group name for solar PV clusters")
+    solar_thermo_suffix: str = Field(
+        default="_solar_thermo", description="Suffix appended to area name to find solar thermal cluster"
+    )
+
+
+class OutputParameters(BaseModel):
+    marginal_price_column: str = Field(
+        default="MRG. PRICE", description="MC output column name for area marginal price"
+    )
+    misc_ndg_column: str = Field(
+        default="MISC.NDG", description="MC output column name for misc non-dispatchable generation"
+    )
+    ror_column: str = Field(default="H. ROR", description="MC output column name for run-of-river hydro generation")
 
 
 class HydroReservoirConfig(BaseModel):
@@ -275,6 +319,7 @@ class HydroParameters(BaseModel):
     max_energy_coeff: float = Field(default=1.0, description="Hydro max energy coefficient")
 
     # Water value
+    max_water_value: float = Field(default=26000.0, description="Maximum water value cap (€/MWh)")
     use_water_value: bool = Field(default=False, description="Enable water value computation")
     water_value_scenarios: list[str] | Literal["all"] = Field(
         default=1, ge=1, description="Number of water value scenarios"
@@ -355,6 +400,7 @@ class AntaresToAtlasParameters(Parameters):
         default_factory=Co2EmissionFactors, description="Per-technology CO2 emission factors (tCO2/MWh)"
     )
     dsr: DsrParameters = Field(default_factory=DsrParameters, description="DSR unit configurations")
+    output: OutputParameters = Field(default_factory=OutputParameters, description="MC output column names")
 
     # Portfolio settings
     consumption_production_separation: bool = Field(

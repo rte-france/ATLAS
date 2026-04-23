@@ -32,7 +32,10 @@ def convert_wind_units(
             renewables = area.get_renewables()
             for res_name in renewables:
                 cluster_res = renewables[res_name]
-                if cluster_res.properties.group == "wind onshore" and cluster_res.properties.enabled:
+                if (
+                    cluster_res.properties.group == parameters.renewables.wind_onshore_group
+                    and cluster_res.properties.enabled
+                ):
                     scenario = (
                         study.get_output(parameters.output_name).get_wind_ts_numbers().get(parameters.scenario, None)
                     )
@@ -62,9 +65,14 @@ def convert_wind_units(
                                 ),
                                 installed_capacity=cluster_res.properties.nominal_capacity,
                             )
-                            offshore_instance = renewables.get(area_name + "_wind_offshore", None)
+                            offshore_instance = renewables.get(
+                                area_name + parameters.renewables.wind_offshore_suffix, None
+                            )
 
-                            if offshore_instance is not None and area_name not in ["dekf", "dkkf"]:
+                            if (
+                                offshore_instance is not None
+                                and area_name not in parameters.renewables.wind_offshore_excluded_areas
+                            ):
                                 if offshore_instance.properties.enabled:
                                     new_wind.installed_capacity += offshore_instance.properties.nominal_capacity
 

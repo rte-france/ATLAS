@@ -32,7 +32,10 @@ def convert_solar_units(
             renewables = area.get_renewables()
             for res_name in renewables:
                 cluster_res = renewables[res_name]
-                if cluster_res.properties.group == "solar pv" and cluster_res.properties.enabled:
+                if (
+                    cluster_res.properties.group == parameters.renewables.solar_pv_group
+                    and cluster_res.properties.enabled
+                ):
                     scenario = (
                         study.get_output(parameters.output_name).get_solar_ts_numbers().get(parameters.scenario, None)
                     )
@@ -62,7 +65,7 @@ def convert_solar_units(
                                 installed_capacity=cluster_res.properties.nominal_capacity,
                             )
 
-                            solar_thermal = renewables.get(area_name + "_solar_thermo", None)
+                            solar_thermal = renewables.get(area_name + parameters.renewables.solar_thermo_suffix, None)
                             if solar_thermal is not None and solar_thermal.properties.enabled:
                                 new_solar.installed_capacity += solar_thermal.properties.nominal_capacity
                 solars.append(new_solar)

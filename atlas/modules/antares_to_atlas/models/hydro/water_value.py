@@ -15,9 +15,6 @@ from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.objects.equipment.hydro import Hydro
 from atlas.timing import generate_datetimes
 
-# Maximum water value (€/MWh) - water values are capped at this value
-_MAX_WATER_VALUE = 26000.0
-
 
 def compute_water_values(
     study: Study,
@@ -266,7 +263,7 @@ def _store_water_values(
         avg_water_values = []
         for t in range(n_time_steps):
             raw_wv = water_values.get(level_idx, {}).get(t, 0.0) / max(n_scenarios, 1)
-            avg_water_values.append(min(raw_wv, _MAX_WATER_VALUE))
+            avg_water_values.append(min(raw_wv, parameters.hydro.max_water_value))
 
         # TODO: Create a Timeseries and store on the hydro equipment
         # In old code: hydro.StorageMarginalValue.AddTimeSeries(str(stock_level_value), ts)
