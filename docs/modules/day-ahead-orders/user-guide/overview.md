@@ -7,6 +7,7 @@ The Day-Ahead Orders module computes all market orders based on equipment in the
 ## What It Does
 
 The module:
+
 - **Generates orders**: Creates order objects for all equipment
 - **Uses forecasts**: Based on data available at execution date
 - **Supports multiple asset types**: Load, non-dispatchable, storage, hydraulic, wind, solar, and thermal
@@ -28,6 +29,7 @@ Beyond the standard module lifecycle (see [Module Pattern](../../../concepts/mod
 ## Order Types
 
 The module generates different order types based on equipment:
+
 - **Thermal units**: Generates thermal orders with cost curves
 - **Hydro units**: Generates hydraulic orders with reservoir constraints
 - **Storage units**: Generates storage orders with charge/discharge profiles

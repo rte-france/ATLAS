@@ -2,47 +2,57 @@
 
 Atlas provides four simulation modules for electricity market modeling. Each can be run independently or chained together in workflows.
 
-## Available Modules
+<div class="grid cards" markdown>
 
-### Portfolio Optimisation
+-   :material-chart-line:{ .lg .middle } **Portfolio Optimisation**
 
-Optimizes energy asset portfolios (thermal, hydro, storage, renewables) to maximize profits under market conditions.
+    ---
 
-[Learn more →](portfolio-optimisation/index.md)
+    Optimizes energy asset portfolios (thermal, hydro, storage, renewables) to maximize profits under market conditions.
 
-### Market Clearing
+    [:octicons-arrow-right-24: Overview](portfolio-optimisation/index.md)
 
-Simulates market clearing to determine prices and dispatch based on supply and demand bids.
+    [:octicons-arrow-right-24: User Guide](portfolio-optimisation/user-guide/overview.md)
 
-[Learn more →](market-clearing/index.md)
+    [:octicons-arrow-right-24: Architecture](portfolio-optimisation/developer/architecture.md)
 
-### Day-Ahead Orders
+-   :material-scale-balance:{ .lg .middle } **Market Clearing**
 
-Generates day-ahead market orders based on asset characteristics and market forecasts.
+    ---
 
-[Learn more →](day-ahead-orders/index.md)
+    Determines market equilibrium by matching supply and demand across multiple areas while respecting network constraints.
 
-### Intraday Price Forecast
+    [:octicons-arrow-right-24: Overview](market-clearing/index.md)
 
-Computes intraday price forecasts based on consumption changes between day-ahead and intraday markets, weighted by price sensitivity ratios.
+    [:octicons-arrow-right-24: User Guide](market-clearing/user-guide/overview.md)
 
-[Learn more →](intraday-price-forecast/index.md)
+    [:octicons-arrow-right-24: Architecture](market-clearing/developer/architecture.md)
 
-## Quick Start
+-   :material-calendar-clock:{ .lg .middle } **Day-Ahead Orders**
 
-Run a single module:
+    ---
 
-```bash
-atlas run parameters.yaml \
-  --module PortfolioOptimisation \
-  --dataset ./data/input/
-```
+    Generates day-ahead market orders for all equipment types based on asset characteristics and market forecasts.
 
-Chain modules in a workflow:
+    [:octicons-arrow-right-24: Overview](day-ahead-orders/index.md)
 
-```bash
-atlas run workflow.yaml --workflow
-```
+    [:octicons-arrow-right-24: User Guide](day-ahead-orders/user-guide/overview.md)
+
+    [:octicons-arrow-right-24: Architecture](day-ahead-orders/developer/architecture.md)
+
+-   :material-trending-up:{ .lg .middle } **Intraday Price Forecast**
+
+    ---
+
+    Computes intraday price forecasts using scenario-based sensitivity analysis between day-ahead and intraday markets.
+
+    [:octicons-arrow-right-24: Overview](intraday-price-forecast/index.md)
+
+    [:octicons-arrow-right-24: User Guide](intraday-price-forecast/user-guide/overview.md)
+
+    [:octicons-arrow-right-24: Architecture](intraday-price-forecast/developer/architecture.md)
+
+</div>
 
 ## Resources
 

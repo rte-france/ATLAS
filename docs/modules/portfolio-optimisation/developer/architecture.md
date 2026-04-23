@@ -14,9 +14,8 @@ atlas/modules/portfolio_optimisation/
 ├── parameters.py                        # PortfolioOptimisationParameters
 ├── input_dataset.py                     # PortfolioOptimisationInputDataset
 ├── output_dataset.py                    # PortfolioOptimisationOutputDataset
-├── portfolio_orchestrator.py            # Orchestrates portfolio optimization
-├── portfolio_optimisation_model.py      # OptimisationModel for single portfolio
-├── models/                              # Equipment-specific models
+├── optim.py                             # OptimisationModel for single portfolio
+├── input_objects/                       # Equipment-specific models
 │   ├── portfolio.py                     # PortfolioPO
 │   ├── portfolio_equipments.py          # Equipment container
 │   ├── thermal/                         # Thermal models
@@ -49,14 +48,6 @@ Converts business models to portfolio-optimisation-specific models:
 - Applies manual activation rules
 - Creates PO-specific models (ThermalPO, HydroPO, StoragePO, etc.)
 - Calculates optimization time windows
-
-### **`PortfolioOptimisationOrchestrator`**
-
-Coordinates optimization for multiple portfolios:
-
-- Creates `PortfolioOptimisationModel` for each portfolio
-- Handles multiprocessing if enabled
-- Returns optimization results
 
 ### **`PortfolioOptimisationModel`**
 
@@ -94,7 +85,7 @@ import_data() → PortfolioOptimisationInputDataset
   ↓
 validate_data() → timestep consistency check
   ↓
-execute() → PortfolioOptimisationOrchestrator
+execute() → Orchestration of the module
   ├→ PortfolioOptimisationModel.build()
   ├→ PortfolioOptimisationModel.solve()
   └→ PortfolioOptimisationResult
