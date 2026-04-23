@@ -88,9 +88,10 @@ class TestRunCommandModuleMode:
         assert result.exit_code == 1
         assert "Unknown module" in result.stdout
 
-    @patch("atlas.app.CurrentInputState")
+    @patch("atlas.app.ModuleRun")
+    @patch("atlas.app.AtlasDataset")
     @patch("atlas.app.ModuleRegistry")
-    def test_run_module_with_valid_inputs(self, mock_registry, mock_dataset, tmp_path):
+    def test_run_module_with_valid_inputs(self, mock_registry, mock_atlas_dataset, mock_module_run, tmp_path):
         """Test that run succeeds with valid inputs (mocked execution)."""
         # Setup mock module
         mock_module_class = MagicMock()
@@ -105,13 +106,12 @@ class TestRunCommandModuleMode:
         mock_params_class.from_file.return_value = mock_params_instance
         mock_module_instance.get_parameters_class.return_value = mock_params_class
 
-        # Setup mock run
-        mock_output_dataset = MagicMock()
-        mock_output_dataset.change_sets = []
-        mock_module_instance.run.return_value = mock_output_dataset
+        # Setup mock ModuleRun
+        mock_run_instance = MagicMock()
+        mock_module_run.return_value = mock_run_instance
 
-        # Setup mock dataset
-        mock_dataset.from_directory.return_value = MagicMock()
+        # Setup mock dataset loading
+        mock_atlas_dataset.from_directory.return_value = MagicMock()
 
         # Create test files
         params_file = tmp_path / "params.yaml"
@@ -127,7 +127,8 @@ class TestRunCommandModuleMode:
         assert result.exit_code == 0
         assert "completed successfully" in result.stdout
         mock_registry.get.assert_called_once_with("PortfolioOptimisation")
-        mock_module_instance.run.assert_called_once()
+        mock_module_run.assert_called_once()
+        mock_run_instance.run.assert_called_once()
 
 
 class TestRunCommandWorkflowMode:
