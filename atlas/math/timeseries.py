@@ -1079,15 +1079,11 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :return: The value at the timestamp requested
         :rtype: float
         """
-        if len(self.timeseries) == 0:
-            raise ValueError("Can't get value on empty timeseries.")
         dt = build_datetime(datetime, date_format).in_tz(self.timezone)
-
-        df: pl.DataFrame = self.filter(datetime, date_format, inplace=False).dataframe
-        if len(df) > 0:
-            return df.to_dicts()[0]["value"]
-        else:
+        result = self.timeseries.filter(pl.col("time") == dt)
+        if result.is_empty():
             raise KeyError(f"Value for {dt.to_datetime_string()} not found in the Timeseries.")
+        return result[0, "value"]
 
     def plot(
         self,
