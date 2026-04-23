@@ -5,6 +5,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 import argparse
+import cProfile
+import pstats
 from pathlib import Path
 
 from pyinstrument import Profiler
@@ -33,12 +35,26 @@ def main():
     parameters = cast(AbstractModuleParameters, module.get_parameters_class()).from_file(args.config_path)
     cis = CurrentInputState.from_directory(args.dataset)
 
-    with Profiler() as profiler:
-        output_dataset = module.run(cis.get_data(copy=False), parameters)
-        if parameters.output.export_output_dataset:
-            CISHandler.apply(output_dataset.change_sets, cis)
+    profiler = Profiler()
+    c_profile = cProfile.Profile()
 
+    profiler.start()
+    c_profile.enable()
+
+    output_dataset = module.run(cis.get_data(copy=False), parameters)
+    if parameters.output.export_output_dataset:
+        CISHandler.apply(output_dataset.change_sets, cis)
+
+    c_profile.disable()
+    profiler.stop()
     profiler.write_html(output)
+
+
+    with open("profile_stats.txt", "w") as f:
+        print(f"Profile saved to: profile_stats.txt")
+        ps = pstats.Stats(c_profile, stream=f).sort_stats("cumtime")
+        ps.print_stats(100)
+
     print(f"Profile saved to: {output.resolve()}")
 
 
