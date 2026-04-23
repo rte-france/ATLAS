@@ -185,6 +185,23 @@ __all__ = [
 
 ---
 
+## Step 6 — Module Registry
+
+Add the module to `ModuleRegistry` so it is accessible via the CLI (`--module` flag) and `ModuleRun`:
+
+```python
+# atlas/orchestrator/module_registry.py
+from atlas.modules.my_module.module import MyModule
+
+class ModuleRegistry(Enum):
+    ...
+    MyModule = MyModule
+```
+
+The enum key is the name users pass to `atlas run --module MyModule`.
+
+---
+
 ## Documentation Checklist
 
 Follow the structure of existing modules under `docs/modules/`:
