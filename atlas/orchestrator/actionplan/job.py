@@ -36,27 +36,27 @@ class ActionPlanJob(AbstractJob):
 
 
 class TaskIterator(ABC):
-    task: Task
-    next_date: DateTime
-    root_output_dir: Path
+    def __init__(self, task: Task):
+        self.task: Task = task
+        self.next_execution_date: DateTime = task.from_
 
     @property
     def next_start_date(self):
-        return self.task.offset_start_date + self.next_date
+        return self.task.offset_start_date + self.next_execution_date
 
     @property
     def next_end_date(self):
-        return self.task.offset_end_date + self.next_date
+        return self.task.offset_end_date + self.next_execution_date
 
     def __iter__(self):
-        self.next_date = self.task.from_
+        self.next_execution_date = self.task.from_
         return self
 
     def __next__(self) -> list[AbstractJob]:
-        if self.next_date > self.task.until:
-            raise StopIteration  # Signals the end of iteration
+        if self.next_execution_date > self.task.until:
+            raise StopIteration()  # Signals the end of iteration
         jobs = self.build_jobs()
-        self.next_date += self.task.frequency
+        self.next_execution_date += self.task.frequency
         return jobs
 
     @abstractmethod
@@ -65,27 +65,33 @@ class TaskIterator(ABC):
         Build and return the list of ActionPlanJob with execution date value as the next date.
         """
 
-    def __lt__(self, other):
-        if self.next_date != other.next_date:
-            return self.next_date < other.next_date
+    def __len__(self):
+        # TODO better computation
+        acc = 0
+        d = self.next_execution_date
+        while d <= self.task.until:
+            acc += 1
+            d += self.task.frequency
+        return acc
+
+    def __gt__(self, other):
+        if self.next_execution_date != other.next_execution_date:
+            return self.next_execution_date < other.next_execution_date
         else:
             return self.task.priority < other.task.priority
 
     def __eq__(self, other):
-        return self.next_date == other.next_date and self.task.priority == other.task.priority
+        return self.next_execution_date == other.next_execution_date and self.task.priority == other.task.priority
 
 
 class ModuleTaskIterator(TaskIterator):
-    module: type[AbstractModule]
-    parameters: AbstractModuleParameters
-
     def __init__(self, task: Task, parameters: AbstractModuleParameters, root_output_dir: Path):
+        super().__init__(task)
         if task.module is None:
             raise AttributeError("Task must have a module.")
 
-        self.task = task
-        self.module = task.module.value
-        self.parameters = parameters
+        self.module: type[AbstractModule] = task.module.value
+        self.parameters: AbstractModuleParameters = parameters
         self.root_output_dir = root_output_dir
 
     def build_jobs(self) -> list[AbstractJob]:
@@ -93,19 +99,17 @@ class ModuleTaskIterator(TaskIterator):
 
     def build_current_parameters(self) -> AbstractModuleParameters:
         parameters = copy.deepcopy(self.parameters)
-        parameters.output.output_dir = self.root_output_dir / self.next_date
+        parameters.output.output_dir = self.root_output_dir / self.next_execution_date
         parameters.temporal.start_date = self.next_start_date
         parameters.temporal.end_date = self.next_end_date
-        parameters.temporal.execution_date = self.next_date
+        parameters.temporal.execution_date = self.next_execution_date
         return parameters
 
 
 class WorkflowTaskIterator(TaskIterator):
-    parameters: WorkflowParameters
-
     def __init__(self, task: Task, parameters: WorkflowParameters, root_output_dir: Path):
-        self.task = task
-        self.parameters = parameters
+        super().__init__(task)
+        self.parameters: WorkflowParameters = parameters
         self.root_output_dir = root_output_dir
 
     def build_current_parameters(self) -> WorkflowParameters:
@@ -119,7 +123,7 @@ class WorkflowTaskIterator(TaskIterator):
                     "end_date": self.next_end_date,
                 },
                 "output": {
-                    "output_dir": self.root_output_dir / self.next_date,
+                    "output_dir": self.root_output_dir / self.next_execution_date,
                 },
             },
             True,

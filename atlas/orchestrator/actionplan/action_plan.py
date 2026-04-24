@@ -77,16 +77,18 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         """
         while len(self._priority_queue) > 0:
             priority_task_itr = self._pop_iterator()
-            job = next(priority_task_itr, None)
-            if job is not None:
+            jobs = next(priority_task_itr, None)
+            if jobs is not None:
                 self._push_iterator(priority_task_itr)
-                yield cast(ActionPlanJob, job)
-
-        raise StopIteration
+                for job in jobs:
+                    yield cast(ActionPlanJob, job)
 
     @property
     def jobs_count(self) -> int:
-        raise NotImplementedError
+        acc = 0
+        for itr in self._priority_queue:
+            acc += len(itr)
+        return acc
 
     def __repr__(self) -> str:
         """Return a human-readable string representation of the workflow."""

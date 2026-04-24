@@ -10,12 +10,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from pendulum import DateTime, Duration
-from pydantic import BaseModel, field_validator, model_validator
+from pendulum import Duration
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.orchestrator.hook.hook import Hook
 from atlas.orchestrator.module_registry import ModuleRegistry
+from atlas.validators import convert_to_duration
 
 
 class ActionPlanParameters(AbstractOrchestratorParameters):
@@ -51,6 +53,8 @@ class Task(BaseModel):
     :type frequency: Duration
     """
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     name: str | None = None
     module: ModuleRegistry | None = None
     workflow: str | None = None
@@ -68,6 +72,17 @@ class Task(BaseModel):
         if v is not None and isinstance(v, str):
             return ModuleRegistry(ModuleRegistry.get(v))
         return v
+
+    @field_validator(
+        "frequency",
+        "offset_start_date",
+        "offset_end_date",
+        mode="before",
+    )
+    @classmethod
+    def parse_duration(cls, v):
+        """Convert various duration formats to Duration objects."""
+        return convert_to_duration(v)
 
     @model_validator(mode="after")
     def module_or_workflow(self) -> Task:  # FIXME better function name? Can we overide validate()
