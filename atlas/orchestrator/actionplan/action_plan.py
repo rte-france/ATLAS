@@ -31,8 +31,8 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         """
         self.parameters = parameters
         self._priority_queue: list[TaskIterator] = []
-
-        self.build_priority_queue()
+        self._jobs_count = 0
+        self._build_priority_queue()
 
     @classmethod
     def from_file(cls, file_path: str | Path) -> ActionPlan:
@@ -41,7 +41,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         parameters._orchestrator_path = file_path.parent
         return cls(parameters=parameters)
 
-    def add_task(self, task: Task):
+    def _add_task(self, task: Task):
         root_output_dir = self.parameters.resolve_path(self.parameters.output_dir) / task.name
 
         if task.module is not None:
@@ -64,9 +64,11 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
     def _pop_iterator(self) -> TaskIterator:
         return heapq.heappop(self._priority_queue)
 
-    def build_priority_queue(self) -> None:
+    def _build_priority_queue(self) -> None:
         for task in self.parameters.tasks:
-            self.add_task(task)
+            self._add_task(task)
+        for itr in self._priority_queue:
+            self._jobs_count += len(itr)
 
     @property
     def jobs(self) -> Iterator[ActionPlanJob]:
@@ -85,11 +87,8 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
     @property
     def jobs_count(self) -> int:
-        acc = 0
-        for itr in self._priority_queue:
-            acc += len(itr)
-        return acc
+        return self._jobs_count
 
     def __repr__(self) -> str:
         """Return a human-readable string representation of the workflow."""
-        return f"ActionPlan '{self.parameters.name}' ({len(self.parameters.tasks)} task{'s' if self.parameters.tasks != 1 else ''} with a total of {self.jobs_count()} step{'s' if len(self.jobs_count()) != 1 else ''})"
+        return f"ActionPlan '{self.parameters.name}' ({len(self.parameters.tasks)} task{'s' if self.parameters.tasks != 1 else ''} with a total of {self.jobs_count} step{'s' if self.jobs_count != 1 else ''})"

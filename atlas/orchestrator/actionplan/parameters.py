@@ -29,7 +29,7 @@ class ActionPlanParameters(AbstractOrchestratorParameters):
     """
 
     tasks: list[Task]
-    hooks: list[Hook]
+    hooks: list[Hook] = []
 
 
 class Task(BaseModel):

@@ -74,7 +74,7 @@ class TaskIterator(ABC):
             d += self.task.frequency
         return acc
 
-    def __gt__(self, other):
+    def __lt__(self, other):
         if self.next_execution_date != other.next_execution_date:
             return self.next_execution_date < other.next_execution_date
         else:
