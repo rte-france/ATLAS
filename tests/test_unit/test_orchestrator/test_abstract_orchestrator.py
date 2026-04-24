@@ -26,6 +26,7 @@ from tests.test_unit.test_orchestrator.orchestrator_factory import (
     MockOrchestratorFactory,
     MockTaskIterator,
     MockWorkflowFactory,
+    MockActionPlanFactory,
 )
 
 
@@ -53,89 +54,44 @@ class MockOrchestrator(AbstractOrchestrator[MockOrchestratorParameters, MockJob]
         return len(self._jobs)
 
 
-class MockOrchestratorFactory:
-    @staticmethod
-    def make_mock_output():
-        mock_output = MagicMock()
-        mock_output.change_sets = []
-        return mock_output
+@staticmethod
+def make_mock_orchestrator(tmp_path, jobs: list) -> MockOrchestrator:
+    config = MockOrchestratorFactory.minimal_config(tmp_path)
+    params = MockOrchestratorParameters.from_file(config)
+    orchestrator = MockOrchestrator.__new__(MockOrchestrator)
+    orchestrator.parameters = params
+    orchestrator._jobs = jobs
+    return orchestrator
 
-    @staticmethod
-    def make_mock_module(output):
-        mock_instance = MagicMock()
-        mock_instance.run.return_value = output
-        mock_instance.get_business_model_class_used.return_value = []
-        mock_instance.get_filters.return_value = None
-        return MagicMock(return_value=mock_instance)
 
-    @staticmethod
-    def make_mock_job(name="step", output=None):
-        mock_instance = MagicMock()
-        mock_instance.run.return_value = output
-        mock_instance.get_business_model_class_used.return_value = []
-        mock_instance.get_filters.return_value = None
-        mock_class = MagicMock(return_value=mock_instance)
-        return MockJob(name, mock_class, {})
+@staticmethod
+def make_mock_workflow(tmp_path, jobs: list) -> Workflow:
+    config = MockWorkflowFactory.minimal_config(tmp_path)
+    params = WorkflowParameters.from_file(config)
+    workflow = Workflow.__new__(Workflow)
+    workflow.parameters = params
+    workflow._jobs = jobs
+    return workflow
 
-    @staticmethod
-    def make_mock_parameter(tmp_path, dataset_path=None, output_path=None):
-        dataset_dir = dataset_path or (tmp_path / "dataset")
-        dataset_dir.mkdir(exist_ok=True)
-        output_dir = output_path or (tmp_path / "output")
-        output_dir.mkdir(exist_ok=True)
 
-        config = tmp_path / "orchestrator.yaml"
-        content = f"name: test_orchestrator\ndataset_path: {dataset_dir}\noutput_dataset_path: {output_dir}\n"
-        config.write_text(content)
-        return MockOrchestratorParameters.from_file(config)
-
-    @staticmethod
-    def make_mock_orchestrator(tmp_path, jobs: list) -> MockOrchestrator:
-        params = MockOrchestratorFactory.make_mock_parameter(tmp_path)
-        orchestrator = MockOrchestrator.__new__(MockOrchestrator)
-        orchestrator.parameters = params
-        orchestrator._jobs = jobs
-        return orchestrator
-
-    @staticmethod
-    def make_mock_action_plan(tmp_path, jobs: list) -> ActionPlan:
-        class MockTaskIterator(TaskIterator):
-            def __init__(self, j: MockJob, p):
-                self._job: MockJob = j
-                self.first_call = True
-                mock_task = MagicMock()
-                mock_task.from_ = DateTime.create(2000, 1, 1, 0)
-                mock_task.until = DateTime.create(2000, 1, 1, 0)
-                mock_task.frequency = Duration(hours=1)
-                mock_task.priority = p
-                super().__init__(mock_task)
-
-            def build_jobs(self):
-                return [self._job]
-
-        params = MockOrchestratorFactory.make_mock_parameter(tmp_path)
-        action_plan = ActionPlan.__new__(ActionPlan)
-        action_plan.parameters = params
-        priority_queue: list[TaskIterator] = []
-        for priority, job in enumerate(jobs):
-            heapq.heappush(priority_queue, MockTaskIterator(job, priority))
-        action_plan._priority_queue = priority_queue
-
-        return action_plan
-
-    @staticmethod
-    def make_mock_workflow(tmp_path, jobs: list) -> Workflow:
-        params = MockOrchestratorFactory.make_mock_parameter(tmp_path)
-        workflow = Workflow.__new__(Workflow)
-        workflow.parameters = params
-        workflow._jobs = jobs
-        return workflow
+@staticmethod
+def make_mock_action_plan(tmp_path, jobs: list) -> ActionPlan:
+    config = MockActionPlanFactory.minimal_config(tmp_path)
+    params = ActionPlanParameters.from_file(config)
+    action_plan = ActionPlan.__new__(ActionPlan)
+    action_plan.parameters = params
+    priority_queue: list[TaskIterator] = []
+    for priority, job in enumerate(jobs):
+        heapq.heappush(priority_queue, MockTaskIterator(job, priority))
+    action_plan._priority_queue = priority_queue
+    action_plan._jobs_count = len(jobs)
+    return action_plan
 
 
 CONCRETE_ORCHESTRATOR_BUILDERS = [
-    MockOrchestratorFactory.make_mock_orchestrator,
-    MockOrchestratorFactory.make_mock_action_plan,
-    MockOrchestratorFactory.make_mock_workflow,
+    make_mock_orchestrator,
+    make_mock_action_plan,
+    make_mock_workflow,
 ]
 
 
@@ -147,8 +103,8 @@ def orchestrator_builder(request):
 class TestOrchestratorExecute:
     def test_execute_runs_all_steps_in_order(self, tmp_path, orchestrator_builder):
         call_order = []
-        output1 = MockOrchestratorFactory.make_mock_output()
-        output2 = MockOrchestratorFactory.make_mock_output()
+        output1 = MockModuleFactory.make_output()
+        output2 = MockModuleFactory.make_output()
 
         def run1(ds):
             call_order.append("job1")
@@ -167,6 +123,7 @@ class TestOrchestratorExecute:
         job2.run = run2
 
         orchestrator = orchestrator_builder(tmp_path, [job1, job2])
+        assert orchestrator.jobs_count == 2
 
         with (
             patch("atlas.io_utils.atlas_dataset.AtlasDataset.from_directory", return_value=AtlasDataset()),
@@ -184,9 +141,10 @@ class TestOrchestratorExecute:
         assert call_order == ["job1", "job2"]
 
     def test_execute_raises_if_step_produces_no_output(self, tmp_path, orchestrator_builder):
-        job = MockOrchestratorFactory.make_mock_job("bad_step", output=None)
+        job = MockOrchestratorFactory.make_mock_job("bad_job", output=None)
         # job.run will set _output_dataset = None (the default)
         orchestrator = orchestrator_builder(tmp_path, [job])
+        assert orchestrator.jobs_count == 1
 
         with (
             patch("atlas.io_utils.atlas_dataset.AtlasDataset.from_directory", return_value=AtlasDataset()),
@@ -196,12 +154,12 @@ class TestOrchestratorExecute:
             mock_cis_instance.filter_dataset.return_value = AtlasDataset()
             MockCIS.return_value = mock_cis_instance
 
-            with pytest.raises(RuntimeError, match="bad_step"):
+            with pytest.raises(RuntimeError, match="bad_job"):
                 orchestrator.execute()
 
     def test_execute_applies_change_sets_after_each_step(self, tmp_path, orchestrator_builder):
         mock_change_set = MagicMock()
-        output = MockOrchestratorFactory.make_mock_output()
+        output = MockModuleFactory.make_output()
         output.change_sets = [mock_change_set]
 
         job = MockOrchestratorFactory.make_mock_job("job")
@@ -209,6 +167,7 @@ class TestOrchestratorExecute:
         job.run = lambda ds: None  # run is a no-op; _output_dataset is pre-set
 
         orchestrator = orchestrator_builder(tmp_path, [job])
+        assert orchestrator.jobs_count == 1
 
         with (
             patch("atlas.orchestrator.handler.cis_handler.CISHandler.apply") as mock_apply,

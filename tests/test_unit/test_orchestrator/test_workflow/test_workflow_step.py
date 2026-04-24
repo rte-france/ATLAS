@@ -17,141 +17,118 @@ from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.orchestrator.workflow.parameters import Step
-
-
-def _make_mock_module_class(output=None):
-    """Return a (mock_class, mock_instance) pair where instance.run() returns output."""
-    mock_instance = MagicMock()
-    mock_instance.run.return_value = output
-    mock_instance.get_business_model_class_used.return_value = []
-    mock_instance.get_filters.return_value = None
-
-    mock_class = MagicMock(return_value=mock_instance)
-    return mock_class, mock_instance
-
-
-@pytest.fixture
-def atlas_dataset():
-    return AtlasDataset()
-
+from tests.test_unit.test_orchestrator.orchestrator_factory import MockModuleFactory
 
 
 class TestStep:
-    def test_step_coerces_string_module(self, tmp_path):
+    @pytest.fixture
+    def params_file(self, tmp_path):
         params_file = tmp_path / "params.yaml"
         params_file.write_text("export_result: false\n")
+        return params_file
 
+    def test_step_coerces_string_module(self, tmp_path, params_file):
         step = Step(module="PortfolioOptimisation", parameters_path=params_file)
         assert step.module == ModuleRegistry.PortfolioOptimisation
 
-    def test_step_default_name_is_module_name(self, tmp_path):
-        params_file = tmp_path / "params.yaml"
-        params_file.write_text("export_result: false\n")
-
+    def test_step_default_name_is_module_name(self, tmp_path, params_file):
         step = Step(module="PortfolioOptimisation", parameters_path=params_file)
         assert step.name == "PortfolioOptimisation"
 
-    def test_step_custom_name_is_preserved(self, tmp_path):
-        params_file = tmp_path / "params.yaml"
-        params_file.write_text("export_result: false\n")
-
+    def test_step_custom_name_is_preserved(self, tmp_path, params_file):
         step = Step(name="my_step", module="PortfolioOptimisation", parameters_path=params_file)
         assert step.name == "my_step"
 
-    def test_step_invalid_module_raises(self, tmp_path):
-        params_file = tmp_path / "params.yaml"
-        params_file.write_text("export_result: false\n")
-
+    def test_step_invalid_module_raises(self, tmp_path, params_file):
         with pytest.raises(Exception):
             Step(module="DoesNotExist", parameters_path=params_file)
 
-    def test_step_parameters_path_is_path_object(self, tmp_path):
-        params_file = tmp_path / "params.yaml"
-        params_file.write_text("export_result: false\n")
-
+    def test_step_parameters_path_is_path_object(self, tmp_path, params_file):
         step = Step(module="PortfolioOptimisation", parameters_path=str(params_file))
         assert isinstance(step.parameters_path, Path)
 
 
 class TestWorkflowJobInit:
+    @pytest.fixture(autouse=True)
+    def set_up_mock_module(self):
+        mock_class, mock_instance = MockModuleFactory.make_module_class_instance()
+        self.mock_class = mock_class
+        self.mock_instance = mock_instance
+
     def test_init_sets_name(self):
-        mock_class, _ = _make_mock_module_class()
-        ws = WorkflowJob("my_step", mock_class, {})
+        ws = WorkflowJob("my_step", self.mock_class, {})
         assert ws.name == "my_step"
 
     def test_init_instantiates_module(self):
-        mock_class, mock_instance = _make_mock_module_class()
-        ws = WorkflowJob("step", mock_class, {})
-        mock_class.assert_called_once()
-        assert ws.module is mock_instance
+        ws = WorkflowJob("step", self.mock_class, {})
+        self.mock_class.assert_called_once()
+        assert ws.module is self.mock_instance
 
     def test_output_dataset_is_none_before_run(self):
-        mock_class, _ = _make_mock_module_class()
-        ws = WorkflowJob("step", mock_class, {})
+        ws = WorkflowJob("step", self.mock_class, {})
         assert ws.output_dataset is None
         assert ws.get_output_dataset() is None
 
 
 class TestWorkflowJobRun:
-    def test_run_calls_module_run(self, atlas_dataset):
+    @pytest.fixture
+    def atlas_dataset(self):
+        return AtlasDataset()
+
+    @pytest.fixture(autouse=True)
+    def set_up_module_and_job(self):
         mock_output = MagicMock()
-        mock_class, mock_instance = _make_mock_module_class(output=mock_output)
+        mock_class, mock_instance = MockModuleFactory.make_module_class_instance(mock_output)
+        self.mock_class = mock_class
+        self.mock_instance = mock_instance
+        self.mock_output = mock_output
+        self.job = WorkflowJob("job", self.mock_class, {})
 
-        ws = WorkflowJob("step", mock_class, {"param": 1})
-        ws.run(atlas_dataset)
-
-        mock_instance.run.assert_called_once_with(atlas_dataset, ws.parameters)
+    def test_run_calls_module_run(self, atlas_dataset):
+        job = WorkflowJob("job", self.mock_class, {"param": 1})
+        job.run(atlas_dataset)
+        self.mock_instance.run.assert_called_once_with(atlas_dataset, job.parameters)
 
     def test_run_stores_output_dataset(self, atlas_dataset):
-        mock_output = MagicMock()
-        mock_class, _ = _make_mock_module_class(output=mock_output)
-
-        ws = WorkflowJob("step", mock_class, {})
-        ws.run(atlas_dataset)
-
-        assert ws.output_dataset is mock_output
-        assert ws.get_output_dataset() is mock_output
+        self.job.run(atlas_dataset)
+        assert self.job.output_dataset is self.mock_output
+        assert self.job.get_output_dataset() is self.mock_output
 
     def test_run_with_none_output_stores_none(self, atlas_dataset):
-        mock_class, _ = _make_mock_module_class(output=None)
-        ws = WorkflowJob("step", mock_class, {})
-        ws.run(atlas_dataset)
-        assert ws.output_dataset is None
+        mock_class = MockModuleFactory.make_module_class(output=None)
+        job = WorkflowJob("job", mock_class, {})
+        job.run(atlas_dataset)
+        assert job.output_dataset is None
 
     def test_run_overwrites_previous_output(self, atlas_dataset):
         first_output = MagicMock(name="first")
         second_output = MagicMock(name="second")
+        self.mock_instance.run.side_effect = [first_output, second_output]
 
-        mock_class, mock_instance = _make_mock_module_class()
-        mock_instance.run.side_effect = [first_output, second_output]
+        job = WorkflowJob("job", self.mock_class, {})
+        job.run(atlas_dataset)
+        assert job.output_dataset is first_output
 
-        ws = WorkflowJob("step", mock_class, {})
-        ws.run(atlas_dataset)
-        assert ws.output_dataset is first_output
-
-        ws.run(atlas_dataset)
-        assert ws.output_dataset is second_output
+        job.run(atlas_dataset)
+        assert job.output_dataset is second_output
 
     def test_run_propagates_module_exception(self, atlas_dataset):
-        mock_class, mock_instance = _make_mock_module_class()
-        mock_instance.run.side_effect = RuntimeError("module crashed")
+        self.mock_instance.run.side_effect = RuntimeError("module crashed")
 
-        ws = WorkflowJob("step", mock_class, {})
+        job = WorkflowJob("job", self.mock_class, {})
         with pytest.raises(RuntimeError, match="module crashed"):
-            ws.run(atlas_dataset)
+            job.run(atlas_dataset)
 
     def test_output_dataset_property_and_get_method_are_consistent(self, atlas_dataset):
-        mock_output = MagicMock()
-        mock_class, _ = _make_mock_module_class(output=mock_output)
+        job = WorkflowJob("job", self.mock_class, {})
+        job.run(atlas_dataset)
 
-        ws = WorkflowJob("step", mock_class, {})
-        ws.run(atlas_dataset)
-
-        assert ws.output_dataset is ws.get_output_dataset()
+        assert job.output_dataset is job.get_output_dataset()
 
 
 class TestWorkflowJobRepresentation:
-    def _make_mc_params(self):
+    @pytest.fixture
+    def mc_params(self):
         return {
             "temporal": {
                 "start_date": "2028-09-27 00:00:00",
@@ -160,15 +137,15 @@ class TestWorkflowJobRepresentation:
             }
         }
 
-    def test_repr_before_execution(self):
-        step = WorkflowJob("TestStep", MarketClearingModule, self._make_mc_params())
-        result = repr(step)
+    def test_repr_before_execution(self, mc_params):
+        job = WorkflowJob("TestJob", MarketClearingModule, mc_params)
+        result = repr(job)
         assert "WorkflowStep(" in result
-        assert "name='TestStep'" in result
+        assert "name='TestJob'" in result
         assert "executed=False" in result
 
-    def test_repr_after_execution(self):
-        step = WorkflowJob("TestStep", MarketClearingModule, self._make_mc_params())
-        step._output_dataset = MagicMock()
-        result = repr(step)
+    def test_repr_after_execution(self, mc_params):
+        job = WorkflowJob("TestJob", MarketClearingModule, mc_params)
+        job._output_dataset = MagicMock()
+        result = repr(job)
         assert "executed=True" in result

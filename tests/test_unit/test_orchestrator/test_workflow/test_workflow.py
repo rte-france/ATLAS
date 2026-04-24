@@ -10,104 +10,56 @@ Unit tests for Workflow.
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from atlas.timing import build_datetime
 import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import ContextParameters
-from atlas.orchestrator.workflow.job import WorkflowJob
-from atlas.orchestrator.workflow.parameters import WorkflowParameters
 from atlas.orchestrator.workflow.workflow import Workflow
-
-
-def _make_workflow_step(name="step", output=None):
-    """Return a WorkflowJob with a mock module that returns *output*."""
-    mock_instance = MagicMock()
-    mock_instance.run.return_value = output
-    mock_instance.get_business_model_class_used.return_value = []
-    mock_instance.get_filters.return_value = None
-
-    mock_class = MagicMock(return_value=mock_instance)
-    return WorkflowJob(name, mock_class, {})
-
-
-def _make_workflow_parameters(tmp_path, steps_yaml="", dataset_path=None, output_path=None):
-    """Write a minimal workflow YAML and return WorkflowParameters."""
-    dataset_dir = dataset_path or (tmp_path / "dataset")
-    dataset_dir.mkdir(exist_ok=True)
-    output_dir = output_path or (tmp_path / "output")
-    output_dir.mkdir(exist_ok=True)
-
-    config = tmp_path / "workflow.yaml"
-    content = f"name: test_workflow\ndataset_path: {dataset_dir}\noutput_dataset_path: {output_dir}\nsteps: []\n"
-    if steps_yaml:
-        content = f"name: test_workflow\ndataset_path: {dataset_dir}\noutput_dataset_path: {output_dir}\n{steps_yaml}"
-    config.write_text(content)
-    return WorkflowParameters.from_file(config)
+from atlas.timing import build_datetime
+from tests.test_unit.test_orchestrator.orchestrator_factory import MockWorkflowFactory
 
 
 class TestWorkflowAddStep:
-    def test_add_single_step(self, tmp_path):
-        params = _make_workflow_parameters(tmp_path)
+    @pytest.fixture
+    def empty_workflow(self, tmp_path):
+        conf = MockWorkflowFactory.minimal_config(tmp_path)
+        params = Workflow.from_file(conf)
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
-
         wf._jobs = []
+        return wf
 
-        step = _make_workflow_step("s1")
-        wf.add_job(step)
+    def test_add_single_step(self, tmp_path, empty_workflow):
+        step = MockWorkflowFactory.make_job("s1")
+        empty_workflow.add_job(step)
 
-        assert wf.jobs_count == 1
-        assert next(wf.jobs) is step
+        assert empty_workflow.jobs_count == 1
+        assert next(empty_workflow.jobs) is step
 
-    def test_add_list_of_steps(self, tmp_path):
-        params = _make_workflow_parameters(tmp_path)
-        wf = Workflow.__new__(Workflow)
-        wf.parameters = params
+    def test_add_list_of_steps(self, tmp_path, empty_workflow):
+        steps = [MockWorkflowFactory.make_job(f"s{i}") for i in range(3)]
+        empty_workflow.add_job(steps)
 
-        wf._jobs = []
-
-        steps = [_make_workflow_step(f"s{i}") for i in range(3)]
-        wf.add_job(steps)
-
-        assert wf.jobs_count == 3
-        for original, stored in zip(steps, wf.jobs):
+        assert empty_workflow.jobs_count == 3
+        for original, stored in zip(steps, empty_workflow.jobs):
             assert stored is original
 
-    def test_add_invalid_type_raises_type_error(self, tmp_path):
-        params = _make_workflow_parameters(tmp_path)
-        wf = Workflow.__new__(Workflow)
-        wf.parameters = params
-        pass  # no generic_module_parameters anymore
-        wf._jobs = []
-
+    def test_add_invalid_type_raises_type_error(self, tmp_path, empty_workflow):
         with pytest.raises(TypeError):
-            wf.add_job("not_a_step")
+            empty_workflow.add_job("not_a_step")
 
-    def test_add_list_with_invalid_item_raises_type_error(self, tmp_path):
-        params = _make_workflow_parameters(tmp_path)
-        wf = Workflow.__new__(Workflow)
-        wf.parameters = params
-        pass  # no generic_module_parameters anymore
-        wf._jobs = []
-
-        valid_step = _make_workflow_step("s1")
+    def test_add_list_with_invalid_item_raises_type_error(self, tmp_path, empty_workflow):
+        valid_step = MockWorkflowFactory.make_job("s1")
         with pytest.raises(TypeError):
-            wf.add_job([valid_step, "not_a_step"])
+            empty_workflow.add_job([valid_step, "not_a_step"])
 
-    def test_steps_appended_in_order(self, tmp_path):
-        params = _make_workflow_parameters(tmp_path)
-        wf = Workflow.__new__(Workflow)
-        wf.parameters = params
-        pass  # no generic_module_parameters anymore
-        wf._jobs = []
+    def test_steps_appended_in_order(self, tmp_path, empty_workflow):
+        s1 = MockWorkflowFactory.make_job("first")
+        s2 = MockWorkflowFactory.make_job("second")
+        empty_workflow.add_job(s1)
+        empty_workflow.add_job(s2)
 
-        s1 = _make_workflow_step("first")
-        s2 = _make_workflow_step("second")
-        wf.add_job(s1)
-        wf.add_job(s2)
-
-        jobs = wf.jobs
+        jobs = empty_workflow.jobs
         assert next(jobs) is s1
         assert next(jobs) is s2
 
