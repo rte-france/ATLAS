@@ -19,14 +19,12 @@ class OtherNonDispatchablePO(BaseEquipmentPO, OtherNonDispatchable):
 
     optimisation_time_window: list[DateTime] = []
 
-    def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
+    def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """
         Build variables for non dispatchable equipment.
 
         :param model: Optimization model
         :type model: OptimisationModel
-        :param time: Current time period
-        :type time: DateTime
         :param parameters: Optimization parameters
         :type parameters: PortfolioOptimisationParameters
         """
@@ -35,7 +33,6 @@ class OtherNonDispatchablePO(BaseEquipmentPO, OtherNonDispatchable):
     def add_constraints(
         self,
         model: OptimisationModel,
-        time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ):
         """

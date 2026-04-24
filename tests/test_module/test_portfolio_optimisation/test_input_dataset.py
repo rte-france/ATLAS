@@ -396,7 +396,7 @@ class TestPortfolioOptimisationInputDataset:
         mock_parameters,
         mock_wind_equipment,
     ):
-        """Test that time windows are correctly calculated for portfolios."""
+        """Test that get_optimisation_time_window is called on each equipment."""
         expected_time_window = [
             pendulum.datetime(2024, 1, 1),
             pendulum.datetime(2024, 1, 1, 12),
@@ -413,5 +413,5 @@ class TestPortfolioOptimisationInputDataset:
         input_data = AtlasDataset(wind=[mock_wind_equipment])
         dataset = PortfolioOptimisationInputDataset(input_data, mock_parameters)
 
-        assert "test_portfolio" in dataset.time_windows
-        assert dataset.time_windows["test_portfolio"] == expected_time_window
+        assert len(dataset.portfolios) == 1
+        mock_wind_po_instance.get_optimisation_time_window.assert_called_once()

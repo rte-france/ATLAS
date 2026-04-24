@@ -28,20 +28,17 @@ class WindPO(BaseEquipmentPO, Wind):
     optimisation_time_window: list[DateTime] = []
     _cached_forecast: Timeseries | None = None
 
-    def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
+    def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """
         Build variables for solar and wind equipment.
 
         :param model: Optimization model
         :type model: OptimisationModel
-        :param time: Current time period
-        :type time: DateTime
         :param parameters: Optimization parameters
         :type parameters: PortfolioOptimisationParameters
         """
-        if time in self.optimisation_time_window:
+        for time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for wind unit {self.name} at time {time}")
-            # Default to 0 if forecast is not available (e.g., equipment not in operation)
             max_power = self._cached_forecast.get_value(time) if self._cached_forecast else 0
             min_power = (1 - self.maximum_curtailment_ratio.get_value(time)) * max_power
             maximum_automated = get_maximum_automated(self)
@@ -63,13 +60,10 @@ class WindPO(BaseEquipmentPO, Wind):
                 storage_equipment=False,
                 thermal_equipment=False,
             )
-        else:
-            cfg.logger.debug(f"Skipping variables for wind unit {self.name} at non-target time {time}")
 
     def add_constraints(
         self,
         model: OptimisationModel,
-        time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ):
         """
@@ -77,16 +71,12 @@ class WindPO(BaseEquipmentPO, Wind):
 
         :param model: Optimization model
         :type model: OptimisationModel
-        :param time: Current time period
-        :type time: DateTime
         :param parameters: Optimization parameters
         :type parameters: PortfolioOptimisationParameters
         """
-
-        if time in self.optimisation_time_window:
+        for time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints for wind unit {self.name} at time {time}")
 
-            # Default to 0 if forecast is not available (e.g., equipment not in operation)
             max_power = self._cached_forecast.get_value(time) if self._cached_forecast else 0
             min_power = (1 - self.maximum_curtailment_ratio.get_value(time)) * max_power
             maximum_automated = get_maximum_automated(self)
@@ -107,8 +97,6 @@ class WindPO(BaseEquipmentPO, Wind):
             )
             model.add_constraint(reserves_up_var <= max_power, f"reserves_up_max_{time}_{self.name}")
             model.add_constraint(reserves_down_var <= max_power, f"reserves_down_max_{time}_{self.name}")
-        else:
-            cfg.logger.debug(f"Skipping constraints for wind unit {self.name} at non-target time {time}")
 
     def add_objective(
         self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters, **kwargs

@@ -27,20 +27,17 @@ class LoadPO(BaseEquipmentPO, Load):
     optimisation_time_window: list[DateTime] = []
     _cached_forecast: Timeseries | None = None
 
-    def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
+    def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """
         Build variables for load equipment.
 
         :param model: Optimization model
         :type model: OptimisationModel
-        :param time: Current time period
-        :type time: DateTime
         :param parameters: Optimization parameters
         :type parameters: PortfolioOptimisationParameters
         """
-        if time in self.optimisation_time_window:
+        for time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for load unit {self.name} at time {time}")
-            # Default to 0 if forecast is not available or time not in forecast range
             max_power = (
                 self._cached_forecast.get_value(time) if self._cached_forecast and time in self._cached_forecast else 0
             )
@@ -50,16 +47,13 @@ class LoadPO(BaseEquipmentPO, Load):
                 lower_bound=max_power,
                 upper_bound=0,
             )
-        else:
-            cfg.logger.debug(f"Skipping variables for load unit {self.name} at non-target time {time}")
 
-    def add_constraints(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
+    def add_constraints(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """
         This function adds constraints related to load equipments.
         """
-        if time in self.optimisation_time_window:
+        for time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints for load unit {self.name} at time {time}")
-            # Default to 0 if forecast is not available or time not in forecast range
             max_power = (
                 self._cached_forecast.get_value(time) if self._cached_forecast and time in self._cached_forecast else 0
             )
@@ -67,8 +61,6 @@ class LoadPO(BaseEquipmentPO, Load):
 
             model.add_constraint(power_level_var >= max_power, f"power_max_{time}_{self.name}")
             model.add_constraint(power_level_var <= 0, f"power_min_{time}_{self.name}")
-        else:
-            cfg.logger.debug(f"Skipping constraints for load unit {self.name} at non-target time {time}")
 
     def add_objective(
         self,

@@ -7,8 +7,6 @@ This file is part of the ATLAS project.
 
 from itertools import groupby
 
-from pendulum import DateTime
-
 from atlas.abstract_class.dataset import AbstractDataset
 from atlas.enums import LoadType
 from atlas.io_utils.atlas_dataset import AtlasDataset
@@ -56,28 +54,19 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
 
         self.portfolios: list[PortfolioPO] = []
         self.portfolios_manual_activation: list[PortfolioPO] = []
-        self.time_windows: dict[str, list[DateTime]] = {}
 
         self._create_portfolios()
-        self._set_optimisation_time_window()
+        self._set_equipments_time_window()
 
-    def _set_optimisation_time_window(self) -> None:
-        """Get the longest optimisation time periods across all portfolios."""
-        self.time_windows = {}
+    def _set_equipments_time_window(self) -> None:
+        """Set the optimisation time window on each equipment individually."""
         for p in self.portfolios + self.portfolios_manual_activation:
-            tw = max(
-                (
-                    e.get_optimisation_time_window(
-                        start_date=self.parameters.temporal.start_date,
-                        end_date=self.parameters.temporal.end_date - self.parameters.temporal.timestep,
-                        timestep=self.parameters.temporal.timestep,
-                    )
-                    for e in p.equipments.get_all_equipment()
-                ),
-                key=lambda tw: tw[-1],
-            )
-            if p.name not in self.time_windows or tw[-1] > self.time_windows[p.name][-1]:
-                self.time_windows[p.name] = tw
+            for e in p.equipments.get_all_equipment():
+                e.get_optimisation_time_window(
+                    start_date=self.parameters.temporal.start_date,
+                    end_date=self.parameters.temporal.end_date - self.parameters.temporal.timestep,
+                    timestep=self.parameters.temporal.timestep,
+                )
 
     def _create_portfolios(self):
         """Collect and classify all equipment into PortfolioPO objects with manual activation handling"""

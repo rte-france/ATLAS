@@ -38,7 +38,6 @@ class PortfolioPO(Portfolio):
     def add_variables(
         self,
         model: OptimisationModel,
-        time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ):
         """
@@ -46,40 +45,31 @@ class PortfolioPO(Portfolio):
 
         :param model: Optimization model
         :type model: OptimisationModel
-        :param time: Current time period
-        :type time: DateTime
         :param parameters: Optimization parameters
         :type parameters: PortfolioOptimisationParameters
         """
-
-        if time in parameters.target_times:
+        for time in parameters.target_times:
             cfg.logger.debug(f"Adding variables for portfolio :{self.name} at time {time}")
             residual_energy = self._compute_residual_energy(time, parameters)
             maximum_power = self._compute_maximum_power(time, parameters)
 
             self._add_imbalance_variables(model, time, residual_energy, maximum_power, parameters)
             self._add_contract_difference_variables(model, time, maximum_power)
-        else:
-            cfg.logger.debug(f"Skipping variables adding for portfolio :{self.name} at non-target time {time}")
 
-    def add_constraints(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
+    def add_constraints(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """
         Add global portfolio constraints.
 
         :param model: Optimization model
         :type model: OptimisationModel
-        :param time: Current time period
-        :type time: DateTime
         :param parameters: Optimization parameters
         :type parameters: PortfolioOptimisationParameters
         """
-        if time in parameters.target_times:
+        for time in parameters.target_times:
             cfg.logger.debug(f"Adding constraints for portfolio :{self.name}")
             self._add_global_constraints(time, model, parameters)
             if self.equipments.has_generation_equipment():
                 self._add_reserves_constraints(time, model, parameters)
-        else:
-            cfg.logger.debug(f"Skipping constraints for portfolio :{self.name} at non-target time {time}")
 
     def _add_reserves_constraints(
         self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
@@ -163,21 +153,27 @@ class PortfolioPO(Portfolio):
             name=f"down_imbalance_limit_{time}",
         )
 
-    def add_objective(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
-        if time in parameters.target_times:
-            cfg.logger.debug(f"Adding objective terms for portfolio :{self.name} at time {time}")
-            imbalance_prices = estimate_imbalance_prices(time, self.market_area, self.control_block, parameters)
+    def add_objective(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
+        all_times: set[DateTime] = set(parameters.target_times)
+        for _, equipment_list in self.equipments.iter_by_type_for_optimisation():
+            for equipment in equipment_list:
+                all_times.update(equipment.optimisation_time_window)
 
-            self._add_imbalance_cost_terms(
-                model,
-                time,
-                *imbalance_prices,
-                parameters.temporal.timestep,
-            )
-            if self.equipments.has_generation_equipment():
-                self._add_reserve_penalty_terms(model, time, parameters)
-        else:
-            cfg.logger.debug(f"Skipping objective terms for portfolio :{self.name} at non-target time {time}")
+        for time in sorted(all_times):
+            price_forecast = self.get_price_forecast(time, parameters)
+
+            for _, equipment_list in self.equipments.iter_by_type_for_optimisation():
+                for equipment in equipment_list:
+                    equipment.add_objective(
+                        model=model, time=time, parameters=parameters, price_forecast=price_forecast or 0.0
+                    )
+
+            if time in parameters.target_times:
+                cfg.logger.debug(f"Adding objective terms for portfolio :{self.name} at time {time}")
+                imbalance_prices = estimate_imbalance_prices(time, self.market_area, self.control_block, parameters)
+                self._add_imbalance_cost_terms(model, time, *imbalance_prices, parameters.temporal.timestep)
+                if self.equipments.has_generation_equipment():
+                    self._add_reserve_penalty_terms(model, time, parameters)
 
     def _add_imbalance_cost_terms(
         self,

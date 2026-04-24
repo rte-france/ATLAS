@@ -36,18 +36,16 @@ class HydroPO(BaseEquipmentPO, Hydro):
     optimisation_time_window: list[DateTime] = []
     _cached_energy_forecast: Timeseries | None = None
 
-    def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
+    def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """
         Build variables for hydro equipment.
 
         :param model: Optimization model
         :type model: OptimisationModel
-        :param time: Current time period
-        :type time: DateTime
         :param parameters: Optimization parameters
         :type parameters: PortfolioOptimisationParameters
         """
-        if time in self.optimisation_time_window:
+        for time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for hydro unit {self.name} at time {time}")
             min_power = self.minimum_power.get_value(time)
             max_power = self.maximum_power.get_value(time)
@@ -73,8 +71,6 @@ class HydroPO(BaseEquipmentPO, Hydro):
                 storage_equipment=False,
                 thermal_equipment=False,
             )
-        else:
-            cfg.logger.debug(f"Skipping variables for hydro unit {self.name} at non-hydraulic-op time {time}")
 
     def add_variable_fragment(
         self,
@@ -102,13 +98,12 @@ class HydroPO(BaseEquipmentPO, Hydro):
     def add_constraints(
         self,
         model: OptimisationModel,
-        time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ):
         """
         This function formulates the hydraulic reservoir offers.
         """
-        if time in self.optimisation_time_window:
+        for time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints for hydro unit {self.name} at time {time}")
 
             maximum_energy = self.maximum_energy.get_value(time)
@@ -139,49 +134,46 @@ class HydroPO(BaseEquipmentPO, Hydro):
                 model.get_variable(f"{self.name}_power_level_frag_{category}_{time}") for category in self.fragment_data
             )
 
-        if time in parameters.target_times:
-            # Default to 0 if inflows data is not provided (e.g., reservoir without natural inflows)
-            inflow = (
-                self.inflows.get_value(time) * parameters.temporal.timestep.total_days()
-                if self.inflows is not None
-                else 0
-            )
+            if time in parameters.target_times:
+                inflow = (
+                    self.inflows.get_value(time) * parameters.temporal.timestep.total_days()
+                    if self.inflows is not None
+                    else 0
+                )
 
-            if time == parameters.temporal.start_date:
+                if time == parameters.temporal.start_date:
+                    model.add_constraint(
+                        stored_energy_var
+                        == self.initial_level.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
+                        - power_level_fragment_sum_var * parameters.temporal.timestep.total_hours()
+                        + inflow,
+                        f"storage_level_evol_{time}_{self.name}",
+                    )
+
+                else:
+                    stored_energy_prev_var = model.get_variable(
+                        f"{self.name}_stored_energy_{time - parameters.temporal.timestep}"
+                    )
+
+                    model.add_constraint(
+                        stored_energy_var
+                        == stored_energy_prev_var
+                        - power_level_fragment_sum_var * parameters.temporal.timestep.total_hours()
+                        + inflow,
+                        f"storage_level_evol_{time}_{self.name}",
+                    )
+
+                reserve_stored_energy_up_var = reserves_up_var + automated_reserves_up_var
+                reserve_stored_energy_down_var = reserves_down_var + automated_reserves_down_var
+
                 model.add_constraint(
-                    stored_energy_var
-                    == self.initial_level.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
-                    - power_level_fragment_sum_var * parameters.temporal.timestep.total_hours()
-                    + inflow,
-                    f"storage_level_evol_{time}_{self.name}",
+                    stored_energy_var >= minimum_energy + reserve_stored_energy_up_var,
+                    f"min_storage_level_{time}_{self.name}",
                 )
-
-            else:
-                stored_energy_prev_var = model.get_variable(
-                    f"{self.name}_stored_energy_{time - parameters.temporal.timestep}"
-                )
-
                 model.add_constraint(
-                    stored_energy_var
-                    == stored_energy_prev_var
-                    - power_level_fragment_sum_var * parameters.temporal.timestep.total_hours()
-                    + inflow,
-                    f"storage_level_evol_{time}_{self.name}",
+                    stored_energy_var <= maximum_energy - reserve_stored_energy_down_var,
+                    f"max_storage_level_{time}_{self.name}",
                 )
-
-            reserve_stored_energy_up_var = reserves_up_var + automated_reserves_up_var
-            reserve_stored_energy_down_var = reserves_down_var + automated_reserves_down_var
-
-            model.add_constraint(
-                stored_energy_var >= minimum_energy + reserve_stored_energy_up_var,
-                f"min_storage_level_{time}_{self.name}",
-            )
-            model.add_constraint(
-                stored_energy_var <= maximum_energy - reserve_stored_energy_down_var,
-                f"max_storage_level_{time}_{self.name}",
-            )
-        else:
-            cfg.logger.debug(f"Skipping constraints for hydro unit {self.name} at non-hydraulic-op time {time}")
 
     def add_objective(
         self,

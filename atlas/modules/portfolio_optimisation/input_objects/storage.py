@@ -34,28 +34,24 @@ class StoragePO(BaseEquipmentPO, Storage):
     _cached_energy_forecast: Timeseries | None = None
     _cached_energy_forecat_initial: Timeseries | None = None
 
-    def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
+    def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """
         Build variables for storage equipment.
 
         :param model: Optimization model
         :type model: OptimisationModel
-        :param time: Current time period
-        :type time: DateTime
         :param parameters: Optimization parameters
         :type parameters: PortfolioOptimisationParameters
         """
-
         nbr_fragment: int = parameters.storage_mapping[self.storage_type]["nb_fragment"]
 
-        if time in self.optimisation_time_window:
+        for time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for storage unit {self.name} at time {time}")
             min_power = self.minimum_power.get_value(time)
             max_power = self.maximum_power.get_value(time)
             maximum_energy = self.maximum_energy.get_value(time)
             maximum_automated = get_maximum_automated(self)
 
-            # Basic storage variables
             model.add_continuous_variable(
                 name=f"{self.name}_power_level_sell_{time}",
                 lower_bound=0,
@@ -75,7 +71,6 @@ class StoragePO(BaseEquipmentPO, Storage):
                 upper_bound=maximum_energy,
             )
 
-            # Fragment variables
             for n in range(nbr_fragment):
                 model.add_continuous_variable(
                     name=f"{self.name}_power_level_sell_n_{n}_time_{time}",
@@ -99,13 +94,10 @@ class StoragePO(BaseEquipmentPO, Storage):
                 storage_equipment=True,
                 thermal_equipment=False,
             )
-        else:
-            cfg.logger.debug(f"Skipping variables for storage unit {self.name} at non-optimization time {time}")
 
     def add_constraints(
         self,
         model: OptimisationModel,
-        time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ):
         """
@@ -115,7 +107,7 @@ class StoragePO(BaseEquipmentPO, Storage):
             cfg.logger.debug(f"Skipping constraints for storage unit {self.name} - maximum energy is 0")
             return None
 
-        if time in self.optimisation_time_window:
+        for time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints for storage unit {self.name} at time {time}")
             prev_time = time - parameters.temporal.timestep
 
@@ -268,8 +260,6 @@ class StoragePO(BaseEquipmentPO, Storage):
                 stored_energy_var <= max_energy - reserve_stored_energy_down,
                 f"max_storage_level_{time}_{self.name}",
             )
-        else:
-            cfg.logger.debug(f"Skipping constraints for storage unit {self.name} at non-optimization time {time}")
 
     def add_objective(
         self,
