@@ -13,7 +13,7 @@ from pendulum import duration
 from atlas.enums import InflowFrequency
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
-from atlas.modules.antares_to_atlas.models.hydro.inflows import add_inflows_from_csv
+from atlas.modules.antares_to_atlas.models.hydro.inflows import add_inflows_from_csv, build_reservoir_inflows
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.objects.equipment.hydro import Hydro
 
@@ -22,34 +22,20 @@ def convert_hydro_units(
     study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-) -> tuple[AtlasDataset, dict, dict]:
-    """Convert Hydraulic reservoir units from Antares to Atlas.
-
-    Hydraulic units are complex equipment with:
-    - Reservoir capacity management
-    - Inflow profiles
-    - Daily energy constraints
-    - Water value calculation
-    - Fragment prices and volumes
-
-    :return: Tuple of (atlas_dataset, inflows_dictionary, hydro_reservoirs)
-    """
+) -> AtlasDataset:
+    """Convert Hydraulic reservoir units from Antares to Atlas."""
     logger.info("Converting Hydraulic units")
 
-    inflows_dictionary = {}
     hydro_reservoirs = parameters.hydro.reservoirs
-
     areas = study.get_areas()
     hydro_units: list[Hydro] = []
+    study_output = study.get_output(parameters.output_name)
 
     for area_name in parameters.market_areas:
         if area_name not in areas:
             continue
 
         area = areas[area_name]
-        logger.debug(f"Processing hydraulic unit for area {area.id}")
-
-        study_output = study.get_output(parameters.output_name)
         mapping_mc_ts = study_output.get_hydro_ts_numbers(area.name)
         if parameters.scenario not in mapping_mc_ts:
             continue
@@ -65,7 +51,6 @@ def convert_hydro_units(
             area=area,
             parameters=parameters,
             atlas_dataset=atlas_dataset,
-            inflows_dictionary=inflows_dictionary,
             scenario=scenario,
             study_output=study_output,
             mapping_mc_ts=mapping_mc_ts,
@@ -75,15 +60,13 @@ def convert_hydro_units(
             hydro_units.append(hydro)
 
     atlas_dataset.hydro = hydro_units
-
-    return atlas_dataset, inflows_dictionary, hydro_reservoirs
+    return atlas_dataset
 
 
 def _create_hydraulic_equipment(
     area: Area,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-    inflows_dictionary: dict,
     scenario: int,
     study_output: Output,
     mapping_mc_ts: dict[int, int],
@@ -146,24 +129,21 @@ def _create_hydraulic_equipment(
             hydro.inflows = Timeseries.from_values(
                 parameters.start_date, frequency="1d", values=area.hydro.get_mod_series()[scenario - 1].to_list()
             )
-            node_inflows_dictionary = _prepare_inflows_for_water_values(area, parameters, study_output, mapping_mc_ts)
         else:
-            node_inflows_dictionary = add_inflows_from_csv(
-                area, hydro, area.hydro.get_mod_series(), parameters, mapping_mc_ts
-            )
-        inflows_dictionary[area.id] = node_inflows_dictionary
+            add_inflows_from_csv(area, hydro, area.hydro.get_mod_series(), parameters, mapping_mc_ts)
     else:
         hydro.energy_target = Timeseries.from_values(
             parameters.start_date, frequency="1d", values=area.hydro.get_mod_series()[scenario - 1].to_list()
         )
 
-    power_hourly = Timeseries(
-        study_output.get_mc_ind_area(
+    daily_energy = Timeseries.from_values(
+        parameters.start_date,
+        frequency="1h",
+        values=study_output.get_mc_ind_area(
             mc_year=scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.name
-        )[[(parameters.output.ror_column, "MWh")]]
-    )
+        )[(parameters.output.ror_column, "MWh")],
+    ).groupby("1d", agg="sum")
 
-    daily_energy = power_hourly.groupby("1d", agg="sum")
     hydro.minimum_daily_energy = daily_energy * parameters.hydro.min_energy_coeff
     hydro.maximum_daily_energy = daily_energy * parameters.hydro.max_energy_coeff
 
@@ -171,23 +151,3 @@ def _create_hydraulic_equipment(
     return hydro
 
 
-def _prepare_inflows_for_water_values(
-    area: Area,
-    parameters: AntaresToAtlasParameters,
-    study_output: Output,
-    mapping_mc_ts: dict,
-) -> dict:
-    node_inflows_dictionary = {}
-
-    if parameters.hydro.water_value_scenarios == "all":
-        scenarios = list(mapping_mc_ts.keys())
-    else:
-        scenarios = parameters.hydro.water_value_scenarios
-
-    mod_series = area.hydro.get_mod_series()
-    for scenario in scenarios:
-        ts_idx = mapping_mc_ts[scenario]
-        node_inflows_dictionary[scenario] = Timeseries.from_values(
-            parameters.start_date, frequency="1d", values=mod_series[ts_idx - 1].to_list()
-        )
-    return node_inflows_dictionary

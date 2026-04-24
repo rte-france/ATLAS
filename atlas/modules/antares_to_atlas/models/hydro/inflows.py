@@ -15,6 +15,33 @@ from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.objects.equipment.hydro import Hydro
 
 
+def build_reservoir_inflows(
+    area: Area,
+    parameters: AntaresToAtlasParameters,
+    mapping_mc_ts: dict[int, int],
+) -> dict[str, Timeseries]:
+    """Build per-scenario inflow timeseries for a reservoir-managed area.
+
+    Used both during hydro unit creation (to set hydro.inflows) and during
+    water value computation (to get all scenario inflows for Bellman iteration).
+
+    :return: Dict mapping scenario name to daily inflow Timeseries.
+    """
+    if parameters.hydro.water_value_scenarios == "all":
+        scenarios = list(mapping_mc_ts.keys())
+    else:
+        scenarios = parameters.hydro.water_value_scenarios
+
+    mod_series = area.hydro.get_mod_series()
+    return {
+        scenario: Timeseries.from_values(
+            parameters.start_date, frequency="1d", values=mod_series[mapping_mc_ts[scenario] - 1].to_list()
+        )
+        for scenario in scenarios
+        if scenario in mapping_mc_ts
+    }
+
+
 def add_inflows_from_csv(
     area: Area,
     hydro: Hydro,
