@@ -7,3 +7,8 @@ Every `Equipment` holds a reference to a [Node](../network/node.md) (physical lo
 ::: atlas.Equipment
     options:
         show_if_no_docstring: false
+        filters:
+            - "!^_"
+            - "!serializer"
+            - "!^parse_"
+            - "!^validate_"

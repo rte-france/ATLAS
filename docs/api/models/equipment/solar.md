@@ -5,3 +5,8 @@ Photovoltaic generation unit. Extends [Equipment](equipment.md) and is typically
 ::: atlas.Solar
     options:
         show_if_no_docstring: false
+        filters:
+            - "!^_"
+            - "!serializer"
+            - "!^parse_"
+            - "!^validate_"

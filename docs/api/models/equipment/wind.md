@@ -5,3 +5,8 @@ Wind power unit (on- or offshore). Extends [Equipment](equipment.md) and is driv
 ::: atlas.Wind
     options:
         show_if_no_docstring: false
+        filters:
+            - "!^_"
+            - "!serializer"
+            - "!^parse_"
+            - "!^validate_"

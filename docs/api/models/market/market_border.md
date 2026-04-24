@@ -7,3 +7,8 @@ A cross-border interconnection between two market areas. Holds flow limits, actu
 ::: atlas.MarketBorder
     options:
         show_if_no_docstring: false
+        filters:
+            - "!^_"
+            - "!serializer"
+            - "!^parse_"
+            - "!^validate_"

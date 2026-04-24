@@ -5,3 +5,8 @@ Power Transfer Distribution Factor (PTDF) coefficients at the node level, used f
 ::: atlas.NodePtdf
     options:
         show_if_no_docstring: false
+        filters:
+            - "!^_"
+            - "!serializer"
+            - "!^parse_"
+            - "!^validate_"

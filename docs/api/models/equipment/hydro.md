@@ -5,3 +5,9 @@ Hydroelectric plant with reservoir. Extends [Equipment](equipment.md) with inflo
 ::: atlas.Hydro
     options:
         show_if_no_docstring: false
+        filters:
+            - "!^_"
+            - "!serializer"
+            - "!serialize"
+            - "!^parse_"
+            - "!^validate_"

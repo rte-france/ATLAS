@@ -5,3 +5,8 @@ A market order submitted by an equipment unit to a day-ahead or intraday market 
 ::: atlas.Order
     options:
         show_if_no_docstring: false
+        filters:
+            - "!^_"
+            - "!serializer"
+            - "!^parse_"
+            - "!^validate_"

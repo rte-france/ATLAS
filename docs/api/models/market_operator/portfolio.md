@@ -7,3 +7,8 @@ A market operator's portfolio grouping a set of equipment units. Aggregates powe
 ::: atlas.Portfolio
     options:
         show_if_no_docstring: false
+        filters:
+            - "!^_"
+            - "!serializer"
+            - "!^parse_"
+            - "!^validate_"

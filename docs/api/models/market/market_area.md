@@ -7,3 +7,8 @@ A bidding zone in the electricity market (e.g. FR, DE). Holds price forecasts, d
 ::: atlas.MarketArea
     options:
         show_if_no_docstring: false
+        filters:
+            - "!^_"
+            - "!serializer"
+            - "!^parse_"
+            - "!^validate_"

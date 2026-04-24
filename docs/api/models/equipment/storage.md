@@ -5,3 +5,8 @@ Battery or pumped-storage unit. Extends [Equipment](equipment.md) with charge/di
 ::: atlas.Storage
     options:
         show_if_no_docstring: false
+        filters:
+            - "!^_"
+            - "!serializer"
+            - "!^parse_"
+            - "!^validate_"

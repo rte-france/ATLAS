@@ -7,3 +7,8 @@ A physical network node within a market area. Stores nodal injection data and ba
 ::: atlas.Node
     options:
         show_if_no_docstring: false
+        filters:
+            - "!^_"
+            - "!serializer"
+            - "!^parse_"
+            - "!^validate_"

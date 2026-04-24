@@ -7,3 +7,8 @@ No dependency on other Atlas objects — always created first.
 ::: atlas.ControlBlock
     options:
         show_if_no_docstring: false
+        filters:
+            - "!^_"
+            - "!serializer"
+            - "!^parse_"
+            - "!^validate_"
