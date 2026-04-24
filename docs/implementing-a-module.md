@@ -2,9 +2,9 @@
 
 This guide walks through creating a new ATLAS market module from scratch. Before reading this, familiarise yourself with the [Module Pattern](modules/module-pattern.md) and [Common Parameters](modules/common-parameters.md).
 
-## File Structure
+## Module Structure
 
-Create a directory under `atlas/modules/` with four files:
+A module lives under `atlas/modules/` and is made of four files:
 
 ```
 atlas/modules/my_module/
@@ -14,6 +14,74 @@ atlas/modules/my_module/
     output_dataset.py  # Results + ChangeSets
     module.py          # Core logic
 ```
+
+The central file is `module.py`. It wires together the other three classes and implements the six lifecycle methods defined by `AbstractModule`:
+
+```python
+# module.py
+from atlas.abstract_class.module import AbstractModule
+from atlas.io_utils.atlas_dataset import AtlasDataset
+
+from atlas.modules.my_module.input_dataset import MyModuleInputDataset
+from atlas.modules.my_module.output_dataset import MyModuleOutputDataset
+from atlas.modules.my_module.parameters import MyModuleParameters
+
+
+class MyModule(
+    AbstractModule[MyModuleParameters, MyModuleInputDataset, MyModuleOutputDataset]
+):
+    def get_parameters_class(self) -> type[MyModuleParameters]:
+        return MyModuleParameters
+
+    def import_data(
+        self, input_data: AtlasDataset, parameters: MyModuleParameters
+    ) -> MyModuleInputDataset:
+        return MyModuleInputDataset(input_data, parameters)
+
+    def validate_data(
+        self, parameters: MyModuleParameters, input_dataset: MyModuleInputDataset
+    ) -> bool:
+        return len(input_dataset.market_areas) > 0
+
+    def execute(
+        self, parameters: MyModuleParameters, input_dataset: MyModuleInputDataset
+    ) -> MyModuleOutputDataset:
+        output = MyModuleOutputDataset(input_dataset)
+
+        for area in output.market_areas:
+            area.my_result_field = self._compute(area, parameters)
+
+        return output
+
+    def validates_results(
+        self,
+        parameters: MyModuleParameters,
+        input_dataset: MyModuleInputDataset,
+        output_dataset: MyModuleOutputDataset,
+    ) -> bool:
+        return all(area.my_result_field is not None for area in output_dataset.market_areas)
+
+    def export_results(
+        self,
+        parameters: MyModuleParameters,
+        input_dataset: MyModuleInputDataset,
+        output_dataset: MyModuleOutputDataset,
+    ) -> None:
+        # Write results back to the original business objects when export_result=True.
+        # Leave empty if the module only populates ChangeSets.
+        pass
+```
+
+### Method responsibilities
+
+| Method | Must return | Raises if |
+|---|---|---|
+| `get_parameters_class` | the Parameters class | — |
+| `import_data` | populated `InputDataset` | — |
+| `validate_data` | `True` / `False` | `AssertionError` on `False` |
+| `execute` | populated `OutputDataset` | — |
+| `validates_results` | `True` / `False` | `AssertionError` on `False` |
+| `export_results` | `None` | — |
 
 ---
 
@@ -99,73 +167,7 @@ All require a `"name"` key in the data dict.
 
 ## Step 4 — Module
 
-Extend `AbstractModule` and implement the six required methods.
-
-```python
-# module.py
-from atlas.abstract_class.module import AbstractModule
-from atlas.io_utils.atlas_dataset import AtlasDataset
-
-from atlas.modules.my_module.input_dataset import MyModuleInputDataset
-from atlas.modules.my_module.output_dataset import MyModuleOutputDataset
-from atlas.modules.my_module.parameters import MyModuleParameters
-
-
-class MyModule(
-    AbstractModule[MyModuleParameters, MyModuleInputDataset, MyModuleOutputDataset]
-):
-    def get_parameters_class(self) -> type[MyModuleParameters]:
-        return MyModuleParameters
-
-    def import_data(
-        self, input_data: AtlasDataset, parameters: MyModuleParameters
-    ) -> MyModuleInputDataset:
-        return MyModuleInputDataset(input_data, parameters)
-
-    def validate_data(
-        self, parameters: MyModuleParameters, input_dataset: MyModuleInputDataset
-    ) -> bool:
-        return len(input_dataset.market_areas) > 0
-
-    def execute(
-        self, parameters: MyModuleParameters, input_dataset: MyModuleInputDataset
-    ) -> MyModuleOutputDataset:
-        output = MyModuleOutputDataset(input_dataset)
-
-        for area in output.market_areas:
-            area.my_result_field = self._compute(area, parameters)
-
-        return output
-
-    def validates_results(
-        self,
-        parameters: MyModuleParameters,
-        input_dataset: MyModuleInputDataset,
-        output_dataset: MyModuleOutputDataset,
-    ) -> bool:
-        return all(area.my_result_field is not None for area in output_dataset.market_areas)
-
-    def export_results(
-        self,
-        parameters: MyModuleParameters,
-        input_dataset: MyModuleInputDataset,
-        output_dataset: MyModuleOutputDataset,
-    ) -> None:
-        # Write results back to the original business objects when export_result=True.
-        # Leave empty if the module only populates ChangeSets.
-        pass
-```
-
-### Method responsibilities
-
-| Method | Must return | Raises if |
-|---|---|---|
-| `get_parameters_class` | the Parameters class | — |
-| `import_data` | populated `InputDataset` | — |
-| `validate_data` | `True` / `False` | `AssertionError` on `False` |
-| `execute` | populated `OutputDataset` | — |
-| `validates_results` | `True` / `False` | `AssertionError` on `False` |
-| `export_results` | `None` | — |
+See the full `module.py` at the top of this page. Once `parameters.py`, `input_dataset.py`, and `output_dataset.py` are ready, the module class simply calls them in sequence through the six lifecycle methods.
 
 ---
 
@@ -182,23 +184,6 @@ __all__ = [
     "MyModule",
 ]
 ```
-
----
-
-## Step 6 — Module Registry
-
-Add the module to `ModuleRegistry` so it is accessible via the CLI (`--module` flag) and `ModuleRun`:
-
-```python
-# atlas/orchestrator/module_registry.py
-from atlas.modules.my_module.module import MyModule
-
-class ModuleRegistry(Enum):
-    ...
-    MyModule = MyModule
-```
-
-The enum key is the name users pass to `atlas run --module MyModule`.
 
 ---
 
