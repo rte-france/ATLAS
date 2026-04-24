@@ -4,6 +4,7 @@ from atlas.abstract_class.module import AbstractModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.orchestrator.module_registry import ModuleRegistry
 
+
 class TestModuleRegistry:
     def test_get_known_module_returns_class(self):
         cls = ModuleRegistry.get("PortfolioOptimisation")

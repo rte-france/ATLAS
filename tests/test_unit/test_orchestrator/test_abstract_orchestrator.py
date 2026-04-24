@@ -12,18 +12,26 @@ from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
 
 import pytest
-from pendulum import DateTime, Duration
 
-from atlas import AtlasDataset
+from atlas import AtlasDataset, WorkflowParameters
 from atlas.abstract_class.job import AbstractJob
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.orchestrator.actionplan.action_plan import ActionPlan
 from atlas.orchestrator.actionplan.job import TaskIterator
+from atlas.orchestrator.actionplan.parameters import ActionPlanParameters
 from atlas.orchestrator.workflow.workflow import Workflow
+from tests.test_unit.test_orchestrator.orchestrator_factory import (
+    MockModuleFactory,
+    MockOrchestratorFactory,
+    MockTaskIterator,
+    MockWorkflowFactory,
+)
 
 
 class MockJob(AbstractJob):
+    """Mock job class with simple representation"""
+
     def __repr__(self) -> str:
         return self.name
 
