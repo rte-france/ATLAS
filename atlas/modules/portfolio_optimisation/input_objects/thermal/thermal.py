@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
 
 import pendulum
 from pendulum import DateTime, Duration
@@ -17,16 +16,7 @@ import atlas.config as cfg
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_objects.base_equipment import BaseEquipmentPO
-from atlas.modules.portfolio_optimisation.input_objects.thermal import (
-    combination_1,
-    combination_2,
-    combination_3,
-    combination_4,
-    combination_5,
-    combination_6,
-    combination_7,
-    combination_8,
-)
+from atlas.modules.portfolio_optimisation.input_objects.thermal.constraint_builder import ThermalPOConstraintBuilder
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
 from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
@@ -60,6 +50,7 @@ class ThermalPO(BaseEquipmentPO, Thermal):
     _combination: int = 1
     T_traceback: int = 0
     optimisation_time_window: list[DateTime] = []
+    _builder: ThermalPOConstraintBuilder = None  # type: ignore[assignment]
 
     off_var: ModelVar = None  # type:ignore [assignment]
     on_flat_var: ModelVar = None  # type:ignore [assignment]
@@ -253,21 +244,8 @@ class ThermalPO(BaseEquipmentPO, Thermal):
         :type parameters: PortfolioOptimisationParameters
         """
         if time in self.optimisation_time_window:
-            constraint_functions = {
-                1: combination_1.add_constraints,
-                2: combination_2.add_constraints,
-                3: combination_3.add_constraints,
-                4: combination_4.add_constraints,
-                5: combination_5.add_constraints,
-                6: combination_6.add_constraints,
-                7: combination_7.add_constraints,
-                8: combination_8.add_constraints,
-            }
-
             cfg.logger.debug(f"Adding constraints combination {self._combination} for {self.name}")
-
-            constraint_function = constraint_functions.get(self._combination, combination_1.add_constraints)
-            constraint_function(self, time, model, parameters)
+            self._builder.add_constraints(model, time, parameters)
 
     def add_objective(
         self,
@@ -466,24 +444,8 @@ class ThermalPO(BaseEquipmentPO, Thermal):
             if parameters.temporal.start_date - parameters.temporal.timestep != power_ts.last_date():
                 day_zero = True
 
-        initial_condition_functions: dict[int, Callable[..., None]] = {
-            1: combination_1.add_initial_conditions,
-            2: combination_2.add_initial_conditions,
-            3: combination_3.add_initial_conditions,
-            4: combination_4.add_initial_conditions,
-            5: combination_5.add_initial_conditions,
-            6: combination_6.add_initial_conditions,
-            7: combination_7.add_initial_conditions,
-            8: combination_8.add_initial_conditions,
-        }
-
-        initial_condition_function = initial_condition_functions.get(
-            self._combination, combination_1.add_initial_conditions
-        )
-
-        # Call the function with single timestamp
-        initial_condition_function(
-            obj=self,
+        self._builder = ThermalPOConstraintBuilder(self)
+        self._builder.add_initial_conditions(
             parameters=parameters,
             extended_start_date=initial_times[0],
             day_zero=day_zero,
