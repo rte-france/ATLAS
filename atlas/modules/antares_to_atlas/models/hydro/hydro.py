@@ -52,7 +52,10 @@ def convert_hydro_units(
         study_output = study.get_output(parameters.output_name)
         if parameters.scenario in study_output.get_hydro_ts_numbers(area.name):
             scenario = study_output.get_hydro_ts_numbers(area.name).get(parameters.scenario, None)
-            if area.hydro.get_maxpower().abs().max() == 0:
+            if scenario is None:
+                logger.debug(f"Skipping hydraulic unit for area {area.id} (no scenario data)")
+                continue
+            if area.hydro.get_maxpower()[scenario - 1].abs().max() == 0:
                 logger.debug(f"Skipping hydraulic unit for area {area.id} (max power is 0)")
                 continue
             if area_name in hydro_reservoirs and area.hydro.properties.reservoir_capacity == 0:
@@ -86,7 +89,9 @@ def _create_hydraulic_equipment(
 ) -> Hydro | None:
     """Create a Hydraulic equipment for an area."""
 
-    maximum_power_ts = Timeseries(area.hydro.get_maxpower())
+    maximum_power_ts = Timeseries.from_values(
+        parameters.start_date, frequency="1d", values=area.hydro.get_maxpower()[scenario - 1]
+    )
 
     fragment = parameters.hydro.get_fragment(area.id)
 
@@ -137,13 +142,17 @@ def _create_hydraulic_equipment(
 
     if (parameters.hydro.use_heuristic or area.hydro.properties.reservoir) and parameters.hydro.use_water_value:
         if area.hydro.properties.reservoir:
-            hydro.inflows = area.hydro.get_mod_series()[scenario - 1]
+            hydro.inflows = Timeseries.from_values(
+                parameters.start_date, frequency="1d", values=area.hydro.get_mod_series()[scenario - 1]
+            )
             node_inflows_dictionary = _prepare_inflows_for_water_values(area, parameters)
         else:
             node_inflows_dictionary = add_inflows_from_csv(area, hydro, area.hydro.get_mod_series(), parameters)
         inflows_dictionary[area.id] = node_inflows_dictionary
     else:
-        hydro.energy_target = area.hydro.get_mod_series()[scenario - 1]
+        hydro.energy_target = Timeseries.from_values(
+            parameters.start_date, frequency="1d", values=area.hydro.get_mod_series()[scenario - 1]
+        )
 
     power_hourly = Timeseries(
         study_output.get_mc_ind_area(

@@ -23,7 +23,9 @@ def convert_load_units(study: Study, parameters: AntaresToAtlasParameters, atlas
             continue
 
         logger.debug(f"Processing load for area {area_name}")
-        scenario = study.get_output(parameters.output_name).get_load_ts_numbers().get(parameters.scenario, None)
+        scenario = (
+            study.get_output(parameters.output_name).get_load_ts_numbers(area_name).get(parameters.scenario, None)
+        )
 
         if scenario:
             load = Load(
@@ -40,5 +42,7 @@ def convert_load_units(study: Study, parameters: AntaresToAtlasParameters, atlas
         loads.append(load)
 
     atlas_dataset.load.add(loads)
+
+    logger.info(f"Converted {len(loads)} load units")
 
     return atlas_dataset

@@ -19,13 +19,20 @@ from atlas.validators import convert_to_duration
 
 
 class ThermalTechnologyConfig(BaseModel):
-    minimum_stable_power_duration: float = 0.0
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    minimum_stable_power_duration: Duration = duration(hours=0)
     startup_delay_probability: float = 0.0
-    startup_duration: float = 0.0
-    shutdown_duration: float = 0.0
+    startup_duration: Duration = duration(hours=0)
+    shutdown_duration: Duration = duration(hours=0)
     maximum_gradient: float = 0.0
     strategy: ThermalStrategy = ThermalStrategy.BASE
     setup_delay: float = 0.0
+
+    @field_validator("minimum_stable_power_duration", "startup_duration", "shutdown_duration", mode="before")
+    @classmethod
+    def parse_duration(cls, v):
+        return convert_to_duration(v)
 
 
 class ThermalParameters(BaseModel):
@@ -322,17 +329,15 @@ class HydroParameters(BaseModel):
     max_water_value: float = Field(default=26000.0, description="Maximum water value cap (€/MWh)")
     use_water_value: bool = Field(default=False, description="Enable water value computation")
     water_value_scenarios: list[str] | Literal["all"] = Field(
-        default=1, ge=1, description="Number of water value scenarios"
+        default_factory=list, description="Water value scenario identifiers, or 'all'"
     )
     water_value_nb_years: int = Field(default=2, ge=2, description="Number of years for water value")
     storage_subdivision: int = Field(default=1, ge=1, description="Storage subdivision for water value")
     beta: float = Field(default=0.0, description="Beta parameter for Bellman computation")
-    water_value_timestep: Duration = Field(
-        default=duration(hours=168), ge=1, description="Water value time step (hours)"
-    )
+    water_value_timestep: Duration = Field(default=duration(hours=168), description="Water value time step (hours)")
     use_bellman_interpolation: bool = Field(default=False, description="Use Bellman interpolation")
     nb_storage_levels: int = Field(default=100, ge=1, description="Number of storage levels")
-    inflows_timestep: Duration = Field(default=duration(hours=168), ge=1, description="Inflows time step (hours)")
+    inflows_timestep: Duration = Field(default=duration(hours=168), description="Inflows time step (hours)")
 
     # File paths
     initialization_curve: Path | None = Field(default=None, description="Hydro initialization curve file")

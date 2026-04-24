@@ -18,7 +18,7 @@ def convert_wind_units(
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
 ) -> AtlasDataset:
-    """Convert Solar generation data from Antares to Atlas."""
+    """Convert Wind generation data from Antares to Atlas."""
 
     logger.info("Converting Winds generation data")
     areas = study.get_areas()
@@ -37,7 +37,9 @@ def convert_wind_units(
                     and cluster_res.properties.enabled
                 ):
                     scenario = (
-                        study.get_output(parameters.output_name).get_wind_ts_numbers().get(parameters.scenario, None)
+                        study.get_output(parameters.output_name)
+                        .get_wind_ts_numbers(area_name)
+                        .get(parameters.scenario, None)
                     )
 
                     if scenario:
@@ -76,9 +78,11 @@ def convert_wind_units(
                                 if offshore_instance.properties.enabled:
                                     new_wind.installed_capacity += offshore_instance.properties.nominal_capacity
 
-                winds.append(new_wind)
+                            winds.append(new_wind)
         else:
-            scenario = study.get_output(parameters.output_name).get_wind_ts_numbers().get(parameters.scenario, None)
+            scenario = (
+                study.get_output(parameters.output_name).get_wind_ts_numbers(area_name).get(parameters.scenario, None)
+            )
 
             if scenario:
                 if area.get_wind_matrix()[scenario - 1].abs().max().item() > 0:
@@ -96,11 +100,12 @@ def convert_wind_units(
                                 start_date=parameters.start_date,
                                 frequency="1h",
                                 end_date=parameters.start_date + duration(years=1),
-                                default_value=parameters.renewables.pv_max_curtailment_ratio,
+                                default_value=parameters.renewables.wind_max_curtailment_ratio,
                             ),
                         )
                     )
 
     atlas_dataset.wind.add(winds)
+    logger.info(f"Converted {len(winds)} wind units")
 
     return atlas_dataset

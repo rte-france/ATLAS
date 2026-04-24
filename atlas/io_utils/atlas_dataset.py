@@ -302,9 +302,11 @@ class AtlasDataset(BaseModel):
         :return: The BusinessModel object if found, None otherwise
         :rtype: BusinessModel | None
         """
-        if object_type not in self._indices:
+        try:
+            container = self.get_container_by_type(object_type)
+            return container.get(name)
+        except (ValueError, KeyError):
             return None
-        return self._indices[object_type].get(name)
 
     def get_items_by_type(self, object_type: str | type[BusinessModel] | BusinessModelName) -> list[BusinessModel]:
         """
@@ -402,13 +404,15 @@ class AtlasDataset(BaseModel):
         :rtype: bool
         """
         if isinstance(item, str):
-            for type_index in self._indices.values():
-                if item in type_index:
+            for object_type in cfg.MODEL_MAPPING_NAME.keys():
+                container = getattr(self, object_type, None)
+                if container and item in container:
                     return True
             return False
         elif isinstance(item, BusinessModel):
-            for type_index in self._indices.values():
-                if item.name in type_index and type_index[item.name] is item:
+            for object_type in cfg.MODEL_MAPPING_NAME.keys():
+                container = getattr(self, object_type, None)
+                if container and item in container:
                     return True
             return False
         else:

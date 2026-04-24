@@ -37,7 +37,9 @@ def convert_solar_units(
                     and cluster_res.properties.enabled
                 ):
                     scenario = (
-                        study.get_output(parameters.output_name).get_solar_ts_numbers().get(parameters.scenario, None)
+                        study.get_output(parameters.output_name)
+                        .get_solar_ts_numbers(area_name)
+                        .get(parameters.scenario, None)
                     )
                     if scenario:
                         if area.get_solar_matrix()[scenario - 1].abs().max().item() > 0:
@@ -68,9 +70,12 @@ def convert_solar_units(
                             solar_thermal = renewables.get(area_name + parameters.renewables.solar_thermo_suffix, None)
                             if solar_thermal is not None and solar_thermal.properties.enabled:
                                 new_solar.installed_capacity += solar_thermal.properties.nominal_capacity
-                solars.append(new_solar)
+
+                            solars.append(new_solar)
         else:
-            scenario = study.get_output(parameters.output_name).get_solar_ts_numbers().get(parameters.scenario, None)
+            scenario = (
+                study.get_output(parameters.output_name).get_solar_ts_numbers(area_name).get(parameters.scenario, None)
+            )
 
             if scenario:
                 if area.get_solar_matrix()[scenario - 1].abs().max().item() > 0:
@@ -94,5 +99,6 @@ def convert_solar_units(
                     )
 
     atlas_dataset.solar.add(solars)
+    logger.info(f"Converted {len(solars)} solar units")
 
     return atlas_dataset
