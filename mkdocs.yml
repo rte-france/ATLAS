@@ -98,11 +98,10 @@ nav:
     - Welcome to Atlas: index.md
     - Changelog: changelog.md
     - Authors: authors.md
-  - Getting Started:
+  - User Guide:
     - Installation: getting_started/getting_started.md
     - Quick Start Tutorial: getting_started/quickstart.md
     - Your First Simulation: getting_started/first-simulation.md
-  - User Guide:
     - With Command lines: cli.md
     - In Python Usage: modules/running-modules.md
     - Workflows: modules/workflow.md
@@ -149,6 +148,7 @@ nav:
     - Timeseries: examples/timeseries.md
     - Matrix: examples/matrix.md
     - OptimisationModel: examples/optimisation_model.md
+  - Data Model: data-model.md
   - API Reference:
     - Overview: api/index.md
     - Math Objects:
@@ -160,8 +160,29 @@ nav:
     - I/O:
       - AtlasDataset: api/io/atlas_dataset.md
     - Models:
-      - Equipement: api/models/equipment.md
-      - Market: api/models/market.md
+      - equipment/:
+        - Equipment: api/models/equipment/equipment.md
+        - Thermal: api/models/equipment/thermal.md
+        - Hydro: api/models/equipment/hydro.md
+        - Solar: api/models/equipment/solar.md
+        - Wind: api/models/equipment/wind.md
+        - Storage: api/models/equipment/storage.md
+        - Load: api/models/equipment/load.md
+        - OtherNonDispatchable: api/models/equipment/other_non_dispatchable.md
+      - market/:
+        - MarketArea: api/models/market/market_area.md
+        - MarketBorder: api/models/market/market_border.md
+        - Order: api/models/market/order.md
+        - OrderCoupling: api/models/market/order_coupling.md
+        - CriticalBranch: api/models/market/critical_branch.md
+        - MarketAreaPtdf: api/models/market/market_area_ptdf.md
+        - NodePtdf: api/models/market/node_ptdf.md
+      - market_operator/:
+        - Portfolio: api/models/market_operator/portfolio.md
+      - network/:
+        - Node: api/models/network/node.md
+      - network_operator/:
+        - ControlBlock: api/models/network_operator/control_block.md
     - Workflows:
       - Workflow: api/workflow/workflow.md
       - Workflow step: api/workflow/workflow_step.md
