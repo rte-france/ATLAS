@@ -5,7 +5,6 @@ This file is part of the ATLAS project.
 
 from antares.craft.model.study import Study
 from loguru import logger
-from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
@@ -34,7 +33,10 @@ def compute_initial_levels(
         logger.debug("No hydraulic equipment found, skipping initial level computation")
         return atlas_dataset
 
-    # Load the guide curve from CSV (used when ReservoirManagement is OFF)
+    if parameters.hydro.initialization_curve is None:
+        logger.warning("No hydro initialization curve configured, skipping initial level computation")
+        return atlas_dataset
+
     res_curve = _load_initialization_curve(parameters)
 
     areas = study.get_areas()
@@ -48,33 +50,18 @@ def compute_initial_levels(
             logger.warning(f"Area {area_name} not found in study for initial level computation")
             continue
 
-        # TODO: Verify how to access HydroReservoir.ReservoirManagement from area
-        # area = areas[area_name]
-        # In old code: antares_node.HydroReservoir.ReservoirManagement
-        # and: antares_node.HydroReservoir.RemainingEnergyLevel
-        reservoir_management = False  # TODO: Get from area hydro reservoir
-        remaining_energy_level_ts = None  # TODO: Get from area hydro reservoir
+        area = areas[area_name]
+        reservoir_management = area.hydro.properties.reservoir
 
-        if reservoir_management and remaining_energy_level_ts is not None:
+        if reservoir_management:
             # ReservoirManagement ON: use Antares RemainingEnergyLevel (in %)
-            # initial_level = (1/100) * remaining_energy_level * maximum_energy
-            logger.debug(f"Setting initial level from RemainingEnergyLevel for {hydro.name}")
-
-            # TODO: Compute initial_level from remaining_energy_level_ts and hydro.maximum_energy
-            # In old code:
-            #   instance.InitialLevel = 1/100.0 * remaining_energy_level_ts * instance.MaximumEnergy
-            hydro.initial_level = None
-
+            # TODO: area.hydro.get_reservoir() returns the reservoir guide curve, not the
+            # per-MC-year RemainingEnergyLevel. Verify the correct antares-craft API to
+            # retrieve the initial reservoir level for each MC year (legacy: RemainingEnergyLevel).
+            logger.debug(f"Setting initial level from RemainingEnergyLevel for {hydro.name} (TODO: implement)")
         elif res_curve is not None and hydro.maximum_energy is not None:
-            # ReservoirManagement OFF: use guide curve from CSV (in %)
-            # initial_level = (1/100) * res_curve * maximum_energy
             logger.debug(f"Setting initial level from guide curve for {hydro.name}")
-
-            # TODO: Compute initial_level from res_curve and hydro.maximum_energy
-            # In old code:
-            #   instance.InitialLevel = 1/100.0 * res_curve * instance.MaximumEnergy
-            hydro.initial_level = None
-
+            hydro.initial_level = res_curve * (hydro.maximum_energy.first_value() / 100.0)
         else:
             logger.warning(f"Could not set initial level for {hydro.name}: no guide curve or RemainingEnergyLevel")
 
@@ -90,15 +77,11 @@ def _load_initialization_curve(parameters: AntaresToAtlasParameters) -> Timeseri
 
     :return: Timeseries of reservoir fill percentages, or None if file not found
     """
-
-    if parameters.hydro.initialization_curve.is_file():
-        logger.warning(f"Hydro initialization curve file not found: {parameters.hydro.initialization_curve}")
-        return None
-
-    logger.debug(f"Loading hydro initialization curve from: {parameters.hydro.initialization_curve}")
+    path = parameters.hydro.initialization_curve
+    logger.debug(f"Loading hydro initialization curve from: {path}")
 
     try:
-        with open(parameters.hydro.initialization_curve) as f:
+        with open(path) as f:
             lines_list = f.readlines()
 
         curve_values = [float(line.strip()) for line in lines_list if line.strip()]
@@ -107,18 +90,11 @@ def _load_initialization_curve(parameters: AntaresToAtlasParameters) -> Timeseri
             logger.warning("Hydro initialization curve file is empty")
             return None
 
-        # Build a timeseries from the hourly values
-        # The curve spans the start_date to start_date + len(curve_values) hours
-        res_curve = Timeseries.from_index(
+        res_curve = Timeseries.from_values(
             start_date=parameters.start_date,
             frequency="1h",
-            end_date=parameters.start_date + duration(hours=len(curve_values) - 1),
-            default_value=0.0,
+            values=curve_values,
         )
-
-        # TODO: Set individual values from curve_values
-        # In old code: creates a TimeSeries with the list of values directly
-        # Need to verify how to populate a Timeseries from a list of values
 
         logger.debug(f"Loaded hydro initialization curve: first={curve_values[0]}, last={curve_values[-1]}")
         return res_curve

@@ -102,10 +102,12 @@ def _compute_node_water_values(
         logger.warning(f"No scenarios found for water value computation of {area.id}")
         return
 
-    n_time_steps = generate_datetimes(
-        start_date=parameters.start_date,
-        end_date=parameters.start_date + duration(years=1),
-        frequency=f"{parameters.hydro.water_value_timestep}m",
+    n_time_steps = len(
+        generate_datetimes(
+            start=parameters.start_date,
+            end=parameters.start_date + duration(years=1),
+            freq=parameters.hydro.water_value_timestep,
+        )
     )
     total_time_steps = n_time_steps * parameters.hydro.water_value_nb_years
 

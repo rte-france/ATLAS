@@ -5,6 +5,7 @@ This file is part of the ATLAS project.
 
 from pathlib import Path
 
+import pandas as pd
 import polars as pl
 from antares.craft.model.area import Area
 from loguru import logger
@@ -17,8 +18,9 @@ from atlas.objects.equipment.hydro import Hydro
 def add_inflows_from_csv(
     area: Area,
     hydro: Hydro,
-    modulation_ts: Timeseries,
+    modulation_df: pd.DataFrame,
     parameters: AntaresToAtlasParameters,
+    mapping_mc_ts: dict[int, int],
 ) -> dict:
     """Compute inflows from CSV profiles when ReservoirManagement is False.
 
@@ -55,10 +57,10 @@ def add_inflows_from_csv(
         )
 
     inflows_dictionary = _match_inflows_to_scenarios(
-        area=area,
         scenarios=scenarios,
         inflows_csv_timeseries=inflows_csv_timeseries,
-        modulation_ts=modulation_ts,
+        modulation_df=modulation_df,
+        mapping_mc_ts=mapping_mc_ts,
         parameters=parameters,
     )
 
@@ -74,11 +76,10 @@ def _load_inflows_from_csv(csv_path: Path, parameters: AntaresToAtlasParameters)
     :return: Dict mapping column index to Timeseries (values converted to MWh).
     """
     df = pl.read_csv(csv_path, separator=";", has_header=False)
-    frequency = f"{parameters.hydro.inflows_timestep}h"
     return {
         i: Timeseries.from_values(
             start_date=parameters.start_date,
-            frequency=frequency,
+            frequency=parameters.hydro.inflows_timestep,
             values=(df[:, i] * 1000).to_list(),  # GWh → MWh
         )
         for i in range(df.width)
@@ -86,10 +87,10 @@ def _load_inflows_from_csv(csv_path: Path, parameters: AntaresToAtlasParameters)
 
 
 def _match_inflows_to_scenarios(
-    area: Area,
     scenarios: list[str],
     inflows_csv_timeseries: dict[int, Timeseries],
-    modulation_ts: Timeseries,
+    modulation_df: pd.DataFrame,
+    mapping_mc_ts: dict[int, int],
     parameters: AntaresToAtlasParameters,
 ) -> dict[str, Timeseries]:
     """Match inflow profiles to water value scenarios by closest total energy.
@@ -99,13 +100,17 @@ def _match_inflows_to_scenarios(
     """
     inflows_dictionary: dict[str, Timeseries] = {}
     used_indices: set[int] = set()
-    # Weekly → daily conversion when inflows are aggregated per week
-    conversion = 1.0 / 7.0 if parameters.hydro.inflows_timestep == 168 else 1.0
+    # Weekly → daily conversion: divide by number of days covered by each inflow timestep
+    inflows_hours = parameters.hydro.inflows_timestep.in_hours()
+    conversion = 24.0 / inflows_hours if inflows_hours > 24 else 1.0
 
     for scenario in scenarios:
-        # TODO: local_hydro_sc = area.hydro.HydroSelectedScenario[int(scenario) - 1]
-        # local_modulation_sum = modulation_ts.get_by_name(str(local_hydro_sc)).sum()
-        local_modulation_sum = 0.0  # TODO: replace once HydroSelectedScenario is available
+        local_hydro_sc = mapping_mc_ts.get(int(scenario))
+        if local_hydro_sc is None:
+            logger.warning(f"Scenario {scenario} not found in hydro TS mapping, using 0 as modulation sum")
+            local_modulation_sum = 0.0
+        else:
+            local_modulation_sum = float(modulation_df[local_hydro_sc - 1].sum())
 
         available = {i: ts for i, ts in inflows_csv_timeseries.items() if i not in used_indices}
         closest = min(available, key=lambda i: abs(available[i].sum() - local_modulation_sum))

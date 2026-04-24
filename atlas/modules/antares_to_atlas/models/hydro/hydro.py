@@ -50,29 +50,29 @@ def convert_hydro_units(
         logger.debug(f"Processing hydraulic unit for area {area.id}")
 
         study_output = study.get_output(parameters.output_name)
-        if parameters.scenario in study_output.get_hydro_ts_numbers(area.name):
-            scenario = study_output.get_hydro_ts_numbers(area.name).get(parameters.scenario, None)
-            if scenario is None:
-                logger.debug(f"Skipping hydraulic unit for area {area.id} (no scenario data)")
-                continue
-            if area.hydro.get_maxpower()[scenario - 1].abs().max() == 0:
-                logger.debug(f"Skipping hydraulic unit for area {area.id} (max power is 0)")
-                continue
-            if area_name in hydro_reservoirs and area.hydro.properties.reservoir_capacity == 0:
-                logger.debug(f"Skipping hydraulic unit for area {area.id} (reservoir capacity is 0)")
-                continue
+        mapping_mc_ts = study_output.get_hydro_ts_numbers(area.name)
+        if parameters.scenario not in mapping_mc_ts:
+            continue
+        scenario = mapping_mc_ts[parameters.scenario]
+        if area.hydro.get_maxpower()[scenario - 1].abs().max() == 0:
+            logger.debug(f"Skipping hydraulic unit for area {area.id} (max power is 0)")
+            continue
+        if area_name in hydro_reservoirs and area.hydro.properties.reservoir_capacity == 0:
+            logger.debug(f"Skipping hydraulic unit for area {area.id} (reservoir capacity is 0)")
+            continue
 
-            hydro = _create_hydraulic_equipment(
-                area=area,
-                parameters=parameters,
-                atlas_dataset=atlas_dataset,
-                inflows_dictionary=inflows_dictionary,
-                scenario=scenario,
-                study_output=study_output,
-            )
+        hydro = _create_hydraulic_equipment(
+            area=area,
+            parameters=parameters,
+            atlas_dataset=atlas_dataset,
+            inflows_dictionary=inflows_dictionary,
+            scenario=scenario,
+            study_output=study_output,
+            mapping_mc_ts=mapping_mc_ts,
+        )
 
-            if hydro:
-                hydro_units.append(hydro)
+        if hydro:
+            hydro_units.append(hydro)
 
     atlas_dataset.hydro = hydro_units
 
@@ -86,6 +86,7 @@ def _create_hydraulic_equipment(
     inflows_dictionary: dict,
     scenario: int,
     study_output: Output,
+    mapping_mc_ts: dict[int, int],
 ) -> Hydro | None:
     """Create a Hydraulic equipment for an area."""
 
@@ -143,15 +144,17 @@ def _create_hydraulic_equipment(
     if (parameters.hydro.use_heuristic or area.hydro.properties.reservoir) and parameters.hydro.use_water_value:
         if area.hydro.properties.reservoir:
             hydro.inflows = Timeseries.from_values(
-                parameters.start_date, frequency="1d", values=area.hydro.get_mod_series()[scenario - 1]
+                parameters.start_date, frequency="1d", values=area.hydro.get_mod_series()[scenario - 1].to_list()
             )
-            node_inflows_dictionary = _prepare_inflows_for_water_values(area, parameters)
+            node_inflows_dictionary = _prepare_inflows_for_water_values(area, parameters, study_output, mapping_mc_ts)
         else:
-            node_inflows_dictionary = add_inflows_from_csv(area, hydro, area.hydro.get_mod_series(), parameters)
+            node_inflows_dictionary = add_inflows_from_csv(
+                area, hydro, area.hydro.get_mod_series(), parameters, mapping_mc_ts
+            )
         inflows_dictionary[area.id] = node_inflows_dictionary
     else:
         hydro.energy_target = Timeseries.from_values(
-            parameters.start_date, frequency="1d", values=area.hydro.get_mod_series()[scenario - 1]
+            parameters.start_date, frequency="1d", values=area.hydro.get_mod_series()[scenario - 1].to_list()
         )
 
     power_hourly = Timeseries(
@@ -168,15 +171,23 @@ def _create_hydraulic_equipment(
     return hydro
 
 
-def _prepare_inflows_for_water_values(area: Area, parameters: AntaresToAtlasParameters, study: Study) -> dict:
+def _prepare_inflows_for_water_values(
+    area: Area,
+    parameters: AntaresToAtlasParameters,
+    study_output: Output,
+    mapping_mc_ts: dict,
+) -> dict:
     node_inflows_dictionary = {}
 
-    mapping_mc_ts = study.get_output(parameters.output_name).get_hydro_ts_numbers(area.id)
     if parameters.hydro.water_value_scenarios == "all":
-        scenarios = mapping_mc_ts.keys()
+        scenarios = list(mapping_mc_ts.keys())
     else:
         scenarios = parameters.hydro.water_value_scenarios
 
+    mod_series = area.hydro.get_mod_series()
     for scenario in scenarios:
-        node_inflows_dictionary[scenario] = area.hydro.get_mod_series()[mapping_mc_ts[scenario]]
+        ts_idx = mapping_mc_ts[scenario]
+        node_inflows_dictionary[scenario] = Timeseries.from_values(
+            parameters.start_date, frequency="1d", values=mod_series[ts_idx - 1].to_list()
+        )
     return node_inflows_dictionary
