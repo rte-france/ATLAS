@@ -281,9 +281,7 @@ class ThermalPOConstraintBuilder:
         stable_times = kwargs.get("stable_initial_times", [])
         for idx, time in enumerate(stable_times):
             if idx >= 2:
-                initialize_flat_down_stop_initial_conditions(
-                    obj, time, time - ts, time - 2 * ts
-                )
+                initialize_flat_down_stop_initial_conditions(obj, time, time - ts, time - 2 * ts)
         initialize_flat_down_stop_initial_conditions(
             obj,
             parameters.temporal.start_date - ts,

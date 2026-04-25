@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 import atlas.config as cfg
 from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.steps.portfolio import PortfolioPOStep
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -29,6 +30,7 @@ class PortfolioOptimisationModel(OptimisationModel):
         super().__init__(solver_name=parameters.solver.solver_name, name=portfolio.name, options=solver_options)
         self.portfolio = portfolio
         self.parameters = parameters
+        self._step = PortfolioPOStep(portfolio)
 
     def _prefetch_equipment_forecasts(self) -> None:
         """Pre-fetch forecasts for all equipment to avoid redundant get_forecast calls during model building."""
@@ -55,28 +57,13 @@ class PortfolioOptimisationModel(OptimisationModel):
 
         cfg.logger.debug("Completed pre-fetching forecasts.")
 
-    def _add_variables(self) -> None:
-        self.portfolio.add_variables(self, self.parameters)
-        for _, equipment_list in self.portfolio.equipments.iter_by_type_for_optimisation():
-            for equipment in equipment_list:
-                equipment.add_variables(self, self.parameters)
-
-    def _add_constraints(self) -> None:
-        for _, equipment_list in self.portfolio.equipments.iter_by_type_for_optimisation():
-            for equipment in equipment_list:
-                equipment.add_constraints(self, self.parameters)
-        self.portfolio.add_constraints(self, self.parameters)
-
-    def _add_objective(self) -> None:
-        self.portfolio.add_objective(self, self.parameters)
-
     def build(self) -> None:
         """Build the optimization model by adding variables, constraints, and objectives."""
         cfg.logger.info(f"Building optimisation model for portfolio: {self.portfolio.name} ..")
 
         self._prefetch_equipment_forecasts()
-        self._add_variables()
-        self._add_constraints()
-        self._add_objective()
+        self._step.add_variables(self, self.parameters)
+        self._step.add_constraints(self, self.parameters)
+        self._step.add_objective(self, self.parameters)
 
         cfg.logger.info(f"Completed optimisation model for portfolio: {self.portfolio.name}.")

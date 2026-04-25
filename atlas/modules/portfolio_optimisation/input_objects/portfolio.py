@@ -7,9 +7,8 @@ This file is part of the ATLAS project.
 from datetime import datetime
 from typing import cast
 
-from pendulum import DateTime, Duration
+from pendulum import DateTime
 
-import atlas.config as cfg
 from atlas.enums import MarketType
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
@@ -24,10 +23,8 @@ from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
 from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.input_objects.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network_operator.control_block import ControlBlock
-from atlas.solver.solver_interface import OptimisationModel
 
 
 class PortfolioPO(Portfolio):
@@ -35,334 +32,56 @@ class PortfolioPO(Portfolio):
     control_block: ControlBlock
     equipments: PortfolioEquipments
 
-    def add_variables(
-        self,
-        model: OptimisationModel,
-        parameters: PortfolioOptimisationParameters,
-    ):
+    def get_price_forecast(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float | None:
         """
-        Build portfolio-level optimization variables.
+        Get price forecast for given time based on market type and forecast settings.
 
-        :param model: Optimization model
-        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
         :param parameters: Optimization parameters
         :type parameters: PortfolioOptimisationParameters
+        :return: Price forecast value or None if not available
+        :rtype: float | None
         """
-        for time in parameters.target_times:
-            cfg.logger.debug(f"Adding variables for portfolio :{self.name} at time {time}")
-            residual_energy = self._compute_residual_energy(time, parameters)
-            maximum_power = self._compute_maximum_power(time, parameters)
+        execution_date = parameters.temporal.execution_date
+        market = parameters.market
 
-            self._add_imbalance_variables(model, time, residual_energy, maximum_power, parameters)
-            self._add_contract_difference_variables(model, time, maximum_power)
+        if time not in parameters.target_times:
+            return self.market_area.price_forecast_medium.get_forecast(execution_date, time, time).get_value(time)
 
-    def add_constraints(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
-        """
-        Add global portfolio constraints.
+        if parameters.use_forecast:
+            forecast_by_market = {
+                MarketType.dayahead: self.market_area.price_forecast_medium,
+                MarketType.intraday: self.market_area.id_price_forecast,
+            }
 
-        :param model: Optimization model
-        :type model: OptimisationModel
-        :param parameters: Optimization parameters
-        :type parameters: PortfolioOptimisationParameters
-        """
-        for time in parameters.target_times:
-            cfg.logger.debug(f"Adding constraints for portfolio :{self.name}")
-            self._add_global_constraints(time, model, parameters)
-            if self.equipments.has_generation_equipment():
-                self._add_reserves_constraints(time, model, parameters)
+            forecast = forecast_by_market.get(market)
+            if forecast is None:
+                return None
 
-    def _add_reserves_constraints(
-        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
-    ):
-        def sum_reserve_vars(reserve_type: str) -> float:
-            return sum(
-                model.get_variable(f"{reserve_type}_{obj.name}_{time}")
-                for _, equipment_list in self.equipments.get_reserve_equipment_types()
-                for obj in equipment_list
+            return (
+                cast(ForecastingMatrix | LazyForecastingMatrix, forecast)
+                .get_forecast(execution_date, time, time, default_value=0)
+                .get_value(time)
             )
 
-        # Compute all reserve sums
-        reserve_types = ["reserves_up", "reserves_down", "automated_reserves_up", "automated_reserves_down"]
-        sum_reserves = {r_type: sum_reserve_vars(r_type) for r_type in reserve_types}
+        if market == MarketType.dayahead:
+            return cast(AbstractTimeseries, self.market_area.da_price).get_value(time)
 
-        # Get target reserve values
-        reserves_up, reserves_down, automated_reserves_up, automated_reserves_down = self._compute_reserves_time(
-            time, parameters
-        )
-
-        # Map reserve types to their target values and contracted variable names
-        constraints_config = [
-            ("contracted_diff_up", reserves_up, sum_reserves["reserves_up"], f"reserves_balance_up_{time}"),
-            ("contracted_diff_down", reserves_down, sum_reserves["reserves_down"], f"reserves_balance_down_{time}"),
-            (
-                "automated_contracted_diff_up",
-                automated_reserves_up,
-                sum_reserves["automated_reserves_up"],
-                f"automated_reserves_balance_up_{time}",
-            ),
-            (
-                "automated_contracted_diff_down",
-                automated_reserves_down,
-                sum_reserves["automated_reserves_down"],
-                f"automated_reserves_balance_down_{time}",
-            ),
-        ]
-
-        # Add all constraints
-        for var_name, target, sum_var, constrainte_name in constraints_config:
-            model.add_constraint(
-                model.get_variable(f"{var_name}_{self.name}_{time}") >= target - sum_var, constrainte_name
+        if market == MarketType.intraday:
+            return (
+                cast(ForecastingMatrix | LazyForecastingMatrix, self.market_area.id_price)
+                .get_forecast(execution_date, time, time, default_value=0)
+                .get_value(time)
             )
 
-    def _add_global_constraints(
-        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
-    ):
-        """
-        Add global portfolio constraints.
+        if market == MarketType.rr_activation:
+            return cast(AbstractTimeseries, self.market_area.rr_activation_price).get_value(time)
 
-        :param time: Current time period
-        :type time: DateTime
-        :param model: Optimization model
-        :type model: OptimisationModel
-        :param parameters: Optimization parameters
-        :type parameters: PortfolioOptimisationParameters
-        """
-        # Power balance constraint
-        residual_energy = self._compute_residual_energy(time, parameters)
-        max_overall_imbal = max(residual_energy, parameters.maximum_imbalance)
-        sum_power_variables = self._get_sum_power_level_variables(model, time)
-        small_imbalance_up_var = model.get_variable(f"{self.name}_small_imbalance_up_{time}")
-        large_imbalance_up_var = model.get_variable(f"{self.name}_large_imbalance_up_{time}")
-        small_imbalance_down_var = model.get_variable(f"{self.name}_small_imbalance_down_{time}")
-        large_imbalance_down_var = model.get_variable(f"{self.name}_large_imbalance_down_{time}")
+        if market == MarketType.mfrr_activation:
+            return cast(AbstractTimeseries, self.market_area.mfrr_activation_price).get_value(time)
 
-        model.add_constraint(
-            small_imbalance_up_var + large_imbalance_up_var - small_imbalance_down_var - large_imbalance_down_var
-            == residual_energy - sum_power_variables,
-            name=f"portfolio_balance_{time}",
-        )
-
-        # Imbalance limits
-        model.add_constraint(
-            (small_imbalance_up_var + large_imbalance_up_var <= max_overall_imbal),
-            name=f"up_imbalance_limit_{time}",
-        )
-
-        model.add_constraint(
-            (small_imbalance_down_var + large_imbalance_down_var <= max_overall_imbal),
-            name=f"down_imbalance_limit_{time}",
-        )
-
-    def add_objective(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
-        all_times: set[DateTime] = set(parameters.target_times)
-        for _, equipment_list in self.equipments.iter_by_type_for_optimisation():
-            for equipment in equipment_list:
-                all_times.update(equipment.optimisation_time_window)
-
-        price_forecasts = {time: self.get_price_forecast(time, parameters) or 0.0 for time in all_times}
-
-        for _, equipment_list in self.equipments.iter_by_type_for_optimisation():
-            for equipment in equipment_list:
-                equipment.add_objective(model=model, parameters=parameters, price_forecasts=price_forecasts)
-
-        for time in sorted(parameters.target_times):
-            cfg.logger.debug(f"Adding objective terms for portfolio :{self.name} at time {time}")
-            imbalance_prices = estimate_imbalance_prices(time, self.market_area, self.control_block, parameters)
-            self._add_imbalance_cost_terms(model, time, *imbalance_prices, parameters.temporal.timestep)
-            if self.equipments.has_generation_equipment():
-                self._add_reserve_penalty_terms(model, time, parameters)
-
-    def _add_imbalance_cost_terms(
-        self,
-        model: OptimisationModel,
-        time: DateTime,
-        imbalance_price_down: float,
-        imbalance_price_up: float,
-        large_imbalance_price_down: float,
-        large_imbalance_price_up: float,
-        timestep: Duration,
-    ) -> None:
-        """
-        Get imbalance cost terms as OR-Tools expressions.
-
-        :param model: Optimization model
-        :type model: OptimisationModel
-        :param time: Current time period
-        :type time: DateTime
-        :param imbalance_price_down: Price for downward small imbalance
-        :type imbalance_price_down: float
-        :param imbalance_price_up: Price for upward small imbalance
-        :type imbalance_price_up: float
-        :param large_imbalance_price_down: Price for downward large imbalance
-        :type large_imbalance_price_down: float
-        :param large_imbalance_price_up: Price for upward large imbalance
-        :type large_imbalance_price_up: float
-        :param timestep: Time step duration
-        :type timestep: Duration
-        """
-
-        small_imbalance_up_var = model.get_variable(f"{self.name}_small_imbalance_up_{time}")
-        small_imbalance_down_var = model.get_variable(f"{self.name}_small_imbalance_down_{time}")
-        large_imbalance_up_var = model.get_variable(f"{self.name}_large_imbalance_up_{time}")
-        large_imbalance_down_var = model.get_variable(f"{self.name}_large_imbalance_down_{time}")
-
-        if imbalance_price_up:
-            model.add_objective(imbalance_price_up * small_imbalance_up_var * timestep.total_hours())
-
-        if imbalance_price_down:
-            model.add_objective(-imbalance_price_down * small_imbalance_down_var * timestep.total_hours())
-
-        if large_imbalance_price_up:
-            model.add_objective(large_imbalance_price_up * large_imbalance_up_var * timestep.total_hours())
-
-        if large_imbalance_price_down:
-            model.add_objective(-large_imbalance_price_down * large_imbalance_down_var * timestep.total_hours())
-
-    def _add_reserve_penalty_terms(
-        self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters
-    ) -> None:
-        """
-        Get reserve penalty terms as OR-Tools expressions.
-
-        :param model: Optimization model
-        :type model: OptimisationModel
-        :param time: Current time period
-        :type time: DateTime
-        :param parameters: Optimization parameters
-        :type parameters: PortfolioOptimisationParameters
-        """
-
-        contracted_diff_up = model.get_variable(f"contracted_diff_up_{self.name}_{time}")
-        contracted_diff_down = model.get_variable(f"contracted_diff_down_{self.name}_{time}")
-        auto_contracted_diff_up = model.get_variable(f"automated_contracted_diff_up_{self.name}_{time}")
-        auto_contracted_diff_down = model.get_variable(f"automated_contracted_diff_down_{self.name}_{time}")
-
-        model.add_objective(
-            parameters.manual_unprocured_reserves_penalty
-            * parameters.temporal.timestep.total_hours()
-            * contracted_diff_up,
-        )
-        model.add_objective(
-            parameters.manual_unprocured_reserves_penalty
-            * parameters.temporal.timestep.total_hours()
-            * contracted_diff_down
-        )
-
-        model.add_objective(
-            parameters.automated_unprocured_reserves_penalty
-            * parameters.temporal.timestep.total_hours()
-            * auto_contracted_diff_up,
-        )
-        model.add_objective(
-            parameters.automated_unprocured_reserves_penalty
-            * parameters.temporal.timestep.total_hours()
-            * auto_contracted_diff_down,
-        )
-
-    def _add_imbalance_variables(
-        self,
-        model: OptimisationModel,
-        time: DateTime,
-        residual_energy: float,
-        maximum_power: float,
-        parameters: PortfolioOptimisationParameters,
-    ) -> None:
-        """
-        Add imbalance variables to the optimization model.
-
-        :param model: Optimization model
-        :type model: OptimisationModel
-        :param time: Current time period
-        :type time: DateTime
-        :param residual_energy: Residual energy value
-        :type residual_energy: float
-        :param maximum_power: Maximum power capacity
-        :type maximum_power: float
-        :param parameters: Optimization parameters
-        :type parameters: PortfolioOptimisationParameters
-        """
-        small_imbalance_limit = maximum_power * parameters.small_imbalance_size
-        max_overall_imbal = max(residual_energy, parameters.maximum_imbalance)
-
-        model.add_continuous_variable(
-            name=f"{self.name}_small_imbalance_up_{time}",
-            lower_bound=0,
-            upper_bound=small_imbalance_limit,
-        )
-        model.add_continuous_variable(
-            name=f"{self.name}_small_imbalance_down_{time}",
-            lower_bound=0,
-            upper_bound=small_imbalance_limit,
-        )
-        model.add_continuous_variable(
-            name=f"{self.name}_large_imbalance_up_{time}",
-            lower_bound=0,
-            upper_bound=max_overall_imbal,
-        )
-        model.add_continuous_variable(
-            name=f"{self.name}_large_imbalance_down_{time}",
-            lower_bound=0,
-            upper_bound=max_overall_imbal,
-        )
-
-    def _add_contract_difference_variables(
-        self, model: OptimisationModel, time: DateTime, maximum_power: float
-    ) -> None:
-        """
-        Add contract difference variables to the optimization model.
-
-        :param model: Optimization model
-        :type model: OptimisationModel
-        :param time: Current time period
-        :type time: DateTime
-        :param maximum_power: Maximum power capacity
-        :type maximum_power: float
-        """
-        for v in [
-            "contracted_diff_up",
-            "contracted_diff_down",
-            "automated_contracted_diff_up",
-            "automated_contracted_diff_down",
-        ]:
-            model.add_continuous_variable(name=f"{v}_{self.name}_{time}", lower_bound=0, upper_bound=maximum_power)
-
-    def _get_sum_power_level_variables(
-        self,
-        model: OptimisationModel,
-        time: DateTime,
-    ) -> float:
-        """
-        Get the sum of all power level variables for a specific time.
-
-        :param model: Optimization model
-        :type model: OptimisationModel
-        :param time: Current time period
-        :type time: DateTime
-        :return: Sum of all power level variables
-        :rtype: float
-        """
-        total_power = 0
-
-        for storage in self.equipments.storage:
-            if time in storage.optimisation_time_window:
-                sell_var = model.get_variable(f"{storage.name}_power_level_sell_{time}")
-                buy_var = model.get_variable(f"{storage.name}_power_level_buy_{time}")
-                total_power += sell_var + buy_var
-
-        for hydro in self.equipments.hydro:
-            if time in hydro.optimisation_time_window:
-                for category in hydro.fragment_data.keys():
-                    var = model.get_variable(f"{hydro.name}_power_level_frag_{category}_{time}")
-                    total_power += var
-
-        for obj in (
-            self.equipments.thermal + self.equipments.wind + self.equipments.solar + self.equipments.dispatchable_load
-        ):
-            if time in obj.optimisation_time_window:
-                var = model.get_variable(f"{obj.name}_power_level_{time}")
-                total_power += var
-
-        return total_power
+        return None
 
     def _compute_residual_energy(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float:
         """
@@ -442,58 +161,6 @@ class PortfolioPO(Portfolio):
 
         return tuple(sum(values) for values in zip(*all_reserves)) if all_reserves else (0.0, 0.0, 0.0, 0.0)  # noqa: B905
 
-    def get_price_forecast(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float | None:
-        """
-        Get price forecast for given time based on market type and forecast settings.
-
-        :param time: Current time period
-        :type time: DateTime
-        :param parameters: Optimization parameters
-        :type parameters: PortfolioOptimisationParameters
-        :return: Price forecast value or None if not available
-        :rtype: float | None
-        """
-
-        execution_date = parameters.temporal.execution_date
-        market = parameters.market
-
-        if time not in parameters.target_times:
-            return self.market_area.price_forecast_medium.get_forecast(execution_date, time, time).get_value(time)
-
-        if parameters.use_forecast:
-            forecast_by_market = {
-                MarketType.dayahead: self.market_area.price_forecast_medium,
-                MarketType.intraday: self.market_area.id_price_forecast,
-            }
-
-            forecast = forecast_by_market.get(market)
-            if forecast is None:
-                return None
-
-            return (
-                cast(ForecastingMatrix | LazyForecastingMatrix, forecast)
-                .get_forecast(execution_date, time, time, default_value=0)
-                .get_value(time)
-            )
-
-        if market == MarketType.dayahead:
-            return cast(AbstractTimeseries, self.market_area.da_price).get_value(time)
-
-        if market == MarketType.intraday:
-            return (
-                cast(ForecastingMatrix | LazyForecastingMatrix, self.market_area.id_price)
-                .get_forecast(execution_date, time, time, default_value=0)
-                .get_value(time)
-            )
-
-        if market == MarketType.rr_activation:
-            return cast(AbstractTimeseries, self.market_area.rr_activation_price).get_value(time)
-
-        if market == MarketType.mfrr_activation:
-            return cast(AbstractTimeseries, self.market_area.mfrr_activation_price).get_value(time)
-
-        return None
-
     @staticmethod
     def _get_upstream_energy(
         obj: EquipmentPO,
@@ -513,16 +180,12 @@ class PortfolioPO(Portfolio):
         :rtype: float
         """
         if parameters.market == MarketType.rr_activation:
-            # Default to 0 if no activation data available for this market
             return obj.rr_activated.get_value(time) if obj.rr_activated is not None else 0
         elif parameters.market == MarketType.mfrr_activation:
-            # Default to 0 if no activation data available for this market
             return obj.mfrr_activated.get_value(time) if obj.mfrr_activated is not None else 0
         elif parameters.market == MarketType.dayahead:
-            # Default to 0 if no cleared quantity data available
             return obj.da_cleared_quantity.get_value(time) if obj.da_cleared_quantity is not None else 0
         else:
-            # Default to 0 if data is missing for intraday or day-ahead markets
             total_id = obj.total_id_cleared_quantity.get_value(time) if obj.total_id_cleared_quantity is not None else 0
             da_cleared = obj.da_cleared_quantity.get_value(time) if obj.da_cleared_quantity is not None else 0
             return total_id + da_cleared
@@ -575,7 +238,6 @@ class PortfolioPO(Portfolio):
         fcr_up = self.get_reserve_value(obj, time, "fcr_up", parameters)
         fcr_down = self.get_reserve_value(obj, time, "fcr_down", parameters)
 
-        # Calculate individual equipment reserve totals
         reserves_up = rr_up + mfrr_up
         reserves_down = rr_down + mfrr_down
         automated_reserves_up = min(afrr_up, maximum_afrr or 0) + min(fcr_up, maximum_fcr or 0)
@@ -614,5 +276,4 @@ class PortfolioPO(Portfolio):
                 .get_value(time)
             )
         else:
-            # reserve attribute is None. Returning O.
             return 0

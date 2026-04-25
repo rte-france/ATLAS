@@ -21,12 +21,12 @@ from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
 from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.input_objects.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.timing import generate_datetimes
 from atlas.modules.portfolio_optimisation.utils.manual_activation import (
     is_excluded_market_area,
     should_manually_activate,
 )
 from atlas.objects.market_operator.portfolio import Portfolio
+from atlas.timing import generate_datetimes
 
 
 class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationParameters]):
