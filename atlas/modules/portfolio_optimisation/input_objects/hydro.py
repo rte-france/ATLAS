@@ -178,27 +178,24 @@ class HydroPO(BaseEquipmentPO, Hydro):
     def add_objective(
         self,
         model: OptimisationModel,
-        time: DateTime,
         parameters: PortfolioOptimisationParameters,
-        price_forecast: float = 0.0,
-        **kwargs,
+        price_forecasts: dict = {},
     ):
-        if time in self.optimisation_time_window:
-            cfg.logger.debug(f"Adding objective for hydro unit {self.name} at time {time}")
+        energy_level = self._get_current_energy_level(parameters)
+        marginal_weights = self._calculate_marginal_weights(energy_level)
 
-            energy_level = self._get_current_energy_level(parameters)
-            marginal_weights = self._calculate_marginal_weights(energy_level)
+        for time in self.optimisation_time_window:
+            cfg.logger.debug(f"Adding objective for hydro unit {self.name} at time {time}")
+            price_forecast = price_forecasts.get(time, 0.0)
 
             for k in range(len(self.fragment_data.keys())):
                 fragment_price = self._calculate_fragment_price(self.fragment_data[k].price, marginal_weights, time)
-
                 power_level_frag_var = model.get_variable(f"{self.name}_power_level_frag_{k}_{time}")
 
                 if time in parameters.target_times:
                     model.add_objective(
                         fragment_price * power_level_frag_var * parameters.temporal.timestep.total_hours(),
                     )
-
                 else:
                     model.add_objective(
                         -(price_forecast - fragment_price)
@@ -206,10 +203,6 @@ class HydroPO(BaseEquipmentPO, Hydro):
                         * parameters.temporal.timestep.total_hours(),
                     )
             cfg.logger.debug(f"Finished adding objective for hydro unit {self.name} at time {time}")
-        else:
-            cfg.logger.debug(
-                f"Skipping objective for hydro unit {self.name} at time {time} - not in optimization times or target times"
-            )
 
     def _get_current_energy_level(self: HydroPO, parameters: PortfolioOptimisationParameters) -> float:
         """

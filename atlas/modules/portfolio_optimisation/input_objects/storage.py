@@ -266,16 +266,16 @@ class StoragePO(BaseEquipmentPO, Storage):
     def add_objective(
         self,
         model: OptimisationModel,
-        time: DateTime,
-        price_forecast: float,
         parameters: PortfolioOptimisationParameters,
+        price_forecasts: dict = {},
     ):
         if self.maximum_energy.max() <= 0:
             cfg.logger.debug(f"Skipping objective for storage unit {self.name} - maximum energy is 0")
             return None
 
-        if time in self.optimisation_time_window:
+        for time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding objective for storage unit {self.name} at time {time}")
+            price_forecast = price_forecasts.get(time, 0.0)
             power_level_sell_var = model.get_variable(f"{self.name}_power_level_sell_{time}")
             power_level_buy_var = model.get_variable(f"{self.name}_power_level_buy_{time}")
             model.add_objective(
@@ -301,10 +301,6 @@ class StoragePO(BaseEquipmentPO, Storage):
                             -power_level_sell_n_var * price_forecast * (1 - n * smoothing_factor / (nb_fragment - 1))
                             - power_level_buy_n_var * price_forecast * (1 + n * smoothing_factor / (nb_fragment - 1)),
                         )
-        else:
-            cfg.logger.debug(
-                f"Skipping objective for storage unit {self.name} at time {time} - not in optimization times or target times"
-            )
 
     def add_cycle_balance_constraint(self, model: OptimisationModel):
         model.add_constraint(

@@ -43,20 +43,7 @@ class OtherNonDispatchablePO(BaseEquipmentPO, OtherNonDispatchable):
     def add_objective(
         self,
         model: OptimisationModel,
-        time: DateTime,
-        price_forecast: float,
         parameters: PortfolioOptimisationParameters,
+        price_forecasts: dict = {},
     ):
-        """
-        Add objective function terms for non dispatchable equipment.
-
-        :param model: Optimization model
-        :type model: OptimisationModel
-        :param time: Current time period
-        :type time: DateTime
-        :param price_forecast: Price forecast value
-        :type price_forecast: float
-        :param parameters: Optimization parameters
-        :type parameters: PortfolioOptimisationParameters
-        """
         pass

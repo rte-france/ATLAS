@@ -65,12 +65,12 @@ class LoadPO(BaseEquipmentPO, Load):
     def add_objective(
         self,
         model: OptimisationModel,
-        time: DateTime,
-        price_forecast: float,
         parameters: PortfolioOptimisationParameters,
+        price_forecasts: dict = {},
     ):
-        if time in self.optimisation_time_window:
+        for time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding objective for load unit {self.name} at time {time}")
+            price_forecast = price_forecasts.get(time, 0.0)
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
             if self.load_type == LoadType.POWER_TO_GAS:
                 model.add_objective(
@@ -82,8 +82,6 @@ class LoadPO(BaseEquipmentPO, Load):
                 model.add_objective(
                     get_variable_cost(self, time) * -power_level_var * parameters.temporal.timestep.total_hours(),
                 )
-        else:
-            cfg.logger.debug(f"Skipping objective for load unit {self.name} at non-target time {time}")
 
     def prefetch_forecasts(self, execution_date: DateTime):
         """

@@ -99,16 +99,14 @@ class WindPO(BaseEquipmentPO, Wind):
             model.add_constraint(reserves_down_var <= max_power, f"reserves_down_max_{time}_{self.name}")
 
     def add_objective(
-        self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters, **kwargs
+        self, model: OptimisationModel, parameters: PortfolioOptimisationParameters, price_forecasts: dict = {}
     ):
-        if time in self.optimisation_time_window:
+        for time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding objective for wind unit {self.name} at time {time}")
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
             model.add_objective(
                 get_variable_cost(self, time) * power_level_var * parameters.temporal.timestep.total_hours(),
             )
-        else:
-            cfg.logger.debug(f"Skipping objective for wind unit {self.name} at non-target time {time}")
 
     def prefetch_forecasts(self, execution_date: DateTime):
         """Pre-fetch and cache forecasts for the entire optimization time window."""

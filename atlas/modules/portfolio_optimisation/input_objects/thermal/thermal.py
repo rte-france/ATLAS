@@ -246,23 +246,11 @@ class ThermalPO(BaseEquipmentPO, Thermal):
     def add_objective(
         self,
         model: OptimisationModel,
-        time: DateTime,
-        price_forecast: float,
         parameters: PortfolioOptimisationParameters,
+        price_forecasts: dict = {},
     ):
-        """
-        Add objective function terms for thermal equipment.
-
-        :param model: Optimization model
-        :type model: OptimisationModel
-        :param time: Current time period
-        :type time: DateTime
-        :param price_forecast: Forecasted price
-        :type price_forecast: float
-        :param parameters: Optimization parameters
-        :type parameters: PortfolioOptimisationParameters
-        """
-        if time in self.optimisation_time_window:
+        for time in self.optimisation_time_window:
+            price_forecast = price_forecasts.get(time, 0.0)
             variable_cost = self.variable_cost.get_value(time)
             power_level_var = self.power_level_var.get_value(time)
             model.add_objective(
