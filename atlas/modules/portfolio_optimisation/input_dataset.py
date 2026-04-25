@@ -21,6 +21,7 @@ from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
 from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.input_objects.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.timing import generate_datetimes
 from atlas.modules.portfolio_optimisation.utils.manual_activation import (
     is_excluded_market_area,
     should_manually_activate,
@@ -60,12 +61,15 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
 
     def _set_equipments_time_window(self) -> None:
         """Set the optimisation time window on each equipment individually."""
+        start = self.parameters.temporal.start_date
+        end = self.parameters.temporal.end_date - self.parameters.temporal.timestep
+        timestep = self.parameters.temporal.timestep
         for p in self.portfolios + self.portfolios_manual_activation:
             for e in p.equipments.get_all_equipment():
-                e.get_optimisation_time_window(
-                    start_date=self.parameters.temporal.start_date,
-                    end_date=self.parameters.temporal.end_date - self.parameters.temporal.timestep,
-                    timestep=self.parameters.temporal.timestep,
+                e.optimisation_time_window = generate_datetimes(
+                    start=start,
+                    end=end + e.additional_hours,
+                    freq=timestep,
                 )
 
     def _create_portfolios(self):

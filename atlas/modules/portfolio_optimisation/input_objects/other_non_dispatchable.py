@@ -7,13 +7,12 @@ This file is part of the ATLAS project.
 from pendulum import DateTime, Duration
 
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.modules.portfolio_optimisation.input_objects.base_equipment import BaseEquipmentPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.solver.solver_interface import OptimisationModel
 
 
-class OtherNonDispatchablePO(BaseEquipmentPO, OtherNonDispatchable):
+class OtherNonDispatchablePO(OtherNonDispatchable):
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
     additional_hours: Duration
 

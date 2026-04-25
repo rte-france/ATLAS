@@ -12,14 +12,13 @@ import atlas.config as cfg
 from atlas.enums import LoadType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.modules.portfolio_optimisation.input_objects.base_equipment import BaseEquipmentPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_variable_cost
 from atlas.objects.equipment.load import Load
 from atlas.solver.solver_interface import OptimisationModel
 
 
-class LoadPO(BaseEquipmentPO, Load):
+class LoadPO(Load):
     load_type: LoadType
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
     additional_hours: Duration

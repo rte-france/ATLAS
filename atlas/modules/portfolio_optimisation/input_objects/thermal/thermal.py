@@ -15,7 +15,6 @@ from pydantic import model_validator
 import atlas.config as cfg
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
-from atlas.modules.portfolio_optimisation.input_objects.base_equipment import BaseEquipmentPO
 from atlas.modules.portfolio_optimisation.input_objects.thermal.constraint_builder import ThermalPOConstraintBuilder
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
@@ -25,7 +24,7 @@ from atlas.solver.model_var import ModelVar
 from atlas.solver.solver_interface import OptimisationModel
 
 
-class ThermalPO(BaseEquipmentPO, Thermal):
+class ThermalPO(Thermal):
     """
     Sophisticated unit commitment model for thermal power equipment.
 

@@ -14,7 +14,6 @@ import atlas.config as cfg
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
-from atlas.modules.portfolio_optimisation.input_objects.base_equipment import BaseEquipmentPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
 from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
@@ -22,7 +21,7 @@ from atlas.objects.equipment.hydro import Hydro
 from atlas.solver.solver_interface import OptimisationModel
 
 
-class HydroPO(BaseEquipmentPO, Hydro):
+class HydroPO(Hydro):
     maximum_energy: AbstractTimeseries
     minimum_energy: AbstractTimeseries
     maximum_fcr: float
