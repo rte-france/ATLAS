@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from pendulum import DateTime
 
 from atlas.math.timeseries import Timeseries
+from atlas.modules.portfolio_optimisation.input_objects.thermal.initial_conditions import ThermalInitialConditions
 from atlas.modules.portfolio_optimisation.input_objects.thermal.initial_conditions_utils import (
     initialize_day_zero_core,
     initialize_day_zero_gradient_vars,
@@ -49,23 +50,20 @@ class ThermalPOConstraintBuilder:
     def add_initial_conditions(
         self,
         parameters: PortfolioOptimisationParameters,
-        extended_start_date: DateTime,
-        day_zero: bool,
-        **kwargs,
+        ic: ThermalInitialConditions,
     ) -> None:
-        if day_zero:
-            self._init_day_zero(parameters, extended_start_date, **kwargs)
+        if ic.day_zero:
+            self._init_day_zero(parameters, ic)
         else:
-            self._init_from_previous(parameters, extended_start_date, **kwargs)
+            self._init_from_previous(parameters, ic)
 
     def _init_day_zero(
         self,
         parameters: PortfolioOptimisationParameters,
-        extended_start_date: DateTime,
-        **kwargs,
+        ic: ThermalInitialConditions,
     ) -> None:
         obj = self._obj
-        for time in kwargs.get("initial_times", []):
+        for time in ic.initial_times:
             initialize_day_zero_core(obj, time)
             if not self._has_flat:
                 initialize_day_zero_on_states(obj, time)
@@ -80,36 +78,33 @@ class ThermalPOConstraintBuilder:
             if self._has_start:
                 obj.on_start_var.set_extended(time, 0)
 
-        for time in kwargs.get("stable_initial_times", []):
+        for time in ic.stable_initial_times:
             initialize_day_zero_stable_vars(obj, time)
 
         # Comb 3 only: init gradients if power_ts exists even in day_zero
         if self._has_flat and not self._has_stop and not self._has_start:
-            power_ts = kwargs.get("power_ts")
-            if isinstance(power_ts, Timeseries):
+            if isinstance(ic.power_ts, Timeseries):
                 initialize_gradient_initial_conditions(obj, parameters)
 
     def _init_from_previous(
         self,
         parameters: PortfolioOptimisationParameters,
-        extended_start_date: DateTime,
-        **kwargs,
+        ic: ThermalInitialConditions,
     ) -> None:
         obj = self._obj
-        power_ts = kwargs.get("power_ts")
-        if not isinstance(power_ts, Timeseries):
-            raise ValueError("power_ts is required in kwargs when day_zero is False")
+        if not isinstance(ic.power_ts, Timeseries):
+            raise ValueError("power_ts is required when day_zero is False")
         if obj.minimum_power is None:
             raise ValueError("minimum_power is required when day_zero is False")
 
-        for time in kwargs.get("initial_times", []):
-            self._init_one_time(obj, parameters, extended_start_date, time, power_ts)
+        for time in ic.initial_times:
+            self._init_one_time(obj, parameters, ic.extended_start_date, time, ic.power_ts)
 
         if self._has_flat:
-            self._init_stable_times(obj, parameters, extended_start_date, **kwargs)
+            self._init_stable_times(obj, parameters, ic)
             initialize_gradient_initial_conditions(obj, parameters)
             if self._has_stop:
-                self._init_flat_down_stop(obj, parameters, **kwargs)
+                self._init_flat_down_stop(obj, parameters, ic)
 
     def _init_one_time(
         self,
@@ -223,11 +218,10 @@ class ThermalPOConstraintBuilder:
         self,
         obj: ThermalPO,
         parameters: PortfolioOptimisationParameters,
-        extended_start_date: DateTime,
-        **kwargs,
+        ic: ThermalInitialConditions,
     ) -> None:
         ts = parameters.temporal.timestep
-        for time in kwargs.get("stable_initial_times", []):
+        for time in ic.stable_initial_times:
             next_time = time + ts
             current_power = obj.power_level_var.get_extended_value(time)
             next_power = obj.power_level_var.get_extended_value(next_time)
@@ -262,7 +256,7 @@ class ThermalPOConstraintBuilder:
                 obj.on_down_var.set_extended(time, 0)
                 obj.on_flat_var.set_extended(time, 0)
 
-            if time != extended_start_date and obj.off_var.get_extended_value(time) != 1:
+            if time != ic.extended_start_date and obj.off_var.get_extended_value(time) != 1:
                 prev_time = time - ts
                 if obj.on_flat_var.get_extended_value(time) - obj.on_flat_var.get_extended_value(prev_time) == 1:
                     obj.stable_var.set_extended(time, 1)
@@ -275,11 +269,10 @@ class ThermalPOConstraintBuilder:
         self,
         obj: ThermalPO,
         parameters: PortfolioOptimisationParameters,
-        **kwargs,
+        ic: ThermalInitialConditions,
     ) -> None:
         ts = parameters.temporal.timestep
-        stable_times = kwargs.get("stable_initial_times", [])
-        for idx, time in enumerate(stable_times):
+        for idx, time in enumerate(ic.stable_initial_times):
             if idx >= 2:
                 initialize_flat_down_stop_initial_conditions(obj, time, time - ts, time - 2 * ts)
         initialize_flat_down_stop_initial_conditions(

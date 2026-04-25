@@ -14,6 +14,7 @@ from pendulum import Duration
 import atlas.config as cfg
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_objects.thermal.constraint_builder import ThermalPOConstraintBuilder
+from atlas.modules.portfolio_optimisation.input_objects.thermal.initial_conditions import ThermalInitialConditions
 from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.steps.base import EquipmentPOStep
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
@@ -227,15 +228,14 @@ class ThermalPOStep(EquipmentPOStep[ThermalPO]):
             if parameters.temporal.start_date - parameters.temporal.timestep != power_ts.last_date():
                 day_zero = True
 
-        self._builder = ThermalPOConstraintBuilder(self)
-        self._builder.add_initial_conditions(
-            parameters=parameters,
-            extended_start_date=initial_times[0],
-            day_zero=day_zero,
-            power_ts=power_ts,
+        ic = ThermalInitialConditions(
             initial_times=initial_times,
             stable_initial_times=stable_initial_times,
+            power_ts=power_ts,
+            day_zero=day_zero,
         )
+        self._builder = ThermalPOConstraintBuilder(self)
+        self._builder.add_initial_conditions(parameters=parameters, ic=ic)
 
     def _get_initial_time_window(self, parameters: PortfolioOptimisationParameters):
         self.T_traceback = max(self._T_on + self._T_start, self._T_off + self._T_stop)
