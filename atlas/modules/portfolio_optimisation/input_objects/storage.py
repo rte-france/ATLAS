@@ -261,6 +261,8 @@ class StoragePO(BaseEquipmentPO, Storage):
                 f"max_storage_level_{time}_{self.name}",
             )
 
+        self.add_cycle_balance_constraint(model)
+
     def add_objective(
         self,
         model: OptimisationModel,

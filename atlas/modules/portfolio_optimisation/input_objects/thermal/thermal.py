@@ -157,6 +157,8 @@ class ThermalPO(BaseEquipmentPO, Thermal):
         :param parameters: Optimization parameters
         :type parameters: PortfolioOptimisationParameters
         """
+        self.add_initial_conditions(model, parameters)
+
         for time in self.optimisation_time_window:
             # Binary state variables
             self.off_var.set_model_var(time)
@@ -238,6 +240,8 @@ class ThermalPO(BaseEquipmentPO, Thermal):
         for time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints combination {self._combination} for {self.name}")
             self._builder.add_constraints(model, time, parameters)
+
+        self.add_daily_energy_constraint(model, parameters.temporal.timestep)
 
     def add_objective(
         self,

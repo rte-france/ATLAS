@@ -283,37 +283,31 @@ class TestRunParallel:
         return params
 
     @pytest.fixture
-    def portfolios_with_time_windows(self):
-        """Create test portfolios with time windows."""
+    def portfolios(self):
+        """Create test portfolios."""
         portfolio1 = Mock(spec=PortfolioPO)
         portfolio1.name = "portfolio_1"
         portfolio2 = Mock(spec=PortfolioPO)
         portfolio2.name = "portfolio_2"
-
-        time_window = [pendulum.datetime(2024, 1, 1)]
-
-        return [(portfolio1, time_window), (portfolio2, time_window)]
+        return [portfolio1, portfolio2]
 
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.ProcessPoolExecutor")
-    def test_run_parallel_success(self, mock_executor_class, portfolios_with_time_windows, mock_parameters):
+    def test_run_parallel_success(self, mock_executor_class, portfolios, mock_parameters):
         """Test run_parallel processes all portfolios successfully."""
-        # Setup mock executor
         mock_executor = MagicMock()
         mock_executor_class.return_value.__enter__.return_value = mock_executor
 
-        # Mock results
         result1 = PortfolioOptimisationResult(
-            portfolio=portfolios_with_time_windows[0][0],
+            portfolio=portfolios[0],
             variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
         )
         result2 = PortfolioOptimisationResult(
-            portfolio=portfolios_with_time_windows[1][0],
+            portfolio=portfolios[1],
             variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
         )
 
-        # Mock futures
         future1 = MagicMock()
         future1.result.return_value = ("portfolio_1", result1)
         future2 = MagicMock()
@@ -324,24 +318,21 @@ class TestRunParallel:
         with patch("atlas.modules.portfolio_optimisation.utils.orchestration.as_completed") as mock_as_completed:
             mock_as_completed.return_value = [future1, future2]
 
-            results = run_parallel(portfolios_with_time_windows, mock_parameters)
+            results = run_parallel(portfolios, mock_parameters)
 
-        # Assertions
         assert len(results) == 2
         assert "portfolio_1" in results
         assert "portfolio_2" in results
         mock_executor_class.assert_called_once_with(max_workers=2)
 
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.ProcessPoolExecutor")
-    def test_run_parallel_handles_errors(self, mock_executor_class, portfolios_with_time_windows, mock_parameters):
+    def test_run_parallel_handles_errors(self, mock_executor_class, portfolios, mock_parameters):
         """Test run_parallel handles errors gracefully."""
-        # Setup mock executor
         mock_executor = MagicMock()
         mock_executor_class.return_value.__enter__.return_value = mock_executor
 
-        # Mock futures - one succeeds, one fails
         result1 = PortfolioOptimisationResult(
-            portfolio=portfolios_with_time_windows[0][0],
+            portfolio=portfolios[0],
             variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
         )
@@ -356,9 +347,8 @@ class TestRunParallel:
         with patch("atlas.modules.portfolio_optimisation.utils.orchestration.as_completed") as mock_as_completed:
             mock_as_completed.return_value = [future1, future2]
 
-            results = run_parallel(portfolios_with_time_windows, mock_parameters)
+            results = run_parallel(portfolios, mock_parameters)
 
-        # Assertions - should have one successful result
         assert len(results) == 1
         assert "portfolio_1" in results
 
