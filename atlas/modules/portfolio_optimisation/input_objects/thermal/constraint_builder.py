@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
-class ThermalPOConstraintBuilder:
+class ThermalConstraintBuilder:
     """
     Unified constraint builder for ThermalPO — replaces combination_1..8.py.
 

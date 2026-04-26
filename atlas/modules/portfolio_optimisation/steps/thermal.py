@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
 import pendulum
@@ -13,7 +14,7 @@ from pendulum import Duration
 
 import atlas.config as cfg
 from atlas.math.timeseries import Timeseries
-from atlas.modules.portfolio_optimisation.input_objects.thermal.constraint_builder import ThermalPOConstraintBuilder
+from atlas.modules.portfolio_optimisation.input_objects.thermal.constraint_builder import ThermalConstraintBuilder
 from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.steps.base import EquipmentPOStep
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
@@ -29,14 +30,14 @@ class ThermalPOStep(EquipmentPOStep[ThermalPO]):
     """
     Step class owning all optimisation logic for ThermalPO.
 
-    Uses __getattr__ delegation to self.equipment so that ThermalPOConstraintBuilder
+    Uses __getattr__ delegation to self.equipment so that ThermalConstraintBuilder
     and initial_conditions_utils can access data fields transparently without changes.
     ModelVar objects are stored on the step instance and take precedence over delegation.
     """
 
     def __init__(self, equipment: ThermalPO):
         super().__init__(equipment)
-        self._builder: ThermalPOConstraintBuilder = None  # type: ignore[assignment]
+        self._builder: ThermalConstraintBuilder = None  # type: ignore[assignment]
 
         # Computed time parameters — set in _compute_time_parameters
         self._T_on: int = 0
@@ -158,7 +159,7 @@ class ThermalPOStep(EquipmentPOStep[ThermalPO]):
                 model.add_objective(startup_cost * turned_on_var)
 
     def _compute_time_parameters(self, parameters: PortfolioOptimisationParameters) -> None:
-        import math
+
         eq = self.equipment
         self._T_on = (
             int(max(1, math.ceil(eq.minimum_time_on / parameters.temporal.timestep))) + 1
@@ -170,8 +171,12 @@ class ThermalPOStep(EquipmentPOStep[ThermalPO]):
             if eq.minimum_time_off and eq.minimum_time_off.total_minutes() > 0
             else 0
         )
-        self._T_start = int(math.floor(eq.startup_duration / parameters.temporal.timestep)) if eq.startup_duration else 0
-        self._T_stop = int(math.floor(eq.shutdown_duration / parameters.temporal.timestep)) if eq.shutdown_duration else 0
+        self._T_start = (
+            int(math.floor(eq.startup_duration / parameters.temporal.timestep)) if eq.startup_duration else 0
+        )
+        self._T_stop = (
+            int(math.floor(eq.shutdown_duration / parameters.temporal.timestep)) if eq.shutdown_duration else 0
+        )
         if eq.minimum_stable_power_duration:
             if eq.minimum_stable_power_duration < parameters.temporal.timestep:
                 self._T_stable = 0
@@ -212,7 +217,7 @@ class ThermalPOStep(EquipmentPOStep[ThermalPO]):
         self._setup_state_variables(model)
         self._add_initial_variables(parameters)
 
-        self._builder = ThermalPOConstraintBuilder(self)
+        self._builder = ThermalConstraintBuilder(self)
         self._builder.add_initial_conditions(parameters)
 
     def _setup_state_variables(self, model: OptimisationModel):

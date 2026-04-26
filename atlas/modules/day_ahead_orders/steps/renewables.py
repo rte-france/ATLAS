@@ -54,8 +54,8 @@ class WindPVStep(AbstractOrderStep):
                                 order_type=OrderType.Sell,
                                 is_agent_tso=False,
                                 execution_date=self.parameters.temporal.execution_date,
-                                start_date=t,
-                                end_date=t + self.parameters.temporal.timestep,
+                                start_date=t,  # type: ignore [arg-type]
+                                end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
                             )
                         )
 

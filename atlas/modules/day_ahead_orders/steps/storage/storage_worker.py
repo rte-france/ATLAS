@@ -48,9 +48,9 @@ class StorageOptimizationResult:
     """
 
     storage_name: str
-    buy_submitted_volumes: Timeseries
-    sell_submitted_volumes: Timeseries
-    variable_cost: Timeseries
+    buy_submitted_volumes: Timeseries = field(default_factory=Timeseries)
+    sell_submitted_volumes: Timeseries = field(default_factory=Timeseries)
+    variable_cost: Timeseries = field(default_factory=Timeseries)
     success: bool = True
     orders: list[OrderDAO] = field(default_factory=list)
     order_couplings: list[OrderCouplingDAO] = field(default_factory=list)
@@ -117,7 +117,7 @@ def optimize_single_storage(
                 f"ChargeEfficiency or DischargeEfficiency is null for equipment {storage.name}. "
                 "This is not supposed to be the case, as the default value for these is 1 and not 0"
             )
-        variable_cost = Timeseries.from_values(
+        variable_costs = Timeseries.from_values(
             parameters.temporal.start_date,
             parameters.temporal.timestep,
             [variable_cost] * len(local_timewindow),
@@ -134,7 +134,7 @@ def optimize_single_storage(
             order_couplings=order_couplings,
             buy_submitted_volumes=buy_submitted_volumes,
             sell_submitted_volumes=sell_submitted_volumes,
-            variable_cost=variable_cost,
+            variable_cost=variable_costs,
             success=True,
         )
 
@@ -383,8 +383,8 @@ def _create_spot_order(
         portfolio=storage.portfolio,
         market_area=storage.portfolio.market_area,
         execution_date=parameters.temporal.execution_date,
-        start_date=start_date,
-        end_date=start_date + parameters.temporal.timestep,
+        start_date=start_date,  # type: ignore [arg-type]
+        end_date=start_date + parameters.temporal.timestep,  # type: ignore [arg-type]
         order_type=order_type,
         product=Product.DayAhead,
         qmax=qmax,
