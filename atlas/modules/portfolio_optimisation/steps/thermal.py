@@ -14,7 +14,6 @@ from pendulum import Duration
 import atlas.config as cfg
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_objects.thermal.constraint_builder import ThermalPOConstraintBuilder
-from atlas.modules.portfolio_optimisation.input_objects.thermal.initial_conditions import ThermalInitialConditions
 from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.steps.base import EquipmentPOStep
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
@@ -48,7 +47,6 @@ class ThermalPOStep(EquipmentPOStep[ThermalPO]):
         self._Delta_Q: float = 0.0
         self._Delta_Q_unconstrained: float = 0.0
         self._combination: int = 1
-        self.T_traceback: int = 0
 
         # ModelVar placeholders — set in _setup_state_variables
         self.off_var: ModelVar = None  # type: ignore[assignment]
@@ -210,49 +208,12 @@ class ThermalPOStep(EquipmentPOStep[ThermalPO]):
             return 1
 
     def add_initial_conditions(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
-        eq = self.equipment
         self._compute_time_parameters(parameters)
         self._setup_state_variables(model)
         self._add_initial_variables(parameters)
 
-        initial_times, stable_initial_times = self._get_initial_time_window(parameters)
-
-        power_ts = (
-            eq.power.get_forecast(parameters.temporal.execution_date, initial_times[0], initial_times[-1])
-            if eq.power is not None
-            else None
-        )
-
-        day_zero = power_ts is None
-        if power_ts is not None:
-            if parameters.temporal.start_date - parameters.temporal.timestep != power_ts.last_date():
-                day_zero = True
-
-        ic = ThermalInitialConditions(
-            initial_times=initial_times,
-            stable_initial_times=stable_initial_times,
-            power_ts=power_ts,
-            day_zero=day_zero,
-        )
         self._builder = ThermalPOConstraintBuilder(self)
-        self._builder.add_initial_conditions(parameters=parameters, ic=ic)
-
-    def _get_initial_time_window(self, parameters: PortfolioOptimisationParameters):
-        self.T_traceback = max(self._T_on + self._T_start, self._T_off + self._T_stop)
-
-        initial_times = []
-        stable_initial_times = []
-
-        if self.T_traceback > 0:
-            for k in range(self.T_traceback, 0, -1):
-                initial_times.append(parameters.temporal.start_date - k * parameters.temporal.timestep)
-        else:
-            initial_times.append(parameters.temporal.start_date - parameters.temporal.timestep)
-
-        for k in range(self.T_traceback, 1, -1):
-            stable_initial_times.append(parameters.temporal.start_date - k * parameters.temporal.timestep)
-
-        return initial_times, stable_initial_times
+        self._builder.add_initial_conditions(parameters)
 
     def _setup_state_variables(self, model: OptimisationModel):
         eq = self.equipment

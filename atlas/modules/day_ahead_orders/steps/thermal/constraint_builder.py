@@ -15,6 +15,7 @@ import atlas.config as cfg
 from atlas.modules.day_ahead_orders.steps.thermal.initial_conditions import ThermalInitialConditions
 
 if TYPE_CHECKING:
+    from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
     from atlas.modules.day_ahead_orders.steps.thermal.thermal_optimization_model import ThermalOptimizationModel
 
 
@@ -50,12 +51,53 @@ class ThermalConstraintBuilder:
         self._flat_down_stop: dict[DateTime, Any] = {}  # combinations 5, 8
         self._DD: dict[DateTime, Any] = {}  # combinations 5, 8
 
-    def build(self, ic: ThermalInitialConditions) -> None:
+    def build_initial_conditions(
+        self,
+        parameters: "DayAheadOrdersParameters",
+    ) -> ThermalInitialConditions:
+        m = self._m
+        T_traceback = int(max(m.T_on + m.T_start, m.T_off + m.T_stop)) + 1
+
+        initial_times: list[DateTime] = []
+        stable_initial_times: list[DateTime] = []
+        if T_traceback > 0:
+            for k in range(T_traceback, 0, -1):
+                initial_times.append(parameters.temporal.start_date - k * parameters.temporal.timestep)
+        else:
+            initial_times.append(parameters.temporal.start_date - parameters.temporal.timestep)
+        for k in range(T_traceback, 1, -1):
+            stable_initial_times.append(parameters.temporal.start_date - k * parameters.temporal.timestep)
+
+        power_ts = (
+            m.thermal_unit.power.get_forecast(
+                parameters.temporal.execution_date,
+                initial_times[0],
+                initial_times[-1],
+                default_value=0.0,
+            )
+            if m.thermal_unit.power is not None
+            else None
+        )
+
+        day_zero = power_ts is None
+        if power_ts is not None:
+            if parameters.temporal.start_date - parameters.temporal.timestep != power_ts.last_date():
+                day_zero = True
+
+        return ThermalInitialConditions(
+            initial_times=initial_times,
+            stable_initial_times=stable_initial_times,
+            power_ts=power_ts,
+            day_zero=day_zero,
+        )
+
+    def build(self) -> None:
         """Build constraints for the active combination (see _COMBINATION_MAP)."""
         cfg.logger.debug(
             f"Building constraints for {self._m.thermal_unit.name} — combination {self._combination} "
             f"(T_stop={int(self._has_stop)}, T_start={int(self._has_start)}, T_stable={int(self._has_flat)})"
         )
+        ic = self.build_initial_conditions(self._m.parameters)
         self._create_local_auxiliaries()
         self._set_initial_conditions(ic)
 
@@ -227,7 +269,7 @@ class ThermalConstraintBuilder:
         """Resolve ambiguous ramp states using power trajectory (combinations 7 and 8)."""
         m = self._m
         ts = m.parameters.temporal.timestep
-        for t in ic.initial_times[:-1]:
+        for t in ic.initial_times[1:]:
             t_prev = t - ts
             if m.START.get_extended_value(t) == 1:
                 if m.q.get_extended_value(t) > m.q.get_extended_value(t_prev):
@@ -277,7 +319,7 @@ class ThermalConstraintBuilder:
         ts = m.parameters.temporal.timestep
 
         # Reconstruct ON_UP/DOWN/FLAT: for each t, compare q[t] vs q[t_prev] to set state at t_prev
-        for t in ic.initial_times[:-1]:
+        for t in ic.initial_times[1:]:
             t_prev = t - ts
             if self._has_start:
                 is_fully_online = m.q.get_extended_value(t_prev) >= m.thermal_unit.minimum_power.get_value(t_prev)
@@ -323,7 +365,7 @@ class ThermalConstraintBuilder:
         """Initialize flat_down_stop auxiliary (T_stop >= 1, T_stable >= 1)."""
         m = self._m
         ts = m.parameters.temporal.timestep
-        for t in ic.initial_times[:-2]:
+        for t in ic.initial_times[2:]:
             t_minus_one = t - ts
             t_minus_two = t - 2 * ts
             self._flat_down_stop[t] = int(

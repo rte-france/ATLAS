@@ -47,11 +47,43 @@ class ThermalPOConstraintBuilder:
     # Initial conditions
     # ──────────────────────────────────────────────────────────────────────
 
-    def add_initial_conditions(
+    def build_initial_conditions(
         self,
         parameters: PortfolioOptimisationParameters,
-        ic: ThermalInitialConditions,
-    ) -> None:
+    ) -> ThermalInitialConditions:
+        obj = self._obj
+        T_traceback = max(obj._T_on + obj._T_start, obj._T_off + obj._T_stop)
+
+        initial_times: list[DateTime] = []
+        stable_initial_times: list[DateTime] = []
+        if T_traceback > 0:
+            for k in range(T_traceback, 0, -1):
+                initial_times.append(parameters.temporal.start_date - k * parameters.temporal.timestep)
+        else:
+            initial_times.append(parameters.temporal.start_date - parameters.temporal.timestep)
+        for k in range(T_traceback, 1, -1):
+            stable_initial_times.append(parameters.temporal.start_date - k * parameters.temporal.timestep)
+
+        power_ts = (
+            obj.power.get_forecast(parameters.temporal.execution_date, initial_times[0], initial_times[-1])
+            if obj.power is not None
+            else None
+        )
+
+        day_zero = power_ts is None
+        if power_ts is not None:
+            if parameters.temporal.start_date - parameters.temporal.timestep != power_ts.last_date():
+                day_zero = True
+
+        return ThermalInitialConditions(
+            initial_times=initial_times,
+            stable_initial_times=stable_initial_times,
+            power_ts=power_ts,
+            day_zero=day_zero,
+        )
+
+    def add_initial_conditions(self, parameters: PortfolioOptimisationParameters) -> None:
+        ic = self.build_initial_conditions(parameters)
         if ic.day_zero:
             self._init_day_zero(parameters, ic)
         else:

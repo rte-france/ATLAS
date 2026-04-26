@@ -19,9 +19,9 @@ if TYPE_CHECKING:
 class ThermalInitialConditions:
     initial_times: list[DateTime]
     stable_initial_times: list[DateTime]
-    power_ts: Timeseries
+    power_ts: Timeseries | None
     day_zero: bool
 
     @property
     def extended_start_date(self) -> DateTime:
-        return self.initial_times[-1]
+        return self.initial_times[0]
