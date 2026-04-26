@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from pendulum import DateTime
 
 import atlas.config as cfg
+from atlas.modules.day_ahead_orders.steps.thermal.initial_conditions import ThermalInitialConditions
 
 if TYPE_CHECKING:
     from atlas.modules.day_ahead_orders.steps.thermal.thermal_optimization_model import ThermalOptimizationModel
@@ -49,14 +50,14 @@ class ThermalConstraintBuilder:
         self._flat_down_stop: dict[DateTime, Any] = {}  # combinations 5, 8
         self._DD: dict[DateTime, Any] = {}  # combinations 5, 8
 
-    def build(self, day_zero: bool) -> None:
+    def build(self, ic: ThermalInitialConditions) -> None:
         """Build constraints for the active combination (see _COMBINATION_MAP)."""
         cfg.logger.debug(
             f"Building constraints for {self._m.thermal_unit.name} — combination {self._combination} "
             f"(T_stop={int(self._has_stop)}, T_start={int(self._has_start)}, T_stable={int(self._has_flat)})"
         )
         self._create_local_auxiliaries()
-        self._set_initial_conditions(day_zero)
+        self._set_initial_conditions(ic)
 
         # ── Auxiliary variables ──────────────────────────────────────────────
         self._add_turned_on_constraints()  # all combinations
@@ -112,18 +113,16 @@ class ThermalConstraintBuilder:
                     f"{dd_prefix}_{t}_equip_{m.thermal_unit.name}", m.Q_min, m.Q_max
                 )
 
-    def _set_initial_conditions(self, day_zero: bool) -> None:
-        if day_zero:
-            self._init_day_zero()
+    def _set_initial_conditions(self, ic: ThermalInitialConditions) -> None:
+        if ic.day_zero:
+            self._init_day_zero(ic)
         else:
-            self._init_from_previous()
-        if self._has_flat:
-            self._init_gradient_auxiliaries()
+            self._init_from_previous(ic)
 
-    def _init_day_zero(self) -> None:
+    def _init_day_zero(self, ic: ThermalInitialConditions) -> None:
         m = self._m
         cfg.logger.debug(f"Initial conditions of unit {m.thermal_unit.name} have been set as in equation (47).")
-        for t in m.previous_time_frame:
+        for t in ic.initial_times:
             m.q.set_extended(t, 0)
             m.OFF.set_extended(t, 1)
             m.ON_UP.set_extended(t, 0)
@@ -132,36 +131,38 @@ class ThermalConstraintBuilder:
                 m.STOP.set_extended(t, 0)
             if self._has_start:
                 m.START.set_extended(t, 0)
-            if self._has_flat and t != m.start_date_minus_one:
+            m.turned_on.set_extended(t, 0)
+            m.turned_off.set_extended(t, 0)
+            if self._has_stop and not self._has_flat:
+                self._down_to_stop[t] = 0
+            if self._has_stop and self._has_flat:
+                self._flat_down_stop[t] = 0
+
+        if self._has_flat:
+            for t in ic.stable_initial_times:
                 m.ON_FLAT.set_extended(t, 0)
                 m.stable.set_extended(t, 0)
                 m.entered_up.set_extended(t, 0)
                 m.entered_down.set_extended(t, 0)
-            m.turned_on.set_extended(t, 0)
-            m.turned_off.set_extended(t, 0)
-            if t in self._down_to_stop:
-                self._down_to_stop[t] = 0
-            if t in self._flat_down_stop:
-                self._flat_down_stop[t] = 0
 
-    def _init_from_previous(self) -> None:
+    def _init_from_previous(self, ic: ThermalInitialConditions) -> None:
         m = self._m
-        for t in m.previous_time_frame:
-            m.q.set_extended(t, int(m.last_power.get_value(t)))
-        self._init_state_variables_from_previous()
+        for t in ic.initial_times:
+            m.q.set_extended(t, int(ic.power_ts.get_value(t)))
+        self._init_state_variables_from_previous(ic)
         if self._has_start and self._has_stop:
-            self._distinguish_start_stop()
-        self._init_auxiliaries_from_previous()
+            self._distinguish_start_stop(ic)
+        self._init_auxiliaries_from_previous(ic)
         if self._has_flat:
-            self._init_on_up_down_flat_from_previous()
-            self._init_stable_entered_from_previous()
+            self._init_stable_times(ic)
+            self._init_gradient_auxiliaries()
         if self._has_stop and self._has_flat:
-            self._init_flat_down_stop_from_previous()
+            self._init_flat_down_stop_from_previous(ic)
 
-    def _init_state_variables_from_previous(self) -> None:
+    def _init_state_variables_from_previous(self, ic: ThermalInitialConditions) -> None:
         m = self._m
-        for t in m.previous_time_frame:
-            q = m.last_power.get_value(t)
+        for t in ic.initial_times:
+            q = ic.power_ts.get_value(t)
             q_min = m.thermal_unit.minimum_power.get_value(t)
 
             if self._has_start or self._has_stop:
@@ -222,11 +223,11 @@ class ThermalConstraintBuilder:
         if self._has_flat and t != m.start_date_minus_one:
             m.ON_FLAT.set_extended(t, 0)
 
-    def _distinguish_start_stop(self) -> None:
+    def _distinguish_start_stop(self, ic: ThermalInitialConditions) -> None:
         """Resolve ambiguous ramp states using power trajectory (combinations 7 and 8)."""
         m = self._m
         ts = m.parameters.temporal.timestep
-        for t in m.previous_time_frame[:-1]:
+        for t in ic.initial_times[:-1]:
             t_prev = t - ts
             if m.START.get_extended_value(t) == 1:
                 if m.q.get_extended_value(t) > m.q.get_extended_value(t_prev):
@@ -236,16 +237,16 @@ class ThermalConstraintBuilder:
                     m.STOP.set_extended(t, 1)
                     m.START.set_extended(t, 0)
 
-    def _init_auxiliaries_from_previous(self) -> None:
+    def _init_auxiliaries_from_previous(self, ic: ThermalInitialConditions) -> None:
         m = self._m
         ts = m.parameters.temporal.timestep
-        for t in m.previous_time_frame:
+        for t in ic.initial_times:
             m.turned_on.set_extended(t, 0)
             m.turned_off.set_extended(t, 0)
-            if t in self._down_to_stop:
+            if self._has_stop and not self._has_flat:
                 self._down_to_stop[t] = 0
 
-            if t == m.extended_start_date:
+            if t == ic.extended_start_date:
                 continue
             t_prev = t - ts
 
@@ -266,18 +267,18 @@ class ThermalConstraintBuilder:
                     m.turned_on.set_extended(t, 1)
 
             # down_to_stop: detect ON_DOWN → STOP transition (eq. 20)
-            if self._down_to_stop and t in self._down_to_stop:
+            if self._has_stop and not self._has_flat:
                 if m.STOP.get_extended_value(t) - m.ON_DOWN.get_extended_value(t_prev) == 0:
                     self._down_to_stop[t] = 1
 
-    def _init_on_up_down_flat_from_previous(self) -> None:
-        """Reconstruct ON_UP, ON_DOWN, ON_FLAT from the power trajectory (T_stable >= 1)."""
+    def _init_stable_times(self, ic: ThermalInitialConditions) -> None:
+        """Initialize ON_UP/DOWN/FLAT, stable, entered_up/down from power trajectory (T_stable >= 1)."""
         m = self._m
         ts = m.parameters.temporal.timestep
-        for t in m.previous_time_frame[:-1]:
+
+        # Reconstruct ON_UP/DOWN/FLAT: for each t, compare q[t] vs q[t_prev] to set state at t_prev
+        for t in ic.initial_times[:-1]:
             t_prev = t - ts
-            # Combination 6 (T_start + T_stable): use q >= q_min to exclude START state
-            # Other flat combinations: use OFF == 0
             if self._has_start:
                 is_fully_online = m.q.get_extended_value(t_prev) >= m.thermal_unit.minimum_power.get_value(t_prev)
             else:
@@ -303,15 +304,12 @@ class ThermalConstraintBuilder:
                 m.ON_DOWN.set_extended(t_prev, 0)
                 m.ON_FLAT.set_extended(t_prev, 0)
 
-    def _init_stable_entered_from_previous(self) -> None:
-        """Initialize stable, entered_up, entered_down auxiliaries (T_stable >= 1)."""
-        m = self._m
-        ts = m.parameters.temporal.timestep
-        for t in m.previous_time_frame[1:]:
+        # Initialize stable, entered_up/down based on ON state transitions
+        for t in ic.stable_initial_times:
             m.stable.set_extended(t, 0)
             m.entered_up.set_extended(t, 0)
             m.entered_down.set_extended(t, 0)
-            if t == m.extended_start_date or m.OFF.get_extended_value(t) == 1:
+            if t == ic.extended_start_date or m.OFF.get_extended_value(t) == 1:
                 continue
             t_prev = t - ts
             if m.ON_FLAT.get_extended_value(t) - m.ON_FLAT.get_extended_value(t_prev) == 1:
@@ -321,11 +319,11 @@ class ThermalConstraintBuilder:
             if m.ON_DOWN.get_extended_value(t) - m.ON_DOWN.get_extended_value(t_prev) == 1:
                 m.entered_down.set_extended(t, 1)
 
-    def _init_flat_down_stop_from_previous(self) -> None:
+    def _init_flat_down_stop_from_previous(self, ic: ThermalInitialConditions) -> None:
         """Initialize flat_down_stop auxiliary (T_stop >= 1, T_stable >= 1)."""
         m = self._m
         ts = m.parameters.temporal.timestep
-        for t in m.previous_time_frame[:-2]:
+        for t in ic.initial_times[:-2]:
             t_minus_one = t - ts
             t_minus_two = t - 2 * ts
             self._flat_down_stop[t] = int(

@@ -15,6 +15,7 @@ import atlas.config as cfg
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.steps.thermal.initial_conditions import ThermalInitialConditions
 from atlas.objects.equipment.thermal import Thermal
 from atlas.solver.model_var import ModelVar
 from atlas.solver.models import SolverOptions
@@ -603,18 +604,11 @@ class ThermalOptimizationModel(OptimisationModel):
 
         return self._extract_results()
 
-    def is_day_zero(self) -> bool:
-        """
-        See if the program needs to be initialized as DayZero or not
-        :return: if the program needs to be initialized as DayZero or not
-        :rtype: bool
-        """
+    def get_initial_conditions(self) -> ThermalInitialConditions:
         if len(self.last_power) == 0:
-            # Initialization of the program as DayZero and warn the user
             cfg.logger.info("The program is initialized for the first time.")
-            day_zero = True  # Boolean to keep track of the status
+            day_zero = True
         elif self.last_date != self.parameters.temporal.start_date - self.parameters.temporal.timestep:
-            # last_date doesn't match start_date - time_step (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
             cfg.logger.warning(
                 f"The last_date found in Power of equipement {self.thermal_unit.name} "
                 "does not match the start_date of the current program. \n "
@@ -623,5 +617,9 @@ class ThermalOptimizationModel(OptimisationModel):
             day_zero = True
         else:
             day_zero = False
-            # Setting up the initial conditions of the program
-        return day_zero
+        return ThermalInitialConditions(
+            initial_times=self.previous_time_frame,
+            stable_initial_times=self.previous_time_frame[1:],
+            power_ts=self.last_power,
+            day_zero=day_zero,
+        )
