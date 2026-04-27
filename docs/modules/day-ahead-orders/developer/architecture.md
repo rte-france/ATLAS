@@ -10,36 +10,35 @@ This document describes the module-specific architecture and components.
 
 ```
 atlas/modules/day_ahead_orders/
-├── dao_timeseries.py                    # A specific implementation of timeseries
 ├── input_dataset.py                     # Input data structure
 ├── main.py                              # Execution entry point
 ├── module.py                            # The module DayAheadOrdersModule (AbstractModule)
 ├── output_dataset.py                    # Output data structure
 ├── orchestrator.py                      # Orchestrates the mains steps of the module execution
 ├── parameters.py                        # Module parameters
-├── models/                         # Equipment-specific models
-│   ├── hydro.py
-│   ├── load.py
-│   ├── market_area.py
-│   ├── order.py
-│   ├── order_coupling.py
-│   ├── portfolio.py
-│   ├── solar.py
-│   ├── storage.py
-│   ├── thermal.py
-│   └── wind.py
-├── optim/                        # Specific optim model classes based on OptimisationModel
-│   ├── battery_model.py
-│   ├── electric_vehicle_model.py
-│   └── storage_model.py
-├── orders_formulation/                  # Steps for each type of assets lead to fomulation of orders
-│   ├── thermal/                         # Thermal specific logic
-│   ├── hydraulic_step.py
-│   ├── load_step.py
-│   ├── non_dispatchable_step.py
-│   ├── storage_step.py
-│   ├── thermal_bidding_step.py
-│   ├── wind_pv_step.py
+└── input_objects/                       # Equipment-specific models
+    ├── hydro.py
+    ├── load.py
+    ├── market_area.py
+    ├── order.py
+    ├── order_coupling.py
+    ├── solar.py
+    ├── storage.py
+    ├── thermal.py
+    └── wind.py
+
+├── steps/                               # Steps for each type of assets lead to fomulation of orders
+    ├── thermal/                         # Thermal specific logic
+    ├── hydraulic.py
+    ├── load.py
+    ├── non_dispatchable.py
+    ├── storage.py
+    ├── renewables.py
+    └── storage/
+        ├── optim/                       # Storage specific optim model classes
+        ├── battery_model.py
+        ├── electric_vehicle_model.py
+        └── storage_model.py
 ```
 
 ## Core Classes

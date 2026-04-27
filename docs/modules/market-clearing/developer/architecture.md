@@ -18,7 +18,7 @@ market_clearing/
 ├── market_clearing_output_dataset.py    # Output data aggregation
 ├── marker_clearing_module.py            # Core clearing module
 ├── price_group.py                       # group of market area with the same price for every timestep
-└── models/                              # Market Clearing models
+└── input_objects/                             # Market Clearing models
 │   ├── control_block_mc.py
 │   ├── critical_branch_mc.py
 │   ├── market_area_mc.py

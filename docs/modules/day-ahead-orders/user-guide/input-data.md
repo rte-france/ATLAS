@@ -4,16 +4,7 @@
 
 The Day-Ahead Orders module is configured through `DayAheadOrdersParameters`. Parameters can be provided as a dictionary or loaded from a JSON/YAML file.
 
-## Common Parameters
-
-The common section are :
-```yaml
-temporal:       # Time configuration (required)
-output:         # Output configuration (optional, has defaults)
-solver:         # Solver configuration (optional, has defaults)
-multiprocessing: # Parallel execution (optional, has defaults)
-```
-
+For common parameters (`temporal`, `solver`, `output`, `multiprocessing`), see [Common Parameters](../../common-parameters.md).
 
 ## Penalties & Pricing
 
