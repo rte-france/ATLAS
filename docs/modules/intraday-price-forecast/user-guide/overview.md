@@ -14,22 +14,6 @@ The module:
 - **Applies price caps**: Ensures forecasts stay within market-defined upper and lower bounds
 - **Updates forecasting matrices**: Stores results in market area price forecast matrices
 
-## How to Use
-
-See [Running Modules](../../../concepts/running-modules.md) for the standard ATLAS module execution pattern.
-
-## Module-Specific Workflow
-
-Beyond the standard module lifecycle (see [Module Pattern](../../../concepts/module-pattern.md)), this module:
-
-1. **Filters assets by market area**: Separates loads, solar, and wind by market area
-2. **Computes price sensitivity ratio**: Uses high/low price and consumption scenarios
-3. **Calculates consumption delta**: Compares intraday vs day-ahead residual consumption
-4. **Determines baseline price**: Selects latest intraday or day-ahead price
-5. **Forecasts new prices**: Combines baseline, sensitivity ratio, and consumption delta
-6. **Applies constraints**: Ensures non-negativity and respects price caps
-7. **Saves results**: Updates market area forecasting matrices
-
 ## Key Outputs
 
 The module produces:
@@ -49,5 +33,5 @@ The module uses a **sensitivity-based** approach:
 
 ## Next Steps
 
-- [Parameters](input-data.md): Module-specific configuration options
-- [Running](running.md): Execution details
+- [Parameters](parameters.md): Module-specific configuration options
+- [Results](results.md): Accessing outputs

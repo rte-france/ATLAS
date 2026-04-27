@@ -13,19 +13,6 @@ The module:
 - **Optimizes exchanges**: Calculates cross-border flows
 - **Respects constraints**: Honors transmission capacity and economic limits
 
-## How to Use
-
-See [Running Modules](../../../concepts/running-modules.md) for the standard ATLAS module execution pattern.
-
-## Module-Specific Workflow
-
-Beyond the standard module lifecycle (see [Module Pattern](../../../concepts/module-pattern.md)), this module:
-
-1. **Processes market orders**: Collects buy/sell orders from all equipment
-2. **Builds optimization model**: Creates market clearing optimization
-3. **Solves market**: Finds equilibrium prices and quantities
-4. **Updates results**: Writes clearing prices to equipment/portfolios and flows to interconnections
-
 ## Key Outputs
 
 The module produces:
@@ -45,5 +32,5 @@ The module uses an **economic dispatch** approach:
 
 ## Next Steps
 
-- [Parameters](input-data.md): Module-specific configuration options
-- [Running](running.md): Execution details
+- [Parameters](parameters.md): Module-specific configuration options
+- [Results](results.md): Accessing outputs

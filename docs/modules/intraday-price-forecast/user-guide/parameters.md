@@ -3,7 +3,6 @@
 ## Overview
 
 The Intraday Price Forecast module is configured through `IntradayPriceForecastParameters`. Parameters can be provided as a dictionary or loaded from a JSON/YAML file.
-This document describes all configuration parameters available for the **Intraday Price Forecast** module. The structure, level of detail, and wording are aligned with the parameter documentation of other modules to ensure consistency across the project.
 
 ## Price Caps
 
@@ -90,4 +89,4 @@ Each wind unit must have:
 
 ## Next Steps
 
-- [Running](running.md): How to execute the module
+- [Results](results.md): Understanding outputs

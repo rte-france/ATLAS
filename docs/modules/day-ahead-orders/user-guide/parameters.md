@@ -91,4 +91,4 @@ price_forecasts_types: ["Medium"]
 
 ## Next Steps
 
-- [Running](running.md): How to execute the module
+- [Results](results.md): Understanding outputs
