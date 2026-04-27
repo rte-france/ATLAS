@@ -3,7 +3,7 @@ import pendulum
 import polars as pl
 import pytest
 
-from atlas.io_utils.utils import get_metadata_from_file, get_metadata_from_frame
+from atlas.io_utils.utils import get_metadata_from_file, get_metadata_from_frame, deep_update
 
 
 def test_get_metadata_from_frame_polars():
@@ -92,3 +92,18 @@ def test_get_metadata_from_file(tmp_path):
         "categorical": {"column": "category", "categories": ["A", "B"], "nulls": 0},
         "numerical": {"column": "value", "nulls": 0, "min": 1.0, "max": 2.0},
     }
+
+def test_deep_update():
+    a = {'t': {'a': 0, 'b': 2}}
+    x = {'t': {'a': -1, 'b': 2, 'c': -3}}
+    y = {'t': {'a': 1, 'c': 3}}
+
+    deep_update(a, x, False)
+    assert a == {'t': {'a': 0, 'b': 2, 'c': -3}}
+    assert x == {'t': {'a': -1, 'b': 2, 'c': -3}}
+    assert y == {'t': {'a': 1, 'c': 3}}
+
+    deep_update(a, y, True)
+    assert a == {'t': {'a': 1, 'b': 2, 'c': 3}}
+    assert x == {'t': {'a': -1, 'b': 2, 'c': -3}}
+    assert y == {'t': {'a': 1, 'c': 3}}

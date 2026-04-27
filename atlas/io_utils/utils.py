@@ -5,6 +5,7 @@ This file is part of the ATLAS project.
 
 """
 
+import copy
 import re
 from pathlib import Path
 from typing import Any
@@ -266,3 +267,16 @@ def diff_lists(
             except Exception:
                 diffs[str(i)] = {"error": "Couldn't check diff"}
     return diffs if diffs else None
+
+
+def deep_update(base: dict, updates: dict, override: bool):
+    """
+    Similar to function update from dictionary but works with nested dictionaries.
+    If override is True, any value in dictionary base will be overwritten.
+    Otherwise, all value in dictionary base will stay intact.
+    """
+    for key, value in updates.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            deep_update(base[key], value, override)
+        elif override or key not in base:
+            base[key] = copy.copy(value)

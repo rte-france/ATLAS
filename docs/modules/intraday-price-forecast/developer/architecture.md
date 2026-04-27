@@ -16,9 +16,8 @@ intraday_price_forecast/
 ├── input_dataset.py                      # Input data aggregation
 ├── output_dataset.py                     # Output data aggregation
 ├── orchestrator.py                       # Main computation logic
-└── models/                               # Intraday-specific models
+└── input_objects/                        # Intraday-specific models
     ├── __init__.py
-    ├── portfolio.py                      # Portfolio model
     ├── market_area.py                    # Market area model
     ├── load.py                           # Load model
     ├── solar.py                          # Solar model

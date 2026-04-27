@@ -1085,7 +1085,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
 
         df: pl.DataFrame = self.filter(datetime, date_format, inplace=False).dataframe
         if len(df) > 0:
-            return df.to_dicts()[0]["value"]
+            return df.select("value").item()
         else:
             raise KeyError(f"Value for {dt.to_datetime_string()} not found in the Timeseries.")
 

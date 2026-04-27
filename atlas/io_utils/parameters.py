@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.enums import SolverEnum
+from atlas.io_utils.utils import deep_update
 from atlas.validators import convert_to_duration
 
 
@@ -25,10 +26,12 @@ class Parameters(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
 
     @classmethod
-    def from_file(cls, file_path: str | Path) -> Self:
+    def from_file(cls, file_path: str | Path, context: ContextParameters | None = None) -> Self:
         """Load parameters from a YAML or JSON file.
         :param file_path: Path to the parameters file.
         :type file_path: str or pathlib.Path
+        :param context: Context parameters to use.
+        :type context: dict
         :return: A Parameters object containing the parsed and validated parameters.
         :rtype: Parameters
         :raises ValueError: If the file extension is not supported.
@@ -42,6 +45,13 @@ class Parameters(BaseModel):
         else:
             raise ValueError(f"Unsupported file extension: {file_extension}")
 
+        if context is None:
+            return cls(**parameters)
+
+        if parameters is None:
+            parameters = {}
+
+        context.update(parameters)
         return cls(**parameters)
 
     @staticmethod
@@ -127,3 +137,18 @@ class OutputParameters(BaseModel):
     export_result: bool = False
     export_output_dataset: bool = False
     output_dir: Path = Path("output")
+
+
+class ContextParameters(BaseModel):
+    """A context contains values to use as default or to forced on corresponding parameters."""
+
+    default: dict = {}
+    forced: dict = {}
+
+    def use(self, context: ContextParameters):
+        deep_update(self.default, context.default, True)
+        deep_update(self.forced, context.forced, True)
+
+    def update(self, base: dict) -> None:
+        deep_update(base, self.default, False)
+        deep_update(base, self.forced, True)
