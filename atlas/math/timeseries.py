@@ -595,10 +595,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
             raise ValueError(f"Could not set value at {dt} because timestamp is not in the Timeseries")
 
         df = self.timeseries.with_columns(
-            pl.when(pl.col("time") == dt)
-            .then(pl.lit(value))
-            .otherwise(pl.col("value"))
-            .alias("value")
+            pl.when(pl.col("time") == dt).then(pl.lit(value)).otherwise(pl.col("value")).alias("value")
         )
 
         return self._return(df, inplace)
