@@ -9,6 +9,7 @@ import itertools
 import math
 from collections.abc import Callable
 
+import polars as pl
 from pendulum import DateTime
 
 import atlas.config as cfg
@@ -95,7 +96,10 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                 # Retrieve the orders corresponding to the first order of each time frame
                 # time frames are mutually exclusive provided that the unit's minimum power is not null
                 # over the whole orders time sequence
-                if sum(thermal_unit.minimum_power.get_value(t) for t in self.orders_time) > 0.0:
+                if (
+                    thermal_unit.minimum_power.timeseries.filter(pl.col("time").is_in(self.orders_time))["value"].sum()
+                    > 0.0
+                ):
                     # Create a list of order names to retrieve.
                     orders_names = []
                     for (ts1, case1), (ts2, case2) in overlapping_blocks:
@@ -330,14 +334,11 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         # by default, we assume that both scenarios perfectly overlap
         # to verify this, we see whether the difference across all time steps is 0
         # if there exist one t such that the difference is not null, then scenarios are not perfectly overlapping
-        is_overlapping = True
-        # check each element of the time serie
-        for t in scenario_1.index:
-            # We are comparing integer values only, so no need to round the comparison
-            if scenario_1.get_value(t) != scenario_2.get_value(t):
-                is_overlapping = False
-
-        return is_overlapping
+        return (
+            scenario_1.timeseries.join(scenario_2.timeseries, on="time", suffix="_2")
+            .filter(pl.col("value") != pl.col("value_2"))
+            .is_empty()
+        )
 
     def solve_optimization_programs(
         self, equipments_list: list[ThermalDAO]
@@ -436,60 +437,47 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                 results[unit.name][price_type] = res
 
                 # Store state sequences in the output marker
-                local_time_index = res["OFF"].index
+                local_time_index = list(res["OFF"].index)
+                tz = self.parameters.temporal.start_date.timezone_name
 
-                new_sequence_ts = Timeseries.from_index(
-                    self.parameters.temporal.start_date,
-                    self.parameters.temporal.timestep,
-                    self.parameters.temporal.end_date,
-                    default_value=0,
-                )
+                on_up_lk = res["ON_UP"].to_lookup_dict()
+                on_down_lk = res["ON_DOWN"].to_lookup_dict()
+                off_lk = res["OFF"].to_lookup_dict()
+                start_lk = res["START"].to_lookup_dict() if "START" in res else {}
+                stop_lk = res["STOP"].to_lookup_dict() if "STOP" in res else {}
+                flat_lk = res["ON_FLAT"].to_lookup_dict() if "ON_FLAT" in res else {}
 
+                values = []
                 for time in local_time_index:
-                    if res["ON_UP"].get_value(time) == 1:
-                        if time in new_sequence_ts:
-                            new_sequence_ts.set_value(time, 1)
-                        else:
-                            new_sequence_ts.add_index(time, 1)
+                    if on_up_lk.get(time, 0) == 1:
+                        values.append(1)
                         continue
-
-                    if res["ON_DOWN"].get_value(time) == 1:
-                        if time in new_sequence_ts:
-                            new_sequence_ts.set_value(time, 2)
-                        else:
-                            new_sequence_ts.add_index(time, 2)
+                    if on_down_lk.get(time, 0) == 1:
+                        values.append(2)
                         continue
-
-                    if res["OFF"].get_value(time) == 1:
-                        if time in new_sequence_ts:
-                            new_sequence_ts.set_value(time, 3)
-                        else:
-                            new_sequence_ts.add_index(time, 3)
+                    if off_lk.get(time, 0) == 1:
+                        values.append(3)
                         continue
+                    if start_lk.get(time, 0) == 1:
+                        values.append(4)
+                        continue
+                    if stop_lk.get(time, 0) == 1:
+                        values.append(5)
+                        continue
+                    if flat_lk.get(time, 0) == 1:
+                        values.append(6)
+                        continue
+                    values.append(0)
 
-                    if "START" in res.keys():
-                        if res["START"].get_value(time) == 1:
-                            if time in new_sequence_ts:
-                                new_sequence_ts.set_value(time, 4)
-                            else:
-                                new_sequence_ts.add_index(time, 4)
-                            continue
-
-                    if "STOP" in res.keys():
-                        if res["STOP"].get_value(time) == 1:
-                            if time in new_sequence_ts:
-                                new_sequence_ts.set_value(time, 5)
-                            else:
-                                new_sequence_ts.add_index(time, 5)
-                            continue
-
-                    if "ON_FLAT" in res.keys():
-                        if res["ON_FLAT"].get_value(time) == 1:
-                            if time in new_sequence_ts:
-                                new_sequence_ts.set_value(time, 6)
-                            else:
-                                new_sequence_ts.add_index(time, 6)
-                            continue
+                new_sequence_ts = Timeseries(
+                    pl.DataFrame(
+                        {
+                            "time": local_time_index,
+                            "value": values,
+                        },
+                        schema={"time": pl.Datetime("us", tz), "value": pl.Float64()},
+                    )
+                )
 
                 if unit.state_sequence is None:
                     unit.state_sequence = ScenarioMatrix()
