@@ -61,6 +61,7 @@ def get_maximum_power(
     area: Area,
     thermal: ThermalCluster,
     parameters: AntaresToAtlasParameters,
+    study: Study,
 ) -> Timeseries | None:
     """Get maximum power timeseries for a thermal cluster.
 
@@ -69,11 +70,18 @@ def get_maximum_power(
     Returns None if the resulting timeseries is all zeros.
     """
     try:
-        # TODO: Verify how to get ThermalSelectedScenario and Disponibility
-        # In old code:
-        #   sc = antares_thermal.ThermalSelectedScenario[p.scenario - 1]
-        #   maximum_power_ts = antares_thermal.Disponibility[sc - 1]
-        maximum_power_ts = None  # TODO
+        scenario = (
+            study.get_output(parameters.output_name)
+            .get_thermal_ts_numbers(area.name, thermal.name)
+            .get(parameters.scenario, None)
+        )
+        if scenario is None:
+            raise ValueError(f"Scenario {parameters.scenario} not found for thermal {thermal.name} in area {area.name}")
+        maximum_power_ts = Timeseries.from_values(
+            start_date=parameters.start_date,
+            frequency="1h",
+            values=thermal.get_series_matrix()[scenario - 1],
+        )
 
         if maximum_power_ts is None:
             raise ValueError("Disponibility not available")

@@ -14,7 +14,6 @@ from atlas.objects.equipment.load import Load
 def convert_load_units(study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
     """Convert load data from Antares to Atlas."""
 
-    logger.info("Converting load data")
     areas = study.get_areas()
     loads = []
 
@@ -38,7 +37,7 @@ def convert_load_units(study: Study, parameters: AntaresToAtlasParameters, atlas
                     else f"portfolio_{area_name}",
                 ),
             )
-
+        logger.debug(f"Created load unit : {load.name}")
         loads.append(load)
 
     atlas_dataset.load.add(loads)

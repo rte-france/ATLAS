@@ -45,6 +45,7 @@ def convert_thermal_units(
                 thermal=thermal,
                 parameters=parameters,
                 atlas_dataset=atlas_dataset,
+                study=study,
             )
             if thermal_unit:
                 thermal_units.append(thermal_unit)
@@ -60,6 +61,7 @@ def _convert_single_thermal(
     thermal: ThermalCluster,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
+    study: Study,
 ) -> Thermal | None:
     """Convert a single Antares thermal cluster to Atlas Thermal equipment."""
     # TODO: Verify how to get the thermal cluster name and group
@@ -70,7 +72,7 @@ def _convert_single_thermal(
     if thermal_group in parameters.excluded_thermic_groups:
         return None
 
-    maximum_power_ts = get_maximum_power(area, thermal, parameters)
+    maximum_power_ts = get_maximum_power(area, thermal, parameters, study)
     if maximum_power_ts is None:
         return None
 
