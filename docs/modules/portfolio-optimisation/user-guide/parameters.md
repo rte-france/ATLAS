@@ -120,5 +120,4 @@ excluded_thermal_strategy: ["Peak"]
 
 ## Next Steps
 
-- [Running](running.md): How to execute the module
 - [Results](results.md): Understanding outputs

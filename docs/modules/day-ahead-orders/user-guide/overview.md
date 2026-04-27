@@ -13,19 +13,6 @@ The module:
 - **Supports multiple asset types**: Load, non-dispatchable, storage, hydraulic, wind, solar, and thermal
 - **Updates business objects**: Stores orders directly in equipment objects
 
-## How to Use
-
-See [Running Modules](../../../concepts/running-modules.md) for the standard ATLAS module execution pattern.
-
-## Module-Specific Workflow
-
-Beyond the standard module lifecycle (see [Module Pattern](../../../concepts/module-pattern.md)), this module:
-
-1. **Identifies equipment**: Finds all equipment in the input dataset
-2. **Generates orders**: Creates appropriate orders for each equipment type
-3. **Applies forecasts**: Uses forecast data from execution date
-4. **Stores results**: Updates equipment with generated orders
-
 ## Order Types
 
 The module generates different order types based on equipment:
@@ -38,5 +25,5 @@ The module generates different order types based on equipment:
 
 ## Next Steps
 
-- [Parameters](input-data.md): Module-specific configuration options
-- [Running](running.md): Execution details
+- [Parameters](parameters.md): Module-specific configuration options
+- [Results](results.md): Accessing outputs

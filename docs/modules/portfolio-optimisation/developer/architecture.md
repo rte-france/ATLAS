@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Portfolio Optimisation module follows ATLAS's `AbstractModule` pattern. See [Module Pattern](../../../concepts/module-pattern.md) for details on the standard module architecture.
+The Portfolio Optimisation module follows ATLAS's `AbstractModule` pattern. See [Module Pattern](../../module-pattern.md) for details on the standard module architecture.
 
 This document describes the module-specific architecture and components.
 
@@ -38,7 +38,7 @@ Implements `AbstractModule` with methods:
 
 ### **`PortfolioOptimisationParameters`**
 
-Pydantic model inheriting from `AbstractModuleParameters`. Defines all configuration parameters (see [Parameters](../user-guide/input-data.md)).
+Pydantic model inheriting from `AbstractModuleParameters`. Defines all configuration parameters (see [Parameters](../user-guide/parameters.md)).
 
 ### **`PortfolioOptimisationInputDataset`**
 
@@ -97,7 +97,7 @@ export_results() → update equipment.power, portfolio.imbalance
 
 ## Module-Specific Design Patterns
 
-For common ATLAS patterns (module lifecycle, Pydantic models, solver interface), see [Module Pattern](../../../concepts/module-pattern.md).
+For common ATLAS patterns (module lifecycle, Pydantic models, solver interface), see [Module Pattern](../../module-pattern.md).
 
 **Multiprocessing**: Portfolios can be optimized in parallel when `use_multiprocessing=true`
 
