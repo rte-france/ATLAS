@@ -1080,7 +1080,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         result = self.timeseries.filter(pl.col("time") == dt)
         if result.is_empty():
             raise KeyError(f"Value for {dt.to_datetime_string()} not found in the Timeseries.")
-        return result[0, "value"]
+        return result.select("value").item()
 
     def plot(
         self,

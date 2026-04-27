@@ -7,116 +7,80 @@ This file is part of the ATLAS project.
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
+from pendulum import DateTime
+
 import atlas.config as cfg
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
-from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.steps.storage.storage_worker import optimize_single_storage
+from atlas.modules.day_ahead_orders.input_objects.storage import StorageDAO
+from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
+from atlas.modules.day_ahead_orders.steps.storage.storage_worker import (
+    StorageOptimizationResult,
+    optimize_single_storage,
+)
+from atlas.timing import generate_datetimes
 
 
-class StorageStep:
-    def __init__(self, dataset: DayAheadOrdersOutput, parameters: DayAheadOrdersParameters) -> None:
-        """
-        :param dataset: the dataset
-        :type dataset: DayAheadOrdersOutput
-        :param parameters: the parameters
-        :type parameters: DayAheadOrdersParameters
-        :return: None
-        """
-        self.dataset = dataset
-        self.parameters = parameters
-
-    def formulate_storage_orders(self) -> None:
-        """
-        Formulates storage orders on the spot market, for each storage equipment in the dataset.
-        The determination of the quantities and prices of the orders is done through an optimization problem,
-        which is solved for each storage unit independently:
-            _ The price reference used in the objective function to compute potential revenues from selling
-              and buying energy is extracted from the price_forecast_medium of the market_area containing the storage unit.
-            _ The optimization time frame is defined as the sum of 'orders_time' and the attribute optimization_additional_hours
-              of the studied equipment.
-
-        Supports both sequential and parallel processing based on use_multiprocessing parameter.
-        :return: None
-        """
+class StorageStep(AbstractOrderStep):
+    def formulate(self) -> StepResult:
+        local_timewindow = generate_datetimes(
+            self.parameters.temporal.start_date,
+            self.parameters.penultimate_date,
+            self.parameters.temporal.timestep,
+        )
         if self.parameters.multiprocessing.enable:
-            self._formulate_storage_orders_parallel()
-        else:
-            self._formulate_storage_orders_sequential()
+            return self._formulate_parallel(local_timewindow)
+        return self._formulate_sequential(local_timewindow)
 
-    def _formulate_storage_orders_parallel(self) -> None:
-        """
-        Formulate storage orders using multiprocessing for parallel execution.
-        """
+    def _process_unit_result(
+        self, result: StepResult, unit_result: StorageOptimizationResult, storage: StorageDAO
+    ) -> None:
+        if unit_result.success:
+            result.orders.extend(unit_result.orders)
+            result.order_couplings.extend(unit_result.order_couplings)
+
+            if storage.da_buy_submitted_volume is None:
+                storage.da_buy_submitted_volume = unit_result.buy_submitted_volumes
+            else:
+                storage.da_buy_submitted_volume += unit_result.buy_submitted_volumes
+
+            if storage.da_sell_submitted_volume is None:
+                storage.da_sell_submitted_volume = unit_result.sell_submitted_volumes
+            else:
+                storage.da_sell_submitted_volume += unit_result.sell_submitted_volumes
+
+            if unit_result.variable_cost is not None:
+                storage.variable_cost = unit_result.variable_cost
+
+            cfg.logger.info(f"Completed optimization for storage: {storage.name}")
+        else:
+            cfg.logger.warning(f"Optimization skipped or failed for storage: {storage.name}")
+
+    def _formulate_parallel(self, local_timewindow: list[DateTime]) -> StepResult:
         cfg.logger.info(f"Starting parallel storage optimization for {len(self.dataset.storage)} units")
+        result = StepResult()
+        storage_by_name = {storage.name: storage for storage in self.dataset.storage}
 
         with ProcessPoolExecutor(max_workers=self.parameters.multiprocessing.max_workers) as executor:
             future_to_storage = {
-                executor.submit(optimize_single_storage, storage, self.parameters): storage.name
+                executor.submit(optimize_single_storage, storage, self.parameters, local_timewindow): storage.name
                 for storage in self.dataset.storage
             }
 
             for future in as_completed(future_to_storage):
                 storage_name = future_to_storage[future]
                 try:
-                    result = future.result()
-
-                    if result.success:
-                        # Add orders and couplings to the dataset
-                        self.dataset.order.extend(result.orders)
-                        self.dataset.order_coupling.extend(result.order_couplings)
-
-                        # Update the storage unit in the dataset with submitted volumes and variable cost
-                        for storage in self.dataset.storage:
-                            if storage.name == result.storage_name:
-                                if storage.da_buy_submitted_volume is None:
-                                    storage.da_buy_submitted_volume = result.buy_submitted_volumes
-                                else:
-                                    storage.da_buy_submitted_volume += result.buy_submitted_volumes
-
-                                if storage.da_sell_submitted_volume is None:
-                                    storage.da_sell_submitted_volume = result.sell_submitted_volumes
-                                else:
-                                    storage.da_sell_submitted_volume += result.sell_submitted_volumes
-
-                                if result.variable_cost is not None:
-                                    storage.variable_cost = result.variable_cost
-                                break
-
-                        cfg.logger.info(f"Completed optimization for storage: {storage_name}")
-                    else:
-                        cfg.logger.warning(f"Optimization skipped or failed for storage: {storage_name}")
-
+                    unit_result = future.result()
+                    self._process_unit_result(result, unit_result, storage_by_name[unit_result.storage_name])
                 except Exception as e:
                     cfg.logger.error(f"Error processing storage {storage_name}: {e}")
 
-    def _formulate_storage_orders_sequential(self) -> None:
-        """
-        Formulate storage orders using sequential processing.
-        """
+        return result
+
+    def _formulate_sequential(self, local_timewindow) -> StepResult:
         cfg.logger.info(f"Starting sequential storage optimization for {len(self.dataset.storage)} units")
+        result = StepResult()
 
         for storage in self.dataset.storage:
-            result = optimize_single_storage(storage, self.parameters)
+            unit_result = optimize_single_storage(storage, self.parameters, local_timewindow)
+            self._process_unit_result(result, unit_result, storage)
 
-            if result.success:
-                # Add orders and couplings to the dataset
-                self.dataset.order.extend(result.orders)
-                self.dataset.order_coupling.extend(result.order_couplings)
-
-                # Update the storage unit in the dataset with submitted volumes and variable cost
-                if storage.da_buy_submitted_volume is None:
-                    storage.da_buy_submitted_volume = result.buy_submitted_volumes
-                else:
-                    storage.da_buy_submitted_volume += result.buy_submitted_volumes
-
-                if storage.da_sell_submitted_volume is None:
-                    storage.da_sell_submitted_volume = result.sell_submitted_volumes
-                else:
-                    storage.da_sell_submitted_volume += result.sell_submitted_volumes
-
-                if result.variable_cost is not None:
-                    storage.variable_cost = result.variable_cost
-
-                cfg.logger.info(f"Completed optimization for storage: {storage.name}")
-            else:
-                cfg.logger.warning(f"Optimization skipped or failed for storage: {storage.name}")
+        return result
