@@ -19,7 +19,7 @@ phs_nb_fragments: 3
 solver:
   use_presolve: True
   timeout: "PT10S"
-  solver_name: "SCIP"
+  solver_name: "XPRESS"
   export_lp: false
   duality_gap: 0.0001
 price_forecasts_types: ["Medium", "High", "Low"]

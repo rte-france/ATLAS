@@ -88,10 +88,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
             # Retrieve the orders corresponding to the first order of each time frame
             # time frames are mutually exclusive provided that the unit's minimum power is not null
             # over the whole orders time sequence
-            if (
-                    thermal_unit.minimum_power.timeseries.filter(pl.col("time").is_in(self.orders_time))["value"].sum()
-                    > 0.0
-                ):
+            if unit.minimum_power.timeseries.filter(pl.col("time").is_in(self.orders_time))["value"].sum() > 0.0:
                 # Create a list of order names to retrieve.
                 orders_names = []
                 for (ts1, case1), (ts2, case2) in overlapping_blocks:
