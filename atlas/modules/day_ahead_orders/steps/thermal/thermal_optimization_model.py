@@ -8,8 +8,8 @@ This file is part of the ATLAS project.
 import math
 from datetime import datetime
 from typing import Literal
-import polars as pl
 
+import polars as pl
 from pendulum import DateTime
 
 import atlas.config as cfg
@@ -443,32 +443,38 @@ class ThermalOptimizationModel(OptimisationModel):
         fcr_up = fcr_up_procured.timeseries.filter(time_filter)
         fcr_down = fcr_down_procured.timeseries.filter(time_filter)
 
-        feasible_up = afrr_up.join(fcr_up, on="time", suffix="_fcr").with_columns(
-            (pl.col("value").clip(upper_bound=maximum_afrr)
-             + pl.col("value_fcr").clip(upper_bound=maximum_fcr)).alias("value")
-        ).select("time", "value")
-
-        feasible_down = afrr_down.join(fcr_down, on="time", suffix="_fcr").with_columns(
-            (pl.col("value").clip(upper_bound=maximum_afrr)
-             + pl.col("value_fcr").clip(upper_bound=maximum_fcr)).alias("value")
-        ).select("time", "value")
-
-        self.feasible_automated_reserves_up_procured.set_values(
-            Timeseries(feasible_up), inplace=True
+        feasible_up = (
+            afrr_up.join(fcr_up, on="time", suffix="_fcr")
+            .with_columns(
+                (
+                    pl.col("value").clip(upper_bound=maximum_afrr) + pl.col("value_fcr").clip(upper_bound=maximum_fcr)
+                ).alias("value")
+            )
+            .select("time", "value")
         )
-        self.feasible_automated_reserves_down_procured.set_values(
-            Timeseries(feasible_down), inplace=True
+
+        feasible_down = (
+            afrr_down.join(fcr_down, on="time", suffix="_fcr")
+            .with_columns(
+                (
+                    pl.col("value").clip(upper_bound=maximum_afrr) + pl.col("value_fcr").clip(upper_bound=maximum_fcr)
+                ).alias("value")
+            )
+            .select("time", "value")
         )
+
+        self.feasible_automated_reserves_up_procured.set_values(Timeseries(feasible_up), inplace=True)
+        self.feasible_automated_reserves_down_procured.set_values(Timeseries(feasible_down), inplace=True)
 
         self.automated_unsupplied_reserves += (
             afrr_up.join(fcr_up, on="time", suffix="_fcr")
             .join(afrr_down, on="time", suffix="_ad")
             .join(fcr_down, on="time", suffix="_fd")
             .select(
-                (pl.col("value") - maximum_afrr).clip(lower_bound=0) +
-                (pl.col("value_fcr") - maximum_fcr).clip(lower_bound=0) +
-                (pl.col("value_ad") - maximum_afrr).clip(lower_bound=0) +
-                (pl.col("value_fd") - maximum_fcr).clip(lower_bound=0)
+                (pl.col("value") - maximum_afrr).clip(lower_bound=0)
+                + (pl.col("value_fcr") - maximum_fcr).clip(lower_bound=0)
+                + (pl.col("value_ad") - maximum_afrr).clip(lower_bound=0)
+                + (pl.col("value_fd") - maximum_fcr).clip(lower_bound=0)
             )
             .sum()
             .item()
@@ -623,30 +629,32 @@ class ThermalOptimizationModel(OptimisationModel):
         # If self.T_stable = 0, we don't need to include automatedContractedReservesUp and automatedContractedReservesDown to the objective function.
         # otherwise we need to include them.
         self.set_direction(direction)
+
+        dt_h = self.parameters.temporal.timestep.total_hours()
+        manual_pen = self.parameters.manual_unprocured_reserves_penalty * dt_h
+        auto_pen = self.parameters.automated_unprocured_reserves_penalty * dt_h
+        prices_lk = self.prices.to_lookup_dict()
+        var_cost_lk = self.thermal_unit.variable_cost.to_lookup_dict()
+        startup_lk = self.thermal_unit.startup_cost.to_lookup_dict()
+
         self.add_objective(
             objective_expr=(
                 sum(
-                    self.q.get_value(t)
-                    * (self.parameters.temporal.timestep.total_hours())
-                    * (self.prices.get_value(t) - self.thermal_unit.variable_cost.get_value(t))
-                    - self.turned_on.get_value(t) * self.thermal_unit.startup_cost.get_value(t)
-                    - self.parameters.manual_unprocured_reserves_penalty
-                    * (self.parameters.temporal.timestep.total_hours())
+                    self.q.get_value(t) * dt_h * (prices_lk[t] - var_cost_lk[t])
+                    - self.turned_on.get_value(t) * startup_lk[t]
+                    - manual_pen
                     * (
                         self.get_variable(self.contracted_difference_up_at(t))
                         + self.get_variable(self.contracted_difference_down_at(t))
                     )
-                    - self.parameters.automated_unprocured_reserves_penalty
-                    * (self.parameters.temporal.timestep.total_hours())
+                    - auto_pen
                     * (
                         self.get_variable(self.automated_contracted_difference_up_at(t))
                         + self.get_variable(self.automated_contracted_difference_down_at(t))
                     )
                     for t in self.time_frame
                 )
-                - self.parameters.automated_unprocured_reserves_penalty
-                * (self.parameters.temporal.timestep.total_hours())
-                * self.automated_unsupplied_reserves
+                - auto_pen * self.automated_unsupplied_reserves
             ),
         )
 
@@ -719,10 +727,15 @@ class ThermalOptimizationModel(OptimisationModel):
         # Power output
         times = self.time_frame
 
-        q_star = Timeseries(pl.DataFrame({
-            "time": times,
-            "value": [self.q.get_model_var(t).solution_value() for t in times],
-        }, schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()}))
+        q_star = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": times,
+                    "value": [self.q.get_model_var(t).solution_value() for t in times],
+                },
+                schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()},
+            )
+        )
 
         # inform the user if the optimal program is such that the unit
         # provides no output
@@ -739,26 +752,50 @@ class ThermalOptimizationModel(OptimisationModel):
         # where there is no reserve to provide due to the fill up constraints.
         times = self.time_frame
 
-        contracted_difference_up_star = Timeseries(pl.DataFrame({
-            "time": times,
-            "value": [self.get_variable(self.contracted_difference_up_at(t)).solution_value() for t in times],
-        }, schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()}))
+        contracted_difference_up_star = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": times,
+                    "value": [self.get_variable(self.contracted_difference_up_at(t)).solution_value() for t in times],
+                },
+                schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()},
+            )
+        )
 
-        contracted_difference_down_star = Timeseries(pl.DataFrame({
-            "time": times,
-            "value": [self.get_variable(self.contracted_difference_down_at(t)).solution_value() for t in times],
-        }, schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()}))
+        contracted_difference_down_star = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": times,
+                    "value": [self.get_variable(self.contracted_difference_down_at(t)).solution_value() for t in times],
+                },
+                schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()},
+            )
+        )
 
-        automated_contracted_difference_up_star = Timeseries(pl.DataFrame({
-            "time": times,
-            "value": [self.get_variable(self.automated_contracted_difference_up_at(t)).solution_value() for t in times],
-        }, schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()}))
+        automated_contracted_difference_up_star = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": times,
+                    "value": [
+                        self.get_variable(self.automated_contracted_difference_up_at(t)).solution_value() for t in times
+                    ],
+                },
+                schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()},
+            )
+        )
 
-        automated_contracted_difference_down_star = Timeseries(pl.DataFrame({
-            "time": times,
-            "value": [self.get_variable(self.automated_contracted_difference_down_at(t)).solution_value() for t in
-                      times],
-        }, schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()}))
+        automated_contracted_difference_down_star = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": times,
+                    "value": [
+                        self.get_variable(self.automated_contracted_difference_down_at(t)).solution_value()
+                        for t in times
+                    ],
+                },
+                schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()},
+            )
+        )
 
         # Populate the dictionnary
         results["q"] = q_star
@@ -772,20 +809,35 @@ class ThermalOptimizationModel(OptimisationModel):
         # Permanent variables
         times = self.time_frame
 
-        ON_UP_star = Timeseries(pl.DataFrame({
-            "time": times,
-            "value": [self.ON_UP.get_model_var(t).solution_value() for t in times],
-        }, schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()}))
+        ON_UP_star = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": times,
+                    "value": [self.ON_UP.get_model_var(t).solution_value() for t in times],
+                },
+                schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()},
+            )
+        )
 
-        ON_DOWN_star = Timeseries(pl.DataFrame({
-            "time": times,
-            "value": [self.ON_DOWN.get_model_var(t).solution_value() for t in times],
-        }, schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()}))
+        ON_DOWN_star = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": times,
+                    "value": [self.ON_DOWN.get_model_var(t).solution_value() for t in times],
+                },
+                schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()},
+            )
+        )
 
-        OFF_star = Timeseries(pl.DataFrame({
-            "time": times,
-            "value": [self.OFF.get_model_var(t).solution_value() for t in times],
-        }, schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()}))
+        OFF_star = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": times,
+                    "value": [self.OFF.get_model_var(t).solution_value() for t in times],
+                },
+                schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()},
+            )
+        )
 
         # Populate the dictionnary
         results["ON_UP"] = ON_UP_star
@@ -795,22 +847,37 @@ class ThermalOptimizationModel(OptimisationModel):
         times = self.time_frame
 
         if self.T_start >= 1:
-            results["START"] = Timeseries(pl.DataFrame({
-                "time": times,
-                "value": [self.START.get_model_var(t).solution_value() for t in times],
-            }, schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()}))
+            results["START"] = Timeseries(
+                pl.DataFrame(
+                    {
+                        "time": times,
+                        "value": [self.START.get_model_var(t).solution_value() for t in times],
+                    },
+                    schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()},
+                )
+            )
 
         if self.T_stop >= 1:
-            results["STOP"] = Timeseries(pl.DataFrame({
-                "time": times,
-                "value": [self.STOP.get_model_var(t).solution_value() for t in times],
-            }, schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()}))
+            results["STOP"] = Timeseries(
+                pl.DataFrame(
+                    {
+                        "time": times,
+                        "value": [self.STOP.get_model_var(t).solution_value() for t in times],
+                    },
+                    schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()},
+                )
+            )
 
         if self.T_stable >= 1:
-            results["ON_FLAT"] = Timeseries(pl.DataFrame({
-                "time": times,
-                "value": [self.ON_FLAT.get_model_var(t).solution_value() for t in times],
-            }, schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()}))
+            results["ON_FLAT"] = Timeseries(
+                pl.DataFrame(
+                    {
+                        "time": times,
+                        "value": [self.ON_FLAT.get_model_var(t).solution_value() for t in times],
+                    },
+                    schema={"time": pl.Datetime("us", "UTC"), "value": pl.Float64()},
+                )
+            )
 
         return results
 
@@ -831,22 +898,26 @@ class ThermalOptimizationModel(OptimisationModel):
         :type q_lower: Timeseries
         :return: None
         """
-        for t in time_frame:
-            self.add_constraint(
-                q.get_value(t)
-                + self.get_variable(self.reserves_up_equip_at(t))
-                + self.get_variable(self.automated_reserves_up_at(t))
-                + self.get_variable(self.unprovided_reserves_up_at(t))
-                <= q_upper.get_value(t) + epsilon
-            )  # Upward constraint - eq. (41)
-            self.add_constraint(
-                q.get_value(t)
-                + self.get_variable(self.reserves_up_equip_at(t))
-                + self.get_variable(self.automated_reserves_up_at(t))
-                + self.get_variable(self.unprovided_reserves_up_at(t))
-                >= q_upper.get_value(t) - epsilon
-            )  # Upward constraint - eq. (41)
+        q_upper_lk = q_upper.to_lookup_dict()
+        q_lower_lk = q_lower.to_lookup_dict()
 
+        for t in time_frame:
+            q_upper_t = q_upper_lk[t]
+            q_lower_t = q_lower_lk[t]
+            self.add_constraint(
+                q.get_value(t)
+                + self.get_variable(self.reserves_up_equip_at(t))
+                + self.get_variable(self.automated_reserves_up_at(t))
+                + self.get_variable(self.unprovided_reserves_up_at(t))
+                <= q_upper_t + epsilon
+            )
+            self.add_constraint(
+                q.get_value(t)
+                + self.get_variable(self.reserves_up_equip_at(t))
+                + self.get_variable(self.automated_reserves_up_at(t))
+                + self.get_variable(self.unprovided_reserves_up_at(t))
+                >= q_upper_t - epsilon
+            )
             self.add_constraint(
                 (
                     q.get_value(t)
@@ -855,8 +926,8 @@ class ThermalOptimizationModel(OptimisationModel):
                     - self.get_variable(self.unprovided_reserves_down_at(t))
                     + self.get_variable(self.relaxed_reserves_at(t))
                 )
-                <= q_lower.get_value(t) + epsilon
-            )  # Downward constraint - eq. (42)
+                <= q_lower_t + epsilon
+            )
             self.add_constraint(
                 (
                     q.get_value(t)
@@ -890,26 +961,27 @@ class ThermalOptimizationModel(OptimisationModel):
         :type feasible_automated_reserves_down_procured: Timeseries
         :return: None
         """
+        res_up_lk = reserves_up_procured.to_lookup_dict()
+        res_down_lk = reserves_down_procured.to_lookup_dict()
+        feas_auto_up_lk = feasible_automated_reserves_up_procured.to_lookup_dict()
+        feas_auto_down_lk = feasible_automated_reserves_down_procured.to_lookup_dict()
+
         for t in time_frame:
-            # contractedDifference
             self.add_constraint(
                 self.get_variable(self.contracted_difference_up_at(t))
-                >= reserves_up_procured.get_value(t) - self.get_variable(self.reserves_up_equip_at(t))
+                >= res_up_lk[t] - self.get_variable(self.reserves_up_equip_at(t))
             )
             self.add_constraint(
                 self.get_variable(self.contracted_difference_down_at(t))
-                >= reserves_down_procured.get_value(t) - self.get_variable(self.reserves_down_equip_at(t))
+                >= res_down_lk[t] - self.get_variable(self.reserves_down_equip_at(t))
             )
-            # automatedContractedDifference
             self.add_constraint(
                 self.get_variable(self.automated_contracted_difference_up_at(t))
-                >= feasible_automated_reserves_up_procured.get_value(t)
-                - self.get_variable(self.automated_reserves_up_at(t))
+                >= feas_auto_up_lk[t] - self.get_variable(self.automated_reserves_up_at(t))
             )
             self.add_constraint(
                 self.get_variable(self.automated_contracted_difference_down_at(t))
-                >= feasible_automated_reserves_down_procured.get_value(t)
-                - self.get_variable(self.automated_reserves_down_at(t))
+                >= feas_auto_down_lk[t] - self.get_variable(self.automated_reserves_down_at(t))
             )
 
     def add_daily_energy_constraint(self) -> None:
@@ -930,9 +1002,9 @@ class ThermalOptimizationModel(OptimisationModel):
                 steps_by_day.setdefault(key, []).append(t)
 
             for date, matching_steps in steps_by_day.items():
-                constraint_expr = sum(
-                    self.q.get_value(t) for t in matching_steps
-                ) <= daily_energy_lookup[date] * dt_days * len(matching_steps)
+                constraint_expr = sum(self.q.get_value(t) for t in matching_steps) <= daily_energy_lookup[
+                    date
+                ] * dt_days * len(matching_steps)
                 self.add_constraint(constraint_expr, f"energy_limit_of_{self.thermal_unit.name}_at_{date}")
 
     def is_day_zero(self) -> bool:
