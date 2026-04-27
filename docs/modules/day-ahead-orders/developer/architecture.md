@@ -71,7 +71,7 @@ Update dataset with the result of orders formulation: see the lists "orders" and
 
 There are 3 optimizations executed in the module:
 ElectricVehicleModel and BatteryModel are created during the formulation of storage orders (see formulate_storage_orders())
-ThermalOptimizationModel is created during the formulation of thermal intermediate load orders (see formulate_thermal_intermediate_load_orders())
+ThermalOptimizationModel is created during the formulation of thermal intermediate load orders (see formulate())
 
 ## Data Flow
 
