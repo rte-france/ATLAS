@@ -56,12 +56,12 @@ def market_clearing_atlas_data(steps_parameters) -> AtlasDataset:
     return data
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def steps_input_dataset(day_ahead_atlas_data, steps_parameters) -> DayAheadOrdersInputDataset:
     return DayAheadOrdersInputDataset(day_ahead_atlas_data, steps_parameters)
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def steps_output_dataset(steps_input_dataset) -> DayAheadOrdersOutput:
     return DayAheadOrdersOutput(steps_input_dataset)
 

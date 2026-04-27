@@ -12,6 +12,7 @@ from atlas.enums import CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.objects.equipment.equipment import Equipment
 
@@ -27,7 +28,7 @@ class ThermalPeakLoadOrders:
         self.orders_time = orders_time
         self.parameters = parameters
 
-    def formulate(self, unit: Equipment) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
+    def formulate(self, unit: ThermalDAO) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
         """
         This function formulates orders for a thermic peak load unit. Such orders
         have the particularity of being time-independent, so there is no link between
@@ -132,7 +133,7 @@ class ThermalPeakLoadOrders:
 
                 # Create the instance
                 inflexible_order = OrderDAO(
-                    name=f"inflexible_order_at_{t}_for_unit_{unit.name}",
+                    name=f"inflexible_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
@@ -143,8 +144,8 @@ class ThermalPeakLoadOrders:
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
                     execution_date=self.parameters.temporal.execution_date,
-                    start_date=t,
-                    end_date=t + self.parameters.temporal.timestep,
+                    start_date=t,  # type: ignore [arg-type]
+                    end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
                 )
                 orders.append(inflexible_order)
 
@@ -173,11 +174,11 @@ class ThermalPeakLoadOrders:
                     inflexible_order=inflexible_order,
                     t=t,
                     unit=unit,
-                    order_name=f"flexible_order_at_{t}_for_unit_{unit.name}",
+                    order_name=f"flexible_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
                     q_max=q_max,
                     q_min=0,
                     price=unit.variable_cost.get_value(t),
-                    link_name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t}_for_unit_{unit.name}",
+                    link_name=f"parent_children_inflexible_flexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
                 )
                 orders.append(order)
                 if coupling is not None:
@@ -197,7 +198,7 @@ class ThermalPeakLoadOrders:
                     q_min=(1 - self.parameters.proportional_reserves_penalty)
                     * automated_reserves_down_procured.get_value(t),
                     price=unit.variable_cost.get_value(t) - self.parameters.automated_unprocured_reserves_penalty,
-                    link_name=f"PARENT_CHILDREN_automated_downward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
+                    link_name=f"parent_children_automated_downward_reserve_inflexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
                 )
                 orders.append(order)
                 if coupling is not None:
@@ -214,7 +215,7 @@ class ThermalPeakLoadOrders:
                     q_min=(1 - self.parameters.proportional_reserves_penalty)
                     * manual_reserves_down_procured.get_value(t),
                     price=unit.variable_cost.get_value(t) - self.parameters.manual_unprocured_reserves_penalty,
-                    link_name=f"PARENT_CHILDREN_manual_downward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
+                    link_name=f"parent_children_manual_downward_reserve_inflexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
                 )
                 orders.append(order)
                 if coupling is not None:
@@ -231,7 +232,7 @@ class ThermalPeakLoadOrders:
                     q_min=(1 - self.parameters.proportional_reserves_penalty)
                     * automated_reserves_up_procured.get_value(t),
                     price=(unit.variable_cost.get_value(t) + self.parameters.automated_unprocured_reserves_penalty),
-                    link_name=f"PARENT_CHILDREN_automated_upward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
+                    link_name=f"parent_children_automated_upward_reserve_inflexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
                 )
                 orders.append(order)
                 if coupling is not None:
@@ -248,7 +249,7 @@ class ThermalPeakLoadOrders:
                     q_min=(1 - self.parameters.proportional_reserves_penalty)
                     * manual_reserves_up_procured.get_value(t),
                     price=unit.variable_cost.get_value(t) + self.parameters.manual_unprocured_reserves_penalty,
-                    link_name=f"PARENT_CHILDREN_manual_upward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
+                    link_name=f"parent_children_manual_upward_reserve_inflexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
                 )
                 orders.append(order)
                 if coupling is not None:
@@ -299,8 +300,8 @@ class ThermalPeakLoadOrders:
             order_type=OrderType.Sell,
             is_agent_tso=False,
             execution_date=self.parameters.temporal.execution_date,
-            start_date=t,
-            end_date=t + self.parameters.temporal.timestep,
+            start_date=t,  # type: ignore [arg-type]
+            end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
         )
         coupling = None
         if inflexible_order is not None:

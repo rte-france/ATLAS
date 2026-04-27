@@ -5,7 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import re
+import pytest
 
 from atlas.enums import CouplingType, ThermalStrategy
 from atlas.io_utils.container import Container
@@ -45,12 +45,7 @@ def _assert_orders_match(result: StepResult, expected: Container[Order], equipme
     unmatched = []
     for gen_order in remaining[:]:
         try:
-            normalized_name = re.sub(
-                r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})[+\-]\d{2}:\d{2}",
-                r"\3_\2_\1_\4_\5_\6",
-                gen_order.name,
-            )
-            exp_order = expected.get(normalized_name)
+            exp_order = expected.get(gen_order.name)
         except KeyError:
             continue
         diff = _meaningful_diff(gen_order, exp_order)
@@ -92,17 +87,18 @@ LOAD_EQUIPMENT = {"a_baseload", "a_power_to_gas_1", "b_baseload", "b_power_to_ga
 
 
 class TestLoadStep:
-    def test_orders_match_expected(self, steps_output_dataset, steps_parameters, expected_orders):
-        result = LoadStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+    @pytest.fixture(scope="class")
+    def result(self, steps_output_dataset, steps_parameters) -> StepResult:
+        return LoadStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+
+    def test_orders_match_expected(self, result, expected_orders):
         _assert_orders_match(result, expected_orders, LOAD_EQUIPMENT)
 
-    def test_order_count(self, steps_output_dataset, steps_parameters, expected_orders):
-        result = LoadStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+    def test_order_count(self, result, expected_orders):
         expected_count = sum(1 for o in expected_orders if o.equipment.name in LOAD_EQUIPMENT)
         assert len(result.orders) == expected_count
 
-    def test_no_order_couplings(self, steps_output_dataset, steps_parameters):
-        result = LoadStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+    def test_no_order_couplings(self, result):
         assert result.order_couplings == []
 
 
@@ -114,17 +110,18 @@ NON_DISPATCHABLE_EQUIPMENT = {"a_other_non_dispatchable", "b_other_non_dispatcha
 
 
 class TestNonDispatchableStep:
-    def test_orders_match_expected(self, steps_output_dataset, steps_parameters, expected_orders):
-        result = NonDispatchableStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+    @pytest.fixture(scope="class")
+    def result(self, steps_output_dataset, steps_parameters) -> StepResult:
+        return NonDispatchableStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+
+    def test_orders_match_expected(self, result, expected_orders):
         _assert_orders_match(result, expected_orders, NON_DISPATCHABLE_EQUIPMENT)
 
-    def test_order_count(self, steps_output_dataset, steps_parameters, expected_orders):
-        result = NonDispatchableStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+    def test_order_count(self, result, expected_orders):
         expected_count = sum(1 for o in expected_orders if o.equipment.name in NON_DISPATCHABLE_EQUIPMENT)
         assert len(result.orders) == expected_count
 
-    def test_no_order_couplings(self, steps_output_dataset, steps_parameters):
-        result = NonDispatchableStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+    def test_no_order_couplings(self, result):
         assert result.order_couplings == []
 
 
@@ -136,17 +133,18 @@ WIND_PV_EQUIPMENT = {"a_wind_1", "b_wind_1", "a_photovoltaic_1", "b_photovoltaic
 
 
 class TestWindPVStep:
-    def test_orders_match_expected(self, steps_output_dataset, steps_parameters, expected_orders):
-        result = WindPVStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+    @pytest.fixture(scope="class")
+    def result(self, steps_output_dataset, steps_parameters) -> StepResult:
+        return WindPVStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+
+    def test_orders_match_expected(self, result, expected_orders):
         _assert_orders_match(result, expected_orders, WIND_PV_EQUIPMENT)
 
-    def test_order_count(self, steps_output_dataset, steps_parameters, expected_orders):
-        result = WindPVStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+    def test_order_count(self, result, expected_orders):
         expected_count = sum(1 for o in expected_orders if o.equipment.name in WIND_PV_EQUIPMENT)
         assert len(result.orders) == expected_count
 
-    def test_no_order_couplings(self, steps_output_dataset, steps_parameters):
-        result = WindPVStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+    def test_no_order_couplings(self, result):
         assert result.order_couplings == []
 
 
@@ -158,21 +156,19 @@ HYDRO_EQUIPMENT = {"a_hydraulic", "b_hydraulic"}
 
 
 class TestHydraulicStep:
-    def test_orders_match_expected(self, steps_output_dataset, steps_parameters, expected_orders):
-        result = HydraulicStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+    @pytest.fixture(scope="class")
+    def result(self, steps_output_dataset, steps_parameters) -> StepResult:
+        return HydraulicStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+
+    def test_orders_match_expected(self, result, expected_orders):
         _assert_orders_match(result, expected_orders, HYDRO_EQUIPMENT)
 
-    def test_order_count(self, steps_output_dataset, steps_parameters, expected_orders):
-        result = HydraulicStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+    def test_order_count(self, result, expected_orders):
         expected_count = sum(1 for o in expected_orders if o.equipment.name in HYDRO_EQUIPMENT)
         assert len(result.orders) == expected_count
 
-    def test_complement_couplings(self, steps_output_dataset, steps_parameters, expected_couplings):
-
-        result = HydraulicStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
-
+    def test_complement_couplings(self, result, expected_couplings):
         expected_complements = [c for c in expected_couplings if c.coupling_type == CouplingType.COMPLEMENT]
-
         _assert_couplings_match(result.order_couplings, expected_complements)
 
 
@@ -185,50 +181,46 @@ THERMAL_PEAK_EQUIPMENT = {"a_thermal_peak_1", "b_thermal_peak_1"}
 
 
 class TestThermalBaseOrders:
-    def _run(self, steps_output_dataset, steps_parameters) -> StepResult:
+    @pytest.fixture(scope="class")
+    def result(self, steps_output_dataset, steps_parameters) -> StepResult:
         orders_time = _orders_time(steps_parameters)
-        result = StepResult()
+        r = StepResult()
         for unit in [t for t in steps_output_dataset.thermal if t.strategy == ThermalStrategy.BASE]:
             unit_orders, unit_couplings = ThermalBaseLoadOrders(orders_time, steps_parameters).formulate(unit)
-            result.orders.extend(unit_orders)
-            result.order_couplings.extend(unit_couplings)
-        return result
+            r.orders.extend(unit_orders)
+            r.order_couplings.extend(unit_couplings)
+        return r
 
-    def test_orders_match_expected(self, steps_output_dataset, steps_parameters, expected_orders):
-        result = self._run(steps_output_dataset, steps_parameters)
+    def test_orders_match_expected(self, result, expected_orders):
         _assert_orders_match(result, expected_orders, THERMAL_BASE_EQUIPMENT)
 
-    def test_order_count(self, steps_output_dataset, steps_parameters, expected_orders):
-        result = self._run(steps_output_dataset, steps_parameters)
+    def test_order_count(self, result, expected_orders):
         expected_count = sum(1 for o in expected_orders if o.equipment.name in THERMAL_BASE_EQUIPMENT)
         assert len(result.orders) == expected_count
 
-    def test_couplings_match_expected(self, steps_output_dataset, steps_parameters, expected_couplings):
-        result = self._run(steps_output_dataset, steps_parameters)
+    def test_couplings_match_expected(self, result, expected_couplings):
         expected = [c for c in expected_couplings if any(o.equipment.name in THERMAL_BASE_EQUIPMENT for o in c.orders)]
         _assert_couplings_match(result.order_couplings, expected)
 
 
 class TestThermalPeakOrders:
-    def _run(self, steps_output_dataset, steps_parameters) -> StepResult:
+    @pytest.fixture(scope="class")
+    def result(self, steps_output_dataset, steps_parameters) -> StepResult:
         orders_time = _orders_time(steps_parameters)
-        result = StepResult()
+        r = StepResult()
         for unit in [t for t in steps_output_dataset.thermal if t.strategy == ThermalStrategy.PEAK]:
             unit_orders, unit_couplings = ThermalPeakLoadOrders(orders_time, steps_parameters).formulate(unit)
-            result.orders.extend(unit_orders)
-            result.order_couplings.extend(unit_couplings)
-        return result
+            r.orders.extend(unit_orders)
+            r.order_couplings.extend(unit_couplings)
+        return r
 
-    def test_orders_match_expected(self, steps_output_dataset, steps_parameters, expected_orders):
-        result = self._run(steps_output_dataset, steps_parameters)
+    def test_orders_match_expected(self, result, expected_orders):
         _assert_orders_match(result, expected_orders, THERMAL_PEAK_EQUIPMENT)
 
-    def test_order_count(self, steps_output_dataset, steps_parameters, expected_orders):
-        result = self._run(steps_output_dataset, steps_parameters)
+    def test_order_count(self, result, expected_orders):
         expected_count = sum(1 for o in expected_orders if o.equipment.name in THERMAL_PEAK_EQUIPMENT)
         assert len(result.orders) == expected_count
 
-    def test_couplings_match_expected(self, steps_output_dataset, steps_parameters, expected_couplings):
-        result = self._run(steps_output_dataset, steps_parameters)
+    def test_couplings_match_expected(self, result, expected_couplings):
         expected = [c for c in expected_couplings if any(o.equipment.name in THERMAL_PEAK_EQUIPMENT for o in c.orders)]
         _assert_couplings_match(result.order_couplings, expected)

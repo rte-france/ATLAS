@@ -86,7 +86,7 @@ class HydraulicStep(AbstractOrderStep):
                 for k, v in volumes.items():
                     if v != 0:
                         bid_output = OrderDAO(
-                            name=f"hydraulic_order_fragment_{str(k)}_at_{t}_for_unit_{equipment.name}",
+                            name=f"hydraulic_order_fragment_{str(k)}_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{equipment.name}",
                             market_area=equipment.portfolio.market_area,
                             portfolio=equipment.portfolio,
                             equipment=equipment,
@@ -105,13 +105,13 @@ class HydraulicStep(AbstractOrderStep):
                         coupling_orders.append(bid_output)
 
                         if t in submitted_volumes:
-                            submitted_volumes.set_value(t, v)
+                            submitted_volumes.set_value(t, submitted_volumes.get_value(t) + v)
                         else:
                             submitted_volumes.add_index(t, v)
 
             result.order_couplings.append(
                 OrderCouplingDAO(
-                    name=f"COMPLEMENT_{str(equipment.name)}_{self.parameters.temporal.execution_date}",
+                    name=f"complement_{str(equipment.name)}_{self.parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}",
                     coupling_type=CouplingType.COMPLEMENT,
                     complement_direction=ComplementDirection.GreaterThan,
                     complement_energy=complement_energy,

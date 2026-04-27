@@ -346,7 +346,7 @@ def _create_orders_with_couplings(
 
         order_couplings.append(
             OrderCouplingDAO(
-                name=f"COMPLEMENT_DA_{storage.name}_{parameters.temporal.execution_date}",
+                name=f"COMPLEMENT_DA_{storage.name}_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}",
                 coupling_type=CouplingType.COMPLEMENT,
                 complement_direction=ComplementDirection.EqualTo,
                 complement_energy=complement_energy,
@@ -378,7 +378,7 @@ def _create_spot_order(
     """Create a single spot order."""
 
     return OrderDAO(
-        name=f"storage_order_type_{order_type}_at_{start_date}_for_unit_{storage.name}",
+        name=f"storage_order_type_{order_type}_at_{start_date.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{storage.name}",
         equipment=storage,
         portfolio=storage.portfolio,
         market_area=storage.portfolio.market_area,
