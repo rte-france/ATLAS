@@ -6,9 +6,9 @@ This file is part of the ATLAS project.
 """
 
 import math
-import polars as pl
 
 import pendulum
+import polars as pl
 from pendulum import DateTime
 
 import atlas.config as cfg
@@ -88,9 +88,9 @@ class ThermalUnitOrders:
             source = getattr(unit, attr)
             return source.get_forecast(ed, start, end) if source else _default
 
-        automated_reserves_up_procured = _get("afrr_up_procured")   + _get("fcr_up_procured")
+        automated_reserves_up_procured = _get("afrr_up_procured") + _get("fcr_up_procured")
         automated_reserves_down_procured = _get("afrr_down_procured") + _get("fcr_down_procured")
-        manual_reserves_up_procured = _get("mfrr_up_procured")   + _get("rr_up_procured")
+        manual_reserves_up_procured = _get("mfrr_up_procured") + _get("rr_up_procured")
         manual_reserves_down_procured = _get("mfrr_down_procured") + _get("rr_down_procured")
 
         ## Get the unit-specific parameters:
@@ -231,7 +231,7 @@ class ThermalUnitOrders:
 
         prop_pen = 1 - self.parameters.proportional_reserves_penalty
         auto_pen = self.parameters.automated_unprocured_reserves_penalty
-        man_pen  = self.parameters.manual_unprocured_reserves_penalty
+        man_pen = self.parameters.manual_unprocured_reserves_penalty
 
         # ------------------------------------------------------- #
         #                                                         #
@@ -524,10 +524,7 @@ class ThermalUnitOrders:
         # Consistency of the online states wrt the minimum duration is ensured by definition of the
         # determine_baseload_states_sequence function.
         orders_set = set(self.orders_time)
-        online_at_t = sorted(
-            pendulum.instance(dt)
-            for dt in orders_set.intersection(states_sequence.index)
-        )
+        online_at_t = sorted(pendulum.instance(dt) for dt in orders_set.intersection(states_sequence.index))
 
         # Based on these time steps, deduce the intervals.
         # The intervals bounds are retrieved by comparing the total minutes between to time steps :
