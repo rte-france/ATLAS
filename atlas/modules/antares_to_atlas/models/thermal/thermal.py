@@ -66,7 +66,7 @@ def _convert_single_thermal(
     """Convert a single Antares thermal cluster to Atlas Thermal equipment."""
     # TODO: Verify how to get the thermal cluster name and group
     # In old code: antares_thermal.Name (e.g. "fr_Nuclear_1") and antares_thermal.Group (e.g. "Nuclear")
-    thermal_name = thermal.name
+    thermal_name = f"{area.id}_{thermal.name}"
     thermal_group = thermal.properties.group
 
     if thermal_group in parameters.excluded_thermic_groups:
