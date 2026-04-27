@@ -29,8 +29,8 @@ def convert_links(study: Study, parameters: AntaresToAtlasParameters, atlas_data
         if link.get_capacity_direct()[0].abs().max() == 0 and link.get_capacity_indirect()[0].abs().max() == 0.0:
             continue
 
-        node_1 = atlas_dataset.get("node", uphill_node)
-        node_2 = atlas_dataset.get("node", downhill_node)
+        node_1 = atlas_dataset.get("market_area", uphill_node)
+        node_2 = atlas_dataset.get("market_area", downhill_node)
         ctrl_block_1 = atlas_dataset.get("control_block", uphill_node)
         ctrl_block_2 = atlas_dataset.get("control_block", downhill_node)
 
@@ -50,6 +50,8 @@ def convert_links(study: Study, parameters: AntaresToAtlasParameters, atlas_data
                 * (-1),
             )
         )
+
+    logger.info(f"Converted {len(market_borders)} inter-area links")
     atlas_dataset.market_border.add(market_borders)
 
     return atlas_dataset

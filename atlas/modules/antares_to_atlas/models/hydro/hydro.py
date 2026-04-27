@@ -13,7 +13,7 @@ from pendulum import duration
 from atlas.enums import InflowFrequency
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
-from atlas.modules.antares_to_atlas.models.hydro.inflows import add_inflows_from_csv, build_reservoir_inflows
+from atlas.modules.antares_to_atlas.models.hydro.inflows import add_inflows_from_csv
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.objects.equipment.hydro import Hydro
 
@@ -59,6 +59,7 @@ def convert_hydro_units(
         if hydro:
             hydro_units.append(hydro)
 
+    logger.info(f"Converted {len(hydro_units)} hydro units")
     atlas_dataset.hydro = hydro_units
     return atlas_dataset
 
@@ -147,7 +148,4 @@ def _create_hydraulic_equipment(
     hydro.minimum_daily_energy = daily_energy * parameters.hydro.min_energy_coeff
     hydro.maximum_daily_energy = daily_energy * parameters.hydro.max_energy_coeff
 
-    logger.info(f"Created hydraulic equipment for area: {area.id}")
     return hydro
-
-

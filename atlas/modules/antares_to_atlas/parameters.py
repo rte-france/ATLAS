@@ -145,7 +145,7 @@ class ThermalParameters(BaseModel):
     )
 
     def get(self, name: str) -> ThermalTechnologyConfig | None:
-        _ALIASES = {"coal": "hard_coal"}
+        _ALIASES = {"coal": "hard_coal", "hard coal": "hard_coal"}
         key = name.lower()
         key = _ALIASES.get(key, key)
         return getattr(self, key, None)
