@@ -9,9 +9,10 @@ from rich import print as rprint
 import atlas
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.config import logger
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
+from atlas.modules.module_run import ModuleRun
 from atlas.orchestrator.current_input_state import CurrentInputState
-from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.orchestrator.workflow.workflow import Workflow
 from atlas.timing import timer
@@ -82,15 +83,13 @@ def run(
 
         try:
             with timer() as t:
-                cis = CurrentInputState.from_directory(dataset_path)
+                dataset = AtlasDataset.from_directory(dataset_path)
                 module = module_class()
                 parameters = cast(AbstractModuleParameters, module.get_parameters_class()).from_file(config_path)
-
-                output_dataset = module.run(cis.get_data(copy=False), parameters)
+                result = ModuleRun(module, dataset, parameters).run()
 
                 if parameters.output.export_output_dataset:
-                    CISHandler.apply(output_dataset.change_sets, cis)
-                    cis.to_directory(parameters.get_output_dir())
+                    CurrentInputState(result).to_directory(parameters.get_output_dir())
 
             logger.info(f"Module '{module_name}' completed in {t()} seconds")
             rprint(f"[bold green]✓[/bold green] Module '{module_name}' completed successfully.")

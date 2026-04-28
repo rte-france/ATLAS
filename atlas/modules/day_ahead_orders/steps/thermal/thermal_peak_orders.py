@@ -12,6 +12,7 @@ from atlas.enums import CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.objects.equipment.equipment import Equipment
 
@@ -27,7 +28,7 @@ class ThermalPeakLoadOrders:
         self.orders_time = orders_time
         self.parameters = parameters
 
-    def formulate(self, unit: Equipment) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
+    def formulate(self, unit: ThermalDAO) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
         """
         This function formulates orders for a thermic peak load unit. Such orders
         have the particularity of being time-independent, so there is no link between
@@ -143,8 +144,8 @@ class ThermalPeakLoadOrders:
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
                     execution_date=self.parameters.temporal.execution_date,
-                    start_date=t,
-                    end_date=t + self.parameters.temporal.timestep,
+                    start_date=t,  # type: ignore [arg-type]
+                    end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
                 )
                 orders.append(inflexible_order)
 
@@ -299,8 +300,8 @@ class ThermalPeakLoadOrders:
             order_type=OrderType.Sell,
             is_agent_tso=False,
             execution_date=self.parameters.temporal.execution_date,
-            start_date=t,
-            end_date=t + self.parameters.temporal.timestep,
+            start_date=t,  # type: ignore [arg-type]
+            end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
         )
         coupling = None
         if inflexible_order is not None:
