@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 
 import itertools
 import math
-from collections.abc import Callable
 
 import polars as pl
 from pendulum import DateTime
@@ -20,16 +19,7 @@ from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.steps.thermal import (
-    combination_1,
-    combination_2,
-    combination_3,
-    combination_4,
-    combination_5,
-    combination_6,
-    combination_7,
-    combination_8,
-)
+from atlas.modules.day_ahead_orders.steps.thermal.constraint_builder import ThermalConstraintBuilder
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_optimization_model import ThermalOptimizationModel
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_unit_orders import ThermalUnitOrders
 from atlas.objects.equipment.thermal import Thermal
@@ -85,47 +75,20 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         overlapping_blocks = self.get_overlapping_timeframes(online_timeframes)
 
         if overlapping_blocks:
-            # Retrieve the orders corresponding to the first order of each time frame
             # time frames are mutually exclusive provided that the unit's minimum power is not null
-            # over the whole orders time sequence
-            if unit.minimum_power.timeseries.filter(pl.col("time").is_in(self.orders_time)).select("value").sum() > 0.0:
-                # Create a list of order names to retrieve.
-                orders_names = []
-                for (ts1, case1), (ts2, case2) in overlapping_blocks:
-                    # Get the two start dates of the colliding blocks and their names (i.e. cases)
-                    start_date_order_1, start_date_order_2 = ts1.first_date(), ts2.first_date()
-                    case_order_1, case_order_2 = case1, case2
-                    orders_names.append(
-                        f"order_at_{start_date_order_1}_for_unit_{unit.name}_under_price_{case_order_1}"
-                    )
-                    orders_names.append(
-                        f"order_at_{start_date_order_2}_for_unit_{unit.name}_under_price_{case_order_2}"
-                    )
-
-                # Filter the orders to keep only those with the relevant name.
+            if unit.minimum_power.timeseries.filter(pl.col("time").is_in(self.orders_time))["value"].sum() > 0.0:
+                orders_names = [
+                    f"order_at_{ts.first_date()}_for_unit_{unit.name}_under_price_{case}"
+                    for (ts, case), _ in overlapping_blocks
+                ] + [
+                    f"order_at_{ts.first_date()}_for_unit_{unit.name}_under_price_{case}"
+                    for _, (ts, case) in overlapping_blocks
+                ]
                 orders_list = [order for order in orders if order.name in orders_names]
+                sorted_orders = [[o for o in orders_list if case in o.name] for case in cases]
 
-                # Now that we recovered the orders, filter them by case and generate the exclusion links
-                # across orders of different scenarios.
-                sorted_orders = []  # Create a list of lists, each list contains orders attached to the same case
-                for case in cases:
-                    current_case = []
-                    for order in orders_list:
-                        if case in order.name:
-                            current_case.append(order)
-                    sorted_orders.append(current_case)
-
-                for cases_pairs in itertools.combinations(
-                    sorted_orders, 2
-                ):  # Consider pairwise combination across cases
-                    exclusion_combinations = list(
-                        itertools.product(cases_pairs[0], cases_pairs[1])
-                    )  # Compute all unique pairs across the two lists, i.e. across the orders
-                    # attached to case i and those attached to case j for (i,j) two cases
-                    # belonging to the set of all cases.
-                    for exclusion_combination in exclusion_combinations:  # Create the exclusion links between cases
-                        # Unwrap the two orders
-                        order_1, order_2 = exclusion_combination[0], exclusion_combination[1]
+                for orders_a, orders_b in itertools.combinations(sorted_orders, 2):
+                    for order_1, order_2 in itertools.product(orders_a, orders_b):
                         couplings.append(
                             OrderCouplingDAO(
                                 name=f"EXCLUSION_link_between_orders_{order_1.name}_and_{order_2.name}",
@@ -161,36 +124,18 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         # extract the list of scenarios.
         scenarios_names = results[thermal_unit.name].keys()
 
-        # See whether the unit has a minimum_stable_power_duration
         has_flat = (
-            True
-            if min(thermal_unit.minimum_stable_power_duration.total_hours(), thermal_unit.minimum_time_on.total_hours())
+            min(thermal_unit.minimum_stable_power_duration.total_hours(), thermal_unit.minimum_time_on.total_hours())
             >= 2
-            else False
         )
 
-        # For each price curve, we collapse all ON states. This is why we needed to know whether the unit has
-        # two or three ON states. Due to the mutual exclusion constraint, the resulting serie will take values in {0,1} only.
-
         collapsed_outcomes: list[tuple[Timeseries, str]] = []
-
-        # consider the two possible cases
-        if has_flat:
-            for case in scenarios_names:
-                # Aggregate the three ON states
-                isOn_time_serie = (
-                    results[thermal_unit.name][case]["ON_UP"]
-                    + results[thermal_unit.name][case]["ON_DOWN"]
-                    + results[thermal_unit.name][case]["ON_FLAT"]
-                )
-                collapsed_outcomes.append((isOn_time_serie, case))
-        else:
-            for case in scenarios_names:
-                # Aggregate the two ON states
-                isOn_time_serie = (
-                    results[thermal_unit.name][case]["ON_UP"] + results[thermal_unit.name][case]["ON_DOWN"]
-                )
-                collapsed_outcomes.append((isOn_time_serie, case))
+        for case in scenarios_names:
+            unit_res = results[thermal_unit.name][case]
+            is_on = unit_res["ON_UP"] + unit_res["ON_DOWN"]
+            if has_flat:
+                is_on += unit_res["ON_FLAT"]
+            collapsed_outcomes.append((is_on, case))
 
         # Now based on the collapsed time series, we are able to do pairwise comparisons across all scenarios and determine whether two of them
         # are overlapping or not.
@@ -282,26 +227,14 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         :rtype: list[tuple[tuple[Timeseries, str], tuple[Timeseries, str]]]
         """
         overlapping_blocks: list[tuple[tuple[Timeseries, str], tuple[Timeseries, str]]] = []
-
-        # Test the potential overlaps
         for pair in itertools.combinations(online_timeframes, 2):
-            # Unwrap the start date and end dates of the pairs
-            ts1, name_pair_1 = pair[0]
-            ts2, name_pair_2 = pair[1]
-            start_pair_1, end_pair_1 = ts1.first_date(), ts1.last_date()
-            start_pair_2, end_pair_2 = ts2.first_date(), ts2.last_date()
-
-            # Test whether the dates are overlapping or not.
-            is_overlapping = False
-            if name_pair_1 != name_pair_2:
-                if start_pair_1 <= start_pair_2 <= end_pair_1 or start_pair_2 <= start_pair_1 <= end_pair_2:
-                    is_overlapping = True
-
-            # Save the first dates of the colliding blocks.
-            if is_overlapping:
-                # Add the tuple containing the two colliding blocks.
+            (ts1, name1), (ts2, name2) = pair
+            if name1 == name2:
+                continue
+            s1, e1 = ts1.first_date(), ts1.last_date()
+            s2, e2 = ts2.first_date(), ts2.last_date()
+            if s1 <= s2 <= e1 or s2 <= s1 <= e2:
                 overlapping_blocks.append(pair)
-
         return overlapping_blocks
 
     def is_overlapping(self, pair: tuple[Timeseries, Timeseries]) -> bool:
@@ -315,13 +248,10 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         :rtype: bool
         """
 
-        # Quick sanity check on the length of the input variable.
         if not len(pair) == 2:
             raise ValueError("The pair inputed in the is_overlapping function has not a length of 2.")
 
-        # Extract both scenarios
         scenario_1, scenario_2 = pair[0], pair[1]
-
         # by default, we assume that both scenarios perfectly overlap
         # to verify this, we see whether the difference across all time steps is 0
         # if there exist one t such that the difference is not null, then scenarios are not perfectly overlapping
@@ -329,6 +259,60 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
             scenario_1.timeseries.join(scenario_2.timeseries, on="time", suffix="_2")
             .filter(pl.col("value") != pl.col("value_2"))
             .is_empty()
+        )
+
+    def _load_price_forecast(self, unit: ThermalDAO, price_type: str) -> Timeseries:
+        attr_name = f"price_forecast_{price_type.lower()}"
+        forecast = getattr(unit.portfolio.market_area, attr_name)
+        if forecast is None:
+            raise AttributeError(f"{unit.portfolio.market_area.name} has no attribute '{attr_name}'")
+        return forecast.get_forecast(
+            self.parameters.temporal.execution_date,
+            self.parameters.temporal.start_date,
+            self.parameters.temporal.end_date + unit.additional_hours,
+        )
+
+    def _build_state_sequence(self, res: dict[str, Timeseries]) -> Timeseries:
+        tz = self.parameters.temporal.start_date.timezone_name
+        local_time_index = list(res["OFF"].index)
+
+        on_up_lk = res["ON_UP"].to_lookup_dict()
+        on_down_lk = res["ON_DOWN"].to_lookup_dict()
+        off_lk = res["OFF"].to_lookup_dict()
+        start_lk = res["START"].to_lookup_dict() if "START" in res else {}
+        stop_lk = res["STOP"].to_lookup_dict() if "STOP" in res else {}
+        flat_lk = res["ON_FLAT"].to_lookup_dict() if "ON_FLAT" in res else {}
+
+        values = []
+        for time in local_time_index:
+            if on_up_lk.get(time, 0) == 1:
+                values.append(1)
+                continue
+            if on_down_lk.get(time, 0) == 1:
+                values.append(2)
+                continue
+            if off_lk.get(time, 0) == 1:
+                values.append(3)
+                continue
+            if start_lk.get(time, 0) == 1:
+                values.append(4)
+                continue
+            if stop_lk.get(time, 0) == 1:
+                values.append(5)
+                continue
+            if flat_lk.get(time, 0) == 1:
+                values.append(6)
+                continue
+            values.append(0)
+
+        return Timeseries(
+            pl.DataFrame(
+                {
+                    "time": local_time_index,
+                    "value": values,
+                },
+                schema={"time": pl.Datetime("us", tz), "value": pl.Float64()},
+            )
         )
 
     def solve_optimization_programs(
@@ -342,10 +326,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         :return: a two stage dictionary containing for each equipment the optimal quantities given a price curve.
         :rtype: dict[str, dict[str, dict[str, Timeseries]]]
         """
-
-        # create a dictionary that will store the program's outcomes.
         results: dict[str, dict[str, dict[str, Timeseries]]] = {}
-
         solver_options = SolverOptions(
             presolve=self.parameters.solver.use_presolve,
             duality_gap=self.parameters.solver.duality_gap,
@@ -354,126 +335,22 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         for unit in equipments_list:
             results[unit.name] = {}
-
-            # Retrieve the price forecasts types, extract the corresponding time series and store it in a list
             price_types: list[str] = self.parameters.price_forecasts_types
-            prices: list[Timeseries] = []
 
             for price_type in price_types:
-                if price_type == "Low":
-                    if unit.portfolio.market_area.price_forecast_low is not None:
-                        prices_low = unit.portfolio.market_area.price_forecast_low.get_forecast(
-                            self.parameters.temporal.execution_date,
-                            self.parameters.temporal.start_date,
-                            self.parameters.temporal.end_date + unit.additional_hours,
-                        )
-                        prices.append(prices_low)
-                    else:
-                        raise AttributeError(f"{unit.portfolio.market_area.name} has no attribute 'price_forecast_low'")
-
-                elif price_type == "Medium":
-                    if unit.portfolio.market_area.price_forecast_medium is not None:
-                        prices_medium = unit.portfolio.market_area.price_forecast_medium.get_forecast(
-                            self.parameters.temporal.execution_date,
-                            self.parameters.temporal.start_date,
-                            self.parameters.temporal.end_date + unit.additional_hours,
-                        )
-                        prices.append(prices_medium)
-                    else:
-                        raise AttributeError(
-                            f"{unit.portfolio.market_area.name} has no attribute 'price_forecast_medium'"
-                        )
-
-                elif price_type == "High":
-                    if unit.portfolio.market_area.price_forecast_high is not None:
-                        prices_high = unit.portfolio.market_area.price_forecast_high.get_forecast(
-                            self.parameters.temporal.execution_date,
-                            self.parameters.temporal.start_date,
-                            self.parameters.temporal.end_date + unit.additional_hours,
-                        )
-                        prices.append(prices_high)
-                    else:
-                        raise AttributeError(
-                            f"{unit.portfolio.market_area.name} has no attribute 'price_forecast_high'"
-                        )
-
-                else:
-                    cfg.logger.error(
-                        "Wrong PriceForecastsType indicated as parameters. Possible values are: 'Low', 'Medium', 'High'"
-                    )
-
-            # Solve three times the optimization program, one for each price curve
-            # and store the optimal output quantities into the dictionaries
-            for price, price_type in zip(prices, price_types, strict=False):
+                price = self._load_price_forecast(unit, price_type)
                 model = ThermalOptimizationModel(self.parameters, unit, price, price_type, solver_options)
                 model.create_objective_function("maximize")
-                combination_functions: dict[int, Callable[..., None]] = {
-                    1: combination_1.execute,
-                    2: combination_2.execute,
-                    3: combination_3.execute,
-                    4: combination_4.execute,
-                    5: combination_5.execute,
-                    6: combination_6.execute,
-                    7: combination_7.execute,
-                    8: combination_8.execute,
-                }
-                combination_function = combination_functions.get(model.determine_combination(), combination_1.execute)
-                day_zero = model.is_day_zero()
-                combination_function(model=model, day_zero=day_zero)
-
-                # Add daily energy constraint after all combination constraints
-                model.add_daily_energy_constraint()
+                ThermalConstraintBuilder(model).build(model.is_day_zero())
 
                 res = model.solve_thermal_optimization()
                 results[unit.name][price_type] = res
 
-                # Store state sequences in the output marker
-                local_time_index = list(res["OFF"].index)
-                tz = self.parameters.temporal.start_date.timezone_name
-
-                on_up_lk = res["ON_UP"].to_lookup_dict()
-                on_down_lk = res["ON_DOWN"].to_lookup_dict()
-                off_lk = res["OFF"].to_lookup_dict()
-                start_lk = res["START"].to_lookup_dict() if "START" in res else {}
-                stop_lk = res["STOP"].to_lookup_dict() if "STOP" in res else {}
-                flat_lk = res["ON_FLAT"].to_lookup_dict() if "ON_FLAT" in res else {}
-
-                values = []
-                for time in local_time_index:
-                    if on_up_lk.get(time, 0) == 1:
-                        values.append(1)
-                        continue
-                    if on_down_lk.get(time, 0) == 1:
-                        values.append(2)
-                        continue
-                    if off_lk.get(time, 0) == 1:
-                        values.append(3)
-                        continue
-                    if start_lk.get(time, 0) == 1:
-                        values.append(4)
-                        continue
-                    if stop_lk.get(time, 0) == 1:
-                        values.append(5)
-                        continue
-                    if flat_lk.get(time, 0) == 1:
-                        values.append(6)
-                        continue
-                    values.append(0)
-
-                new_sequence_ts = Timeseries(
-                    pl.DataFrame(
-                        {
-                            "time": local_time_index,
-                            "value": values,
-                        },
-                        schema={"time": pl.Datetime("us", tz), "value": pl.Float64()},
-                    )
-                )
-
                 if unit.state_sequence is None:
                     unit.state_sequence = ScenarioMatrix()
                 unit.state_sequence.add(
-                    new_sequence_ts, f"{self.parameters.temporal.execution_date}-{price_type.upper()}_DAO"
+                    self._build_state_sequence(res),
+                    f"{self.parameters.temporal.execution_date}-{price_type.upper()}_DAO",
                 )
 
         return results
