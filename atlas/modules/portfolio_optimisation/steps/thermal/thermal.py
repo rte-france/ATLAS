@@ -40,35 +40,6 @@ class ThermalStep(AbstractOptimStep[ThermalPO]):
         self._builder: ThermalConstraintBuilder = None  # type: ignore[assignment]
 
         # Computed time parameters — set in _compute_time_parameters
-        self._T_on: int = 0
-        self._T_off: int = 0
-        self._T_start: int = 0
-        self._T_stop: int = 0
-        self._T_stable: int = 0
-        self._Delta_Q: float = 0.0
-        self._Delta_Q_unconstrained: float = 0.0
-        self._combination: int = 1
-
-        # ModelVar placeholders — set in _setup_state_variables
-        self.off_var: ModelVar = None  # type: ignore[assignment]
-        self.on_flat_var: ModelVar = None  # type: ignore[assignment]
-        self.on_up_var: ModelVar = None  # type: ignore[assignment]
-        self.on_down_var: ModelVar = None  # type: ignore[assignment]
-        self.on_start_var: ModelVar = None  # type: ignore[assignment]
-        self.entered_up_var: ModelVar = None  # type: ignore[assignment]
-        self.entered_down_var: ModelVar = None  # type: ignore[assignment]
-        self.stable_var: ModelVar = None  # type: ignore[assignment]
-        self.flat_down_stop: ModelVar = None  # type: ignore[assignment]
-        self.down_to_stop_grad: ModelVar = None  # type: ignore[assignment]
-        self.stop_var: ModelVar = None  # type: ignore[assignment]
-        self.turned_off: ModelVar = None  # type: ignore[assignment]
-        self.turned_on: ModelVar = None  # type: ignore[assignment]
-        self.power_level_var: ModelVar = None  # type: ignore[assignment]
-        self.up_grad_var: ModelVar = None  # type: ignore[assignment]
-        self.aux_up_grad_var: ModelVar = None  # type: ignore[assignment]
-        self.down_grad_var: ModelVar = None  # type: ignore[assignment]
-        self.aux_down_grad_var: ModelVar = None  # type: ignore[assignment]
-        self.dd_grad_var: ModelVar = None  # type: ignore[assignment]
 
     def __getattr__(self, name: str):
         """Delegate unknown attribute access to equipment so constraint_builder works transparently."""
