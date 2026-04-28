@@ -561,11 +561,11 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :type timezone: str
         """
         check_timezone(timezone)
-
         self.timezone = timezone
         self.timeseries = self.timeseries.with_columns(
             pl.col("time").dt.convert_time_zone(timezone),
         )
+        self._invalidate_cache()
 
     def set_value(
         self,
@@ -1076,11 +1076,13 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :return: The value at the timestamp requested
         :rtype: float
         """
+        if len(self.timeseries) == 0:
+            raise ValueError("Can't get value on empty timeseries.")
         dt = build_datetime(datetime, date_format).in_tz(self.timezone)
-        result = self.timeseries.filter(pl.col("time") == dt)
-        if result.is_empty():
+        lookup = self._get_lookup()
+        if dt not in lookup:
             raise KeyError(f"Value for {dt.to_datetime_string()} not found in the Timeseries.")
-        return result.select("value").item()
+        return lookup[dt]
 
     def plot(
         self,
@@ -1150,6 +1152,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         if inplace:
             self.timeseries = df.sort("time")
             self.frequency = infer_frequency(self.timeseries)
+            self._invalidate_cache()
             return self
         return Timeseries(df, self.timezone)
 

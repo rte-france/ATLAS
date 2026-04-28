@@ -39,6 +39,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
     timezone: str
     frequency: pendulum.Duration
     timeseries: TBackend
+    _lookup_cache: dict | None
 
     @abstractmethod
     def _get_data(self) -> TBackend:
@@ -640,6 +641,20 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         :rtype: Generator[tuple[datetime, float], None, None]
         """
         ...
+
+    def to_lookup_dict(self) -> dict:
+        """Build a {time: value} dict for O(1) lookups."""
+        return self._get_lookup()
+
+    def _get_lookup(self) -> dict:
+        """Return cached {time: value} dict, building it on first call."""
+        if not hasattr(self, "_lookup_cache") or self._lookup_cache is None:
+            self._lookup_cache = {t: v for t, v in self.iter_rows()}
+        return self._lookup_cache
+
+    def _invalidate_cache(self) -> None:
+        """Invalidate the lookup cache. Must be called whenever the underlying data changes."""
+        self._lookup_cache = None
 
     @abstractmethod
     def __repr__(self) -> str:
