@@ -3,7 +3,6 @@
 ## Overview
 
 The Market Clearing module is configured through `MarketClearingParameters`. Parameters can be provided as a dictionary or loaded from a JSON/YAML file.
-This document describes all configuration parameters available for the **Market Clearing** module. The structure, level of detail, and wording are aligned with the parameter documentation of the **Market Clearing** module to ensure consistency across the project.
 
 
 For common parameters (`temporal`, `solver`, `output`), see [Common Parameters](../../common-parameters.md).
@@ -134,4 +133,4 @@ execution_datetime_tolerance: 5
 
 ## Next Steps
 
-- [Running](running.md): How to execute the module
+- [Results](results.md): Understanding outputs

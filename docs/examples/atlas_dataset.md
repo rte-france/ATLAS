@@ -2,6 +2,97 @@
 
 The `AtlasDataset` is the main data container in Atlas. It stores and provides typed access to all business model objects alongside their time-varying data.
 
+## Directory Structure
+
+An AtlasDataset follows a specific directory structure that separates business objects from their associated time-varying data:
+
+```
+atlas-dataset/
+├── objects/             # Business model definitions (CSV)
+│   ├── market_area.csv
+│   ├── node.csv
+│   ├── portfolio.csv
+│   ├── thermal.csv
+│   ├── hydro.csv
+│   ├── wind.csv
+│   ├── solar.csv
+│   └── ...
+├── timeseries/          # Time-indexed data (Parquet/CSV)
+│   ├── thermal/
+│   │   └── unit_name.parquet
+│   ├── hydro/
+│   │   └── plant_name.parquet
+│   └── market_area/
+│       └── area_name.parquet
+├── scenario_matrix/     # Multi-scenario data (Parquet/CSV)
+│   ├── thermal/
+│   │   └── unit_name.parquet
+│   └── hydro/
+│       └── plant_name.parquet
+└── forecasting_matrix/  # Forecast data (Parquet/CSV)
+    ├── market_area/
+    │   └── area_name.parquet
+    └── thermal/
+        └── unit_name.parquet
+```
+
+### Objects Directory
+
+Contains CSV files (semicolon-separated by default) defining business model objects:
+
+- **thermal.csv**: Thermal generation units with attributes like capacity, ramp rates, costs
+- **hydro.csv**: Hydroelectric plants with reservoir characteristics
+- **market_area.csv**: Market area definitions with price forecasts
+- **node.csv**: Network nodes
+- **portfolio.csv**: Portfolio definitions grouping assets
+
+Example `thermal.csv`:
+
+| name | node | portfolio | installed_capacity | minimum_time_on | strategy |
+|------|------|-----------|-------------------|-----------------|----------|
+| fr_nuclear | fr | generator_fr | 1584.0 | PT1H | Intermediate |
+| de_coal | de | generator_de | 500.0 | P1D | Base |
+
+### Timeseries Directory
+
+Contains subdirectories per object type, with Parquet/CSV files storing time-indexed data:
+
+- One file per object (e.g., `fr_nuclear.parquet` for a thermal unit)
+- Multiple attributes stored using an `attribute` column as a categorical filter
+- Common attributes: generation profiles, availability, costs over time
+
+Example `timeseries/thermal/fr_nuclear.csv`:
+
+| time | attribute | value |
+|------|-----------|-------|
+| 2024-01-01 00:00:00 | availability | 0.95 |
+| 2024-01-01 01:00:00 | availability | 0.95 |
+| 2024-01-01 00:00:00 | marginal_cost | 45.2 |
+| 2024-01-01 01:00:00 | marginal_cost | 45.5 |
+
+The `attribute` column acts as a filter — filtering by `attribute == "availability"` gives you the availability timeseries.
+
+### Matrix Directories
+
+**scenario_matrix/**: Multi-scenario stochastic data (e.g., uncertain inflows, demand scenarios). Each scenario column represents a possible realization.
+
+| time | attribute | scenario_0 | scenario_1 | scenario_2 |
+|------|-----------|------------|------------|------------|
+| 2024-01-01 00:00:00 | inflows | 125.3 | 98.7 | 156.2 |
+| 2024-01-01 01:00:00 | inflows | 128.1 | 102.4 | 159.8 |
+
+**forecasting_matrix/**: Forecast data with multiple forecast horizons. Each column is an execution date.
+
+| time | attribute | 2026-01-01 00:00:00 | 2026-01-01 01:00:00 |
+|------|-----------|---------------------|---------------------|
+| 2024-01-01 00:00:00 | price | 52.3 | 51.8 |
+| 2024-01-01 01:00:00 | price | 48.7 | 49.2 |
+
+### Supported File Formats
+
+- **Parquet** (recommended): Efficient binary format for large datasets
+- **CSV**: Human-readable, semicolon-separated
+
 ## Loading a Dataset
 
 ```python

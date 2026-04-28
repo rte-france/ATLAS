@@ -54,11 +54,15 @@ Parameters can be provided in three formats:
 **Dictionary**:
 ```python
 ModuleRun(module, dataset, params={
-    "start_date": "2024-01-01T00:00:00",
-    "end_date": "2024-01-02T00:00:00",
-    "execution_date": "2023-12-31T12:00:00",
-    "export_result": true,
-    "timestep": "PT1H"
+    "temporal": {
+        "start_date": "2024-01-01T00:00:00",
+        "end_date": "2024-01-02T00:00:00",
+        "execution_date": "2023-12-31T12:00:00",
+        "timestep": "PT1H",
+    },
+    "output": {
+        "export_result": True,
+    },
 }).run()
 ```
 
@@ -83,8 +87,10 @@ Modules that support parallel execution (e.g., Portfolio Optimisation) can use m
 ```python
 params = {
     # ... other parameters ...
-    "enable": true,
-    "max_workers": 4  # Number of parallel workers
+    "multiprocessing": {
+        "enable": True,
+        "max_workers": 4,
+    },
 }
 ```
 
@@ -103,10 +109,12 @@ For optimization modules, tune solver settings:
 ```python
 params = {
     # ... other parameters ...
-    "solver_name": "XPRESS",
-    "solver_timeout": 300,  # 5 minutes max
-    "solver_duality_gap": 0.01,  # 1% optimality gap
-    "use_presolve": true
+    "solver": {
+        "solver_name": "XPRESS",
+        "solver_timeout": 300,
+        "solver_duality_gap": 0.01,
+        "use_presolve": True,
+    },
 }
 ```
 
@@ -115,10 +123,9 @@ params = {
 ATLAS modules can also be run from the command line:
 
 ```bash
-atlas run <module-name> \
-    --input-data path/to/dataset \
-    --parameters path/to/parameters.yml \
-    --output-data path/to/output
+atlas run parameters.yml \
+    --module <MODULE_NAME> \
+    --dataset path/to/dataset
 ```
 
 See [CLI Documentation](../cli.md) for more details.
