@@ -13,7 +13,7 @@ from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisa
 from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
 from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
-from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
+from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.orchestration import PortfolioOptimisationResult
 from atlas.orchestrator.change_set import UpdateObject

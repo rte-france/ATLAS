@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.input_objects.other_non_dispatchable import OtherNonDispatchablePO
     from atlas.modules.portfolio_optimisation.input_objects.solar import SolarPO
     from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
-    from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
+    from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
     from atlas.modules.portfolio_optimisation.input_objects.wind import WindPO
 
 
@@ -24,28 +24,28 @@ def create_po_step(equipment):
     from atlas.modules.portfolio_optimisation.input_objects.other_non_dispatchable import OtherNonDispatchablePO
     from atlas.modules.portfolio_optimisation.input_objects.solar import SolarPO
     from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
-    from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
+    from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
     from atlas.modules.portfolio_optimisation.input_objects.wind import WindPO
-    from atlas.modules.portfolio_optimisation.steps.hydro import HydroPOStep
-    from atlas.modules.portfolio_optimisation.steps.load import LoadPOStep
-    from atlas.modules.portfolio_optimisation.steps.other_non_dispatchable import OtherNonDispatchablePOStep
-    from atlas.modules.portfolio_optimisation.steps.solar import SolarPOStep
+    from atlas.modules.portfolio_optimisation.steps.hydro import HydroStep
+    from atlas.modules.portfolio_optimisation.steps.load import LoadStep
+    from atlas.modules.portfolio_optimisation.steps.other_non_dispatchable import OtherNonDispatchableStep
+    from atlas.modules.portfolio_optimisation.steps.solar import SolarStep
     from atlas.modules.portfolio_optimisation.steps.storage import StoragePOStep
-    from atlas.modules.portfolio_optimisation.steps.thermal import ThermalPOStep
-    from atlas.modules.portfolio_optimisation.steps.wind import WindPOStep
+    from atlas.modules.portfolio_optimisation.steps.thermal.thermal import ThermalStep
+    from atlas.modules.portfolio_optimisation.steps.wind import WindStep
 
     if isinstance(equipment, ThermalPO):
-        return ThermalPOStep(equipment)
+        return ThermalStep(equipment)
     if isinstance(equipment, StoragePO):
         return StoragePOStep(equipment)
     if isinstance(equipment, HydroPO):
-        return HydroPOStep(equipment)
+        return HydroStep(equipment)
     if isinstance(equipment, WindPO):
-        return WindPOStep(equipment)
+        return WindStep(equipment)
     if isinstance(equipment, SolarPO):
-        return SolarPOStep(equipment)
+        return SolarStep(equipment)
     if isinstance(equipment, LoadPO):
-        return LoadPOStep(equipment)
+        return LoadStep(equipment)
     if isinstance(equipment, OtherNonDispatchablePO):
-        return OtherNonDispatchablePOStep(equipment)
+        return OtherNonDispatchableStep(equipment)
     raise ValueError(f"No step class found for equipment type: {type(equipment)}")

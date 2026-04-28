@@ -20,7 +20,7 @@ from atlas.modules.portfolio_optimisation.input_objects.other_non_dispatchable i
 from atlas.modules.portfolio_optimisation.input_objects.portfolio_equipments import PortfolioEquipments
 from atlas.modules.portfolio_optimisation.input_objects.solar import SolarPO
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
-from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
+from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.input_objects.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.objects.market_operator.portfolio import Portfolio

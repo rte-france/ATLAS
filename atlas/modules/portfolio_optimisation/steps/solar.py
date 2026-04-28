@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 import atlas.config as cfg
 from atlas.modules.portfolio_optimisation.input_objects.solar import SolarPO
-from atlas.modules.portfolio_optimisation.steps.base import EquipmentPOStep
+from atlas.modules.portfolio_optimisation.steps.base import AbstractOptimStep
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated, get_variable_cost
 from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
 from atlas.solver.solver_interface import OptimisationModel
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
-class SolarPOStep(EquipmentPOStep[SolarPO]):
+class SolarStep(AbstractOptimStep[SolarPO]):
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
         for time in eq.optimisation_time_window:

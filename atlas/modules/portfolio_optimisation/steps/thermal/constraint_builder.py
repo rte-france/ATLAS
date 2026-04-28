@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING
 from pendulum import DateTime
 
 from atlas.math.timeseries import Timeseries
-from atlas.modules.portfolio_optimisation.input_objects.thermal.initial_conditions import ThermalInitialConditions
-from atlas.modules.portfolio_optimisation.input_objects.thermal.initial_conditions_utils import (
+from atlas.modules.portfolio_optimisation.steps.thermal.initial_conditions import ThermalInitialConditions
+from atlas.modules.portfolio_optimisation.steps.thermal.initial_conditions_utils import (
     initialize_day_zero_core,
     initialize_day_zero_gradient_vars,
     initialize_day_zero_on_states,
@@ -24,7 +24,7 @@ from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_autom
 from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
-    from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
+    from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 

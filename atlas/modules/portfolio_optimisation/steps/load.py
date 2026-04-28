@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import atlas.config as cfg
 from atlas.enums import LoadType
 from atlas.modules.portfolio_optimisation.input_objects.load import LoadPO
-from atlas.modules.portfolio_optimisation.steps.base import EquipmentPOStep
+from atlas.modules.portfolio_optimisation.steps.base import AbstractOptimStep
 from atlas.modules.portfolio_optimisation.utils.getters import get_variable_cost
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
-class LoadPOStep(EquipmentPOStep[LoadPO]):
+class LoadStep(AbstractOptimStep[LoadPO]):
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
         for time in eq.optimisation_time_window:

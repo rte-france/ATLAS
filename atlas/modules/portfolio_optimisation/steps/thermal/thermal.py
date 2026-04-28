@@ -14,9 +14,9 @@ from pendulum import Duration
 
 import atlas.config as cfg
 from atlas.math.timeseries import Timeseries
-from atlas.modules.portfolio_optimisation.input_objects.thermal.constraint_builder import ThermalConstraintBuilder
-from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
-from atlas.modules.portfolio_optimisation.steps.base import EquipmentPOStep
+from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
+from atlas.modules.portfolio_optimisation.steps.base import AbstractOptimStep
+from atlas.modules.portfolio_optimisation.steps.thermal.constraint_builder import ThermalConstraintBuilder
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
 from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
 from atlas.solver.model_var import ModelVar
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
-class ThermalPOStep(EquipmentPOStep[ThermalPO]):
+class ThermalStep(AbstractOptimStep[ThermalPO]):
     """
     Step class owning all optimisation logic for ThermalPO.
 
@@ -159,7 +159,6 @@ class ThermalPOStep(EquipmentPOStep[ThermalPO]):
                 model.add_objective(startup_cost * turned_on_var)
 
     def _compute_time_parameters(self, parameters: PortfolioOptimisationParameters) -> None:
-
         eq = self.equipment
         self._T_on = (
             int(max(1, math.ceil(eq.minimum_time_on / parameters.temporal.timestep))) + 1

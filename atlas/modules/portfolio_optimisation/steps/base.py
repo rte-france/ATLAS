@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-class EquipmentPOStep(ABC, Generic[T]):
+class AbstractOptimStep(ABC, Generic[T]):
     def __init__(self, equipment: T):
         self.equipment = equipment
 

@@ -14,7 +14,7 @@ from pendulum import DateTime
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 if TYPE_CHECKING:
-    from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
+    from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 
 
 def initialize_day_zero_core(

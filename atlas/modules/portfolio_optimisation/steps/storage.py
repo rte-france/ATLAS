@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import atlas.config as cfg
 from atlas.enums import StorageType
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
-from atlas.modules.portfolio_optimisation.steps.base import EquipmentPOStep
+from atlas.modules.portfolio_optimisation.steps.base import AbstractOptimStep
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
 from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
 from atlas.solver.solver_interface import OptimisationModel
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
-class StoragePOStep(EquipmentPOStep[StoragePO]):
+class StoragePOStep(AbstractOptimStep[StoragePO]):
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
         nbr_fragment: int = parameters.storage_mapping[eq.storage_type]["nb_fragment"]
