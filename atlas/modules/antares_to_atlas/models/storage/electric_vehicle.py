@@ -492,7 +492,7 @@ def _convert_france_heavy_vehicles(
             "supplier_fr" if parameters.consumption_production_separation else "portfolio_fr",
         ),
         load_type=LoadType.OTHER_NON_DISPATCHABLE_LOAD,
-        maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, maximum_power_ts),
+        maximum_power_forecast=ForecastingMatrix().add(maximum_power_ts, parameters.execution_date, inplace=False),
     )
 
     logger.info("FR heavy vehicles conversion done")

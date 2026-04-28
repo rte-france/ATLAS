@@ -56,7 +56,9 @@ def convert_wind_units(
                 if not cluster_res.properties.enabled:
                     continue
                 scenario = (
-                    study.get_output(parameters.output_name).get_wind_ts_numbers(area_name).get(parameters.scenario, None)
+                    study.get_output(parameters.output_name)
+                    .get_wind_ts_numbers(area_name)
+                    .get(parameters.scenario, None)
                 )
                 if not scenario or area.get_wind_matrix()[scenario - 1].abs().max().item() == 0:
                     continue

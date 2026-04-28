@@ -172,7 +172,7 @@ def _convert_battery(
         discharge_efficiency=discharge_efficiency,
         storage_initial_level=parameters.storage.battery_initial_level,
         unit_count=1,
-        power=ForecastingMatrix().add(power_ts, parameters.execution_date),
+        power=ForecastingMatrix().add(power_ts, parameters.execution_date, inplace=False),
     )
 
     logger.debug(f"Created {label} battery for area: {area.id}")

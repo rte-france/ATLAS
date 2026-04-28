@@ -135,7 +135,7 @@ def _process_waste_unit(
                 "portfolio",
                 f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
             ),
-            maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, prod_ts),
+            maximum_power_forecast=ForecastingMatrix().add(prod_ts, parameters.execution_date, inplace=False),
         )
         new_waste_units.append(waste_unit)
         logger.debug(f"Created Waste unit: {waste_name}")

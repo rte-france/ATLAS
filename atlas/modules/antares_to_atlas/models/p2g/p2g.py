@@ -44,32 +44,21 @@ def convert_p2g_units(
 
         # Process P2G base
         p2g_base = _convert_p2g_base(
-            area=area,
-            parameters=parameters,
-            atlas_dataset=atlas_dataset,
-            links=links,
+            area=area, parameters=parameters, atlas_dataset=atlas_dataset, links=links, study=study
         )
         if p2g_base:
             p2g_units.append(p2g_base)
 
         # Process P2G marginal
         p2g_marg = _convert_p2g_marg(
-            area=area,
-            parameters=parameters,
-            atlas_dataset=atlas_dataset,
-            areas=areas,
-            links=links,
+            area=area, parameters=parameters, atlas_dataset=atlas_dataset, areas=areas, links=links, study=study
         )
         if p2g_marg:
             p2g_units.append(p2g_marg)
 
         # Process P2G methanation
         p2g_methanation = _convert_p2g_methanation(
-            area=area,
-            parameters=parameters,
-            atlas_dataset=atlas_dataset,
-            areas=areas,
-            links=links,
+            area=area, parameters=parameters, atlas_dataset=atlas_dataset, areas=areas, links=links, study=study
         )
         if p2g_methanation:
             p2g_units.append(p2g_methanation)
@@ -112,7 +101,7 @@ def _convert_p2g_base(
             f"supplier_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
         ),
         load_type=LoadType.OTHER_NON_DISPATCHABLE_LOAD,
-        maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, capacity_ts),
+        maximum_power_forecast=ForecastingMatrix().add(capacity_ts, parameters.execution_date, inplace=False),
     )
 
     logger.debug(f"Created P2G base unit for area: {area.id}")
@@ -171,7 +160,7 @@ def _convert_p2g_marg(
             f"supplier_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
         ),
         load_type=LoadType.POWER_TO_GAS,
-        maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, capacity_ts),
+        maximum_power_forecast=ForecastingMatrix().add(capacity_ts, parameters.execution_date, inplace=False),
         variable_cost=variable_cost,
     )
 
@@ -232,7 +221,7 @@ def _convert_p2g_methanation(
             f"supplier_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
         ),
         load_type=LoadType.POWER_TO_GAS,
-        maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, capacity_ts),
+        maximum_power_forecast=ForecastingMatrix().add(capacity_ts, parameters.execution_date, inplace=False),
         variable_cost=variable_cost,
     )
 

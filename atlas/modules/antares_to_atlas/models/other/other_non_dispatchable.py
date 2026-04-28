@@ -9,6 +9,7 @@ from loguru import logger
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
 
@@ -32,7 +33,13 @@ def convert_other_non_dispatchable_units(
             study.get_output(parameters.output_name).get_hydro_ts_numbers(area_name).get(parameters.scenario, None)
         )
         if scenario is not None:
-            if ror[parameters.scenario - 1].abs().max().item() > 0:
+            ror = ror[parameters.scenario - 1]
+            if ror.abs().max().item() > 0:
+                ror_ts = Timeseries.from_values(
+                    start_date=parameters.execution_date,
+                    frequency="1h",
+                    values=ror,
+                )
                 non_disp_units.append(
                     OtherNonDispatchable(
                         name=f"{area_name}_ror",
@@ -43,13 +50,19 @@ def convert_other_non_dispatchable_units(
                             else f"portfolio_{area_name}",
                         ),
                         node=atlas_dataset.get("node", area_name),
-                        maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, ror),
+                        maximum_power_forecast=ForecastingMatrix().add(
+                            parameters.execution_date, ror_ts, inplace=False
+                        ),
                     )
                 )
 
-            prod = study.get_output(parameters.output_name).get_mc_ind_area(
-                parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area_name
-            )[(parameters.output.misc_ndg_column, "MWh")]
+            prod = Timeseries.from_values(
+                start_date=parameters.start_date,
+                frequency="1h",
+                values=study.get_output(parameters.output_name).get_mc_ind_area(
+                    parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area_name
+                )[(parameters.output.misc_ndg_column, "MWh")],
+            )
 
             if prod.abs().max() > 0:
                 non_disp_units.append(
@@ -62,7 +75,7 @@ def convert_other_non_dispatchable_units(
                             else f"portfolio_{area_name}",
                         ),
                         node=atlas_dataset.get("node", area_name),
-                        maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, prod),
+                        maximum_power_forecast=ForecastingMatrix().add(prod, parameters.execution_date, inplace=False),
                     )
                 )
 
