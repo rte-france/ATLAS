@@ -94,8 +94,19 @@ def _convert_dsr_fr(
 
         cluster = thermals[dsr_config.thermal_name]
 
-        scenario = study.get_output(parameters.output_name).get_thermal_ts_numbers().get(parameters.scenario, None)
-        disponibility = cluster.get_series_matrix()[scenario - 1]
+        scenario = (
+            study.get_output(parameters.output_name)
+            .get_thermal_ts_numbers(area.name, cluster.name)
+            .get(parameters.scenario, None)
+        )
+        if scenario is None:
+            continue
+
+        disponibility = Timeseries.from_values(
+            start_date=parameters.start_date,
+            values=cluster.get_series_matrix()[scenario - 1],
+            frequency="1h",
+        )
 
         variable_cost = Timeseries.from_index(
             start_date=parameters.start_date,

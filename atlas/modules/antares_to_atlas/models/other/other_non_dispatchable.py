@@ -51,7 +51,7 @@ def convert_other_non_dispatchable_units(
                         ),
                         node=atlas_dataset.get("node", area_name),
                         maximum_power_forecast=ForecastingMatrix().add(
-                            parameters.execution_date, ror_ts, inplace=False
+                            ror_ts, parameters.execution_date, inplace=False
                         ),
                     )
                 )
