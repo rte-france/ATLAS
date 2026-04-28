@@ -9,6 +9,7 @@ Module that implements LazyScenarioMatrix
 
 from __future__ import annotations
 
+import copy
 from datetime import timedelta
 from pathlib import Path
 from typing import Self
@@ -176,7 +177,8 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
         self,
         timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str,
-    ) -> None:
+        inplace: bool = True,
+    ) -> Self | None:
         """
         Add a timeseries to the lazy matrix.
 
@@ -184,9 +186,13 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
         :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
         :param index: Index to add into the matrix
         :type index: str
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         :raises KeyError: If index already exists in the matrix.
         """
-        if index in self.indexes:
+        target = self if inplace else copy.deepcopy(self)
+
+        if index in target.indexes:
             raise KeyError(f"Index {index} already exists in the matrix.")
 
         if isinstance(timeseries, LazyTimeseries):
@@ -196,36 +202,45 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
         else:
             lazy_ts = Timeseries(timeseries).to_frame(engine="polars").rename({"value": index}).lazy()  # type: ignore [operator]
 
-        # Join with the existing matrix
-        self.matrix = self.matrix.join(
+        target.matrix = target.matrix.join(
             lazy_ts,
             on="time",
             how="full",
             coalesce=True,
         )
 
-        # Update indexes
-        self.indexes = self._get_indexes()
+        target.indexes = target._get_indexes()
 
-    def delete(self, index: str) -> None:
+        if not inplace:
+            return target
+
+    def delete(self, index: str, inplace: bool = True) -> Self | None:
         """
         Delete a timeseries by index from the lazy matrix.
 
         :param index: Index key to delete from the matrix
         :type index: str
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         :raises KeyError: If index is not found.
         """
-        if index not in self.indexes:
+        target = self if inplace else copy.deepcopy(self)
+
+        if index not in target.indexes:
             raise KeyError(f"No timeseries to delete at index: {index}")
 
-        self.matrix = self._trim_null_extremities(self.matrix.drop(index))
-        self.indexes = self._get_indexes()
+        target.matrix = target._trim_null_extremities(target.matrix.drop(index))
+        target.indexes = target._get_indexes()
+
+        if not inplace:
+            return target
 
     def replace(
         self,
         index: str,
         timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
-    ) -> None:
+        inplace: bool = True,
+    ) -> Self | None:
         """
         Replace a Timeseries in the matrix and keep indexes sorted.
 
@@ -233,9 +248,14 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
         :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict
         :param index: Datetime key for the new forecast.
         :type index: str | datetime
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         """
-        self.delete(index=index)
-        self.add(timeseries=timeseries, index=index)
+        target = self if inplace else copy.deepcopy(self)
+        target.delete(index=index)
+        target.add(timeseries=timeseries, index=index)
+        if not inplace:
+            return target
 
     def select(self, index: str) -> LazyTimeseries:
         """
