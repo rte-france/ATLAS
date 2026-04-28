@@ -4,15 +4,7 @@
 
 The Portfolio Optimisation module is configured through `PortfolioOptimisationParameters`. Parameters can be provided as a dictionary or loaded from a JSON/YAML file.
 
-## Common Parameters
-
-The common section are :
-```yaml
-temporal:       # Time configuration (required)
-output:         # Output configuration (optional, has defaults)
-solver:         # Solver configuration (optional, has defaults)
-```
-
+For common parameters (`temporal`, `solver`, `output`, `multiprocessing`), see [Common Parameters](../../common-parameters.md).
 
 ## Optimization Parameters
 
@@ -128,5 +120,4 @@ excluded_thermal_strategy: ["Peak"]
 
 ## Next Steps
 
-- [Running](running.md): How to execute the module
 - [Results](results.md): Understanding outputs

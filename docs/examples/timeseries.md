@@ -7,7 +7,7 @@ The `Timeseries` class provides a flexible and efficient interface for handling 
 ### From File
 
 ```python
-from atlas.math.timeseries import Timeseries
+from atlas import Timeseries
 
 # Load from file (CSV or Parquet)
 ts = Timeseries.from_file("data/timeseries.parquet", timezone="UTC")
