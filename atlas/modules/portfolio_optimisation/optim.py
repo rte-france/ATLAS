@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 import atlas.config as cfg
 from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.steps.portfolio import PortfolioPOStep
+from atlas.modules.portfolio_optimisation.steps.portfolio import PortfolioStep
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -30,20 +30,19 @@ class PortfolioOptimisationModel(OptimisationModel):
         super().__init__(solver_name=parameters.solver.solver_name, name=portfolio.name, options=solver_options)
         self.portfolio = portfolio
         self.parameters = parameters
-        self._step = PortfolioPOStep(portfolio)
+        self._step = PortfolioStep(portfolio)
 
     def _prefetch_equipment_forecasts(self) -> None:
         """Pre-fetch forecasts for all equipment to avoid redundant get_forecast calls during model building."""
         cfg.logger.debug("Pre-fetching forecasts for all equipment...")
 
-        for wind in self.portfolio.equipments.wind:
-            wind.prefetch_forecasts(self.parameters.temporal.execution_date)
-
-        for solar in self.portfolio.equipments.solar:
-            solar.prefetch_forecasts(self.parameters.temporal.execution_date)
-
-        for load in [*self.portfolio.equipments.dispatchable_load, *self.portfolio.equipments.non_dispatchable_load]:
-            load.prefetch_forecasts(self.parameters.temporal.execution_date)
+        for equipment in [
+            *self.portfolio.equipments.wind,
+            *self.portfolio.equipments.solar,
+            *self.portfolio.equipments.dispatchable_load,
+            *self.portfolio.equipments.non_dispatchable_load,
+        ]:
+            equipment.prefetch_forecasts(self.parameters.temporal.execution_date)
 
         for hydro in self.portfolio.equipments.hydro:
             hydro.prefetch_forecasts(

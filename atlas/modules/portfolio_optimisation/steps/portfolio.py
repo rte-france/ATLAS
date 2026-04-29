@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
-class PortfolioPOStep:
+class PortfolioStep:
     def __init__(self, portfolio: PortfolioPO):
         self.portfolio = portfolio
         self._equipment_steps = [
