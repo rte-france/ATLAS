@@ -54,7 +54,7 @@ def convert_system_structure(
             continue
 
         area = areas[area_name]
-        logger.debug(f"Processing area: {area.name} (ID: {area.id})")
+        logger.debug(f"Processing area: {area.name}")
 
         # Create Control Block
         ctrl_block = ControlBlock(name=area_name)
