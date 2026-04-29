@@ -4,24 +4,23 @@ Copyright (c) 2025, RTE (www.rte-france.com)
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+
 import argparse
 import cProfile
 import pstats
 from pathlib import Path
+from typing import cast
 
 from pyinstrument import Profiler
 
-from atlas.orchestrator.module_registry import ModuleRegistry
+from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
-from atlas.abstract_class.parameters import AbstractModuleParameters
-from typing import cast
+from atlas.orchestrator.module_registry import ModuleRegistry
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Profile a single Atlas module with pyinstrument."
-    )
+    parser = argparse.ArgumentParser(description="Profile a single Atlas module with pyinstrument.")
     parser.add_argument("config_path", type=Path)
     parser.add_argument("--module", "-m", required=True)
     parser.add_argument("--dataset", "-d", type=Path, required=True)
@@ -49,9 +48,8 @@ def main():
     profiler.stop()
     profiler.write_html(output)
 
-
     with open("profile_stats.txt", "w") as f:
-        print(f"Profile saved to: profile_stats.txt")
+        print("Profile saved to: profile_stats.txt")
         ps = pstats.Stats(c_profile, stream=f).sort_stats("cumtime")
         ps.print_stats(100)
 
