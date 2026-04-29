@@ -23,6 +23,7 @@ def convert_other_non_dispatchable_units(
     logger.info("Converting non-dispatchable generation units")
 
     areas = study.get_areas()
+    study_output = study.get_output(parameters.output_name)
     non_disp_units = []
     for area_name in parameters.market_areas:
         if area_name not in areas:
@@ -30,7 +31,7 @@ def convert_other_non_dispatchable_units(
 
         ror = areas[area_name].hydro.get_ror_series()
         scenario = (
-            study.get_output(parameters.output_name).get_hydro_ts_numbers(area_name).get(parameters.scenario, None)
+            study_output.get_hydro_ts_numbers(area_name).get(parameters.scenario, None)
         )
         if scenario is not None:
             ror = ror[parameters.scenario - 1]
@@ -59,7 +60,7 @@ def convert_other_non_dispatchable_units(
             prod = Timeseries.from_values(
                 start_date=parameters.start_date,
                 frequency="1h",
-                values=study.get_output(parameters.output_name).get_mc_ind_area(
+                values=study_output.get_mc_ind_area(
                     parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area_name
                 )[(parameters.output.misc_ndg_column, "MWh")],
             )
