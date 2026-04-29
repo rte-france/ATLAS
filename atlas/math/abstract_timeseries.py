@@ -229,10 +229,6 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         """Returns the Timeseries values."""
         ...
 
-    def to_lookup_dict(self) -> dict:
-        """Build a {time: value} dict for O(1) lookups. Materializes data on first call."""
-        return {t: v for t, v in self.iter_rows()}
-
     @property
     @abstractmethod
     def timestep(self) -> pendulum.Duration:

@@ -113,22 +113,20 @@ class ThermalUnitOrders:
         # orders or not.
         startup = True if 2 in online_timeframe.values else False
 
-        online_lk = online_timeframe.to_lookup_dict()
-
         ## See whether the ramps are complete or not
         T_startSD_in_sim = False
         if 3 in online_timeframe.values:
             index = list(online_timeframe.index)
-            for t, t_next in zip(index[:-1], index[1:]):
-                if online_lk[t_next] - online_lk[t] == 2:
+            for t, t_next in zip(index[:-1], index[1:], strict=False):
+                if online_timeframe.get_value(t_next) - online_timeframe.get_value(t) == 2:
                     T_startSD_in_sim = True
                     break
 
         T_endSU_in_sim = False
         if startup:
             index = list(online_timeframe.index)
-            for t, t_next in zip(index[:-1], index[1:]):
-                if online_lk[t] - online_lk[t_next] == 1:
+            for t, t_next in zip(index[:-1], index[1:], strict=False):
+                if online_timeframe.get_value(t) - online_timeframe.get_value(t_next) == 1:
                     T_endSU_in_sim = True
                     break
 
@@ -141,9 +139,10 @@ class ThermalUnitOrders:
         # Compute K_start and K_stop
         K_start, K_stop = 0, 0
         m, n = 0, 0
+        online_index_set = set(online_timeframe.index)
         for t in self.orders_time:
-            if t in online_lk:
-                v = online_lk[t]
+            if t in online_index_set:
+                v = online_timeframe.get_value(t)
                 if v == 2:
                     m += 1
                 elif v == 3:
@@ -160,11 +159,11 @@ class ThermalUnitOrders:
         # Getting the starting date of the time frames.
         if K_start > 0 or K_stop > 0:
             for t in self.orders_time:
-                if t in online_lk and online_lk[t] == 2:
+                if t in online_index_set and online_timeframe.get_value(t) == 2:
                     begin_of_startTimeFrame = t
                     break
             for t in self.orders_time:
-                if t in online_lk and online_lk[t] == 3:
+                if t in online_index_set and online_timeframe.get_value(t) == 3:
                     begin_of_stopTimeFrame = t
                     break
 
@@ -197,7 +196,7 @@ class ThermalUnitOrders:
         # to be removed from the flexible_time_frame.
         flexible_time_frame: list[DateTime] = []
         for t in self.orders_time:
-            if t in online_lk and online_lk[t] == 1:
+            if t in online_index_set and online_timeframe.get_value(t) == 1:
                 flexible_time_frame.append(t)
 
         # Sanity check : the flexible_time_frame only contains timestamps within the orders_time time frame.
@@ -218,7 +217,7 @@ class ThermalUnitOrders:
         ## Inflexible timeframe
         inflexible_time_frame = online_timeframe.index
 
-        # Pre-compute lookup dicts and constants before loops
+        # Pre-compute vectorised q_max before the flexible loop
         time_filter = pl.col("time").is_in(flexible_time_frame)
         q_max_ts = (
             Timeseries(unit.maximum_power.timeseries.filter(time_filter))
@@ -228,14 +227,6 @@ class ThermalUnitOrders:
             - Timeseries(automated_reserves_down_procured.timeseries.filter(time_filter))
             - Timeseries(automated_reserves_up_procured.timeseries.filter(time_filter))
         )
-        q_max_lk = q_max_ts.to_lookup_dict()
-        var_cost_lk = unit.variable_cost.to_lookup_dict()
-        min_power_lk = unit.minimum_power.to_lookup_dict()
-        auto_res_down_lk = automated_reserves_down_procured.to_lookup_dict()
-        man_res_down_lk = manual_reserves_down_procured.to_lookup_dict()
-        auto_res_up_lk = automated_reserves_up_procured.to_lookup_dict()
-        man_res_up_lk = manual_reserves_up_procured.to_lookup_dict()
-        startup_cost_lk = unit.startup_cost.to_lookup_dict()
 
         prop_pen = 1 - self.parameters.proportional_reserves_penalty
         auto_pen = self.parameters.automated_unprocured_reserves_penalty
@@ -250,12 +241,12 @@ class ThermalUnitOrders:
         for t in flexible_time_frame:
             # Part 1: flexible order
             # Compute the maximum amount to be offered.
-            q_max = q_max_lk[t]
-            var_cost = var_cost_lk[t]
-            auto_down = auto_res_down_lk[t]
-            man_down = man_res_down_lk[t]
-            auto_up = auto_res_up_lk[t]
-            man_up = man_res_up_lk[t]
+            q_max = q_max_ts.get_value(t)
+            var_cost = unit.variable_cost.get_value(t)
+            auto_down = automated_reserves_down_procured.get_value(t)
+            man_down = manual_reserves_down_procured.get_value(t)
+            auto_up = automated_reserves_up_procured.get_value(t)
+            man_up = manual_reserves_up_procured.get_value(t)
 
             # We only formulate the order if its maximal power is positive
             if q_max <= 0.0:
@@ -406,7 +397,7 @@ class ThermalUnitOrders:
                         equipment=unit,
                         qmax=q_sell,
                         qmin=q_sell,
-                        price=var_cost_lk[t],
+                        price=unit.variable_cost.get_value(t),
                         product=Product.DayAhead,
                         order_type=OrderType.Sell,
                         is_agent_tso=False,
@@ -437,7 +428,7 @@ class ThermalUnitOrders:
                         equipment=unit,
                         qmax=q_sell,
                         qmin=q_sell,
-                        price=round(var_cost_lk[t], 2),
+                        price=round(unit.variable_cost.get_value(t), 2),
                         product=Product.DayAhead,
                         order_type=OrderType.Sell,
                         is_agent_tso=False,
@@ -454,8 +445,8 @@ class ThermalUnitOrders:
             # TODO: should be inflexible_time_frame, but not working currently for format reasons
             for t in inflexible_time_frame:
                 t = pendulum.instance(t)
-                min_p = min_power_lk[t]
-                var_cost = var_cost_lk[t]
+                min_p = unit.minimum_power.get_value(t)
+                var_cost = unit.variable_cost.get_value(t)
                 name = (
                     f"order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_under_price_{case}"
                     if case
@@ -514,7 +505,7 @@ class ThermalUnitOrders:
             )
 
             # Part 5 : if startup, amortise startup cost on all inflexible layer
-            amortized_cost = round(startup_cost_lk[t] / Q, 2)
+            amortized_cost = round(unit.startup_cost.get_value(t) / Q, 2)
             for order in inflexible_orders:
                 # Add the spreading of start up cost only if the startup is complete within the sequence
                 if startup and T_endSU_in_sim:

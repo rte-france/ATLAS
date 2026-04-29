@@ -276,41 +276,31 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         tz = self.parameters.temporal.start_date.timezone_name
         local_time_index = list(res["OFF"].index)
 
-        on_up_lk = res["ON_UP"].to_lookup_dict()
-        on_down_lk = res["ON_DOWN"].to_lookup_dict()
-        off_lk = res["OFF"].to_lookup_dict()
-        start_lk = res["START"].to_lookup_dict() if "START" in res else {}
-        stop_lk = res["STOP"].to_lookup_dict() if "STOP" in res else {}
-        flat_lk = res["ON_FLAT"].to_lookup_dict() if "ON_FLAT" in res else {}
-
         values = []
         for time in local_time_index:
-            if on_up_lk.get(time, 0) == 1:
+            if "ON_UP" in res and res["ON_UP"].get_value(time) == 1:
                 values.append(1)
                 continue
-            if on_down_lk.get(time, 0) == 1:
+            if "ON_DOWN" in res and res["ON_DOWN"].get_value(time) == 1:
                 values.append(2)
                 continue
-            if off_lk.get(time, 0) == 1:
+            if "OFF" in res and res["OFF"].get_value(time) == 1:
                 values.append(3)
                 continue
-            if start_lk.get(time, 0) == 1:
+            if "START" in res and res["START"].get_value(time) == 1:
                 values.append(4)
                 continue
-            if stop_lk.get(time, 0) == 1:
+            if "STOP" in res and res["STOP"].get_value(time) == 1:
                 values.append(5)
                 continue
-            if flat_lk.get(time, 0) == 1:
+            if "ON_FLAT" in res and res["ON_FLAT"].get_value(time) == 1:
                 values.append(6)
                 continue
             values.append(0)
 
         return Timeseries(
             pl.DataFrame(
-                {
-                    "time": local_time_index,
-                    "value": values,
-                },
+                {"time": local_time_index, "value": values},
                 schema={"time": pl.Datetime("us", tz), "value": pl.Float64()},
             )
         )
