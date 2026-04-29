@@ -653,7 +653,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
     def _get_lookup(self) -> dict:
         """Return cached {time: value} dict, building it on first call."""
         if not hasattr(self, "_lookup_cache") or self._lookup_cache is None:
-            self._lookup_cache = {t: v for t, v in self.iter_rows()}
+            self._lookup_cache = dict(self.iter_rows())
         return self._lookup_cache
 
     def _invalidate_cache(self) -> None:
