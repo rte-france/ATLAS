@@ -387,6 +387,27 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         result = backend.with_columns(pl.col("value").round(rounding_precision, mode))
         return self._return(result, inplace)
 
+    def clip(
+        self,
+        lower_bound: float | None = None,
+        upper_bound: float | None = None,
+        inplace: bool = True,
+    ) -> Self:
+        """Clip values to [lower_bound, upper_bound].
+
+        :param lower_bound: Minimum value; values below are set to this, defaults to None (no lower clipping)
+        :type lower_bound: float | None, optional
+        :param upper_bound: Maximum value; values above are set to this, defaults to None (no upper clipping)
+        :type upper_bound: float | None, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: Clipped timeseries
+        :rtype: Self
+        """
+        backend = self._get_data()
+        result = backend.with_columns(pl.col("value").clip(lower_bound, upper_bound))
+        return self._return(result, inplace)
+
     @abstractmethod
     def set_frequency(self, frequency: str | pendulum.Duration, inplace: bool = True) -> Self:
         """

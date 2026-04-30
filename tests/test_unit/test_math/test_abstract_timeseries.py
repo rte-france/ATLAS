@@ -124,6 +124,51 @@ class TestAbstractTimeseries:
         assert collected.values == [1.2, 2.6, 3.9, 4.1, 5.8]
 
 
+class TestClip:
+    """Tests for the clip() method on Timeseries."""
+
+    @pytest.fixture
+    def ts(self):
+        df = pd.DataFrame(
+            {
+                "time": pd.date_range(start="2025-01-01", periods=5, freq="h", tz="UTC"),
+                "value": [-10.0, 0.0, 5.0, 15.0, 25.0],
+            }
+        )
+        return Timeseries(pl.from_pandas(df))
+
+    def test_clip_lower_bound(self, ts):
+        result = ts.clip(lower_bound=0.0, inplace=False)
+        assert result.values == [0.0, 0.0, 5.0, 15.0, 25.0]
+
+    def test_clip_upper_bound(self, ts):
+        result = ts.clip(upper_bound=10.0, inplace=False)
+        assert result.values == [-10.0, 0.0, 5.0, 10.0, 10.0]
+
+    def test_clip_both_bounds(self, ts):
+        result = ts.clip(lower_bound=0.0, upper_bound=10.0, inplace=False)
+        assert result.values == [0.0, 0.0, 5.0, 10.0, 10.0]
+
+    def test_clip_no_bounds_is_noop(self, ts):
+        result = ts.clip(inplace=False)
+        assert result.values == ts.values
+
+    def test_clip_inplace_true(self, ts):
+        result = ts.clip(lower_bound=0.0, upper_bound=10.0, inplace=True)
+        assert result is ts
+        assert ts.values == [0.0, 0.0, 5.0, 10.0, 10.0]
+
+    def test_clip_inplace_false_does_not_mutate_original(self, ts):
+        original_values = ts.values[:]
+        ts.clip(lower_bound=0.0, upper_bound=10.0, inplace=False)
+        assert ts.values == original_values
+
+    def test_clip_lazy_timeseries(self, ts):
+        lazy_ts = LazyTimeseries(ts.timeseries.lazy())
+        result = lazy_ts.clip(lower_bound=0.0, upper_bound=10.0, inplace=False)
+        assert result.collect().values == [0.0, 0.0, 5.0, 10.0, 10.0]
+
+
 class TestLookupDictCache:
     """Unit tests for the _lookup_cache mechanism on Timeseries."""
 
