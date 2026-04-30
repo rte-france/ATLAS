@@ -255,11 +255,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         # by default, we assume that both scenarios perfectly overlap
         # to verify this, we see whether the difference across all time steps is 0
         # if there exist one t such that the difference is not null, then scenarios are not perfectly overlapping
-        return (
-            scenario_1.timeseries.join(scenario_2.timeseries, on="time", suffix="_2")
-            .filter(pl.col("value") != pl.col("value_2"))
-            .is_empty()
-        )
+        return scenario_1 == scenario_2
 
     def _load_price_forecast(self, unit: ThermalDAO, price_type: str) -> Timeseries:
         attr_name = f"price_forecast_{price_type.lower()}"

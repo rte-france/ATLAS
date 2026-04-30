@@ -104,7 +104,7 @@ class ThermalUnitOrders:
             min_power = unit.minimum_power.collect()
         else:
             min_power = cast(Timeseries, unit.minimum_power)
-            if min_power.filter(self.orders_time, inplace=False).dataframe["value"].min() == 0:
+            if min_power.filter(self.orders_time, inplace=False).min() == 0:
                 null_minimum_power = True
             else:
                 null_minimum_power = False

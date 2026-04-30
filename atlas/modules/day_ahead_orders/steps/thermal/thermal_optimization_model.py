@@ -10,7 +10,6 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Literal
 
-import polars as pl
 from pendulum import DateTime
 
 import atlas.config as cfg
@@ -377,58 +376,20 @@ class ThermalOptimizationModel(OptimisationModel):
         self.reserves_up_procured = mfrr_up + rr_up
         self.reserves_down_procured = mfrr_down + rr_down
 
-        end_date = self.parameters.temporal.end_date + unit.additional_hours - self.parameters.temporal.timestep
+        afrr_up_f = afrr_up.filter(self.time_frame, inplace=False)
+        afrr_down_f = afrr_down.filter(self.time_frame, inplace=False)
+        fcr_up_f = fcr_up.filter(self.time_frame, inplace=False)
+        fcr_down_f = fcr_down.filter(self.time_frame, inplace=False)
 
-        time_filter = pl.col("time").is_in(self.time_frame)
-
-        afrr_up_df = afrr_up.timeseries.filter(time_filter)
-        afrr_down_df = afrr_down.timeseries.filter(time_filter)
-        fcr_up_df = fcr_up.timeseries.filter(time_filter)
-        fcr_down_df = fcr_down.timeseries.filter(time_filter)
-
-        feasible_up = (
-            afrr_up_df.join(fcr_up_df, on="time", suffix="_fcr")
-            .with_columns(
-                (
-                    pl.col("value").clip(upper_bound=maximum_afrr) + pl.col("value_fcr").clip(upper_bound=maximum_fcr)
-                ).alias("value")
-            )
-            .select("time", "value")
-        )
-
-        feasible_down = (
-            afrr_down_df.join(fcr_down_df, on="time", suffix="_fcr")
-            .with_columns(
-                (
-                    pl.col("value").clip(upper_bound=maximum_afrr) + pl.col("value_fcr").clip(upper_bound=maximum_fcr)
-                ).alias("value")
-            )
-            .select("time", "value")
-        )
-
-        self.feasible_automated_reserves_up_procured = Timeseries.from_index(
-            self.parameters.temporal.start_date, self.parameters.temporal.timestep, end_date, default_value=0
-        )
-        self.feasible_automated_reserves_down_procured = Timeseries.from_index(
-            self.parameters.temporal.start_date, self.parameters.temporal.timestep, end_date, default_value=0
-        )
-
-        self.feasible_automated_reserves_up_procured.set_values(Timeseries(feasible_up), inplace=True)
-        self.feasible_automated_reserves_down_procured.set_values(Timeseries(feasible_down), inplace=True)
+        self.feasible_automated_reserves_up_procured = afrr_up_f.clip(upper_bound=maximum_afrr, inplace=False) + fcr_up_f.clip(upper_bound=maximum_fcr, inplace=False)
+        self.feasible_automated_reserves_down_procured = afrr_down_f.clip(upper_bound=maximum_afrr, inplace=False) + fcr_down_f.clip(upper_bound=maximum_fcr, inplace=False)
 
         self.automated_unsupplied_reserves += (
-            afrr_up_df.join(fcr_up_df, on="time", suffix="_fcr")
-            .join(afrr_down_df, on="time", suffix="_ad")
-            .join(fcr_down_df, on="time", suffix="_fd")
-            .select(
-                (pl.col("value") - maximum_afrr).clip(lower_bound=0)
-                + (pl.col("value_fcr") - maximum_fcr).clip(lower_bound=0)
-                + (pl.col("value_ad") - maximum_afrr).clip(lower_bound=0)
-                + (pl.col("value_fd") - maximum_fcr).clip(lower_bound=0)
-            )
-            .sum()
-            .item()
-        )
+            (afrr_up_f - maximum_afrr).clip(lower_bound=0, inplace=False)
+            + (fcr_up_f - maximum_fcr).clip(lower_bound=0, inplace=False)
+            + (afrr_down_f - maximum_afrr).clip(lower_bound=0, inplace=False)
+            + (fcr_down_f - maximum_fcr).clip(lower_bound=0, inplace=False)
+        ).sum()
 
         cfg.logger.debug(f"automated unsupplied reserves : {self.automated_unsupplied_reserves}")
 
@@ -561,16 +522,11 @@ class ThermalOptimizationModel(OptimisationModel):
         )
 
     def _solution_ts(self, getter: Callable[[DateTime], float]) -> Timeseries:
-        tz = self.parameters.temporal.start_date.timezone_name
-        times = self.time_frame
-        return Timeseries(
-            pl.DataFrame(
-                {
-                    "time": times,
-                    "value": [getter(t) for t in times],
-                },
-                schema={"time": pl.Datetime("us", tz), "value": pl.Float64()},
-            )
+        return Timeseries.from_values(
+            start_date=self.parameters.temporal.start_date,
+            frequency=self.parameters.temporal.timestep,
+            values=[getter(t) for t in self.time_frame],
+            timezone=self.parameters.temporal.start_date.timezone_name,
         )
 
     def _export_lp_if_requested(self) -> None:
