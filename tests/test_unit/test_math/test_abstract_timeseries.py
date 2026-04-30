@@ -4,6 +4,7 @@ These tests ensure that the abstract class properties and methods are properly c
 """
 
 import pandas as pd
+import pendulum
 import polars as pl
 import pytest
 
@@ -121,3 +122,137 @@ class TestAbstractTimeseries:
         # Collect to check values
         collected = result.collect()
         assert collected.values == [1.2, 2.6, 3.9, 4.1, 5.8]
+
+
+class TestClip:
+    """Tests for the clip() method on Timeseries."""
+
+    @pytest.fixture
+    def ts(self):
+        df = pd.DataFrame(
+            {
+                "time": pd.date_range(start="2025-01-01", periods=5, freq="h", tz="UTC"),
+                "value": [-10.0, 0.0, 5.0, 15.0, 25.0],
+            }
+        )
+        return Timeseries(pl.from_pandas(df))
+
+    def test_clip_lower_bound(self, ts):
+        result = ts.clip(lower_bound=0.0, inplace=False)
+        assert result.values == [0.0, 0.0, 5.0, 15.0, 25.0]
+
+    def test_clip_upper_bound(self, ts):
+        result = ts.clip(upper_bound=10.0, inplace=False)
+        assert result.values == [-10.0, 0.0, 5.0, 10.0, 10.0]
+
+    def test_clip_both_bounds(self, ts):
+        result = ts.clip(lower_bound=0.0, upper_bound=10.0, inplace=False)
+        assert result.values == [0.0, 0.0, 5.0, 10.0, 10.0]
+
+    def test_clip_no_bounds_is_noop(self, ts):
+        result = ts.clip(inplace=False)
+        assert result.values == ts.values
+
+    def test_clip_inplace_true(self, ts):
+        result = ts.clip(lower_bound=0.0, upper_bound=10.0, inplace=True)
+        assert result is ts
+        assert ts.values == [0.0, 0.0, 5.0, 10.0, 10.0]
+
+    def test_clip_inplace_false_does_not_mutate_original(self, ts):
+        original_values = ts.values[:]
+        ts.clip(lower_bound=0.0, upper_bound=10.0, inplace=False)
+        assert ts.values == original_values
+
+    def test_clip_lazy_timeseries(self, ts):
+        lazy_ts = LazyTimeseries(ts.timeseries.lazy())
+        result = lazy_ts.clip(lower_bound=0.0, upper_bound=10.0, inplace=False)
+        assert result.collect().values == [0.0, 0.0, 5.0, 10.0, 10.0]
+
+
+class TestLookupDictCache:
+    """Unit tests for the _lookup_cache mechanism on Timeseries."""
+
+    @pytest.fixture
+    def ts(self):
+        df = pd.DataFrame(
+            {
+                "time": pd.date_range(start="2025-01-01", periods=4, freq="h", tz="UTC"),
+                "value": [10.0, 20.0, 30.0, 40.0],
+            }
+        )
+        return Timeseries(pl.from_pandas(df))
+
+    def test_cache_is_none_before_first_access(self, ts):
+        assert ts._lookup_cache is None
+
+    def test_cache_is_built_on_first_get_lookup(self, ts):
+        ts._get_lookup()
+        assert ts._lookup_cache is not None
+
+    def test_cache_contains_correct_mapping(self, ts):
+        lookup = ts._get_lookup()
+        assert len(lookup) == 4
+        assert list(lookup.values()) == [10.0, 20.0, 30.0, 40.0]
+
+    def test_to_lookup_dict_returns_same_object_as_cache(self, ts):
+        d = ts.to_lookup_dict()
+        assert d is ts._lookup_cache
+
+    def test_cache_is_reused_on_repeated_calls(self, ts):
+        first = ts._get_lookup()
+        second = ts._get_lookup()
+        assert first is second
+
+    def test_cache_allows_o1_lookup_via_get_value(self, ts):
+        dt = pendulum.datetime(2025, 1, 1, 1, 0, 0, tz="UTC")
+        assert ts.get_value(dt) == 20.0
+
+    def test_invalidate_cache_sets_none(self, ts):
+        ts._get_lookup()
+        ts._invalidate_cache()
+        assert ts._lookup_cache is None
+
+    def test_cache_rebuilt_after_invalidation(self, ts):
+        first = ts._get_lookup()
+        ts._invalidate_cache()
+        second = ts._get_lookup()
+        assert second is not first
+        assert list(second.values()) == [10.0, 20.0, 30.0, 40.0]
+
+    def test_cache_invalidated_after_set_value(self, ts):
+        ts._get_lookup()
+        dt = pendulum.datetime(2025, 1, 1, 0, 0, 0, tz="UTC")
+        ts.set_value(dt, 99.0, inplace=True)
+        assert ts._lookup_cache is None
+        assert ts.get_value(dt) == 99.0
+
+    def test_cache_reflects_new_value_after_set_value(self, ts):
+        dt = pendulum.datetime(2025, 1, 1, 2, 0, 0, tz="UTC")
+        ts.set_value(dt, 99.0, inplace=True)
+        assert ts.to_lookup_dict()[dt] == 99.0
+
+    def test_cache_invalidated_after_add_index(self, ts):
+        ts._get_lookup()
+        new_dt = pendulum.datetime(2025, 1, 1, 4, 0, 0, tz="UTC")
+        ts.add_index(new_dt, 50.0, inplace=True)
+        assert ts._lookup_cache is None
+        assert ts.get_value(new_dt) == 50.0
+
+    def test_cache_invalidated_after_set_timezone(self, ts):
+        ts._get_lookup()
+        ts.set_timezone("Europe/Paris")
+        assert ts._lookup_cache is None
+
+    def test_cache_rebuilt_with_correct_tz_after_set_timezone(self, ts):
+        ts.set_timezone("Europe/Paris")
+        lookup = ts.to_lookup_dict()
+        keys = list(lookup.keys())
+        assert all(str(k.tzinfo) == "Europe/Paris" for k in keys)
+
+    def test_non_inplace_mutation_does_not_invalidate_original_cache(self, ts):
+        ts._get_lookup()
+        cache_before = ts._lookup_cache
+        dt = pendulum.datetime(2025, 1, 1, 0, 0, 0, tz="UTC")
+        new_ts = ts.set_value(dt, 99.0, inplace=False)
+        assert ts._lookup_cache is cache_before
+        assert new_ts._lookup_cache is None

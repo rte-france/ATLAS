@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-import argparse
 import csv
 import json
 import time
@@ -326,8 +325,3 @@ def run(parameters_path: str):
     _save_csv(wall, _global_steps, _job_steps, Path("profiling_level1.csv"))
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Level-1 profiling for an Atlas workflow")
-    parser.add_argument("--parameters", help="Path to the workflow YAML file")
-    args = parser.parse_args()
-    run(args.parameters)
