@@ -154,7 +154,6 @@ class TestRunCommandWorkflowMode:
         workflow_config.write_text(
             """
             dataset_path: ./dataset
-            output_dataset_path: ./output
             steps:
             - module: PortfolioOptimisation
                 parameters_path: params.yaml

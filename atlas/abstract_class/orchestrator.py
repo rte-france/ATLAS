@@ -73,12 +73,12 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
 
             logger.info(f"Finishing job :'{job.name}'")
 
-        # Export final orchestrator output
-        logger.info(f"Exporting final {self.__class__.__name__} output")
-
         if self.parameters.export_output:
+            logger.info(
+                f"Exporting final {self.__class__.__name__.lower()} output to {self.parameters.resolve_path(self.parameters.output_dir)}"
+            )
             cis.to_directory(
-                self.parameters.resolve_path(self.parameters.output_dir) / f"{self.__class__.__name__}_output"
+                self.parameters.resolve_path(self.parameters.output_dir) / f"{self.__class__.__name__.lower()}_output"
             )
 
         logger.info(f"{self.__class__.__name__} '{self.parameters.name}' completed successfully")
