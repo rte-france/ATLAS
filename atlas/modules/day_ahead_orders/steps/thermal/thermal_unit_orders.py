@@ -9,6 +9,7 @@ import math
 from typing import cast
 
 import pendulum
+import polars as pl
 from pendulum import DateTime
 
 import atlas.config as cfg
@@ -77,59 +78,21 @@ class ThermalUnitOrders:
         # Configuration of variables for orders' formulation
         ## Get the reserve procurements at the executionDate and collapse them into automated and manual reserves procurements
 
-        automated_reserves_up_procured = Timeseries.from_index(
-            self.parameters.temporal.start_date, self.parameters.temporal.timestep, self.parameters.temporal.end_date, 0
-        )
-        automated_reserves_down_procured = Timeseries.from_index(
-            self.parameters.temporal.start_date, self.parameters.temporal.timestep, self.parameters.temporal.end_date, 0
-        )
-        manual_reserves_up_procured = Timeseries.from_index(
-            self.parameters.temporal.start_date, self.parameters.temporal.timestep, self.parameters.temporal.end_date, 0
-        )
-        manual_reserves_down_procured = Timeseries.from_index(
-            self.parameters.temporal.start_date, self.parameters.temporal.timestep, self.parameters.temporal.end_date, 0
-        )
+        start = self.parameters.temporal.start_date
+        end = self.parameters.temporal.end_date
+        step = self.parameters.temporal.timestep
+        ed = self.parameters.temporal.execution_date
 
-        if unit.afrr_up_procured and unit.fcr_up_procured:
-            automated_reserves_up_procured = unit.afrr_up_procured.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.end_date,
-            ) + unit.fcr_up_procured.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.end_date,
-            )
-        if unit.afrr_down_procured and unit.fcr_down_procured:
-            automated_reserves_down_procured = unit.afrr_down_procured.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.end_date,
-            ) + unit.fcr_down_procured.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.end_date,
-            )
-        if unit.mfrr_up_procured and unit.rr_up_procured:
-            manual_reserves_up_procured = unit.mfrr_up_procured.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.end_date,
-            ) + unit.rr_up_procured.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.end_date,
-            )
-        if unit.mfrr_down_procured and unit.rr_down_procured:
-            manual_reserves_down_procured = unit.mfrr_down_procured.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.end_date,
-            ) + unit.rr_down_procured.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.end_date,
-            )
+        _default = Timeseries.from_index(start, step, end, 0)
+
+        def _get(attr: str) -> Timeseries:
+            source = getattr(unit, attr)
+            return source.get_forecast(ed, start, end) if source else _default
+
+        automated_reserves_up_procured = _get("afrr_up_procured") + _get("fcr_up_procured")
+        automated_reserves_down_procured = _get("afrr_down_procured") + _get("fcr_down_procured")
+        manual_reserves_up_procured = _get("mfrr_up_procured") + _get("rr_up_procured")
+        manual_reserves_down_procured = _get("mfrr_down_procured") + _get("rr_down_procured")
 
         ## Get the unit-specific parameters:
         T_start = int(math.floor(unit.startup_duration / self.parameters.temporal.timestep))
@@ -141,7 +104,7 @@ class ThermalUnitOrders:
             min_power = unit.minimum_power.collect()
         else:
             min_power = cast(Timeseries, unit.minimum_power)
-            if min_power.filter(self.orders_time, inplace=False).dataframe["value"].min() == 0:
+            if min_power.filter(self.orders_time, inplace=False).min() == 0:
                 null_minimum_power = True
             else:
                 null_minimum_power = False
@@ -153,19 +116,19 @@ class ThermalUnitOrders:
         ## See whether the ramps are complete or not
         T_startSD_in_sim = False
         if 3 in online_timeframe.values:
-            for t in list(online_timeframe.index)[:-1]:
-                t_next = t + self.parameters.temporal.timestep
+            index = list(online_timeframe.index)
+            for t, t_next in zip(index[:-1], index[1:], strict=False):
                 if online_timeframe.get_value(t_next) - online_timeframe.get_value(t) == 2:
-                    # passage from 1 to 3 in sequence, indicating the beginning of a shutdown
                     T_startSD_in_sim = True
+                    break
 
         T_endSU_in_sim = False
         if startup:
-            for t in list(online_timeframe.index)[:-1]:
-                t_next = t + self.parameters.temporal.timestep
+            index = list(online_timeframe.index)
+            for t, t_next in zip(index[:-1], index[1:], strict=False):
                 if online_timeframe.get_value(t) - online_timeframe.get_value(t_next) == 1:
-                    # passage from 2 to 1 in sequence, indicating the end of a startup
                     T_endSU_in_sim = True
+                    break
 
         ## Extract K_start, K_stop.
         # K_start is the number of timesteps actually startup within the simulation timeframe (shorter than overall
@@ -176,11 +139,14 @@ class ThermalUnitOrders:
         # Compute K_start and K_stop
         K_start, K_stop = 0, 0
         m, n = 0, 0
+        online_index_set = set(online_timeframe.index)
         for t in self.orders_time:
-            if t in online_timeframe.index and online_timeframe.get_value(t) == 2:
-                m += 1
-            elif t in online_timeframe.index and online_timeframe.get_value(t) == 3:
-                n += 1
+            if t in online_index_set:
+                v = online_timeframe.get_value(t)
+                if v == 2:
+                    m += 1
+                elif v == 3:
+                    n += 1
 
         # Update the values
         K_start += m
@@ -193,11 +159,11 @@ class ThermalUnitOrders:
         # Getting the starting date of the time frames.
         if K_start > 0 or K_stop > 0:
             for t in self.orders_time:
-                if t in online_timeframe.index and online_timeframe.get_value(t) == 2:
+                if t in online_index_set and online_timeframe.get_value(t) == 2:
                     begin_of_startTimeFrame = t
                     break
             for t in self.orders_time:
-                if t in online_timeframe.index and online_timeframe.get_value(t) == 3:
+                if t in online_index_set and online_timeframe.get_value(t) == 3:
                     begin_of_stopTimeFrame = t
                     break
 
@@ -230,7 +196,7 @@ class ThermalUnitOrders:
         # to be removed from the flexible_time_frame.
         flexible_time_frame: list[DateTime] = []
         for t in self.orders_time:
-            if t in online_timeframe.index and online_timeframe.get_value(t) == 1:
+            if t in online_index_set and online_timeframe.get_value(t) == 1:
                 flexible_time_frame.append(t)
 
         # Sanity check : the flexible_time_frame only contains timestamps within the orders_time time frame.
@@ -251,7 +217,20 @@ class ThermalUnitOrders:
         ## Inflexible timeframe
         inflexible_time_frame = online_timeframe.index
 
-        # Formulate orders only if the unit is online
+        # Pre-compute vectorised q_max before the flexible loop
+        time_filter = pl.col("time").is_in(flexible_time_frame)
+        q_max_ts = (
+            Timeseries(unit.maximum_power.timeseries.filter(time_filter))
+            - Timeseries(unit.minimum_power.timeseries.filter(time_filter))
+            - Timeseries(manual_reserves_down_procured.timeseries.filter(time_filter))
+            - Timeseries(manual_reserves_up_procured.timeseries.filter(time_filter))
+            - Timeseries(automated_reserves_down_procured.timeseries.filter(time_filter))
+            - Timeseries(automated_reserves_up_procured.timeseries.filter(time_filter))
+        )
+
+        prop_pen = 1 - self.parameters.proportional_reserves_penalty
+        auto_pen = self.parameters.automated_unprocured_reserves_penalty
+        man_pen = self.parameters.manual_unprocured_reserves_penalty
 
         # ------------------------------------------------------- #
         #                                                         #
@@ -262,14 +241,12 @@ class ThermalUnitOrders:
         for t in flexible_time_frame:
             # Part 1: flexible order
             # Compute the maximum amount to be offered.
-            q_max = (
-                unit.maximum_power.get_value(t)
-                - unit.minimum_power.get_value(t)
-                - manual_reserves_down_procured.get_value(t)
-                - manual_reserves_up_procured.get_value(t)
-                - automated_reserves_down_procured.get_value(t)
-                - automated_reserves_up_procured.get_value(t)
-            )
+            q_max = q_max_ts.get_value(t)
+            var_cost = unit.variable_cost.get_value(t)
+            auto_down = automated_reserves_down_procured.get_value(t)
+            man_down = manual_reserves_down_procured.get_value(t)
+            auto_up = automated_reserves_up_procured.get_value(t)
+            man_up = manual_reserves_up_procured.get_value(t)
 
             # We only formulate the order if its maximal power is positive
             if q_max <= 0.0:
@@ -286,7 +263,7 @@ class ThermalUnitOrders:
                     equipment=unit,
                     qmax=q_max,
                     qmin=0,
-                    price=unit.variable_cost.get_value(t),
+                    price=var_cost,
                     product=Product.DayAhead,
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
@@ -298,17 +275,16 @@ class ThermalUnitOrders:
 
             # Part 2: reserve requirement orders
             # Automated downward reserves requirements
-            if automated_reserves_down_procured.get_value(t) > 0.0:
+            if auto_down > 0.0:
                 # This order will be the child of the current inflexible order.
                 reserve_bid = OrderDAO(
                     name=f"automated_downward_reserve_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}{scenario_suffix}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
-                    qmax=automated_reserves_down_procured.get_value(t),
-                    qmin=(1 - self.parameters.proportional_reserves_penalty)
-                    * automated_reserves_down_procured.get_value(t),
-                    price=unit.variable_cost.get_value(t) - self.parameters.automated_unprocured_reserves_penalty,
+                    qmax=auto_down,
+                    qmin=prop_pen * auto_down,
+                    price=var_cost - auto_pen,
                     product=Product.DayAhead,
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
@@ -319,17 +295,16 @@ class ThermalUnitOrders:
                 orders.append(reserve_bid)
 
             # Manual downard reserves requirements
-            if manual_reserves_down_procured.get_value(t) > 0.0:
+            if man_down > 0.0:
                 # This order will be the child of the current inflexible order.
                 reserve_bid = OrderDAO(
                     name=f"manual_downward_reserve_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}{scenario_suffix}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
-                    qmax=manual_reserves_down_procured.get_value(t),
-                    qmin=(1 - self.parameters.proportional_reserves_penalty)
-                    * manual_reserves_down_procured.get_value(t),
-                    price=unit.variable_cost.get_value(t) - self.parameters.manual_unprocured_reserves_penalty,
+                    qmax=man_down,
+                    qmin=prop_pen * man_down,
+                    price=var_cost - man_pen,
                     product=Product.DayAhead,
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
@@ -340,17 +315,16 @@ class ThermalUnitOrders:
                 orders.append(reserve_bid)
 
             # Automated upward reserves requirements
-            if automated_reserves_up_procured.get_value(t) > 0.0:
+            if auto_up > 0.0:
                 # This order will be the child of the current flexible order.
                 reserve_bid = OrderDAO(
                     name=f"automated_upward_reserve_order_at_{t}_for_unit_{unit.name}{scenario_suffix}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
-                    qmax=automated_reserves_up_procured.get_value(t),
-                    qmin=(1 - self.parameters.proportional_reserves_penalty)
-                    * automated_reserves_up_procured.get_value(t),
-                    price=unit.variable_cost.get_value(t) + self.parameters.automated_unprocured_reserves_penalty,
+                    qmax=auto_up,
+                    qmin=prop_pen * auto_up,
+                    price=var_cost + auto_pen,
                     product=Product.DayAhead,
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
@@ -361,16 +335,16 @@ class ThermalUnitOrders:
                 orders.append(reserve_bid)
 
             # Manual upward reserves requirements
-            if manual_reserves_up_procured.get_value(t) > 0.0:
+            if man_up > 0.0:
                 # This order will be the child of the current flexible order.
                 reserve_bid = OrderDAO(
                     name=f"manual_upward_reserve_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}{scenario_suffix}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
-                    qmax=manual_reserves_up_procured.get_value(t),
-                    qmin=(1 - self.parameters.proportional_reserves_penalty) * manual_reserves_up_procured.get_value(t),
-                    price=unit.variable_cost.get_value(t) + self.parameters.manual_unprocured_reserves_penalty,
+                    qmax=man_up,
+                    qmin=prop_pen * man_up,
+                    price=var_cost + man_pen,
                     product=Product.DayAhead,
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
@@ -471,6 +445,8 @@ class ThermalUnitOrders:
             # TODO: should be inflexible_time_frame, but not working currently for format reasons
             for t in inflexible_time_frame:
                 t = pendulum.instance(t)
+                min_p = unit.minimum_power.get_value(t)
+                var_cost = unit.variable_cost.get_value(t)
                 name = (
                     f"order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_under_price_{case}"
                     if case
@@ -481,9 +457,9 @@ class ThermalUnitOrders:
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
-                    qmax=unit.minimum_power.get_value(t),
-                    qmin=unit.minimum_power.get_value(t),
-                    price=round(unit.variable_cost.get_value(t), 2),
+                    qmax=min_p,
+                    qmin=min_p,
+                    price=round(var_cost, 2),
                     product=Product.DayAhead,
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
@@ -494,7 +470,7 @@ class ThermalUnitOrders:
                 orders.append(bid_output)
 
                 inflexible_orders.append(bid_output)
-                Q += unit.minimum_power.get_value(t)
+                Q += min_p
 
                 # Check the existence of flexible bids to be linked by a parent-child coupling
                 flexible_types = [
