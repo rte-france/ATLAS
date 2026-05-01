@@ -381,8 +381,12 @@ class ThermalOptimizationModel(OptimisationModel):
         fcr_up_f = fcr_up.filter(self.time_frame, inplace=False)
         fcr_down_f = fcr_down.filter(self.time_frame, inplace=False)
 
-        self.feasible_automated_reserves_up_procured = afrr_up_f.clip(upper_bound=maximum_afrr, inplace=False) + fcr_up_f.clip(upper_bound=maximum_fcr, inplace=False)
-        self.feasible_automated_reserves_down_procured = afrr_down_f.clip(upper_bound=maximum_afrr, inplace=False) + fcr_down_f.clip(upper_bound=maximum_fcr, inplace=False)
+        self.feasible_automated_reserves_up_procured = afrr_up_f.clip(
+            upper_bound=maximum_afrr, inplace=False
+        ) + fcr_up_f.clip(upper_bound=maximum_fcr, inplace=False)
+        self.feasible_automated_reserves_down_procured = afrr_down_f.clip(
+            upper_bound=maximum_afrr, inplace=False
+        ) + fcr_down_f.clip(upper_bound=maximum_fcr, inplace=False)
 
         self.automated_unsupplied_reserves += (
             (afrr_up_f - maximum_afrr).clip(lower_bound=0, inplace=False)
@@ -526,7 +530,6 @@ class ThermalOptimizationModel(OptimisationModel):
             start_date=self.parameters.temporal.start_date,
             frequency=self.parameters.temporal.timestep,
             values=[getter(t) for t in self.time_frame],
-            timezone=self.parameters.temporal.start_date.timezone_name,
         )
 
     def _export_lp_if_requested(self) -> None:

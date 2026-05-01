@@ -323,5 +323,3 @@ def run(parameters_path: str):
     _print_report(wall, _global_steps, _job_steps)
     _save_json(wall, _global_steps, _job_steps, Path("profiling_level1.json"))
     _save_csv(wall, _global_steps, _job_steps, Path("profiling_level1.csv"))
-
-
