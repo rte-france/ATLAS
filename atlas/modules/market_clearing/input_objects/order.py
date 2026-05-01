@@ -4,6 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from functools import cached_property
+
 import pendulum
 from pendulum import Duration
 from pydantic_extra_types.pendulum_dt import DateTime
@@ -44,18 +46,18 @@ class OrderMC(Order):
     # Attributes from market clearing parameter
     timestep: Duration
 
-    @property
+    @cached_property
     def production_sign(self) -> int:
         return 1 if self.order_type == OrderType.Sell else -1
 
-    @property
+    @cached_property
     def is_sale(self) -> bool:
         return self.production_sign == 1
 
     # Deduce duration from list of DataTime and the parameter time step (the end datetime may have to be modified so that
     # everything stays consistent).
     # NB: by convention, self.end_date are actually starts of a last time step:
-    @property
+    @cached_property
     def duration(self) -> pendulum.Duration:
         minutes = (
             self.end_date.diff(self.start_date).in_minutes()
@@ -64,13 +66,13 @@ class OrderMC(Order):
         )
         return pendulum.duration(minutes=minutes)
 
-    @property
-    def end_datetime(self) -> DateTime:
-        return self.start_date + self.duration
-
-    @property
+    @cached_property
     def end_date_processed(self) -> DateTime:
         return self.start_date + self.duration
+
+    @cached_property
+    def end_datetime(self) -> DateTime:
+        return self.end_date_processed
 
     @staticmethod
     def is_feasible(order: Order, times: list[pendulum.DateTime], parameters: MarketClearingParameters) -> bool:

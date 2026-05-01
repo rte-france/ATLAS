@@ -1150,8 +1150,10 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :rtype: Timeseries
         """
         if inplace:
+            old_len = len(self.timeseries)
             self.timeseries = df.sort("time")
-            self.frequency = infer_frequency(self.timeseries)
+            if getattr(self, "frequency", None) is None or len(self.timeseries) != old_len:
+                self.frequency = infer_frequency(self.timeseries)
             self._invalidate_cache()
             return self
         return Timeseries(df, self.timezone)
