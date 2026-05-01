@@ -79,6 +79,7 @@ dev = [
     "plotly-stubs>=0.0.5",
     "ortools-stubs>=8.0.0",
     "types-pytz>=2025.2.0.20251108",
+    "pyinstrument>=5.1.2",
 ]
 docs = [
     "mike>=2.1.3",
