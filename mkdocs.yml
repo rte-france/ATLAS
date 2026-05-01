@@ -106,6 +106,7 @@ nav:
       - CLI: cli.md
       - Python API: modules/running-modules.md
       - Workflows: modules/workflow.md
+      - Profiling: profiling.md
     - Common Parameters: modules/common-parameters.md
     - Examples:
       - AtlasDataset: examples/atlas_dataset.md

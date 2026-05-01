@@ -1,12 +1,12 @@
-# Profiling Methodology — ATLAS
+# Profiling
 
 ## Core principle
 
-**Never go deeper than necessary.** Start broad, identify the bottleneck, then zoom on in
+**Never go deeper than necessary.** Start broad, identify the bottleneck, then zoom in.
 
 ```
-Level 1 — Which module is slow? (generic, always run first)
-Level 2 — Which functions are called? (generic, run on the slow module)
+Level 1 — Which job is slow?       (generic, always run first)
+Level 2 — Which functions are hot? (generic, run on the slow module)
 Level 3 — Why is that function slow? (custom per module)
 ```
 
@@ -14,9 +14,7 @@ Level 3 — Why is that function slow? (custom per module)
 
 ## Level 1 — Workflow timing
 
-**Goal:** Identify which module consumes the most wall time.
-
-**Script:** `profiling_level1.py`
+**Goal:** Identify which job in a workflow consumes the most wall time.
 
 **How it works:** Monkey-patches `AbstractOrchestrator._execute_job` to wrap each sub-step with a `perf_counter` timer. No modification to the source code required.
 
@@ -33,7 +31,14 @@ Each job is broken down into:
 **Usage:**
 
 ```bash
-uv run python profiling_level1.py --parameters workflow.yaml
+atlas profiling --level workflow --parameters workflow.yaml
+```
+
+With a custom output path (default: `profiling_workflow`):
+
+```bash
+atlas profiling --level workflow --parameters workflow.yaml --output results/my_run
+# Writes: results/my_run.json  and  results/my_run.csv
 ```
 
 **Example output:**
@@ -49,26 +54,35 @@ uv run python profiling_level1.py --parameters workflow.yaml
   ──────────────────────────────────────────────────────────────────────────────────
   DayAheadOrders         72.23s   3.46s  75.69s   0.12s   0.00s  75.81s  23%  ████
   MarketClearing         22.73s   0.11s  22.83s   0.11s   0.00s  22.94s   7%  █
-  PortfolioOptimisation  27.22s  199.08s  226.30s   0.10s   0.00s  226.40s  68%  █████████████
+  PortfolioOptimisation  27.22s  199.08s 226.30s   0.10s   0.00s 226.40s  68%  █████████████
   ──────────────────────────────────────────────────────────────────────────────────
-  TOTAL                  122.18s  202.65s  324.83s   0.32s   0.00s  325.15s  98%
+  TOTAL                  122.18s 202.65s 324.83s   0.32s   0.00s 325.15s  98%
 
   Bottlenecks (> 5%):
-    → PortfolioOptimisation · solve             199.08s  (60%)
-    → DayAheadOrders · build                    72.23s  (22%)
-    → PortfolioOptimisation · build             27.22s  (8%)
-    → MarketClearing · build                    22.73s  (7%)
+    → PortfolioOptimisation · solve           199.08s  (60%)
+    → DayAheadOrders · build                  72.23s  (22%)
+    → PortfolioOptimisation · build           27.22s   (8%)
+    → MarketClearing · build                  22.73s   (7%)
 
   build=yellow  solve=green  run=build+solve (dim)
 ──────────────────────────────────────────────────────────────
 ```
 
+Two files are saved alongside the console output:
+
+| File | Content |
+|------|---------|
+| `profiling_workflow.json` | Structured data — wall time, global steps, per-job breakdown |
+| `profiling_workflow.csv` | Two-section CSV — global steps, then job steps with `pct_wall` |
+
 **Decision rule:**
 
-- `build` dominates → go to Level 2 on that module
-- `solve` dominates → LP or MIP is independent of Python code — LP/MIP formulation may need to change
-- `apply` dominates → I/O or serialization issue, investigate the CIS layer
-- `export` dominates → disk write bottleneck, check output volume
+| Dominant column | Diagnosis | Next step |
+|----------------|-----------|-----------|
+| `build` | Python model construction is the bottleneck | Run Level 2 on that module |
+| `solve` | Solver time dominates — LP/MIP formulation issue | Review formulation, not Python code |
+| `apply` | I/O or serialization issue | Investigate the CIS layer |
+| `export` | Disk write bottleneck | Check output volume |
 
 ---
 
@@ -76,26 +90,47 @@ uv run python profiling_level1.py --parameters workflow.yaml
 
 **Goal:** Identify which functions inside the slow module consume the most CPU time.
 
-**Tool:** Python standard library `pyinstrument`
+**Tools:** `pyinstrument` (visual call tree) + `cProfile` (statistical breakdown)
 
 **Usage:**
 
 ```bash
-uv run python atlas/profiling/profiling_module.py path/to/parameters --module ModuleName --dataset path/to/dataset --output where/to/export/html
+atlas profiling --level module \
+  --parameters path/to/parameters.yaml \
+  --module DayAheadOrders \
+  --dataset path/to/dataset/
 ```
 
-**What to look for:**
+With a custom output path (default: `profile_<ModuleName>`):
+
+```bash
+atlas profiling --level module \
+  --parameters path/to/parameters.yaml \
+  --module DayAheadOrders \
+  --dataset path/to/dataset/ \
+  --output results/dao_profile
+# Writes: results/dao_profile.html  and  results/dao_profile_stats.txt
+```
+
+Two files are produced:
+
+| File | Tool | Use |
+|------|------|-----|
+| `profile_<Module>.html` | pyinstrument | Interactive call tree — open in a browser |
+| `profile_<Module>_stats.txt` | cProfile | Top 100 functions sorted by cumulative time |
+
+**What to look for in the cProfile stats:**
 
 | Metric | Meaning |
 |--------|---------|
-| `tottime` (self time) | Time spent in this function only — identifies the real hotspot |
+| `tottime` (self time) | Time in this function only — the real hotspot |
 | `cumtime` (cumulative) | Time including all callees — useful for locating the call path |
-| `ncalls` | Number of calls — high call count on a slow function is the typical pattern |
+| `ncalls` | Call count — high count on a slow function is the typical pattern |
 
 **Decision rule:**
 
 - A small set of functions with high `tottime` → those are the targets for Level 3
-- Unexpectedly high `ncalls` on a function (e.g. `get_value`, `get_forecast`) → redundant computation, likely cacheable
+- Unexpectedly high `ncalls` (e.g. `get_value`, `get_forecast`) → redundant computation, likely cacheable
 
 ---
 
@@ -103,36 +138,26 @@ uv run python atlas/profiling/profiling_module.py path/to/parameters --module Mo
 
 **Goal:** Understand *why* a specific function is slow and validate a fix.
 
-**How it works:** Manual instrumentation with `perf_counter` timers, inserted directly into the module's hot path. Unlike Levels 1 and 2, this is written specifically for the module being investigated.
+**How it works:** Manual instrumentation with `perf_counter` timers inserted directly into the module's hot path. Unlike Levels 1 and 2, this is written specifically for the module being investigated.
 
-TODO
-
-**Important limits at Level 3:**
-
-- Optimising the build phase (model construction) has a hard ceiling at the solve time
-- If the solver consumes the full timeout, no build optimisation will improve wall time — the MIP gap or the timeout itself must be addressed instead
+!!! note
+    Optimising the build phase has a hard ceiling at the solve time. If the solver consumes the full timeout, no build optimisation will improve wall time — the MIP gap or the timeout itself must be addressed instead.
 
 ---
 
 ## Decision flowchart
 
 ```
-Run Level 1
+Run Level 1  (atlas profiling --level workflow ...)
      │
-     ▼
-run >> 
-  ├── build dominates → Run Level 2 on that module
-  │
-  ├── solver dominates : LP/MIP formulation issue, not a Python-level fix
-  │
-  └── apply dominates : Check on Atlas API function
+     ├── build dominates  →  Run Level 2 on that module
+     │                       (atlas profiling --level module ...)
+     │                              │
+     │                              └── high tottime/ncalls  →  Level 3
+     │
+     ├── solve dominates  →  LP/MIP formulation issue — not a Python-level fix
+     │
+     ├── apply dominates  →  Investigate the CIS layer
+     │
+     └── export dominates →  Check output volume / disk throughput
 ```
-
----
-
-## Files
-
-| File | Level | Scope |
-|------|-------|-------|
-| `profiling_level1.py` | 1 | Generic — any Atlas workflow |
-| `profiling_level2.py` | 2 | Generic — wraps any module's `run()` with cProfile |
