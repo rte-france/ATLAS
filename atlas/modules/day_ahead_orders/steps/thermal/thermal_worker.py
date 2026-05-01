@@ -97,7 +97,7 @@ def optimize_single_thermal_unit(
         cfg.logger.error(f"Order formulation failed for thermal unit {thermal.name}: {e}")
         import traceback
 
-        cfg.logger.debug(traceback.format_exc())
+        cfg.logger.info(traceback.format_exc())
         return ThermalOptimizationResult(
             thermal_name=thermal.name,
             strategy=thermal.strategy or ThermalStrategy.BASE,

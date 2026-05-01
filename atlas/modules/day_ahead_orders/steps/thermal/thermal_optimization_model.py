@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 
 import math
 from collections.abc import Callable
+from datetime import datetime
 from typing import Literal
 
 from pendulum import DateTime
@@ -375,34 +376,24 @@ class ThermalOptimizationModel(OptimisationModel):
         self.reserves_up_procured = mfrr_up + rr_up
         self.reserves_down_procured = mfrr_down + rr_down
 
-        end_date = self.parameters.temporal.end_date + unit.additional_hours - self.parameters.temporal.timestep
-        self.feasible_automated_reserves_up_procured = Timeseries.from_index(
-            self.parameters.temporal.start_date, self.parameters.temporal.timestep, end_date, default_value=0
-        )
-        self.feasible_automated_reserves_down_procured = Timeseries.from_index(
-            self.parameters.temporal.start_date, self.parameters.temporal.timestep, end_date, default_value=0
-        )
+        afrr_up_f = afrr_up.filter(self.time_frame, inplace=False)
+        afrr_down_f = afrr_down.filter(self.time_frame, inplace=False)
+        fcr_up_f = fcr_up.filter(self.time_frame, inplace=False)
+        fcr_down_f = fcr_down.filter(self.time_frame, inplace=False)
 
-        for t in self.time_frame:
-            feasible_up = min(afrr_up.get_value(t), maximum_afrr) + min(fcr_up.get_value(t), maximum_fcr)
-            feasible_down = min(afrr_down.get_value(t), maximum_afrr) + min(fcr_down.get_value(t), maximum_fcr)
+        self.feasible_automated_reserves_up_procured = afrr_up_f.clip(
+            upper_bound=maximum_afrr, inplace=False
+        ) + fcr_up_f.clip(upper_bound=maximum_fcr, inplace=False)
+        self.feasible_automated_reserves_down_procured = afrr_down_f.clip(
+            upper_bound=maximum_afrr, inplace=False
+        ) + fcr_down_f.clip(upper_bound=maximum_fcr, inplace=False)
 
-            if t in self.feasible_automated_reserves_up_procured:
-                self.feasible_automated_reserves_up_procured.set_value(t, feasible_up)
-            else:
-                self.feasible_automated_reserves_up_procured.add_index(t, feasible_up)
-
-            if t in self.feasible_automated_reserves_down_procured:
-                self.feasible_automated_reserves_down_procured.set_value(t, feasible_down)
-            else:
-                self.feasible_automated_reserves_down_procured.add_index(t, feasible_down)
-
-            self.automated_unsupplied_reserves += (
-                max(afrr_up.get_value(t) - maximum_afrr, 0)
-                + max(fcr_up.get_value(t) - maximum_fcr, 0)
-                + max(afrr_down.get_value(t) - maximum_afrr, 0)
-                + max(fcr_down.get_value(t) - maximum_fcr, 0)
-            )
+        self.automated_unsupplied_reserves += (
+            (afrr_up_f - maximum_afrr).clip(lower_bound=0, inplace=False)
+            + (fcr_up_f - maximum_fcr).clip(lower_bound=0, inplace=False)
+            + (afrr_down_f - maximum_afrr).clip(lower_bound=0, inplace=False)
+            + (fcr_down_f - maximum_fcr).clip(lower_bound=0, inplace=False)
+        ).sum()
 
         cfg.logger.debug(f"automated unsupplied reserves : {self.automated_unsupplied_reserves}")
 
@@ -506,47 +497,40 @@ class ThermalOptimizationModel(OptimisationModel):
         # If self.T_stable = 0, we don't need to include automatedContractedReservesUp and automatedContractedReservesDown to the objective function.
         # otherwise we need to include them.
         self.set_direction(direction)
+
+        dt_h = self.parameters.temporal.timestep.total_hours()
+        manual_pen = self.parameters.manual_unprocured_reserves_penalty * dt_h
+        auto_pen = self.parameters.automated_unprocured_reserves_penalty * dt_h
+
         self.add_objective(
             objective_expr=(
                 sum(
                     self.q.get_value(t)
-                    * (self.parameters.temporal.timestep.total_hours())
+                    * dt_h
                     * (self.prices.get_value(t) - self.thermal_unit.variable_cost.get_value(t))
                     - self.turned_on.get_value(t) * self.thermal_unit.startup_cost.get_value(t)
-                    - self.parameters.manual_unprocured_reserves_penalty
-                    * (self.parameters.temporal.timestep.total_hours())
+                    - manual_pen
                     * (
                         self.get_variable(self.contracted_difference_up_at(t))
                         + self.get_variable(self.contracted_difference_down_at(t))
                     )
-                    - self.parameters.automated_unprocured_reserves_penalty
-                    * (self.parameters.temporal.timestep.total_hours())
+                    - auto_pen
                     * (
                         self.get_variable(self.automated_contracted_difference_up_at(t))
                         + self.get_variable(self.automated_contracted_difference_down_at(t))
                     )
                     for t in self.time_frame
                 )
-                - self.parameters.automated_unprocured_reserves_penalty
-                * (self.parameters.temporal.timestep.total_hours())
-                * self.automated_unsupplied_reserves
+                - auto_pen * self.automated_unsupplied_reserves
             ),
         )
 
     def _solution_ts(self, getter: Callable[[DateTime], float]) -> Timeseries:
-        ts = Timeseries.from_index(
-            self.parameters.temporal.start_date,
-            self.parameters.temporal.timestep,
-            self.parameters.temporal.end_date,
-            default_value=0,
+        return Timeseries.from_values(
+            start_date=self.parameters.temporal.start_date,
+            frequency=self.parameters.temporal.timestep,
+            values=[getter(t) for t in self.time_frame],
         )
-        for t in self.time_frame:
-            value = getter(t)
-            if t in ts:
-                ts.set_value(t, value)
-            else:
-                ts.add_index(t, value)
-        return ts
 
     def _export_lp_if_requested(self) -> None:
         if self.parameters.solver.export_lp:
@@ -602,6 +586,28 @@ class ThermalOptimizationModel(OptimisationModel):
         cfg.logger.debug(f"Objective function value: {self._objective}")
 
         return self._extract_results()
+
+    def add_daily_energy_constraint(self) -> None:
+        """
+        Add daily energy constraint to the optimization model.
+        This constraint limits the total energy output per day.
+        Should be called once after all combination constraints are added.
+
+        :return: None
+        """
+        if self.thermal_unit.has_daily_energy_constraint and self.thermal_unit.maximum_daily_energy is not None:
+            dt_days = self.parameters.temporal.timestep.total_days()
+
+            steps_by_day: dict[datetime, list] = {}
+            for t in self.time_frame:
+                key = datetime(t.year, t.month, t.day)
+                steps_by_day.setdefault(key, []).append(t)
+
+            for date, matching_steps in steps_by_day.items():
+                constraint_expr = sum(
+                    self.q.get_value(t) for t in matching_steps
+                ) <= self.thermal_unit.maximum_daily_energy.get_value(date) * dt_days * len(matching_steps)
+                self.add_constraint(constraint_expr, f"energy_limit_of_{self.thermal_unit.name}_at_{date}")
 
     def is_day_zero(self) -> bool:
         """
