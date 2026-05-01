@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import json
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from atlas import OptimisationModel, Workflow
@@ -17,35 +18,32 @@ from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 
-_global_steps: list[dict] = []
-_job_steps: list[dict] = []
 
-# Accumulated solve time per job, keyed by job name.
-# Populated by _patch_solver; each SolverInterface.solve call adds its
-# duration to the currently active job (tracked via _active_job_name).
-_solve_times: dict[str, float] = {}
-_active_job_name: str | None = None
+@dataclass
+class _State:
+    global_steps: list[dict] = field(default_factory=list)
+    job_steps: list[dict] = field(default_factory=list)
+    solve_times: dict[str, float] = field(default_factory=dict)
+    active_job_name: str | None = None
 
+    def record_global(self, name: str, elapsed: float, error: str | None = None) -> None:
+        self.global_steps.append({"name": name, "elapsed_s": round(elapsed, 3), "error": error})
 
-def _record_global(name: str, elapsed: float, error: str | None = None):
-    _global_steps.append({"name": name, "elapsed_s": round(elapsed, 3), "error": error})
-
-
-def _record_job(name: str, run_s: float, apply_s: float, export_s: float, error: str | None = None):
-    solve_s = _solve_times.get(name, 0.0)
-    build_s = max(0.0, run_s - solve_s)
-    _job_steps.append(
-        {
-            "name": name,
-            "build_s": round(build_s, 3),
-            "solve_s": round(solve_s, 3),
-            "run_s": round(run_s, 3),
-            "apply_s": round(apply_s, 3),
-            "export_s": round(export_s, 3),
-            "total_s": round(run_s + apply_s + export_s, 3),
-            "error": error,
-        }
-    )
+    def record_job(self, name: str, run_s: float, apply_s: float, export_s: float, error: str | None = None) -> None:
+        solve_s = self.solve_times.get(name, 0.0)
+        build_s = max(0.0, run_s - solve_s)
+        self.job_steps.append(
+            {
+                "name": name,
+                "build_s": round(build_s, 3),
+                "solve_s": round(solve_s, 3),
+                "run_s": round(run_s, 3),
+                "apply_s": round(apply_s, 3),
+                "export_s": round(export_s, 3),
+                "total_s": round(run_s + apply_s + export_s, 3),
+                "error": error,
+            }
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +51,7 @@ def _record_job(name: str, run_s: float, apply_s: float, export_s: float, error:
 # ---------------------------------------------------------------------------
 
 
-def _patch_cis(cis_cls):
+def _patch_cis(cis_cls, state: _State) -> None:
     """Wraps CurrentInputState.from_directory to measure initial dataset loading."""
     original = cis_cls.from_directory
 
@@ -61,13 +59,13 @@ def _patch_cis(cis_cls):
     def patched(cls, path):
         t0 = time.perf_counter()
         result = original.__func__(cls, path)
-        _record_global("CurrentInputState.from_directory", time.perf_counter() - t0)
+        state.record_global("CurrentInputState.from_directory", time.perf_counter() - t0)
         return result
 
     cis_cls.from_directory = patched
 
 
-def _patch_workflow_load(workflow_cls):
+def _patch_workflow_load(workflow_cls, state: _State) -> None:
     """Wraps Workflow.from_file to measure YAML loading and job construction."""
     original = workflow_cls.from_file
 
@@ -75,16 +73,16 @@ def _patch_workflow_load(workflow_cls):
     def patched(cls, file_path):
         t0 = time.perf_counter()
         result = original.__func__(cls, file_path)
-        _record_global("Workflow.from_file", time.perf_counter() - t0)
+        state.record_global("Workflow.from_file", time.perf_counter() - t0)
         return result
 
     workflow_cls.from_file = patched
 
 
-def _patch_solver(solver_cls):
+def _patch_solver(solver_cls, state: _State) -> None:
     """Wraps SolverInterface.solve to accumulate solve time per active job.
 
-    Each call adds its duration to _solve_times[_active_job_name].
+    Each call adds its duration to state.solve_times[state.active_job_name].
     A single job.run() may call solve() multiple times (e.g. one per portfolio
     in PortfolioOptimisation), so durations are summed.
     """
@@ -94,14 +92,14 @@ def _patch_solver(solver_cls):
         t0 = time.perf_counter()
         result = original(self, *args, **kwargs)
         elapsed = time.perf_counter() - t0
-        if _active_job_name is not None:
-            _solve_times[_active_job_name] = _solve_times.get(_active_job_name, 0.0) + elapsed
+        if state.active_job_name is not None:
+            state.solve_times[state.active_job_name] = state.solve_times.get(state.active_job_name, 0.0) + elapsed
         return result
 
     solver_cls.solve = patched_solve
 
 
-def _patch_execute_job(orchestrator_cls):
+def _patch_execute_job(orchestrator_cls, state: _State) -> None:
     """Replaces _execute_job on the given orchestrator class to time each sub-step:
       1. job.run
       2. CISHandler.apply
@@ -114,16 +112,17 @@ def _patch_execute_job(orchestrator_cls):
     """
 
     def patched_execute_job(self, job, cis):
-        global _active_job_name
         run_s = apply_s = export_s = 0.0
         error = None
 
         try:
-            _active_job_name = job.name
-            t0 = time.perf_counter()
-            job.run(cis.get_data())
-            run_s = time.perf_counter() - t0
-            _active_job_name = None
+            try:
+                state.active_job_name = job.name
+                t0 = time.perf_counter()
+                job.run(cis.get_data())
+                run_s = time.perf_counter() - t0
+            finally:
+                state.active_job_name = None
 
             output_dataset = job.output_dataset
             if not output_dataset:
@@ -143,14 +142,14 @@ def _patch_execute_job(orchestrator_cls):
             raise
 
         finally:
-            _record_job(job.name, run_s, apply_s, export_s, error)
+            state.record_job(job.name, run_s, apply_s, export_s, error)
 
     orchestrator_cls._execute_job = patched_execute_job
 
 
 B = "\033[1m"  # bold
 R = "\033[0m"  # reset
-Y = "\033[93m"  # yellow — run
+Y = "\033[93m"  # yellow — build
 D = "\033[2m"  # dim
 E = "\033[91m"  # red — error
 
@@ -309,17 +308,19 @@ def _save_csv(wall: float, global_steps: list[dict], job_steps: list[dict], outp
     print(f"  CSV saved: {output_path.resolve()}\n")
 
 
-def run(parameters_path: str):
-    _patch_cis(CurrentInputState)
-    _patch_workflow_load(Workflow)
-    _patch_execute_job(AbstractOrchestrator)
-    _patch_solver(OptimisationModel)
+def run(parameters_path: Path, output: Path | None = None) -> None:
+    state = _State()
+    _patch_cis(CurrentInputState, state)
+    _patch_workflow_load(Workflow, state)
+    _patch_execute_job(AbstractOrchestrator, state)
+    _patch_solver(OptimisationModel, state)
 
     t_start = time.perf_counter()
     wf = Workflow.from_file(parameters_path)
     wf.execute()
     wall = time.perf_counter() - t_start
 
-    _print_report(wall, _global_steps, _job_steps)
-    _save_json(wall, _global_steps, _job_steps, Path("profiling_level1.json"))
-    _save_csv(wall, _global_steps, _job_steps, Path("profiling_level1.csv"))
+    stem = output.with_suffix("") if output else Path("profiling_workflow")
+    _print_report(wall, state.global_steps, state.job_steps)
+    _save_json(wall, state.global_steps, state.job_steps, stem.with_suffix(".json"))
+    _save_csv(wall, state.global_steps, state.job_steps, stem.with_suffix(".csv"))

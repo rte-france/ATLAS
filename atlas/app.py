@@ -15,6 +15,8 @@ from atlas.modules.module_run import ModuleRun
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.orchestrator.workflow.workflow import Workflow
+from atlas.profiling.module import run as run_module
+from atlas.profiling.workflow import run as run_workflow
 from atlas.timing import timer
 
 _PROFILING_LEVELS = ["workflow", "module"]
@@ -111,7 +113,10 @@ def profiling(
         None, "--dataset", "-d", help="Dataset directory (required for level 'module')"
     ),
     output: Path | None = typer.Option(
-        None, "--output", "-o", help="Output file path (level 'module' only, default: profile_<module>.html)"
+        None,
+        "--output",
+        "-o",
+        help="Output path stem. Workflow: saves <stem>.json + <stem>.csv. Module: saves <stem>.html + <stem>_stats.txt",
     ),
 ) -> None:
     """Profile an Atlas workflow or module.
@@ -133,9 +138,7 @@ def profiling(
         raise typer.Exit(code=1)
 
     if level == "workflow":
-        from atlas.profiling.workflow import run as run_workflow
-
-        run_workflow(str(parameters))
+        run_workflow(parameters, output)
 
     elif level == "module":
         if module_name is None:
@@ -153,8 +156,6 @@ def profiling(
         except ValueError as e:
             rprint(f"[bold red]Error[/bold red]: {e}")
             raise typer.Exit(code=1) from e
-
-        from atlas.profiling.module import run as run_module
 
         run_module(parameters, module_name, dataset_path, output)
 

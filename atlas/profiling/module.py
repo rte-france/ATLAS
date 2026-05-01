@@ -19,7 +19,9 @@ from atlas.orchestrator.module_registry import ModuleRegistry
 
 
 def run(config_path: Path, module_name: str, dataset_path: Path, output: Path | None = None) -> None:
-    output = output or Path(f"profile_{module_name}.html")
+    stem = output.with_suffix("") if output else Path(f"profile_{module_name}")
+    html_output = stem.with_suffix(".html")
+    stats_output = stem.parent / (stem.name + "_stats.txt")
 
     module_class = ModuleRegistry.get(module_name)
     module = module_class()
@@ -32,16 +34,16 @@ def run(config_path: Path, module_name: str, dataset_path: Path, output: Path | 
 
     profiler.start()
     c_profile.enable()
+    try:
+        module_run.run()
+    finally:
+        c_profile.disable()
+        profiler.stop()
 
-    module_run.run()
+    profiler.write_html(html_output)
+    print(f"  pyinstrument saved: {html_output.resolve()}")
 
-    c_profile.disable()
-    profiler.stop()
-    profiler.write_html(output)
-
-    with open("profile_stats.txt", "w") as f:
-        print("Profile saved to: profile_stats.txt")
+    with open(stats_output, "w") as f:
         ps = pstats.Stats(c_profile, stream=f).sort_stats("cumtime")
         ps.print_stats(100)
-
-    print(f"Profile saved to: {output.resolve()}")
+    print(f"  cProfile saved:     {stats_output.resolve()}")
