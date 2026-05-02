@@ -6,7 +6,6 @@ This file is part of the ATLAS project.
 
 from typing import cast
 
-import polars as pl
 from pendulum import DateTime
 
 from atlas.enums import MarketType, StorageType, ThermalStrategy
@@ -261,8 +260,6 @@ def _apply_power_constraints(
     """
     Apply power constraints based on equipment type.
 
-    Vectorized: clipping is computed in a single polars pass over the timeseries
-    instead of iterating row-by-row.
 
     :param equipment: Equipment instance
     :type equipment: EquipmentPO
@@ -277,74 +274,60 @@ def _apply_power_constraints(
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
         )
 
-    times = new_power.timeseries["time"]
-    max_power = _build_max_power_series(equipment, times, max_power_forecast)
-
-    df = new_power.timeseries.with_columns(max_power.alias("_max"))
-    df = df.with_columns(pl.min_horizontal("value", "_max").alias("value"))
+    max_power = _build_max_power_bound(equipment, new_power, max_power_forecast)
+    new_power.clip(upper_bound=max_power)
 
     if isinstance(equipment, ThermalPO | HydroPO | WindPO | SolarPO):
-        df = df.with_columns(pl.max_horizontal("value", pl.lit(0.0)).alias("value"))
+        new_power.clip(lower_bound=0.0)
 
-    if not isinstance(equipment, ThermalPO):
-        if isinstance(equipment, OtherNonDispatchablePO):
-            df = df.with_columns(pl.max_horizontal("value", "_max").alias("value"))
-        else:
-            min_power = _build_min_power_series(equipment, times, max_power_forecast)
-            df = df.with_columns(pl.max_horizontal("value", min_power).alias("value"))
-
-    new_power._return(df.drop("_max"), inplace=True)
+    if isinstance(equipment, OtherNonDispatchablePO):
+        new_power.clip(lower_bound=max_power)
+    elif not isinstance(equipment, ThermalPO):
+        min_power = _build_min_power_bound(equipment, new_power, max_power_forecast)
+        new_power.clip(lower_bound=min_power)
 
 
-def _align_to(times: pl.Series, source: AbstractTimeseries, default: float) -> pl.Series:
-    """Return a polars Series aligned to `times`, sourcing values from `source`."""
-    src_df = source.dataframe
-    if isinstance(src_df, pl.LazyFrame):
-        src_df = src_df.collect()
-    aligned = (
-        pl.DataFrame({"time": times})
-        .join(src_df.select("time", pl.col("value").alias("_v")), on="time", how="left")
-        .with_columns(pl.col("_v").fill_null(default))
-    )
-    return aligned["_v"]
-
-
-def _build_max_power_series(
-    equipment: EquipmentPO, times: pl.Series, max_power_forecast: AbstractTimeseries | None
-) -> pl.Series:
-    """Per-row maximum power for `times`. See `_get_max_power` for the original scalar logic."""
+def _build_max_power_bound(
+    equipment: EquipmentPO, new_power: Timeseries, max_power_forecast: AbstractTimeseries | None
+) -> Timeseries:
+    """Per-row maximum-power bound aligned on `new_power`'s time index."""
     if isinstance(equipment, LoadPO):
-        return pl.zeros(len(times), dtype=pl.Float64, eager=True)
+        return _zero_bound(new_power)
     if isinstance(equipment, WindPO | SolarPO | OtherNonDispatchablePO):
         if max_power_forecast is None:
-            return pl.zeros(len(times), dtype=pl.Float64, eager=True)
-        return _align_to(times, max_power_forecast, 0.0)
+            return _zero_bound(new_power)
+        return cast(Timeseries, max_power_forecast.reindex(new_power, default=0.0, inplace=False))
     if equipment.maximum_power:
-        return _align_to(times, equipment.maximum_power, 0.0)
-    return pl.zeros(len(times), dtype=pl.Float64, eager=True)
+        return cast(Timeseries, equipment.maximum_power.reindex(new_power, default=0.0, inplace=False))
+    return _zero_bound(new_power)
 
 
-def _build_min_power_series(
-    equipment: EquipmentPO, times: pl.Series, max_power_forecast: AbstractTimeseries | None
-) -> pl.Series:
-    """Per-row minimum power for `times`. See `_get_min_power` for the original scalar logic.
+def _build_min_power_bound(
+    equipment: EquipmentPO, new_power: Timeseries, max_power_forecast: AbstractTimeseries | None
+) -> Timeseries:
+    """Per-row minimum-power bound aligned on `new_power`'s time index.
 
-    Note: the OtherNonDispatchablePO branch is handled directly in
-    `_apply_power_constraints` (min equals the per-row max), so it is not produced here.
+    Note: the OtherNonDispatchablePO branch (min equals the per-row max) is handled
+    directly in :func:`_apply_power_constraints` and not produced here.
     """
     if isinstance(equipment, LoadPO):
         if max_power_forecast is None:
-            return pl.zeros(len(times), dtype=pl.Float64, eager=True)
-        return _align_to(times, max_power_forecast, 0.0)
+            return _zero_bound(new_power)
+        return cast(Timeseries, max_power_forecast.reindex(new_power, default=0.0, inplace=False))
     if isinstance(equipment, WindPO | SolarPO):
         if max_power_forecast is None:
-            return pl.zeros(len(times), dtype=pl.Float64, eager=True)
-        forecast = _align_to(times, max_power_forecast, 0.0)
-        curtailment = _align_to(times, equipment.maximum_curtailment_ratio, 0.0)
-        return forecast * (1.0 - curtailment)
+            return _zero_bound(new_power)
+        forecast = max_power_forecast.reindex(new_power, default=0.0, inplace=False)
+        curtailment = equipment.maximum_curtailment_ratio.reindex(new_power, default=0.0, inplace=False)
+        return cast(Timeseries, forecast - forecast * curtailment)
     if isinstance(equipment, StoragePO | HydroPO):
-        return _align_to(times, equipment.minimum_power, 0.0)
-    return pl.zeros(len(times), dtype=pl.Float64, eager=True)
+        return cast(Timeseries, equipment.minimum_power.reindex(new_power, default=0.0, inplace=False))
+    return _zero_bound(new_power)
+
+
+def _zero_bound(reference: Timeseries) -> Timeseries:
+    """Build a zero-valued Timeseries aligned on `reference`'s time index."""
+    return Timeseries.from_timeseries(reference, default_value=0.0)
 
 
 def _get_energy_bounds(obj: HydroPO | StoragePO, time: DateTime):

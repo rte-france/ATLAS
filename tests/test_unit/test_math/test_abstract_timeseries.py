@@ -168,6 +168,116 @@ class TestClip:
         result = lazy_ts.clip(lower_bound=0.0, upper_bound=10.0, inplace=False)
         assert result.collect().values == [0.0, 0.0, 5.0, 10.0, 10.0]
 
+    def test_clip_pointwise_with_timeseries_bounds(self, ts):
+        df = pd.DataFrame(
+            {
+                "time": pd.date_range(start="2025-01-01", periods=5, freq="h", tz="UTC"),
+                "value": [0.0, 0.0, 6.0, 6.0, 20.0],
+            }
+        )
+        upper = Timeseries(pl.from_pandas(df))
+        result = ts.clip(upper_bound=upper, inplace=False)
+        assert result.values == [-10.0, 0.0, 5.0, 6.0, 20.0]
+
+    def test_clip_with_sparser_bound_leaves_unmatched_rows_unclipped(self, ts):
+        # Bound covers only the first 3 timestamps
+        df = pd.DataFrame(
+            {
+                "time": pd.date_range(start="2025-01-01", periods=3, freq="h", tz="UTC"),
+                "value": [-5.0, -5.0, -5.0],
+            }
+        )
+        lower = Timeseries(pl.from_pandas(df))
+        result = ts.clip(lower_bound=lower, inplace=False)
+        # Last two rows have null bound -> unclipped
+        assert result.values == [-5.0, 0.0, 5.0, 15.0, 25.0]
+
+    def test_clip_pointwise_lazy(self, ts):
+        df = pd.DataFrame(
+            {
+                "time": pd.date_range(start="2025-01-01", periods=5, freq="h", tz="UTC"),
+                "value": [100.0, 100.0, 4.0, 4.0, 4.0],
+            }
+        )
+        upper = Timeseries(pl.from_pandas(df))
+        lazy_ts = LazyTimeseries(ts.timeseries.lazy())
+        result = lazy_ts.clip(upper_bound=upper, inplace=False)
+        assert result.collect().values == [-10.0, 0.0, 4.0, 4.0, 4.0]
+
+
+class TestReindex:
+    """Tests for the reindex() method."""
+
+    @pytest.fixture
+    def sparse_ts(self):
+        df = pd.DataFrame(
+            {
+                "time": pd.to_datetime(["2025-01-01 00:00", "2025-01-01 02:00"], utc=True),
+                "value": [10.0, 20.0],
+            }
+        )
+        return Timeseries(pl.from_pandas(df))
+
+    def test_reindex_with_list_fills_missing(self, sparse_ts):
+        target = [
+            pendulum.datetime(2025, 1, 1, 0),
+            pendulum.datetime(2025, 1, 1, 1),
+            pendulum.datetime(2025, 1, 1, 2),
+        ]
+        result = sparse_ts.reindex(target, default=-1.0, inplace=False)
+        assert result.values == [10.0, -1.0, 20.0]
+        assert len(result) == 3
+
+    def test_reindex_drops_rows_not_in_target(self, sparse_ts):
+        target = [pendulum.datetime(2025, 1, 1, 0)]
+        result = sparse_ts.reindex(target, default=0.0, inplace=False)
+        assert result.values == [10.0]
+        assert len(result) == 1
+
+    def test_reindex_default_zero(self, sparse_ts):
+        target = [pendulum.datetime(2025, 1, 1, 1)]
+        result = sparse_ts.reindex(target, inplace=False)
+        assert result.values == [0.0]
+
+    def test_reindex_with_string_dates(self, sparse_ts):
+        result = sparse_ts.reindex(
+            ["2025-01-01 00:00:00", "2025-01-01 01:00:00", "2025-01-01 02:00:00"],
+            default=-1.0,
+            inplace=False,
+        )
+        assert result.values == [10.0, -1.0, 20.0]
+
+    def test_reindex_with_other_timeseries(self, sparse_ts):
+        target_df = pd.DataFrame(
+            {
+                "time": pd.date_range(start="2025-01-01", periods=4, freq="h", tz="UTC"),
+                "value": [0.0, 0.0, 0.0, 0.0],
+            }
+        )
+        target = Timeseries(pl.from_pandas(target_df))
+        result = sparse_ts.reindex(target, default=-1.0, inplace=False)
+        assert result.values == [10.0, -1.0, 20.0, -1.0]
+
+    def test_reindex_inplace(self, sparse_ts):
+        target = [
+            pendulum.datetime(2025, 1, 1, 0),
+            pendulum.datetime(2025, 1, 1, 1),
+            pendulum.datetime(2025, 1, 1, 2),
+        ]
+        result = sparse_ts.reindex(target, default=0.0, inplace=True)
+        assert result is sparse_ts
+        assert sparse_ts.values == [10.0, 0.0, 20.0]
+
+    def test_reindex_lazy(self, sparse_ts):
+        lazy_ts = LazyTimeseries(sparse_ts.timeseries.lazy())
+        target = [
+            pendulum.datetime(2025, 1, 1, 0),
+            pendulum.datetime(2025, 1, 1, 1),
+            pendulum.datetime(2025, 1, 1, 2),
+        ]
+        result = lazy_ts.reindex(target, default=-1.0, inplace=False)
+        assert result.collect().values == [10.0, -1.0, 20.0]
+
 
 class TestLookupDictCache:
     """Unit tests for the _lookup_cache mechanism on Timeseries."""
