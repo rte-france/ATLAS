@@ -413,8 +413,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         backend_is_lazy = isinstance(backend, pl.LazyFrame)
         drop_cols: list[str] = []
 
-        def _bound_expr(bound: AbstractTimeseries | float | None, alias: str) -> pl.Expr | float | None:
-            nonlocal backend
+        for bound, alias in [(lower_bound, "_clip_lower"), (upper_bound, "_clip_upper")]:
             if isinstance(bound, AbstractTimeseries):
                 bound_frame = bound._get_data().select("time", pl.col("value").alias(alias))
                 if backend_is_lazy and isinstance(bound_frame, pl.DataFrame):
@@ -423,11 +422,9 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
                     bound_frame = bound_frame.collect()
                 backend = backend.join(bound_frame, on="time", how="left")
                 drop_cols.append(alias)
-                return pl.col(alias)
-            return bound
 
-        lower_expr = _bound_expr(lower_bound, "_clip_lower")
-        upper_expr = _bound_expr(upper_bound, "_clip_upper")
+        lower_expr = pl.col("_clip_lower") if isinstance(lower_bound, AbstractTimeseries) else lower_bound
+        upper_expr = pl.col("_clip_upper") if isinstance(upper_bound, AbstractTimeseries) else upper_bound
 
         backend = backend.with_columns(pl.col("value").clip(lower_expr, upper_expr))
         if drop_cols:
@@ -458,10 +455,10 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         """
         backend = self._get_data()
         target = self._times_to_frame(times, type(backend), date_format)
-        result = target.join(backend.select("time", "value"), on="time", how="left").with_columns(
+        result = target.join(backend.select("time", "value"), on="time", how="left").with_columns(  # type: ignore [arg-type]
             pl.col("value").fill_null(default)
         )
-        return self._return(result, inplace)
+        return self._return(result, inplace)  # type: ignore [arg-type]
 
     def _times_to_frame(
         self,
