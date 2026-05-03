@@ -289,6 +289,7 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
 
         if not inplace:
             return target
+        return None
 
     def delete(self, index: str, inplace: bool = True) -> Self | None:
         """
@@ -311,6 +312,7 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
 
         if not inplace:
             return target
+        return None
 
     def replace(
         self,
@@ -333,6 +335,7 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         target.add(timeseries=timeseries, index=index)
         if not inplace:
             return target
+        return None
 
     def get_matrix(self) -> pl.DataFrame:
         """

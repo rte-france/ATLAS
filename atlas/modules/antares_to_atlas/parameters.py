@@ -38,10 +38,10 @@ class ThermalTechnologyConfig(BaseModel):
 class ThermalParameters(BaseModel):
     nuclear: ThermalTechnologyConfig = Field(
         default_factory=lambda: ThermalTechnologyConfig(
-            minimum_stable_power_duration=2,
+            minimum_stable_power_duration=duration(hours=2),
             startup_delay_probability=0.82,
-            startup_duration=10,
-            shutdown_duration=10,
+            startup_duration=duration(hours=10),
+            shutdown_duration=duration(hours=10),
             maximum_gradient=25,
             strategy=ThermalStrategy.BASE,
             setup_delay=0,
@@ -49,10 +49,10 @@ class ThermalParameters(BaseModel):
     )
     lignite: ThermalTechnologyConfig = Field(
         default_factory=lambda: ThermalTechnologyConfig(
-            minimum_stable_power_duration=0.5,
+            minimum_stable_power_duration=duration(minutes=30),
             startup_delay_probability=0.41,
-            startup_duration=10,
-            shutdown_duration=10,
+            startup_duration=duration(hours=10),
+            shutdown_duration=duration(hours=10),
             maximum_gradient=5,
             strategy=ThermalStrategy.BASE,
             setup_delay=0,
@@ -60,10 +60,10 @@ class ThermalParameters(BaseModel):
     )
     oil: ThermalTechnologyConfig = Field(
         default_factory=lambda: ThermalTechnologyConfig(
-            minimum_stable_power_duration=0,
+            minimum_stable_power_duration=duration(hours=0),
             startup_delay_probability=0.59,
-            startup_duration=0.25,
-            shutdown_duration=0.25,
+            startup_duration=duration(minutes=15),
+            shutdown_duration=duration(minutes=15),
             maximum_gradient=10,
             strategy=ThermalStrategy.PEAK,
             setup_delay=0,
@@ -71,10 +71,10 @@ class ThermalParameters(BaseModel):
     )
     gas: ThermalTechnologyConfig = Field(
         default_factory=lambda: ThermalTechnologyConfig(
-            minimum_stable_power_duration=0.25,
+            minimum_stable_power_duration=duration(minutes=15),
             startup_delay_probability=0.26,
-            startup_duration=0.5,
-            shutdown_duration=0.5,
+            startup_duration=duration(minutes=30),
+            shutdown_duration=duration(minutes=30),
             maximum_gradient=30,
             strategy=ThermalStrategy.INTERMEDIATE,
             setup_delay=0.5,
@@ -82,10 +82,10 @@ class ThermalParameters(BaseModel):
     )
     hard_coal: ThermalTechnologyConfig = Field(
         default_factory=lambda: ThermalTechnologyConfig(
-            minimum_stable_power_duration=0.5,
+            minimum_stable_power_duration=duration(minutes=30),
             startup_delay_probability=0.41,
-            startup_duration=1,
-            shutdown_duration=1,
+            startup_duration=duration(hours=1),
+            shutdown_duration=duration(hours=1),
             maximum_gradient=5,
             strategy=ThermalStrategy.INTERMEDIATE,
             setup_delay=0,
@@ -93,10 +93,10 @@ class ThermalParameters(BaseModel):
     )
     ccgt: ThermalTechnologyConfig = Field(
         default_factory=lambda: ThermalTechnologyConfig(
-            minimum_stable_power_duration=0.25,
+            minimum_stable_power_duration=duration(minutes=15),
             startup_delay_probability=0.26,
-            startup_duration=1,
-            shutdown_duration=1,
+            startup_duration=duration(hours=1),
+            shutdown_duration=duration(hours=1),
             maximum_gradient=30,
             strategy=ThermalStrategy.INTERMEDIATE,
             setup_delay=0,
@@ -104,10 +104,10 @@ class ThermalParameters(BaseModel):
     )
     ocgt: ThermalTechnologyConfig = Field(
         default_factory=lambda: ThermalTechnologyConfig(
-            minimum_stable_power_duration=0.25,
+            minimum_stable_power_duration=duration(minutes=15),
             startup_delay_probability=0.26,
-            startup_duration=0.4,
-            shutdown_duration=0.4,
+            startup_duration=duration(minutes=24),
+            shutdown_duration=duration(minutes=24),
             maximum_gradient=10,
             strategy=ThermalStrategy.PEAK,
             setup_delay=0,
@@ -116,10 +116,10 @@ class ThermalParameters(BaseModel):
 
     pcomp_mid: ThermalTechnologyConfig = Field(
         default_factory=lambda: ThermalTechnologyConfig(
-            minimum_stable_power_duration=0.5,
+            minimum_stable_power_duration=duration(minutes=30),
             startup_delay_probability=0.26,
-            startup_duration=1.0,
-            shutdown_duration=1.0,
+            startup_duration=duration(hours=1),
+            shutdown_duration=duration(hours=1),
             maximum_gradient=30.0,
             strategy=ThermalStrategy.INTERMEDIATE,
             setup_delay=0.0,
@@ -127,10 +127,10 @@ class ThermalParameters(BaseModel):
     )
     pcomp_peak: ThermalTechnologyConfig = Field(
         default_factory=lambda: ThermalTechnologyConfig(
-            minimum_stable_power_duration=0.0,
+            minimum_stable_power_duration=duration(hours=0),
             startup_delay_probability=0.26,
-            startup_duration=0.4,
-            shutdown_duration=0.4,
+            startup_duration=duration(minutes=24),
+            shutdown_duration=duration(minutes=24),
             maximum_gradient=30.0,
             strategy=ThermalStrategy.PEAK,
             setup_delay=0.0,
@@ -384,7 +384,10 @@ class AntaresToAtlasParameters(Parameters):
 
     # Data selection
     market_areas: list[str] = Field(description="List of market areas to convert")
-    scenario: int = Field(ge=1, description="Scenario number (1-based)")
+    scenario: int = Field(
+        1,
+        description=" Name of the Monte-Carlo scenario. This number must match the name of the MC year that should be converted from Antares",
+    )
     excluded_thermic_groups: list[str] = Field(default_factory=list, description="Thermic groups to exclude")
 
     # Economic parameters

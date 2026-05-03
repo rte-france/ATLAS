@@ -213,6 +213,7 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
 
         if not inplace:
             return target
+        return None
 
     def delete(self, index: str, inplace: bool = True) -> Self | None:
         """
@@ -234,6 +235,7 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
 
         if not inplace:
             return target
+        return None
 
     def replace(
         self,
@@ -256,6 +258,7 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
         target.add(timeseries=timeseries, index=index)
         if not inplace:
             return target
+        return None
 
     def select(self, index: str) -> LazyTimeseries:
         """
