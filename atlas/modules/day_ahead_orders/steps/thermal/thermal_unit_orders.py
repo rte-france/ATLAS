@@ -64,13 +64,17 @@ class ThermalUnitOrders:
         # Determine if the unit is offline or not. A sufficient condition is that the online_timeframe doesn't contain a 1
         # since by construction the unit is ON for at least one time step.
         # JL excludes an online sequence with an incomplete start-up ramp. For now, we will leave it as such.
-        offline = True if 0 in online_timeframe.values else False
+        # Cache index/values once: each access on Timeseries rebuilds a Python list from polars.
+        online_values = online_timeframe.values
+        offline = 0 in online_values
 
         # If the unit is offline, no orders are formulated.
         if offline:
             """TODO : add the sequence to make message more explicit"""
             cfg.logger.debug(f"Unit {unit.name} is offline. No orders have been formulated for this unit")
             return orders, couplings
+
+        online_index = online_timeframe.index
 
         # If not offline, start the configuration of variables necessary for order formulation
 
@@ -107,24 +111,21 @@ class ThermalUnitOrders:
 
         ## See whether there is a startup or not. Used to know if we need to amortise startup cost over the inflexible
         # orders or not.
-        startup = True if 2 in online_timeframe.values else False
+        startup = 2 in online_values
 
-        ## See whether the ramps are complete or not
+        ## See whether the ramps are complete or not.
+        # Single pass over consecutive value pairs to detect both transitions:
+        #   1 -> 3 (incomplete shutdown ramp start, diff +2; 0 is excluded by the offline check)
+        #   2 -> 1 (end of startup ramp, diff -1)
         T_startSD_in_sim = False
-        if 3 in online_timeframe.values:
-            index = list(online_timeframe.index)
-            for t, t_next in zip(index[:-1], index[1:], strict=False):
-                if online_timeframe.get_value(t_next) - online_timeframe.get_value(t) == 2:
-                    T_startSD_in_sim = True
-                    break
-
         T_endSU_in_sim = False
-        if startup:
-            index = list(online_timeframe.index)
-            for t, t_next in zip(index[:-1], index[1:], strict=False):
-                if online_timeframe.get_value(t) - online_timeframe.get_value(t_next) == 1:
-                    T_endSU_in_sim = True
-                    break
+        for a, b in zip(online_values[:-1], online_values[1:], strict=False):
+            if b - a == 2:
+                T_startSD_in_sim = True
+            if a - b == 1:
+                T_endSU_in_sim = True
+            if T_startSD_in_sim and T_endSU_in_sim:
+                break
 
         ## Extract K_start, K_stop.
         # K_start is the number of timesteps actually startup within the simulation timeframe (shorter than overall
@@ -134,7 +135,7 @@ class ThermalUnitOrders:
 
         # Single pass over orders_time: collect K_start, K_stop, the time frames' starting points,
         # and the flexible time frame (time indexes labelled with a 1).
-        online_index_set = set(online_timeframe.index)
+        online_index_set = set(online_index)
         orders_time_set = set(self.orders_time)
         K_start = K_stop = 0
         begin_of_startTimeFrame: DateTime | None = None
@@ -199,7 +200,7 @@ class ThermalUnitOrders:
                 stop_time_frame = [t for t in stop_time_frame if t not in overlapping_time_steps]
 
         ## Inflexible timeframe
-        inflexible_time_frame = online_timeframe.index
+        inflexible_time_frame = online_index
 
         q_max_ts = (
             unit.maximum_power.filter(flexible_time_frame, inplace=False)
@@ -223,15 +224,21 @@ class ThermalUnitOrders:
         #                                                         #
         # ------------------------------------------------------- #
         # Precompute filtered values aligned with flexible_time_frame to avoid per-step Timeseries.get_value calls.
-        flex_qmax    = q_max_ts.values
-        flex_vc      = unit.variable_cost.filter(flexible_time_frame, inplace=False).values
+        flex_qmax = q_max_ts.values
+        flex_vc = unit.variable_cost.filter(flexible_time_frame, inplace=False).values
         flex_auto_dn = automated_reserves_down_procured.filter(flexible_time_frame, inplace=False).values
-        flex_man_dn  = manual_reserves_down_procured.filter(flexible_time_frame, inplace=False).values
+        flex_man_dn = manual_reserves_down_procured.filter(flexible_time_frame, inplace=False).values
         flex_auto_up = automated_reserves_up_procured.filter(flexible_time_frame, inplace=False).values
-        flex_man_up  = manual_reserves_up_procured.filter(flexible_time_frame, inplace=False).values
+        flex_man_up = manual_reserves_up_procured.filter(flexible_time_frame, inplace=False).values
 
         for t, q_max, variable_cost, auto_dn, man_dn, auto_up, man_up in zip(
-            flexible_time_frame, flex_qmax, flex_vc, flex_auto_dn, flex_man_dn, flex_auto_up, flex_man_up,
+            flexible_time_frame,
+            flex_qmax,
+            flex_vc,
+            flex_auto_dn,
+            flex_man_dn,
+            flex_auto_up,
+            flex_man_up,
             strict=True,
         ):
             formatted_t = t.format("DD_MM_YYYY_HH_mm_ss")
@@ -245,94 +252,104 @@ class ThermalUnitOrders:
                     "The order will therefore not be created."
                 )
             else:
-                orders.append(OrderDAO(
-                    name=f"flexible_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
-                    market_area=market_area,
-                    portfolio=portfolio,
-                    equipment=unit,
-                    qmax=q_max,
-                    qmin=0,
-                    price=variable_cost,
-                    product=Product.DayAhead,
-                    order_type=OrderType.Sell,
-                    is_agent_tso=False,
-                    execution_date=ed,
-                    start_date=t,  # type: ignore [arg-type]
-                    end_date=t_end,  # type: ignore [arg-type]
-                ))
+                orders.append(
+                    OrderDAO(
+                        name=f"flexible_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
+                        market_area=market_area,
+                        portfolio=portfolio,
+                        equipment=unit,
+                        qmax=q_max,
+                        qmin=0,
+                        price=variable_cost,
+                        product=Product.DayAhead,
+                        order_type=OrderType.Sell,
+                        is_agent_tso=False,
+                        execution_date=ed,
+                        start_date=t,  # type: ignore [arg-type]
+                        end_date=t_end,  # type: ignore [arg-type]
+                    )
+                )
 
             # Part 2: reserve requirement orders
             # Automated downward reserves requirements
             if auto_dn > 0.0:
-                orders.append(OrderDAO(
-                    name=f"automated_downward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
-                    market_area=market_area,
-                    portfolio=portfolio,
-                    equipment=unit,
-                    qmax=auto_dn,
-                    qmin=prop_pen * auto_dn,
-                    price=variable_cost - auto_pen,
-                    product=Product.DayAhead,
-                    order_type=OrderType.Sell,
-                    is_agent_tso=False,
-                    execution_date=ed,
-                    start_date=t,  # type: ignore [arg-type]
-                    end_date=t_end,  # type: ignore [arg-type]
-                ))
+                orders.append(
+                    OrderDAO(
+                        name=f"automated_downward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
+                        market_area=market_area,
+                        portfolio=portfolio,
+                        equipment=unit,
+                        qmax=auto_dn,
+                        qmin=prop_pen * auto_dn,
+                        price=variable_cost - auto_pen,
+                        product=Product.DayAhead,
+                        order_type=OrderType.Sell,
+                        is_agent_tso=False,
+                        execution_date=ed,
+                        start_date=t,  # type: ignore [arg-type]
+                        end_date=t_end,  # type: ignore [arg-type]
+                    )
+                )
 
             # Manual downward reserves requirements
             if man_dn > 0.0:
-                orders.append(OrderDAO(
-                    name=f"manual_downward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
-                    market_area=market_area,
-                    portfolio=portfolio,
-                    equipment=unit,
-                    qmax=man_dn,
-                    qmin=prop_pen * man_dn,
-                    price=variable_cost - manual_unprocured_reserves_penalty,
-                    product=Product.DayAhead,
-                    order_type=OrderType.Sell,
-                    is_agent_tso=False,
-                    execution_date=ed,
-                    start_date=t,  # type: ignore [arg-type]
-                    end_date=t_end,  # type: ignore [arg-type]
-                ))
+                orders.append(
+                    OrderDAO(
+                        name=f"manual_downward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
+                        market_area=market_area,
+                        portfolio=portfolio,
+                        equipment=unit,
+                        qmax=man_dn,
+                        qmin=prop_pen * man_dn,
+                        price=variable_cost - manual_unprocured_reserves_penalty,
+                        product=Product.DayAhead,
+                        order_type=OrderType.Sell,
+                        is_agent_tso=False,
+                        execution_date=ed,
+                        start_date=t,  # type: ignore [arg-type]
+                        end_date=t_end,  # type: ignore [arg-type]
+                    )
+                )
 
             # Automated upward reserves requirements
             if auto_up > 0.0:
-                orders.append(OrderDAO(
-                    name=f"automated_upward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
-                    market_area=market_area,
-                    portfolio=portfolio,
-                    equipment=unit,
-                    qmax=auto_up,
-                    qmin=prop_pen * auto_up,
-                    price=variable_cost + auto_pen,
-                    product=Product.DayAhead,
-                    order_type=OrderType.Sell,
-                    is_agent_tso=False,
-                    execution_date=ed,
-                    start_date=t,  # type: ignore [arg-type]
-                    end_date=t_end,  # type: ignore [arg-type]
-                ))
+                orders.append(
+                    OrderDAO(
+                        name=f"automated_upward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
+                        market_area=market_area,
+                        portfolio=portfolio,
+                        equipment=unit,
+                        qmax=auto_up,
+                        qmin=prop_pen * auto_up,
+                        price=variable_cost + auto_pen,
+                        product=Product.DayAhead,
+                        order_type=OrderType.Sell,
+                        is_agent_tso=False,
+                        execution_date=ed,
+                        start_date=t,  # type: ignore [arg-type]
+                        end_date=t_end,  # type: ignore [arg-type]
+                    )
+                )
 
             # Manual upward reserves requirements
             if man_up > 0.0:
-                orders.append(OrderDAO(
-                    name=f"manual_upward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
-                    market_area=market_area,
-                    portfolio=portfolio,
-                    equipment=unit,
-                    qmax=man_up,
-                    qmin=prop_pen * man_up,
-                    price=variable_cost + manual_unprocured_reserves_penalty,
-                    product=Product.DayAhead,
-                    order_type=OrderType.Sell,
-                    is_agent_tso=False,
-                    execution_date=ed,
-                    start_date=t,  # type: ignore [arg-type]
-                    end_date=t_end,  # type: ignore [arg-type]
-                ))
+                orders.append(
+                    OrderDAO(
+                        name=f"manual_upward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
+                        market_area=market_area,
+                        portfolio=portfolio,
+                        equipment=unit,
+                        qmax=man_up,
+                        qmin=prop_pen * man_up,
+                        price=variable_cost + manual_unprocured_reserves_penalty,
+                        product=Product.DayAhead,
+                        order_type=OrderType.Sell,
+                        is_agent_tso=False,
+                        execution_date=ed,
+                        start_date=t,  # type: ignore [arg-type]
+                        end_date=t_end,  # type: ignore [arg-type]
+                    )
+                )
 
         # ------------------------------------------------------- #
         #                                                         #
@@ -432,8 +449,8 @@ class ThermalUnitOrders:
                 "manual_downward_reserve_order",
                 "automated_downward_reserve_order",
             )
-            for t in inflexible_time_frame:
-                t = pendulum.instance(t)
+            for t_raw in inflexible_time_frame:
+                t = pendulum.instance(t_raw)
                 formatted_t = t.format("DD_MM_YYYY_HH_mm_ss")
                 min_p = unit.minimum_power.get_value(t)
                 variable_cost = unit.variable_cost.get_value(t)
