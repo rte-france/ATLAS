@@ -27,18 +27,19 @@ def build_reservoir_inflows(
 
     :return: Dict mapping scenario name to daily inflow Timeseries.
     """
+    scenarios: list[str]
     if parameters.hydro.water_value_scenarios == "all":
-        scenarios = list(mapping_mc_ts.keys())
+        scenarios = [str(k) for k in mapping_mc_ts.keys()]
     else:
         scenarios = parameters.hydro.water_value_scenarios
 
     mod_series = area.hydro.get_mod_series()
     return {
         scenario: Timeseries.from_values(
-            parameters.start_date, frequency="1d", values=mod_series[mapping_mc_ts[scenario] - 1].to_list()
+            parameters.start_date, frequency="1d", values=mod_series[mapping_mc_ts[int(scenario)] - 1].to_list()
         )
         for scenario in scenarios
-        if scenario in mapping_mc_ts
+        if int(scenario) in mapping_mc_ts
     }
 
 
@@ -71,7 +72,10 @@ def add_inflows_from_csv(
         logger.warning("Water values are requested but no scenarios are indicated")
         return {}
 
-    csv_path = Path(parameters.hydro.path_inflows) / f"{area.id}.csv"
+    if parameters.hydro.path_inflows is None:
+        logger.warning(f"path_inflows not configured, cannot load inflows from CSV for area {area.id}")
+        return {}
+    csv_path = parameters.hydro.path_inflows / f"{area.id}.csv"
     logger.debug(f"Loading inflows from: {csv_path}")
 
     inflows_csv_timeseries = _load_inflows_from_csv(csv_path, parameters)

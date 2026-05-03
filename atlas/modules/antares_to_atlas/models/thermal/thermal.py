@@ -10,6 +10,7 @@ from loguru import logger
 from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.io_utils.container import Container
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.modules.antares_to_atlas.utils import get_co2_factor, get_maximum_power, get_variable_cost
@@ -50,7 +51,7 @@ def convert_thermal_units(
             if thermal_unit:
                 thermal_units.append(thermal_unit)
 
-    atlas_dataset.thermal = thermal_units
+    atlas_dataset.thermal = Container(thermal_units)
 
     logger.info(f"Converted {len(thermal_units)} thermal units")
     return atlas_dataset
@@ -81,6 +82,9 @@ def _convert_single_thermal(
         return None
 
     thermal_group_params = parameters.thermal.get(thermal_group)
+    if thermal_group_params is None:
+        logger.warning(f"No thermal config for group '{thermal_group}', skipping {thermal_name}")
+        return None
 
     equipment = Thermal(
         name=thermal_name,

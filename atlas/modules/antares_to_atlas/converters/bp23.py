@@ -24,7 +24,6 @@ from atlas.modules.antares_to_atlas.models.storage import (
 )
 from atlas.modules.antares_to_atlas.models.thermal import add_nuclear_modulation, convert_mixed_fuel_units
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-from atlas.objects.business_model import BusinessModel
 
 
 class BatteryConverterBP23(Converter):
@@ -36,9 +35,7 @@ class BatteryConverterBP23(Converter):
     def description(self) -> str:
         return "Battery Storage Conversion"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_battery_units(study, parameters, atlas_dataset)
 
 
@@ -51,9 +48,7 @@ class ElectricVehicleConverterBP23(Converter):
     def description(self) -> str:
         return "Electric Vehicle Conversion"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_electric_vehicle_units(study, parameters, atlas_dataset)
 
 
@@ -66,9 +61,7 @@ class PHSClosedConverterBP23(Converter):
     def description(self) -> str:
         return "Pumped Hydro Storage Conversion"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_phs_closed_units(study, parameters, atlas_dataset)
 
 
@@ -81,9 +74,7 @@ class MixedFuelConverterBP23(Converter):
     def description(self) -> str:
         return "Mixed Fuel Conversion"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_mixed_fuel_units(study, parameters, atlas_dataset)
 
 
@@ -96,9 +87,7 @@ class ParticularMidConverterBP23(Converter):
     def description(self) -> str:
         return "Specific Gas Units Conversion"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_pcomp_mid_units(study, parameters, atlas_dataset)
 
 
@@ -111,9 +100,7 @@ class ParticularPeakConverterBP23(Converter):
     def description(self) -> str:
         return "Specific Gas Units Conversion"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_pcomp_peak_units(study, parameters, atlas_dataset)
 
 
@@ -126,9 +113,7 @@ class P2GConverterBP23(Converter):
     def description(self) -> str:
         return "Power To Gas Conversion"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_p2g_units(study, parameters, atlas_dataset)
 
 
@@ -141,9 +126,7 @@ class MultiEnergyConverterBP23(Converter):
     def description(self) -> str:
         return "Multi-Energy Variable Cost Update"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return update_variable_cost_for_gas_units(study, parameters, atlas_dataset)
 
 
@@ -156,9 +139,7 @@ class DSRConverterBP23(Converter):
     def description(self) -> str:
         return "Demand-Side Response Conversion"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_dsr_units(study, parameters, atlas_dataset)
 
 
@@ -171,9 +152,7 @@ class WaterValueConverterBP23(Converter):
     def description(self) -> str:
         return "Water Value Computation"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return compute_water_values(study, parameters, atlas_dataset)
 
 
@@ -186,9 +165,7 @@ class InitialLevelConverterBP23(Converter):
     def description(self) -> str:
         return "Initial Storage Level Configuration"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return compute_initial_levels(study, parameters, atlas_dataset)
 
 
@@ -201,7 +178,5 @@ class NuclearModulationConverterBP23(Converter):
     def description(self) -> str:
         return "Nuclear Modulation (France)"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return add_nuclear_modulation(study, parameters, atlas_dataset)

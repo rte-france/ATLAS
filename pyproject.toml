@@ -90,6 +90,7 @@ docs = [
 ]
 
 [tool.mypy]
+plugins = ["pydantic.mypy"]
 disable_error_code = ["operator"]
 [[tool.mypy.overrides]]
 module = ["atlas.solver.solver_interface",

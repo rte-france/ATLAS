@@ -80,7 +80,7 @@ def get_maximum_power(
         maximum_power_ts = Timeseries.from_values(
             start_date=parameters.start_date,
             frequency="1h",
-            values=thermal.get_series_matrix()[scenario - 1],
+            values=thermal.get_series_matrix()[scenario - 1].to_list(),
         )
 
         if maximum_power_ts is None:
@@ -99,7 +99,7 @@ def get_maximum_power(
         maximum_power_ts = Timeseries.from_values(
             start_date=parameters.start_date,
             frequency="1h",
-            values=default_value,
+            values=default_value.to_list(),
         )
 
     if maximum_power_ts.abs().max() == 0.0:
@@ -118,13 +118,13 @@ def get_variable_cost(thermal: ThermalCluster, parameters: AntaresToAtlasParamet
         return Timeseries.from_values(
             parameters.start_date,
             frequency="1h",
-            values=thermal.get_prepro_modulation_matrix()[1],  # MarketBidModulation
+            values=thermal.get_prepro_modulation_matrix()[1].to_list(),  # MarketBidModulation
         )
     else:
         return Timeseries.from_values(
             parameters.start_date,
             frequency="1h",
-            values=thermal.get_prepro_modulation_matrix()[0],  # MarginalCostModulation
+            values=thermal.get_prepro_modulation_matrix()[0].to_list(),  # MarginalCostModulation
         )
 
 
@@ -165,9 +165,10 @@ def get_marginal_price(
         logger.warning(f"Virtual node {node_name} not found in study")
         return None
 
-    return study.get_output(parameters.output_name).get_mc_ind_area(
+    series = study.get_output(parameters.output_name).get_mc_ind_area(
         mc_year=parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=node_name
     )[("MRG. PRICE", "Euro")]
+    return Timeseries.from_values(start_date=parameters.start_date, frequency="1h", values=series.to_list())
 
 
 def get_binding_constraint_for_phs(study: Study, area_id: str) -> tuple[float, float]:

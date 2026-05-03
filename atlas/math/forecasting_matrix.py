@@ -157,8 +157,10 @@ class ForecastingMatrix(ScenarioMatrix):
         if inplace:
             self._sort_indexes()
         else:
+            assert result is not None
             result._sort_indexes()
             return result
+        return None
 
     def __contains__(self, index: str | datetime | pendulum.DateTime) -> bool:
         """
@@ -218,8 +220,10 @@ class ForecastingMatrix(ScenarioMatrix):
         if inplace:
             self._sort_indexes()
         else:
+            assert result is not None
             result._sort_indexes()
             return result
+        return None
 
     def replace(
         self,
@@ -242,6 +246,8 @@ class ForecastingMatrix(ScenarioMatrix):
         target.add(timeseries=timeseries, index=index)
         if not inplace:
             return target
+        return None
+        return None
 
     def _get_parsed_indexes(self) -> pl.DataFrame:
         """
@@ -511,6 +517,7 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
         result = super().add(timeseries, dt, inplace=inplace)
         if not inplace:
             return result
+        return None
 
     def delete(self, index: str | datetime | pendulum.DateTime, inplace: bool = True) -> Self | None:
         """
@@ -526,6 +533,7 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
         result = super().delete(dt, inplace=inplace)
         if not inplace:
             return result
+        return None
 
     def replace(
         self,
@@ -548,6 +556,7 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
         target.add(timeseries=timeseries, index=index)
         if not inplace:
             return target
+        return None
 
     def get_forecast(
         self,

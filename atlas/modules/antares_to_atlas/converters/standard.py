@@ -16,7 +16,6 @@ from atlas.modules.antares_to_atlas.models.system_structure.link import convert_
 from atlas.modules.antares_to_atlas.models.system_structure.node import convert_system_structure
 from atlas.modules.antares_to_atlas.models.thermal.thermal import convert_thermal_units
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-from atlas.objects.business_model import BusinessModel
 
 
 class HydroConverter(Converter):
@@ -28,9 +27,7 @@ class HydroConverter(Converter):
     def description(self) -> str:
         return "Hydraulic Conversion"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_hydro_units(study, parameters, atlas_dataset)
 
 
@@ -43,9 +40,7 @@ class LinkConverter(Converter):
     def description(self) -> str:
         return "Link Conversion"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_links(study, parameters, atlas_dataset)
 
 
@@ -58,9 +53,7 @@ class LoadConverter(Converter):
     def description(self) -> str:
         return "Load Conversion"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_load_units(study, parameters, atlas_dataset)
 
 
@@ -117,9 +110,7 @@ class NonDispatchableConverter(Converter):
     def description(self) -> str:
         return "Non-dispatchable Conversion"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_other_non_dispatchable_units(study, parameters, atlas_dataset)
 
 
@@ -132,9 +123,7 @@ class SolarConverter(Converter):
     def description(self) -> str:
         return "Solar Conversion"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_solar_units(study, parameters, atlas_dataset)
 
 
@@ -153,9 +142,7 @@ class ThermalConverter(Converter):
     def description(self) -> str:
         return "Thermic Conversion"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         """Convert thermal generation units.
 
         :param study: Antares study object
@@ -181,7 +168,5 @@ class WindConverter(Converter):
     def description(self) -> str:
         return "Wind Conversion"
 
-    def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
-    ) -> list[BusinessModel]:
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_wind_units(study, parameters, atlas_dataset)
