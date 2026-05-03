@@ -334,7 +334,7 @@ class HydroParameters(BaseModel):
     water_value_nb_years: int = Field(default=2, ge=2, description="Number of years for water value")
     storage_subdivision: int = Field(default=1, ge=1, description="Storage subdivision for water value")
     beta: float = Field(default=0.0, description="Beta parameter for Bellman computation")
-    water_value_timestep: Duration = Field(default=duration(hours=168), description="Water value time step (hours)")
+    water_value_timestep: Duration = Field(default=duration(hours=1), description="Water value time step (hours)")
     use_bellman_interpolation: bool = Field(default=False, description="Use Bellman interpolation")
     nb_storage_levels: int = Field(default=100, ge=1, description="Number of storage levels")
     inflows_timestep: Duration = Field(default=duration(hours=168), description="Inflows time step (hours)")

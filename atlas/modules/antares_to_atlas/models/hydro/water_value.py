@@ -4,12 +4,15 @@ This file is part of the ATLAS project.
 """
 
 import numpy as np
+from antares.craft import Frequency, MCIndAreasDataType
 from antares.craft.model.area import Area
+from antares.craft.model.output import Output
 from antares.craft.model.study import Study
 from loguru import logger
 from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.models.hydro.inflows import build_inflows_for_area
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
@@ -60,6 +63,7 @@ def compute_water_values(
             hydro=hydro,
             parameters=parameters,
             inflows_dictionary=inflows_dictionary,
+            study_output=study_output,
         )
 
     logger.info("Water value computation done")
@@ -70,33 +74,30 @@ def _compute_node_water_values(
     area: Area,
     hydro: Hydro,
     parameters: AntaresToAtlasParameters,
-    inflows_dictionary: dict,
+    inflows_dictionary: dict[str, Timeseries],
+    study_output: Output,
 ) -> None:
     """Compute water values for a single hydraulic reservoir.
 
     Uses Bellman value iteration (dynamic programming) backwards in time to compute
     the marginal value of stored energy at each level and time step.
 
-    The water value at level L and time T is approximated as:
         WV[L][T] = (BV[T+1][L] - BV[T+1][L-1]) / CapacityStep
-
-    where BV is the Bellman value function.
     """
-    # Determine scenarios for water value computation
-    # TODO: Verify how to get available scenarios from area
-    # In old code: [int(ts.Name) for ts in antares_node.CalculatedMarginalPrice.TimeSeries]
-    available_scenarios: list[str] = []
-
     if parameters.hydro.water_value_scenarios == "all":
-        scenarios = available_scenarios
+        scenarios = list(inflows_dictionary.keys())
     else:
         scenarios = parameters.hydro.water_value_scenarios
 
-    logger.info(f"Water value scenarios for {area.id}: {scenarios}")
-
-    if not scenarios:
+    # Keep only scenarios that have inflows data
+    scenario_inflows: list[tuple[str, Timeseries]] = [
+        (sc, inflows_dictionary[sc] / 24) for sc in scenarios if sc in inflows_dictionary
+    ]
+    if not scenario_inflows:
         logger.warning(f"No scenarios found for water value computation of {area.id}")
         return
+
+    logger.info(f"Water value scenarios for {area.id}: {[sc for sc, _ in scenario_inflows]}")
 
     n_time_steps = len(
         generate_datetimes(
@@ -107,15 +108,6 @@ def _compute_node_water_values(
     )
     total_time_steps = n_time_steps * parameters.hydro.water_value_nb_years
 
-    # Prepare hourly inflows for each scenario (daily inflows / 24)
-    inflows_per_scenario: list[Timeseries] = []
-    for scenario in scenarios:
-        if scenario not in inflows_dictionary:
-            logger.warning(f"No inflows for scenario {scenario} in area {area.id}")
-            continue
-
-        inflows_per_scenario.append(inflows_dictionary[scenario] / 24)
-
     power_average = np.mean(hydro.maximum_power.values)
     capacity = hydro.maximum_energy.first_value()
 
@@ -124,7 +116,6 @@ def _compute_node_water_values(
         return
 
     capacity_step = int(power_average / parameters.hydro.storage_subdivision)
-
     stock_levels = list(range(0, int(capacity), capacity_step))
     logger.info(f"Capacity: {capacity}, step: {capacity_step}, levels: {len(stock_levels)}")
 
@@ -132,12 +123,12 @@ def _compute_node_water_values(
         area=area,
         hydro=hydro,
         parameters=parameters,
-        scenarios=scenarios,
-        inflows_per_scenario=inflows_per_scenario,
+        scenario_inflows=scenario_inflows,
         stock_levels=stock_levels,
         capacity_step=capacity_step,
         n_time_steps=n_time_steps,
         total_time_steps=total_time_steps,
+        study_output=study_output,
     )
 
     _store_water_values(hydro, water_values, stock_levels, parameters, n_time_steps)
@@ -147,72 +138,120 @@ def _run_bellman_iteration(
     area: Area,
     hydro: Hydro,
     parameters: AntaresToAtlasParameters,
-    scenarios: list[int],
-    inflows_per_scenario: list[Timeseries],
+    scenario_inflows: list[tuple[str, Timeseries]],
     stock_levels: list[int],
     capacity_step: int,
-    n_time_steps: int | None,
-    total_time_steps: int | None,
-) -> dict:
+    n_time_steps: int,
+    total_time_steps: int,
+    study_output: Output,
+) -> dict[int, dict[int, float]]:
     """Run backward Bellman value iteration over all scenarios and time steps.
 
-    Returns WV[level][t] as the sum of water values across all scenarios
-    (to be divided by n_scenarios afterwards).
+    Returns WV[level_idx][t] as the sum of water values across all scenarios
+    (to be divided by n_scenarios in _store_water_values).
 
-    TODO: Full implementation requires:
-    - A time index for one year with water_value_time_step resolution
-    - Access to CalculatedMarginalPrice time series per scenario
-    - Timeseries indexing and value access at specific timestamps
-    See old code lines 79-172 for the complete algorithm.
+    Assumes hourly timestep: MaxPower (MW) × 1h = MWh, consistent with stock levels in MWh.
     """
-    if n_time_steps is None or total_time_steps is None:
-        logger.debug(f"TODO: Implement Bellman iteration for {area.id}")
-        return {}
+    # Pre-compute max power at hourly resolution: daily (365) → hourly (8760)
+    max_power_arr = np.repeat(np.array(hydro.maximum_power.values, dtype=float), 24)
 
-    # Initialize WV accumulator: WV[level][t] = 0
+    # Initialize WV accumulator
     wv: dict[int, dict[int, float]] = {
-        level: dict.fromkeys(range(n_time_steps), 0.0) for level in range(1, len(stock_levels))
+        level_idx: dict.fromkeys(range(n_time_steps), 0.0)
+        for level_idx in range(1, len(stock_levels))
     }
 
-    for scenario in scenarios:
+    for scenario, inflows_ts in scenario_inflows:
         logger.debug(f"Running Bellman for scenario {scenario}")
 
-        # TODO: Get price forecast time series for this scenario
-        # In old code: antares_node.CalculatedMarginalPrice.GetTimeSeriesByName(str(scenario))
-        # price_forecast_ts = area.get_calculated_marginal_price(str(scenario))
+        # Price forecast: hourly (8760 values) from study output
+        price_arr = np.array(
+            study_output.get_mc_ind_area(
+                int(scenario),
+                frequency=Frequency.HOURLY,
+                data_type=MCIndAreasDataType.VALUES,
+                area=area.name,
+            )[(parameters.output.marginal_price_column, "Euro")],
+            dtype=float,
+        )
+
+        # Inflows: daily /24 → expand to hourly (8760 values)
+        inflows_arr = np.repeat(np.array(inflows_ts.values, dtype=float), 24)
 
         wv_sc: dict[int, dict[int, float]] = {}
         bellman: dict[int, dict[int, float]] = {}
 
-        # Loop backwards over time
         for t in range(total_time_steps - 1, -1, -1):
-            # TODO: Get MaxPower, Price, Inflows at time index t % n_time_steps
-            # In old code:
-            #   MaxPower_t = hydro.MaximumPower.GetValue(one_year_hours_index[t % n_time_steps])
-            #   Price_t = PriceForecast_sc.GetValue(one_year_hours_index[t % n_time_steps])
-            #   Inflows_t = inflows[sc].GetValue(one_year_hours_index[t % n_time_steps])
+            t_yr = t % n_time_steps
+            max_power_t = max_power_arr[t_yr]
+            price_t = price_arr[t_yr]
+            inflows_t = inflows_arr[t_yr]
 
             bellman[t] = {}
-
             if t < n_time_steps:
                 wv_sc[t] = {}
 
             for level_idx in range(len(stock_levels)):
-                # Boundary condition: BV at final time = 0
                 if t == total_time_steps - 1:
                     bellman[t][level_idx] = 0.0
                 else:
-                    # TODO: Implement Bellman recurrence
-                    # See old code lines 103-163 for detailed logic
-                    # Including:
-                    # - Case j=0: compare turbining inflows vs storing them
-                    # - Cases j>0: turbine at fractions of max power
-                    # - Interpolation between stock levels
-                    # - Penalty for going below minimum stock (price = -5000)
-                    # - Optional Bellman interpolation (parameters.hydro.use_bellman_interpolation)
-                    bellman[t][level_idx] = parameters.hydro.beta * bellman[t + 1][level_idx]
+                    bellman[t][level_idx] = bellman[t + 1][level_idx] * parameters.hydro.beta
+                    m = level_idx
 
-                # Store water value for first year
+                    if level_idx:
+                        g: float | None = None
+
+                        for j in range(parameters.hydro.storage_subdivision + 1):
+                            stock_i = stock_levels[level_idx] + inflows_t
+                            stock_j = stock_levels[level_idx] - j * max_power_t / parameters.hydro.storage_subdivision + inflows_t
+
+                            if j == 0:
+                                g1 = bellman[t + 1][level_idx] * parameters.hydro.beta + inflows_t * price_t
+                                n_idx = int((stock_levels[level_idx] + inflows_t) // capacity_step + 1)
+                                g2 = 0.0
+                                if n_idx != level_idx and n_idx < len(stock_levels):
+                                    g2 = bellman[t + 1][n_idx] + (
+                                        (stock_levels[level_idx] + inflows_t - stock_levels[n_idx])
+                                        / (stock_levels[n_idx] - stock_levels[n_idx - 1])
+                                        * (bellman[t + 1][n_idx] - bellman[t + 1][n_idx - 1])
+                                    )
+                                g = max(g1, g2)
+
+                            elif stock_j > 0:
+                                while m > 0 and stock_levels[m] > stock_j:
+                                    m -= 1
+
+                                if level_idx == 1:
+                                    if parameters.hydro.use_bellman_interpolation:
+                                        gain = (stock_i - stock_j) * (-5000)
+                                        stock_value = parameters.hydro.beta * (
+                                            (bellman[t + 1][m] - bellman[t + 1][m + 1])
+                                            * (stock_levels[m + 1] - stock_j)
+                                            / (stock_levels[m + 1] - stock_levels[m])
+                                            + bellman[t + 1][m + 1]
+                                        )
+                                    else:
+                                        gain = (stock_i - stock_levels[m]) * (-5000)
+                                        stock_value = parameters.hydro.beta * bellman[t + 1][m]
+                                    g = gain + stock_value
+
+                                elif m + 1 <= len(stock_levels) - 1:
+                                    if parameters.hydro.use_bellman_interpolation:
+                                        gain = (stock_i - stock_j) * price_t
+                                        stock_value = parameters.hydro.beta * (
+                                            (bellman[t + 1][m] - bellman[t + 1][m + 1])
+                                            * (stock_levels[m + 1] - stock_j)
+                                            / (stock_levels[m + 1] - stock_levels[m])
+                                            + bellman[t + 1][m + 1]
+                                        )
+                                    else:
+                                        gain = (stock_i - stock_levels[m]) * price_t
+                                        stock_value = parameters.hydro.beta * bellman[t + 1][m]
+                                    g = gain + stock_value
+
+                            if g is not None and g > bellman[t][level_idx]:
+                                bellman[t][level_idx] = g
+
                 if level_idx > 0 and t < n_time_steps:
                     wv_sc[t][level_idx] = (
                         (bellman[t + 1][level_idx] - bellman[t + 1][level_idx - 1]) / capacity_step
@@ -220,7 +259,6 @@ def _run_bellman_iteration(
                         else 0.0
                     )
 
-        # Accumulate water values across scenarios
         for level_idx in range(1, len(stock_levels)):
             for t in range(n_time_steps):
                 try:
@@ -234,49 +272,46 @@ def _run_bellman_iteration(
 
 def _store_water_values(
     hydro: Hydro,
-    water_values: dict,
+    water_values: dict[int, dict[int, float]],
     stock_levels: list[int],
     parameters: AntaresToAtlasParameters,
-    n_time_steps: int | None,
+    n_time_steps: int,
 ) -> None:
-    """Store computed water values on the Hydro equipment as fragment data.
+    """Store computed water values as hydro.storage_marginal_value (ScenarioMatrix).
 
-    Optionally subsamples levels using nb_storage_levels parameter.
-    Water values are capped at _MAX_WATER_VALUE and averaged across scenarios.
+    Each column of the matrix corresponds to a stock level (in MWh).
+    Water values are averaged across scenarios and capped at max_water_value.
     """
-    # TODO: In the new Atlas model, water values are stored as fragment_prices/fragment_volumes
-    # rather than as a StorageMarginalValue matrix. Verify the correct mapping.
-    # In old code: hydro.StorageMarginalValue.AddTimeSeries(str(stock_level), timeseries)
-
-    if not water_values or n_time_steps is None:
-        logger.debug(f"TODO: Store water values on {hydro.name}")
+    if not water_values:
         return
 
     n_scenarios = len(parameters.hydro.water_value_scenarios) if parameters.hydro.water_value_scenarios != "all" else 1
-
-    # Determine which levels to store (subsample if nb_storage_levels is set)
     levels_to_store = _select_storage_levels(stock_levels, parameters)
+    scenario_matrix = ScenarioMatrix()
 
     for level_idx in levels_to_store:
-        avg_water_values = []
-        for t in range(n_time_steps):
-            raw_wv = water_values.get(level_idx, {}).get(t, 0.0) / max(n_scenarios, 1)
-            avg_water_values.append(min(raw_wv, parameters.hydro.max_water_value))
-
-        # TODO: Create a Timeseries and store on the hydro equipment
-        # In old code: hydro.StorageMarginalValue.AddTimeSeries(str(stock_level_value), ts)
-        # In new model: may map to fragment_prices or a dedicated field
+        avg_wv = [
+            min(water_values.get(level_idx, {}).get(t, 0.0) / max(n_scenarios, 1), parameters.hydro.max_water_value)
+            for t in range(n_time_steps)
+        ]
         stock_level_value = stock_levels[level_idx] if level_idx < len(stock_levels) else 0
-        logger.debug(f"TODO: Store water value timeseries for level {stock_level_value} MWh on {hydro.name}")
+        ts = Timeseries.from_values(
+            start_date=parameters.start_date,
+            frequency="1h",
+            values=avg_wv,
+        )
+        scenario_matrix.add(ts, index=str(int(round(stock_level_value, 0))))
+
+    hydro.storage_marginal_value = scenario_matrix
+    logger.debug(f"Stored water values for {len(levels_to_store)} stock levels on {hydro.name}")
 
 
 def _select_storage_levels(stock_levels: list[int], parameters: AntaresToAtlasParameters) -> list[int]:
-    """Select which stock levels to keep based on nb_storage_levels parameter.
+    """Select which stock level indices to keep based on nb_storage_levels parameter.
 
     If nb_storage_levels == 0: keep all levels.
     Otherwise: subsample evenly and trim symmetrically to reach the target count.
     """
-
     if parameters.hydro.nb_storage_levels == 0:
         return list(range(1, len(stock_levels)))
 
