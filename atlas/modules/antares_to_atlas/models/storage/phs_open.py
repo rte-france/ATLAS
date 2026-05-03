@@ -24,8 +24,7 @@ def convert_phs_open_units(
     study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-    inflows_dictionary: dict,
-) -> tuple[AtlasDataset, dict]:
+) -> AtlasDataset:
     """Convert open-loop Pumped Hydraulic Storage from Antares to Atlas.
 
     Open PHS are modeled differently than closed PHS:
@@ -36,8 +35,6 @@ def convert_phs_open_units(
     The split is calculated from the difference between:
     - Link capacity from w_hydro_open to x_open_turb (turb capacity)
     - Link capacity from w_hydro_open to area node (w_hydro indirect capacity)
-
-    :return: Tuple of (updated atlas_dataset, updated inflows_dictionary)
     """
     logger.info("Converting open-loop PHS units")
 
@@ -65,7 +62,6 @@ def convert_phs_open_units(
             study=study,
             parameters=parameters,
             atlas_dataset=atlas_dataset,
-            inflows_dictionary=inflows_dictionary,
             links=links,
         )
 
@@ -74,7 +70,7 @@ def convert_phs_open_units(
 
     atlas_dataset.storage.add(phs_open_list)
 
-    return atlas_dataset, inflows_dictionary
+    return atlas_dataset
 
 
 def _create_open_phs(
@@ -82,7 +78,6 @@ def _create_open_phs(
     study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-    inflows_dictionary: dict,
     links: dict[str, Link],
 ) -> Storage | None:
     """Create open-loop PHS equipment and update the corresponding hydro equipment.

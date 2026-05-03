@@ -43,6 +43,52 @@ def build_reservoir_inflows(
     }
 
 
+def build_inflows_for_area(
+    area: Area,
+    parameters: AntaresToAtlasParameters,
+    mapping_mc_ts: dict[int, int],
+) -> dict[str, Timeseries]:
+    """Build per-scenario inflow timeseries for an area, handling both reservoir and CSV cases.
+
+    Used by the water value converter to be self-contained (no external inflows_dictionary needed).
+
+    :return: Dict mapping scenario name to daily inflow Timeseries. Empty if inflows cannot be built.
+    """
+    if area.hydro.properties.reservoir:
+        return build_reservoir_inflows(area, parameters, mapping_mc_ts)
+
+    if parameters.hydro.water_value_scenarios == "all":
+        logger.warning(f"'all' water value scenarios not yet supported for area {area.id}")
+        return {}
+
+    scenarios: list[str] = parameters.hydro.water_value_scenarios
+    if not scenarios:
+        logger.warning("Water values are requested but no scenarios are indicated")
+        return {}
+
+    if parameters.hydro.path_inflows is None:
+        logger.warning(f"path_inflows not configured, cannot load inflows from CSV for area {area.id}")
+        return {}
+
+    csv_path = parameters.hydro.path_inflows / f"{area.id}.csv"
+    inflows_csv = _load_inflows_from_csv(csv_path, parameters)
+
+    if len(inflows_csv) < len(scenarios):
+        logger.warning(
+            f"There are {len(scenarios)} water value scenarios but only "
+            f"{len(inflows_csv)} inflow profiles for node {area.id}. "
+            "Results may be invalid."
+        )
+
+    return _match_inflows_to_scenarios(
+        scenarios=scenarios,
+        inflows_csv_timeseries=inflows_csv,
+        modulation_df=area.hydro.get_mod_series(),
+        mapping_mc_ts=mapping_mc_ts,
+        parameters=parameters,
+    )
+
+
 def add_inflows_from_csv(
     area: Area,
     hydro: Hydro,

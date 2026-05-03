@@ -8,9 +8,21 @@ Converter registry for managing and executing converters.
 from antares.craft.model.study import Study
 from loguru import logger
 
+import atlas.config as cfg
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+
+
+def _count_by_type(dataset: AtlasDataset) -> dict[str, int]:
+    return {str(t): len(getattr(dataset, t)) for t in cfg.MODEL_ORDER_INSTANTIATION}
+
+
+def _format_added(before: dict[str, int], after: dict[str, int]) -> str:
+    added = {t: after[t] - before[t] for t in before if after[t] > before[t]}
+    if not added:
+        return "no new objects"
+    return ", ".join(f"+{n} {t}" for t, n in added.items())
 
 
 class ConverterRegistry:
@@ -50,14 +62,22 @@ class ConverterRegistry:
         :return: Updated AtlasDataset after all converters have been executed
         :rtype: AtlasDataset
         """
-
-        logger.info("Executing Converters")
+        logger.info(f"Starting conversion — {len(self._converters)} converters registered")
 
         for converter_class in self._converters:
             converter = converter_class()
-            atlas_dataset = converter.run(study, parameters, atlas_dataset)
 
-        logger.info("Conversion Complete")
+            if not converter.should_run(parameters):
+                logger.info(f"Skipping '{converter.name}' ({converter.description})")
+                continue
+
+            logger.info(f"Running '{converter.name}' — {converter.description}")
+            before = _count_by_type(atlas_dataset)
+            atlas_dataset = converter.run(study, parameters, atlas_dataset)
+            after = _count_by_type(atlas_dataset)
+            logger.info(f"Done — {_format_added(before, after)}")
+
+        logger.info(f"Conversion complete — {atlas_dataset}")
 
         return atlas_dataset
 

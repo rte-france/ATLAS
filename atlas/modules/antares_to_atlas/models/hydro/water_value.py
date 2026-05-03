@@ -11,6 +11,7 @@ from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
+from atlas.modules.antares_to_atlas.models.hydro.inflows import build_inflows_for_area
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.objects.equipment.hydro import Hydro
 from atlas.timing import generate_datetimes
@@ -20,50 +21,45 @@ def compute_water_values(
     study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-    inflows_dictionary: dict,
 ) -> AtlasDataset:
     """Compute water values for all hydraulic equipment using dynamic programming (Bellman).
 
-    Water values represent the marginal value of stored water at each reservoir level
-    and time step. They are computed using backward induction over multiple price
-    and inflow scenarios.
-
-    The algorithm:
-    1. For each area with a hydro unit and inflows, determine water value scenarios
-    2. Run Bellman value iteration backwards in time over multiple years
-    3. Average water values across scenarios
-    4. Store as StorageMarginalValue on the Hydro equipment
+    Autonomous: builds its own per-scenario inflows from the study for each area.
 
     :param study: Antares study
     :param parameters: Conversion parameters
     :param atlas_dataset: Atlas dataset with hydraulic equipment
-    :param inflows_dictionary: Dict of {area_name: {scenario: inflow_timeseries}}
     :return: Updated atlas_dataset with water values computed
     """
     logger.info("Computing water values for hydraulic equipment")
 
     areas = study.get_areas()
+    study_output = study.get_output(parameters.output_name)
 
     for hydro in atlas_dataset.hydro:
         area_name = hydro.node.name if hydro.node else None
         if not area_name or area_name not in parameters.market_areas:
             continue
-
         if area_name not in areas:
             continue
 
-        if area_name not in inflows_dictionary:
+        area = areas[area_name]
+        if not ((parameters.hydro.use_heuristic or area.hydro.properties.reservoir) and parameters.hydro.use_water_value):
+            continue
+
+        mapping_mc_ts = study_output.get_hydro_ts_numbers(area.name)
+        inflows_dictionary = build_inflows_for_area(area, parameters, mapping_mc_ts)
+
+        if not inflows_dictionary:
             logger.info(f"No inflows for {area_name}, skipping water value computation")
             continue
 
-        area = areas[area_name]
         logger.info(f"Computing water values for area: {area_name}")
-
         _compute_node_water_values(
             area=area,
             hydro=hydro,
             parameters=parameters,
-            inflows_dictionary=inflows_dictionary[area_name],
+            inflows_dictionary=inflows_dictionary,
         )
 
     logger.info("Water value computation done")

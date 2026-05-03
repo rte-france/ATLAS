@@ -95,7 +95,7 @@ class Converter(ABC):
         parameters: AntaresToAtlasParameters,
         atlas_dataset: AtlasDataset,
     ) -> AtlasDataset:
-        """Run the converter with logging.
+        """Run the converter, returning atlas_dataset unchanged if should_run() is False.
 
         :param study: Antares study object
         :type study: Study
@@ -103,11 +103,10 @@ class Converter(ABC):
         :type parameters: AntaresToAtlasParameters
         :param atlas_dataset: Atlas dataset
         :type atlas_dataset: AtlasDataset
-        :return: Conversion results
-        :rtype: list[BusinessModel]
+        :return: Updated (or unchanged) AtlasDataset
+        :rtype: AtlasDataset
         """
         if not self.should_run(parameters):
-            logger.info(f"Skipping {self.name} (not in requested conversion_steps)")
-            return []
+            return atlas_dataset
 
         return self.convert(study, parameters, atlas_dataset)
