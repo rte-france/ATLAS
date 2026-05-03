@@ -46,6 +46,7 @@ def convert_system_structure(
     market_areas: list[MarketArea] = []
     portfolios: list[Portfolio] = []
     control_blocks: list[ControlBlock] = []
+    study_output = study.get_output(parameters.output_name)
 
     for area_name in parameters.market_areas:
         if area_name not in areas:
@@ -59,7 +60,7 @@ def convert_system_structure(
         ctrl_block = ControlBlock(name=area_name)
         control_blocks.append(ctrl_block)
         try:
-            marginal_price = study.get_output(parameters.output_name).get_mc_ind_area(
+            marginal_price = study_output.get_mc_ind_area(
                 parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.name
             )[(parameters.output.marginal_price_column, "Euro")]
 

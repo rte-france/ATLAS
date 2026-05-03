@@ -245,7 +245,7 @@ class OutputParameters(BaseModel):
         default="MRG. PRICE", description="MC output column name for area marginal price"
     )
     misc_ndg_column: str = Field(
-        default="MISC.NDG", description="MC output column name for misc non-dispatchable generation"
+        default="MISC. NDG", description="MC output column name for misc non-dispatchable generation"
     )
     ror_column: str = Field(default="H. ROR", description="MC output column name for run-of-river hydro generation")
 
