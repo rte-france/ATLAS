@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 
 import math
 from collections.abc import Callable
-from datetime import datetime
 from typing import Literal
 
 from pendulum import DateTime
@@ -586,28 +585,6 @@ class ThermalOptimizationModel(OptimisationModel):
         cfg.logger.debug(f"Objective function value: {self._objective}")
 
         return self._extract_results()
-
-    def add_daily_energy_constraint(self) -> None:
-        """
-        Add daily energy constraint to the optimization model.
-        This constraint limits the total energy output per day.
-        Should be called once after all combination constraints are added.
-
-        :return: None
-        """
-        if self.thermal_unit.has_daily_energy_constraint and self.thermal_unit.maximum_daily_energy is not None:
-            dt_days = self.parameters.temporal.timestep.total_days()
-
-            steps_by_day: dict[datetime, list] = {}
-            for t in self.time_frame:
-                key = datetime(t.year, t.month, t.day)
-                steps_by_day.setdefault(key, []).append(t)
-
-            for date, matching_steps in steps_by_day.items():
-                constraint_expr = sum(
-                    self.q.get_value(t) for t in matching_steps
-                ) <= self.thermal_unit.maximum_daily_energy.get_value(date) * dt_days * len(matching_steps)
-                self.add_constraint(constraint_expr, f"energy_limit_of_{self.thermal_unit.name}_at_{date}")
 
     def is_day_zero(self) -> bool:
         """
