@@ -145,9 +145,9 @@ class ContextParameters(BaseModel):
     default: dict
     forced: dict
 
-    def __init__(self, default : dict = {}, forced : dict = {}):
-        self.default = default
-        self.forced = forced
+    def __init__(self, default: dict | None = None, forced: dict | None = None):
+        self.default = default or {}
+        self.forced = forced or {}
 
     def use(self, context: ContextParameters):
         deep_update(self.default, context.default, True)

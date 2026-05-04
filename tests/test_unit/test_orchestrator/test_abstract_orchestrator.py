@@ -8,66 +8,44 @@ Unit tests for Orchestrator.
 """
 
 import heapq
-from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from atlas import AtlasDataset, WorkflowParameters
-from atlas.abstract_class.job import AbstractJob
-from atlas.abstract_class.orchestrator import AbstractOrchestrator
-from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
+from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.actionplan.action_plan import ActionPlan
 from atlas.orchestrator.actionplan.job import TaskIterator
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters
 from atlas.orchestrator.workflow.workflow import Workflow
 from tests.test_unit.test_orchestrator.orchestrator_factory import (
+    ConcreteTaskIterator,
+    MockActionPlanFactory,
     MockModuleFactory,
     MockOrchestratorFactory,
-    MockTaskIterator,
     MockWorkflowFactory,
-    MockActionPlanFactory,
 )
 
 
-class MockJob(AbstractJob):
-    """Mock job class with simple representation"""
-
-    def __repr__(self) -> str:
-        return self.name
-
-
-class MockOrchestratorParameters(AbstractOrchestratorParameters):
-    pass
-
-
-class MockOrchestrator(AbstractOrchestrator[MockOrchestratorParameters, MockJob]):
-    def __init__(self, jobs: list[MockJob]):
-        self._jobs: list[MockJob] = jobs
-
-    @property
-    def jobs(self) -> Iterator[MockJob]:
-        return iter(self._jobs)
-
-    @property
-    def jobs_count(self) -> int:
-        return len(self._jobs)
-
-
 @staticmethod
-def make_mock_orchestrator(tmp_path, jobs: list) -> MockOrchestrator:
-    config = MockOrchestratorFactory.minimal_config(tmp_path)
+def make_mock_orchestrator(
+    tmp_path, jobs: list, yaml_context: str = "", overall_context: ContextParameters | None = None
+) -> MockOrchestrator:
+    config = MockOrchestratorFactory.minimal_config(tmp_path, context=yaml_context)
     params = MockOrchestratorParameters.from_file(config)
     orchestrator = MockOrchestrator.__new__(MockOrchestrator)
     orchestrator.parameters = params
+    orchestrator.parameters.context.use(overall_context)
     orchestrator._jobs = jobs
     return orchestrator
 
 
 @staticmethod
-def make_mock_workflow(tmp_path, jobs: list) -> Workflow:
-    config = MockWorkflowFactory.minimal_config(tmp_path)
-    params = WorkflowParameters.from_file(config)
+def make_mock_workflow(
+    tmp_path, jobs: list, yaml_context: str = "", overall_context: ContextParameters | None = None
+) -> Workflow:
+    config = MockWorkflowFactory.minimal_config(tmp_path, context=yaml_context)
+    params = WorkflowParameters.from_file(config, overall_context)
     workflow = Workflow.__new__(Workflow)
     workflow.parameters = params
     workflow._jobs = jobs
@@ -75,14 +53,16 @@ def make_mock_workflow(tmp_path, jobs: list) -> Workflow:
 
 
 @staticmethod
-def make_mock_action_plan(tmp_path, jobs: list) -> ActionPlan:
-    config = MockActionPlanFactory.minimal_config(tmp_path)
-    params = ActionPlanParameters.from_file(config)
+def make_mock_action_plan(
+    tmp_path, jobs: list, yaml_context: str = "", overall_context: ContextParameters | None = None
+) -> ActionPlan:
+    config = MockActionPlanFactory.minimal_config(tmp_path, context=yaml_context)
+    params = ActionPlanParameters.from_file(config, overall_context)
     action_plan = ActionPlan.__new__(ActionPlan)
     action_plan.parameters = params
     priority_queue: list[TaskIterator] = []
     for priority, job in enumerate(jobs):
-        heapq.heappush(priority_queue, MockTaskIterator(job, priority))
+        heapq.heappush(priority_queue, ConcreteTaskIterator(job, priority))
     action_plan._priority_queue = priority_queue
     action_plan._jobs_count = len(jobs)
     return action_plan

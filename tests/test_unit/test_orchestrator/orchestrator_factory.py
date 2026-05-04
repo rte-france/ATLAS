@@ -1,147 +1,207 @@
+from collections.abc import Iterator
 from unittest.mock import MagicMock
 
-from pendulum import DateTime, Duration
+import yaml
+from pendulum import Duration
 
-from atlas import WorkflowJob
 from atlas.abstract_class.job import AbstractJob
-from atlas.orchestrator.actionplan.job import TaskIterator
+from atlas.abstract_class.orchestrator import AbstractOrchestrator
+from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
+from atlas.io_utils.parameters import ContextParameters
+from atlas.orchestrator.actionplan.job import Task, TaskIterator
 
 
-class MockJob(AbstractJob):
-    """Mock job class with simple representation"""
+class ConcreteJob(AbstractJob):
+    """Minimalist implementation of AbstractJob"""
 
     def __repr__(self) -> str:
         return self.name
 
 
-class MockTaskIterator(TaskIterator):
-    def __init__(self, j: MockJob, p):
-        self._job: MockJob = j
-        mock_task = MagicMock()
-        mock_task.from_ = DateTime.create(2000, 1, 1, 0)
-        mock_task.until = DateTime.create(2000, 1, 1, 0)
-        mock_task.frequency = Duration(hours=1)
-        mock_task.priority = p
-        super().__init__(mock_task)
+class ConcreteTaskIterator(TaskIterator):
+    """Minimalist implementation of TaskIterator"""
+
+    def __init__(self, task: Task, job: ConcreteJob):
+        self._job: ConcreteJob = job
+        super().__init__(task)
 
     def build_jobs(self):
         return [self._job]
 
 
-class MockJobFactory:
-    @staticmethod
-    def make_job(cls=None, name="job", output=None):
-        """Make a job using the given class, name and output"""
-        mock_instance = MagicMock()
-        mock_instance.run.return_value = output
-        mock_instance.get_business_model_class_used.return_value = []
-        mock_instance.get_filters.return_value = None
-        mock_class = MagicMock(return_value=mock_instance)
-        if cls is None:
-            return MockJobFactory.MockJob(name, mock_class, {})
+class ConcreteOrchestratorParameters(AbstractOrchestratorParameters):
+    """Minimalist implementation of AbstractOrchestratorParameters"""
+
+    pass
+
+
+class ConcreteOrchestrator(AbstractOrchestrator[ConcreteOrchestratorParameters, ConcreteJob]):
+    """Minimalist implementation of AbstractOrchestrator"""
+
+    def __init__(self, jobs: list[ConcreteJob]):
+        self._jobs: list[ConcreteJob] = jobs
+
+    @property
+    def jobs(self) -> Iterator[ConcreteJob]:
+        return iter(self._jobs)
+
+    @property
+    def jobs_count(self) -> int:
+        return len(self._jobs)
+
+
+class MockOutPutBuilder:
+    """Default: an output with no change set"""
+
+    def __init__(self):
+        self.mock_output = MagicMock()
+        self.mock_output.change_sets = []
+
+    def build(self):
+        return self.mock_output
+
+
+class MockModuleBuilder:
+    """Default: return a module so that module.run() returns an output with no change set."""
+
+    def __init__(self):
+        self.instance = MagicMock()
+        self.instance.run.return_value = MockOutPutBuilder.build()
+        self.instance.get_business_model_class_used.return_value = []
+        self.instance.get_filters.return_value = None
+
+    def with_output(self, output) -> MockModuleBuilder:
+        self.instance.run.return_value = output
+        return self
+
+    def build(self):
+        return self.instance
+
+
+class MockJobBuilder:
+    """Default: a job named "job" with a None output, no parameter and a minimalist implementation of AbstractJob"""
+
+    def __init__(self):
+        self.name = "job"
+        self.output = None
+        self.module_parameters = {}
+        self.cls = ConcreteJob.__class__
+        self.module = None
+
+    def with_name(self, name) -> MockJobBuilder:
+        self.name = name
+        return self
+
+    def with_output(self, output) -> MockJobBuilder:
+        self.output = output
+        return self
+
+    def with_class(self, cls) -> MockJobBuilder:
+        self.cls = cls
+        return self
+
+    def with_module_parameters(self, parameters) -> MockJobBuilder:
+        self.module_parameters = parameters
+        return self
+
+    def with_module(self, module) -> MockJobBuilder:
+        self.module = module
+        self.cls = module.__class__
+        return self
+
+    def build(self):
+        if self.module is None:
+            module_builder = MockModuleBuilder.with_output(self.output)
+            self.module = module_builder.build()
+            self.cls = MagicMock(return_value=self.module)
+        return self.cls(self.name, self.cls, self.module_parameters)
+
+
+class OrchestratorConfigBuilder:
+    """Default: a path to a minimal orchestrator YAML with no job named test_orchestrator."""
+
+    def __init__(self):
+        self.name = "test_orchestrator"
+        self.dataset_dir = None
+        self.output_dir = None
+        self.context = ""
+        self.misc = ""
+
+    def with_name(self, name) -> OrchestratorConfigBuilder:
+        self.name = name
+        return self
+
+    def with_dataset_dir(self, dataset_dir) -> OrchestratorConfigBuilder:
+        self.dataset_dir = dataset_dir
+        return self
+
+    def with_output_dir(self, output_dir) -> OrchestratorConfigBuilder:
+        self.output_dir = output_dir
+        return self
+
+    def with_context(self, context) -> OrchestratorConfigBuilder:
+        if context is str:
+            self.context = context
+        elif context is ContextParameters:
+            self.context = yaml.dump(context)
         else:
-            return cls(name, mock_class, {})
+            raise TypeError(f"context must be str or ContextParameters, not {type(context)}")
+        return self
 
+    def with_any(self, misc) -> OrchestratorConfigBuilder:
+        self.misc = misc
+        return self
 
-class MockModuleFactory:
-    @staticmethod
-    def make_output():
-        """Return an output so no change set"""
-        mock_output = MagicMock()
-        mock_output.change_sets = []
-        return mock_output
+    def build(self, tmp_path):
+        if self.dataset_dir is None:
+            self.dataset_dir = tmp_path / "dataset"
+        if self.output_dir is None:
+            self.output_dir = tmp_path / "output"
 
-    @staticmethod
-    def make_module_instance(output):
-        """Return a module so that module.run() returns output."""
-        mock_instance = MagicMock()
-        mock_instance.run.return_value = output
-        mock_instance.get_business_model_class_used.return_value = []
-        mock_instance.get_filters.return_value = None
-        return mock_instance
-
-    @staticmethod
-    def make_module_class(output=None):
-        """Return a (mock_class, mock_instance) pair where instance.run() returns output."""
-        mock_instance = MockModuleFactory.make_module_instance(output)
-        return MagicMock(return_value=mock_instance)
-
-    @staticmethod
-    def make_module_class_instance(output=None):
-        """Return a (mock_class, mock_instance) pair where instance.run() returns output."""
-        mock_instance = MockModuleFactory.make_module_instance(output)
-        mock_class = MagicMock(return_value=mock_instance)
-        return mock_class, mock_instance
-
-
-class MockWorkflowFactory:
-    @staticmethod
-    def minimal_config(tmp_path, dataset_path=None, output_path=None, steps_yaml=""):
-        """Write a minimal workflow YAML and return it."""
-        dataset_dir = dataset_path or (tmp_path / "dataset")
-        dataset_dir.mkdir(exist_ok=True)
-        output_dir = output_path or (tmp_path / "output")
-        output_dir.mkdir(exist_ok=True)
-
-        config = tmp_path / "workflow.yaml"
-        content = f"name: test_workflow\ndataset_path: {dataset_dir}\noutput_dataset_path: {output_dir}\nsteps: []\n"
-        if steps_yaml:
-            content = (
-                f"name: test_workflow\ndataset_path: {dataset_dir}\noutput_dataset_path: {output_dir}\n{steps_yaml}"
-            )
-        config.write_text(content)
-        return config
-
-    @staticmethod
-    def make_job(name="job", output=None):
-        """Return a WorkflowJob with a mock module that returns *output*."""
-        mock_instance = MagicMock()
-        mock_instance.run.return_value = output
-        mock_instance.get_business_model_class_used.return_value = []
-        mock_instance.get_filters.return_value = None
-
-        mock_class = MagicMock(return_value=mock_instance)
-        return WorkflowJob(name, mock_class, {})
-
-
-class MockOrchestratorFactory:
-    @staticmethod
-    def make_mock_job(name="step", output=None):
-        mock_instance = MagicMock()
-        mock_instance.run.return_value = output
-        mock_instance.get_business_model_class_used.return_value = []
-        mock_instance.get_filters.return_value = None
-        mock_class = MagicMock(return_value=mock_instance)
-        return MockJob(name, mock_class, {})
-
-    @staticmethod
-    def minimal_config(tmp_path, dataset_path=None, output_path=None):
-        """Write a minimal YAML for any orchestrator and return it."""
-        dataset_dir = dataset_path or (tmp_path / "dataset")
-        dataset_dir.mkdir(exist_ok=True)
-        output_dir = output_path or (tmp_path / "output")
-        output_dir.mkdir(exist_ok=True)
-
-        config = tmp_path / "orchestrator.yaml"
-        content = f"name: test_orchestrator\ndataset_path: {dataset_dir}\noutput_dataset_path: {output_dir}\n"
+        self.dataset_dir.mkdir(exist_ok=True)
+        self.output_dir.mkdir(exist_ok=True)
+        config = tmp_path / "orchestrator_config.yaml"
+        content = (
+            f"name: {self.name}\n"
+            f"dataset_path: {self.dataset_dir}\n"
+            f"output_dataset_path: {self.output_dir}\n"
+            f"{self.context}\n"
+            f"{self.misc}\n"
+        )
         config.write_text(content)
         return config
 
 
-class MockActionPlanFactory:
-    @staticmethod
-    def minimal_config(tmp_path, dataset_path=None, output_path=None, tasks_yaml=""):
-        """Write a minimal YAML for any orchestrator and return it."""
-        dataset_dir = dataset_path or (tmp_path / "dataset")
-        dataset_dir.mkdir(exist_ok=True)
-        output_dir = output_path or (tmp_path / "output")
-        output_dir.mkdir(exist_ok=True)
+class MockTaskBuilder:
+    def __init__(self):
+        self.mock_instance = MagicMock()
+        self.mock_instance.offset_start_date = Duration(hours=1)
+        self.mock_instance.offset_end_date = Duration(hours=1)
+        self.mock_instance.priority = 1
 
-        config = tmp_path / "action_plan.yaml"
-        content = f"name: test_workflow\ndataset_path: {dataset_dir}\noutput_dataset_path: {output_dir}\ntasks: []\n"
-        if tasks_yaml:
-            content = (
-                f"name: test_workflow\ndataset_path: {dataset_dir}\noutput_dataset_path: {output_dir}\n{tasks_yaml}"
-            )
-        config.write_text(content)
-        return config
+    def with_from(self, from_) -> MockTaskBuilder:
+        self.mock_instance = from_
+        return self
+
+    def with_until(self, until) -> MockTaskBuilder:
+        self.mock_instance = until
+        return self
+
+    def with_frequency(self, frequency) -> MockTaskBuilder:
+        self.mock_instance = frequency
+        return self
+
+    def with_offset_start_date(self, offset_start_date) -> MockTaskBuilder:
+        self.mock_instance.offset_start_date = offset_start_date
+        return self
+
+    def with_offset_end_date(self, offset_end_date) -> MockTaskBuilder:
+        self.mock_instance.offset_end_date = offset_end_date
+        return self
+
+    def with_priority(self, priority: int) -> MockTaskBuilder:
+        self.mock_instance.priority = priority
+        return self
+
+    def build(self) -> Task:
+        return self.mock_instance

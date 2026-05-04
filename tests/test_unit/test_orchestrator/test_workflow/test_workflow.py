@@ -12,32 +12,37 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from atlas import WorkflowJob
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.workflow.workflow import Workflow
 from atlas.timing import build_datetime
-from tests.test_unit.test_orchestrator.orchestrator_factory import MockWorkflowFactory
+from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, OrchestratorConfigBuilder
 
 
 class TestWorkflowAddStep:
     @pytest.fixture
     def empty_workflow(self, tmp_path):
-        conf = MockWorkflowFactory.minimal_config(tmp_path)
+        conf = OrchestratorConfigBuilder.build(tmp_path)
         params = Workflow.from_file(conf)
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
         wf._jobs = []
         return wf
 
+    @pytest.fixture(autouse=True)
+    def job_builder(self):
+        self.job_builder = MockJobBuilder.with_class(WorkflowJob.__class__)
+
     def test_add_single_step(self, tmp_path, empty_workflow):
-        step = MockWorkflowFactory.make_job("s1")
+        step = self.job_builder.with_name("s1").build()
         empty_workflow.add_job(step)
 
         assert empty_workflow.jobs_count == 1
         assert next(empty_workflow.jobs) is step
 
     def test_add_list_of_steps(self, tmp_path, empty_workflow):
-        steps = [MockWorkflowFactory.make_job(f"s{i}") for i in range(3)]
+        steps = [self.job_builder.with_name(f"s{i}").build() for i in range(3)]
         empty_workflow.add_job(steps)
 
         assert empty_workflow.jobs_count == 3
@@ -49,13 +54,13 @@ class TestWorkflowAddStep:
             empty_workflow.add_job("not_a_step")
 
     def test_add_list_with_invalid_item_raises_type_error(self, tmp_path, empty_workflow):
-        valid_step = MockWorkflowFactory.make_job("s1")
+        valid_step = self.job_builder.with_name("s1").build()
         with pytest.raises(TypeError):
             empty_workflow.add_job([valid_step, "not_a_step"])
 
     def test_steps_appended_in_order(self, tmp_path, empty_workflow):
-        s1 = MockWorkflowFactory.make_job("first")
-        s2 = MockWorkflowFactory.make_job("second")
+        s1 = self.job_builder.with_name("first").build()
+        s2 = self.job_builder.with_name("second").build()
         empty_workflow.add_job(s1)
         empty_workflow.add_job(s2)
 
@@ -66,20 +71,11 @@ class TestWorkflowAddStep:
 
 class TestWorkflowFromFile:
     def test_from_file_raises_if_steps_reference_nonexistent_params(self, tmp_path):
-        dataset_dir = tmp_path / "dataset"
-        dataset_dir.mkdir()
-        output_dir = tmp_path / "output"
-        output_dir.mkdir()
-
-        config = tmp_path / "workflow.yaml"
-        config.write_text(
-            f"name: wf\n"
-            f"dataset_path: {dataset_dir}\n"
-            f"output_dataset_path: {output_dir}\n"
+        config = OrchestratorConfigBuilder.with_any(
             f"steps:\n"
             f"  - module: PortfolioOptimisation\n"
             f"    parameters_path: /nonexistent/path/params.yaml\n"
-        )
+        ).build(tmp_path)
 
         # build_steps will try to open the parameters file -- should raise
         with pytest.raises(Exception):
@@ -88,10 +84,6 @@ class TestWorkflowFromFile:
 
 class TestWorkflowRepresentation:
     def test_repr_representation(self, tmp_path):
-        dataset_dir = tmp_path / "dataset"
-        dataset_dir.mkdir()
-        output_dir = tmp_path / "output"
-        output_dir.mkdir()
         params_file = tmp_path / "params.yaml"
         params_file.write_text(
             "temporal:\n"
@@ -101,16 +93,11 @@ class TestWorkflowRepresentation:
             "solver:\n"
             "  solver_name: GLOP\n"
         )
-
-        config = tmp_path / "workflow.yaml"
-        config.write_text(
-            f"name: test_workflow\n"
-            f"dataset_path: {dataset_dir}\n"
-            f"output_dataset_path: {output_dir}\n"
+        config = OrchestratorConfigBuilder.with_name("test_workflow").with_any(
             f"steps:\n"
             f"  - module: MarketClearing\n"
             f"    parameters_path: {params_file}\n"
-        )
+        ).build()
 
         workflow = Workflow.from_file(config)
         result = repr(workflow)
