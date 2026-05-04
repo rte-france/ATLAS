@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Intraday Price Forecast module follows ATLAS's `AbstractModule` pattern. See [Module Pattern](../../../concepts/module-pattern.md) for details on the standard module architecture.
+The Intraday Price Forecast module follows ATLAS's `AbstractModule` pattern. See [Module Pattern](../../module-pattern.md) for details on the standard module architecture.
 
 This document describes the module-specific architecture and components.
 
@@ -16,9 +16,8 @@ intraday_price_forecast/
 ├── input_dataset.py                      # Input data aggregation
 ├── output_dataset.py                     # Output data aggregation
 ├── orchestrator.py                       # Main computation logic
-└── models/                               # Intraday-specific models
+└── input_objects/                        # Intraday-specific models
     ├── __init__.py
-    ├── portfolio.py                      # Portfolio model
     ├── market_area.py                    # Market area model
     ├── load.py                           # Load model
     ├── solar.py                          # Solar model
@@ -50,7 +49,7 @@ Pydantic model inheriting from `AbstractModuleParameters`. Defines configuration
 - `execution_date_scenarios`: Scenarios reference date
 - `penultimate_date`: Cached property for `end_date - timestep`
 
-See [Parameters](../user-guide/input-data.md) for details.
+See [Parameters](../user-guide/parameters.md) for details.
 
 ### IntradayPriceForecastInputDataset
 
@@ -183,7 +182,7 @@ if min(forecast) < negative_cap:
 
 ## Module-Specific Design Patterns
 
-For common ATLAS patterns (module lifecycle, Pydantic models), see [Module Pattern](../../../concepts/module-pattern.md).
+For common ATLAS patterns (module lifecycle, Pydantic models), see [Module Pattern](../../module-pattern.md).
 
 **Sensitivity-Based Forecasting**: Uses scenario analysis (high/low) to estimate price-consumption relationships
 

@@ -6,6 +6,7 @@ from typing import Generic
 from atlas.abstract_class.job import AbstractJob, J
 from atlas.abstract_class.orchestrator_parameters import PO
 from atlas.config import logger
+from atlas.custom_errors import WorkflowJobError
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.timing import timer
@@ -54,25 +55,30 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
 
             try:
                 self._execute_job(job, cis)
+            except WorkflowJobError:
+                if self.parameters.create_job_snapshots:
+                    logger.info(f"Available snapshots: {cis.list_snapshots()}")
+                raise
             except Exception as e:
                 logger.error(f"{job}' failed: {e}")
                 if self.parameters.rollback_on_job_failure:
                     logger.error(f"Current Input State automatically rolled back to state before '{job}'")
-
-                # Show available snapshots for debugging
                 if self.parameters.create_job_snapshots:
                     logger.info(f"Available snapshots: {cis.list_snapshots()}")
-
-                raise RuntimeError(f"{self.__class__.__name__} failed at job '{job}'") from e
+                raise WorkflowJobError(
+                    f"{self.__class__.__name__} failed at job '{job}'",
+                    job_name=job.name,
+                    cis=cis,
+                ) from e
 
             logger.info(f"Finishing job :'{job.name}'")
 
-        # Export final orchestrator output
-        logger.info(f"Exporting final {self.__class__.__name__} output")
-
         if self.parameters.export_output:
+            logger.info(
+                f"Exporting final {self.__class__.__name__.lower()} output to {self.parameters.resolve_path(self.parameters.output_dir)}"
+            )
             cis.to_directory(
-                self.parameters.resolve_path(self.parameters.output_dir) / f"{self.__class__.__name__}_output"
+                self.parameters.resolve_path(self.parameters.output_dir) / f"{self.__class__.__name__.lower()}_output"
             )
 
         logger.info(f"{self.__class__.__name__} '{self.parameters.name}' completed successfully")
@@ -93,7 +99,15 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
         input_dataset = cis.get_data(copy=True)
 
         with timer() as t:
-            job.run(input_dataset)
+            try:
+                job.run(input_dataset)
+            except Exception as e:
+                raise WorkflowJobError(
+                    f"{self.__class__.__name__} failed at job '{job}' during module execution",
+                    job_name=job.name,
+                    cis=cis,
+                    input_dataset=input_dataset,
+                ) from e
         logger.info(f"'{job.name}' completed in {t()} seconds")
 
         output_dataset = job.output_dataset

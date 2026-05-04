@@ -6,7 +6,7 @@ This project is under development. There is no public release yet.
 
 ### Prerequisites
 
-- Python 3.10 or higher
+- Python 3.13 or higher
 - [uv](https://docs.astral.sh/uv/#installation) package manager (recommended)
 
 ### Install from Source
@@ -83,4 +83,4 @@ Once installed, proceed to:
 
 - [Quick Start Tutorial](quickstart.md) - Get up and running in 5 minutes
 - [Your First Simulation](first-simulation.md) - Complete walkthrough with sample data
-- [Basic Concepts](overview.md) - Understand Atlas architecture
+- [Module Pattern](../modules/module-pattern.md) - Understand Atlas architecture

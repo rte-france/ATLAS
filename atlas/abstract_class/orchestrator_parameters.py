@@ -12,7 +12,7 @@ from typing import TypeVar
 
 from pydantic import AliasChoices, Field
 
-from atlas.io_utils.parameters import Parameters
+from atlas.io_utils.parameters import ContextParameters, Parameters
 
 
 class AbstractOrchestratorParameters(Parameters):
@@ -27,12 +27,13 @@ class AbstractOrchestratorParameters(Parameters):
     :type create_job_snapshots: bool
     :param path_from_workflow: If True, resolve relative paths from workflow file location
     :type path_from_workflow: bool
+    :param context: Context for defaults and forced parameters values to use for all modules.
+    :type context: ContextParameters
     TODO add missing parameters
     """
 
     name: str | None = None
     dataset_path: Path
-    output_dataset_path: Path
     parameters_path: Path | None = None
     path_from_workflow: bool = Field(
         default=True,
@@ -43,6 +44,7 @@ class AbstractOrchestratorParameters(Parameters):
     create_job_snapshots: bool = False
     export_output: bool = True
     _orchestrator_path: Path = Path()
+    context: ContextParameters = ContextParameters()
 
     @property
     def base_path(self) -> Path:

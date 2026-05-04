@@ -6,6 +6,8 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+from functools import cached_property
+
 from pendulum import DateTime, duration
 from pydantic import Field, field_validator
 from pydantic_extra_types.pendulum_dt import Duration
@@ -171,7 +173,7 @@ class PortfolioOptimisationParameters(AbstractModuleParameters):
             return [ThermalStrategy.BASE, ThermalStrategy.INTERMEDIATE, ThermalStrategy.PEAK]
         return [ThermalStrategy(strat) for strat in val]
 
-    @property
+    @cached_property
     def target_times(self) -> list[DateTime]:
         """Datetime index for the main optimization period."""
         return generate_datetimes(

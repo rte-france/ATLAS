@@ -8,6 +8,7 @@ This file is part of the ATLAS project.
 import itertools
 import math
 
+import polars as pl
 from pendulum import DateTime
 
 import atlas.config as cfg
@@ -75,7 +76,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         if overlapping_blocks:
             # time frames are mutually exclusive provided that the unit's minimum power is not null
-            if sum(unit.minimum_power.get_value(t) for t in self.orders_time) > 0.0:
+            if unit.minimum_power.timeseries.filter(pl.col("time").is_in(self.orders_time))["value"].sum() > 0.0:
                 orders_names = [
                     f"order_at_{ts.first_date()}_for_unit_{unit.name}_under_price_{case}"
                     for (ts, case), _ in overlapping_blocks
@@ -251,7 +252,10 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
             raise ValueError("The pair inputed in the is_overlapping function has not a length of 2.")
 
         scenario_1, scenario_2 = pair[0], pair[1]
-        return all(scenario_1.get_value(t) == scenario_2.get_value(t) for t in scenario_1.index)
+        # by default, we assume that both scenarios perfectly overlap
+        # to verify this, we see whether the difference across all time steps is 0
+        # if there exist one t such that the difference is not null, then scenarios are not perfectly overlapping
+        return scenario_1 == scenario_2
 
     def _load_price_forecast(self, unit: ThermalDAO, price_type: str) -> Timeseries:
         attr_name = f"price_forecast_{price_type.lower()}"
@@ -265,22 +269,37 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         )
 
     def _build_state_sequence(self, res: dict[str, Timeseries]) -> Timeseries:
-        state_map = [("ON_UP", 1), ("ON_DOWN", 2), ("OFF", 3), ("START", 4), ("STOP", 5), ("ON_FLAT", 6)]
-        ts = Timeseries.from_index(
-            self.parameters.temporal.start_date,
-            self.parameters.temporal.timestep,
-            self.parameters.temporal.end_date,
-            default_value=0,
+        tz = self.parameters.temporal.start_date.timezone_name
+        local_time_index = list(res["OFF"].index)
+
+        values = []
+        for time in local_time_index:
+            if "ON_UP" in res and res["ON_UP"].get_value(time) == 1:
+                values.append(1)
+                continue
+            if "ON_DOWN" in res and res["ON_DOWN"].get_value(time) == 1:
+                values.append(2)
+                continue
+            if "OFF" in res and res["OFF"].get_value(time) == 1:
+                values.append(3)
+                continue
+            if "START" in res and res["START"].get_value(time) == 1:
+                values.append(4)
+                continue
+            if "STOP" in res and res["STOP"].get_value(time) == 1:
+                values.append(5)
+                continue
+            if "ON_FLAT" in res and res["ON_FLAT"].get_value(time) == 1:
+                values.append(6)
+                continue
+            values.append(0)
+
+        return Timeseries(
+            pl.DataFrame(
+                {"time": local_time_index, "value": values},
+                schema={"time": pl.Datetime("us", tz), "value": pl.Float64()},
+            )
         )
-        for time in res["OFF"].index:
-            for key, value in state_map:
-                if key in res and res[key].get_value(time) == 1:
-                    if time in ts:
-                        ts.set_value(time, value)
-                    else:
-                        ts.add_index(time, value)
-                    break
-        return ts
 
     def solve_optimization_programs(
         self, equipments_list: list[ThermalDAO]
