@@ -330,7 +330,7 @@ class TestTransactionContextManager:
         """Test that changes are kept when transaction succeeds."""
         initial_count = len(cis.data.order)
 
-        with cis.transaction():
+        with cis.transaction({"order"}):
             ma = cis.data.market_area.get("ma1")
             order3 = Order(name="order_3", price=30.0, market_area=ma)
             cis.data.order.add(order3)
@@ -345,7 +345,7 @@ class TestTransactionContextManager:
         initial_price = cis.data.order.get("order_1").price
 
         with pytest.raises(ValueError):
-            with cis.transaction():
+            with cis.transaction({"order"}):
                 # Make some changes
                 ma = cis.data.market_area.get("ma1")
                 order3 = Order(name="order_3", price=30.0, market_area=ma)
@@ -370,7 +370,7 @@ class TestTransactionContextManager:
             AddObject({"name": "order_4", "price": 40.0, "market_area": ma.name}, model_type=Order),
         ]
 
-        with cis.transaction():
+        with cis.transaction({"order"}):
             CISHandler.apply(change_sets, cis, rollback_on_error=False)
 
         # Changes should be committed
@@ -392,7 +392,7 @@ class TestTransactionContextManager:
         from atlas.custom_errors import ChangeSetApplicationError
 
         with pytest.raises(ChangeSetApplicationError):  # CISHandler will raise an error
-            with cis.transaction():
+            with cis.transaction({"order"}):
                 CISHandler.apply(change_sets, cis, rollback_on_error=False)
 
         # All changes should be rolled back (including the successful add)
@@ -404,10 +404,10 @@ class TestTransactionContextManager:
         initial_price = cis.data.order.get("order_1").price
 
         with pytest.raises(ValueError):
-            with cis.transaction():
+            with cis.transaction({"order"}):
                 cis.data.order.get("order_1").price = 100.0
 
-                with cis.transaction():
+                with cis.transaction({"order"}):
                     cis.data.order.get("order_1").price = 200.0
 
                 # Outer transaction error
@@ -455,7 +455,7 @@ class TestIntegrationScenarios:
 
         # Try risky changes in transaction
         try:
-            with experimental_cis.transaction():
+            with experimental_cis.transaction({"order"}):
                 # Make experimental changes
                 ma = experimental_cis.data.market_area.get("ma1")
                 order3 = Order(name="order_3", price=30.0, market_area=ma)

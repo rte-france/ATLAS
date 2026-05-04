@@ -204,28 +204,26 @@ class CurrentInputState:
         return CurrentInputState(copy_module.deepcopy(self.data))
 
     @contextmanager
-    def transaction(self):
+    def transaction(self, model_types):
         """Context manager for transactional CIS modifications with automatic rollback on error.
 
-        If any exception occurs within the context, the CIS is automatically restored to its
-        state before entering the context.
+        Only the containers listed in *model_types* are backed up and restored on failure,
+        making this much cheaper than a full deepcopy when only a subset of the dataset
+        is modified. The caller is responsible for declaring every container that may be
+        mutated inside the context.
 
-        :yields: Self
-        :rtype: CurrentInputState
+        :param model_types: Iterable of BusinessModelName (or str) values identifying
+            which AtlasDataset attributes to back up.
 
         Example:
-            >>> with cis.transaction():
+            >>> with cis.transaction({"order"}):
             ...     CISHandler.apply(change_sets, cis)
-            ...     # If any error occurs here, CIS is automatically rolled back
-
-            >>> # Advanced: capture the state for later use
-            >>> with cis.transaction() as transactional_cis:
-            ...     # Make changes to transactional_cis
-            ...     module.run(transactional_cis.data, params)
+            ...     # If any error occurs here, only the order container is rolled back
         """
-        backup = copy_module.deepcopy(self.data)
+        backups = {mt: copy_module.deepcopy(getattr(self.data, mt)) for mt in model_types}
         try:
             yield self
         except Exception:
-            self.data = backup
+            for mt, backup in backups.items():
+                setattr(self.data, mt, backup)
             raise

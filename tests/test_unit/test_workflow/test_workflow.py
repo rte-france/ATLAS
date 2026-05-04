@@ -31,17 +31,15 @@ def _make_workflow_step(name="step", output=None):
     return WorkflowJob(name, mock_class, {})
 
 
-def _make_workflow_parameters(tmp_path, steps_yaml="", dataset_path=None, output_path=None):
+def _make_workflow_parameters(tmp_path, steps_yaml="", dataset_path=None):
     """Write a minimal workflow YAML and return WorkflowParameters."""
     dataset_dir = dataset_path or (tmp_path / "dataset")
     dataset_dir.mkdir(exist_ok=True)
-    output_dir = output_path or (tmp_path / "output")
-    output_dir.mkdir(exist_ok=True)
 
     config = tmp_path / "workflow.yaml"
-    content = f"name: test_workflow\ndataset_path: {dataset_dir}\noutput_dataset_path: {output_dir}\nsteps: []\n"
+    content = f"name: test_workflow\ndataset_path: {dataset_dir}\nsteps: []\n"
     if steps_yaml:
-        content = f"name: test_workflow\ndataset_path: {dataset_dir}\noutput_dataset_path: {output_dir}\n{steps_yaml}"
+        content = f"name: test_workflow\ndataset_path: {dataset_dir}\n{steps_yaml}"
     config.write_text(content)
     return WorkflowParameters.from_file(config)
 
@@ -249,7 +247,6 @@ class TestWorkflowFromFile:
         config.write_text(
             f"name: wf\n"
             f"dataset_path: {dataset_dir}\n"
-            f"output_dataset_path: {output_dir}\n"
             f"steps:\n"
             f"  - module: PortfolioOptimisation\n"
             f"    parameters_path: /nonexistent/path/params.yaml\n"
@@ -280,7 +277,6 @@ class TestWorkflowRepresentation:
         config.write_text(
             f"name: test_workflow\n"
             f"dataset_path: {dataset_dir}\n"
-            f"output_dataset_path: {output_dir}\n"
             f"steps:\n"
             f"  - module: MarketClearing\n"
             f"    parameters_path: {params_file}\n"
@@ -314,7 +310,6 @@ class TestWorkflowContextParameters:
             "name: test_workflow\n"
             + context +
             f"dataset_path: {dataset_dir}\n"
-            f"output_dataset_path: {output_dir}\n"
             f"steps:\n"
             f"  - module: MarketClearing\n"
             f"    parameters_path: {params_file}\n"
@@ -483,7 +478,6 @@ class TestWorkflowPathFromWorkflow:
         config.write_text(
             "name: test_workflow\n"
             "dataset_path: dataset\n"
-            "output_dataset_path: output\n"
             "path_from_workflow: true\n"
             "steps: []\n"
         )
@@ -511,7 +505,6 @@ class TestWorkflowPathFromWorkflow:
         config.write_text(
             f"name: test_workflow\n"
             f"dataset_path: {dataset_dir}\n"
-            f"output_dataset_path: {output_dir}\n"
             f"path_from_workflow: false\n"
             f"steps: []\n"
         )
@@ -545,7 +538,6 @@ class TestWorkflowPathFromWorkflow:
         config.write_text(
             f"name: test_workflow\n"
             f"dataset_path: {dataset_dir}\n"
-            f"output_dataset_path: {output_dir}\n"
             f"path_from_workflow: true\n"
             f"output_dir: results\n"
             f"steps:\n"

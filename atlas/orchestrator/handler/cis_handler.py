@@ -34,9 +34,9 @@ class CISHandler:
         CISHandler._validate_no_duplicates(change_sets)
         logger.debug(f"Applying {len(change_sets)} change sets to Current Input State")
 
-        # Use CIS transaction if rollback is enabled
         if rollback_on_error:
-            with cis.transaction():
+            touched_types = {cs.model_type for cs in change_sets}
+            with cis.transaction(touched_types):
                 CISHandler._apply_change_sets(change_sets, cis)
         else:
             CISHandler._apply_change_sets(change_sets, cis)
