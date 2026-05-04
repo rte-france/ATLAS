@@ -17,7 +17,7 @@ from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.orchestrator.workflow.parameters import Step
-from tests.test_unit.test_orchestrator.orchestrator_factory import MockModuleFactory
+from tests.test_unit.test_orchestrator.orchestrator_factory import MockModuleBuilder
 
 
 class TestStep:
@@ -51,9 +51,8 @@ class TestStep:
 class TestWorkflowJobInit:
     @pytest.fixture(autouse=True)
     def set_up_mock_module(self):
-        mock_class, mock_instance = MockModuleFactory.make_module_class_instance()
-        self.mock_class = mock_class
-        self.mock_instance = mock_instance
+        self.mock_instance = MockModuleBuilder().build()
+        self.mock_class = MagicMock(return_value=self.mock_instance)
 
     def test_init_sets_name(self):
         ws = WorkflowJob("my_step", self.mock_class, {})
@@ -77,11 +76,9 @@ class TestWorkflowJobRun:
 
     @pytest.fixture(autouse=True)
     def set_up_module_and_job(self):
-        mock_output = MagicMock()
-        mock_class, mock_instance = MockModuleFactory.make_module_class_instance(mock_output)
-        self.mock_class = mock_class
-        self.mock_instance = mock_instance
-        self.mock_output = mock_output
+        self.mock_output = MagicMock()
+        self.mock_instance = MockModuleBuilder().with_output(self.mock_output).build()
+        self.mock_class = MagicMock(return_value=self.mock_instance)
         self.job = WorkflowJob("job", self.mock_class, {})
 
     def test_run_calls_module_run(self, atlas_dataset):
@@ -95,7 +92,8 @@ class TestWorkflowJobRun:
         assert self.job.get_output_dataset() is self.mock_output
 
     def test_run_with_none_output_stores_none(self, atlas_dataset):
-        mock_class = MockModuleFactory.make_module_class(output=None)
+        mock_instance = MockModuleBuilder().with_output(None).build()
+        mock_class = MagicMock(return_value=mock_instance)
         job = WorkflowJob("job", mock_class, {})
         job.run(atlas_dataset)
         assert job.output_dataset is None

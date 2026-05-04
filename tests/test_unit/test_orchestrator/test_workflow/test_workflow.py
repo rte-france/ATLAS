@@ -23,7 +23,7 @@ from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilde
 class TestWorkflowAddStep:
     @pytest.fixture
     def empty_workflow(self, tmp_path):
-        conf = OrchestratorConfigBuilder.build(tmp_path)
+        conf = OrchestratorConfigBuilder().build_workflow(tmp_path)
         params = Workflow.from_file(conf)
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
@@ -32,7 +32,7 @@ class TestWorkflowAddStep:
 
     @pytest.fixture(autouse=True)
     def job_builder(self):
-        self.job_builder = MockJobBuilder.with_class(WorkflowJob.__class__)
+        self.job_builder = MockJobBuilder().with_job_class(WorkflowJob)
 
     def test_add_single_step(self, tmp_path, empty_workflow):
         step = self.job_builder.with_name("s1").build()
@@ -71,7 +71,7 @@ class TestWorkflowAddStep:
 
 class TestWorkflowFromFile:
     def test_from_file_raises_if_steps_reference_nonexistent_params(self, tmp_path):
-        config = OrchestratorConfigBuilder.with_any(
+        config = OrchestratorConfigBuilder().with_any(
             f"steps:\n"
             f"  - module: PortfolioOptimisation\n"
             f"    parameters_path: /nonexistent/path/params.yaml\n"
@@ -93,11 +93,11 @@ class TestWorkflowRepresentation:
             "solver:\n"
             "  solver_name: GLOP\n"
         )
-        config = OrchestratorConfigBuilder.with_name("test_workflow").with_any(
+        config = OrchestratorConfigBuilder().with_name("test_workflow").with_any(
             f"steps:\n"
             f"  - module: MarketClearing\n"
             f"    parameters_path: {params_file}\n"
-        ).build()
+        ).build(tmp_path)
 
         workflow = Workflow.from_file(config)
         result = repr(workflow)

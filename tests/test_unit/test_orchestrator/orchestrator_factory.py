@@ -1,8 +1,9 @@
 from collections.abc import Iterator
+from typing import Self
 from unittest.mock import MagicMock
 
 import yaml
-from pendulum import Duration
+from pendulum import Duration, DateTime
 
 from atlas.abstract_class.job import AbstractJob
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
@@ -22,8 +23,8 @@ class ConcreteTaskIterator(TaskIterator):
     """Minimalist implementation of TaskIterator"""
 
     def __init__(self, task: Task, job: ConcreteJob):
-        self._job: ConcreteJob = job
         super().__init__(task)
+        self._job: ConcreteJob = job
 
     def build_jobs(self):
         return [self._job]
@@ -66,11 +67,11 @@ class MockModuleBuilder:
 
     def __init__(self):
         self.instance = MagicMock()
-        self.instance.run.return_value = MockOutPutBuilder.build()
+        self.instance.run.return_value = MockOutPutBuilder().build()
         self.instance.get_business_model_class_used.return_value = []
         self.instance.get_filters.return_value = None
 
-    def with_output(self, output) -> MockModuleBuilder:
+    def with_output(self, output) -> Self:
         self.instance.run.return_value = output
         return self
 
@@ -83,38 +84,38 @@ class MockJobBuilder:
 
     def __init__(self):
         self.name = "job"
-        self.output = None
+        self.output = MockOutPutBuilder().build()
         self.module_parameters = {}
-        self.cls = ConcreteJob.__class__
+        self.job_cls = ConcreteJob
+        self.module_cls = None
         self.module = None
 
-    def with_name(self, name) -> MockJobBuilder:
+    def with_name(self, name) -> Self:
         self.name = name
         return self
 
-    def with_output(self, output) -> MockJobBuilder:
+    def with_output(self, output) -> Self:
         self.output = output
         return self
 
-    def with_class(self, cls) -> MockJobBuilder:
-        self.cls = cls
+    def with_job_class(self, cls) -> Self:
+        self.job_cls = cls
         return self
 
-    def with_module_parameters(self, parameters) -> MockJobBuilder:
+    def with_module_parameters(self, parameters) -> Self:
         self.module_parameters = parameters
         return self
 
-    def with_module(self, module) -> MockJobBuilder:
+    def with_module(self, module) -> Self:
         self.module = module
-        self.cls = module.__class__
+        self.module_cls = module.__class__
         return self
 
     def build(self):
         if self.module is None:
-            module_builder = MockModuleBuilder.with_output(self.output)
-            self.module = module_builder.build()
-            self.cls = MagicMock(return_value=self.module)
-        return self.cls(self.name, self.cls, self.module_parameters)
+            self.module = MockModuleBuilder().with_output(self.output).build()
+            self.module_cls = MagicMock(return_value=self.module)
+        return self.job_cls(self.name, self.module_cls, self.module_parameters)
 
 
 class OrchestratorConfigBuilder:
@@ -127,30 +128,40 @@ class OrchestratorConfigBuilder:
         self.context = ""
         self.misc = ""
 
-    def with_name(self, name) -> OrchestratorConfigBuilder:
+    def with_name(self, name) -> Self:
         self.name = name
         return self
 
-    def with_dataset_dir(self, dataset_dir) -> OrchestratorConfigBuilder:
+    def with_dataset_dir(self, dataset_dir) -> Self:
         self.dataset_dir = dataset_dir
         return self
 
-    def with_output_dir(self, output_dir) -> OrchestratorConfigBuilder:
+    def with_output_dir(self, output_dir) -> Self:
         self.output_dir = output_dir
         return self
 
-    def with_context(self, context) -> OrchestratorConfigBuilder:
-        if context is str:
+    def with_context(self, context) -> Self:
+        if type(context) is str:
             self.context = context
-        elif context is ContextParameters:
+        elif type(context) is ContextParameters:
             self.context = yaml.dump(context)
         else:
             raise TypeError(f"context must be str or ContextParameters, not {type(context)}")
         return self
 
-    def with_any(self, misc) -> OrchestratorConfigBuilder:
+    def with_any(self, misc) -> Self:
         self.misc = misc
         return self
+
+    def build_workflow(self, tmp_path):
+        if self.misc == "":
+            self.misc = "steps: []"
+        return self.build(tmp_path)
+
+    def build_action_plan(self, tmp_path):
+        if self.misc == "":
+            self.misc = "tasks: []"
+        return self.build(tmp_path)
 
     def build(self, tmp_path):
         if self.dataset_dir is None:
@@ -174,34 +185,30 @@ class OrchestratorConfigBuilder:
 
 class MockTaskBuilder:
     def __init__(self):
-        self.mock_instance = MagicMock()
-        self.mock_instance.offset_start_date = Duration(hours=1)
-        self.mock_instance.offset_end_date = Duration(hours=1)
-        self.mock_instance.priority = 1
+        self.from_ = DateTime(2026, 1, 1)
+        self.until = DateTime(2026, 1, 1)
+        self.frequency = Duration(days=1)
+        self.offset_start_date = Duration(days=1)
+        self.offset_end_date = Duration(days=2)
+        self.priority = 1
 
-    def with_from(self, from_) -> MockTaskBuilder:
-        self.mock_instance = from_
+    def with_from_until_frequency(self, from_, until, frequency) -> Self:
+        self.from_ = from_
+        self.until = until
+        self.frequency = frequency
         return self
 
-    def with_until(self, until) -> MockTaskBuilder:
-        self.mock_instance = until
+    def with_offset_start_date(self, offset_start_date) -> Self:
+        self.offset_start_date = offset_start_date
         return self
 
-    def with_frequency(self, frequency) -> MockTaskBuilder:
-        self.mock_instance = frequency
+    def with_offset_end_date(self, offset_end_date) -> Self:
+        self.offset_end_date = offset_end_date
         return self
 
-    def with_offset_start_date(self, offset_start_date) -> MockTaskBuilder:
-        self.mock_instance.offset_start_date = offset_start_date
+    def with_priority(self, priority: int) -> Self:
+        self.priority = priority
         return self
 
-    def with_offset_end_date(self, offset_end_date) -> MockTaskBuilder:
-        self.mock_instance.offset_end_date = offset_end_date
+    def build(self):
         return self
-
-    def with_priority(self, priority: int) -> MockTaskBuilder:
-        self.mock_instance.priority = priority
-        return self
-
-    def build(self) -> Task:
-        return self.mock_instance
