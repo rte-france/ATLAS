@@ -142,8 +142,12 @@ class OutputParameters(BaseModel):
 class ContextParameters(BaseModel):
     """A context contains values to use as default or to forced on corresponding parameters."""
 
-    default: dict = {}
-    forced: dict = {}
+    default: dict
+    forced: dict
+
+    def __init__(self, default : dict = {}, forced : dict = {}):
+        self.default = default
+        self.forced = forced
 
     def use(self, context: ContextParameters):
         deep_update(self.default, context.default, True)
