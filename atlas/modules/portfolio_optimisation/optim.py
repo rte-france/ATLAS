@@ -36,13 +36,12 @@ class PortfolioOptimisationModel(OptimisationModel):
         """Pre-fetch forecasts for all equipment to avoid redundant get_forecast calls during model building."""
         cfg.logger.debug("Pre-fetching forecasts for all equipment...")
 
-        for equipment in [
-            *self.portfolio.equipments.wind,
-            *self.portfolio.equipments.solar,
-            *self.portfolio.equipments.dispatchable_load,
-            *self.portfolio.equipments.non_dispatchable_load,
-        ]:
-            equipment.prefetch_forecasts(self.parameters.temporal.execution_date)
+        for wind in self.portfolio.equipments.wind:
+            wind.prefetch_forecasts(self.parameters.temporal.execution_date)
+        for solar in self.portfolio.equipments.solar:
+            solar.prefetch_forecasts(self.parameters.temporal.execution_date)
+        for load in [*self.portfolio.equipments.dispatchable_load, *self.portfolio.equipments.non_dispatchable_load]:
+            load.prefetch_forecasts(self.parameters.temporal.execution_date)
 
         for hydro in self.portfolio.equipments.hydro:
             hydro.prefetch_forecasts(

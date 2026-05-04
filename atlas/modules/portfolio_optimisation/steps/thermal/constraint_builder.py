@@ -152,6 +152,7 @@ class ThermalConstraintBuilder:
             obj.power_level_var.set_extended(time, power_t)
 
             if self._has_start or self._has_stop:
+                assert obj.minimum_power is not None
                 min_power = obj.minimum_power.get_value(time)
                 if power_t >= min_power:
                     obj.off_var.set_extended(time, 0)

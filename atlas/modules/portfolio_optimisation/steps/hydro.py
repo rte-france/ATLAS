@@ -124,8 +124,10 @@ class HydroStep(AbstractOptimStep[HydroPO]):
                 )
 
     def add_objective(
-        self, model: OptimisationModel, parameters: PortfolioOptimisationParameters, price_forecasts: dict = {}
+        self, model: OptimisationModel, parameters: PortfolioOptimisationParameters, price_forecasts: dict | None = None
     ):
+        if price_forecasts is None:
+            price_forecasts = {}
         eq = self.equipment
         energy_level = self._get_current_energy_level(eq, parameters)
         marginal_weights = self._calculate_marginal_weights(eq, energy_level)

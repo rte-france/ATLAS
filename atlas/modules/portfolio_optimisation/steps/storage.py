@@ -233,8 +233,10 @@ class StoragePOStep(AbstractOptimStep[StoragePO]):
         )
 
     def add_objective(
-        self, model: OptimisationModel, parameters: PortfolioOptimisationParameters, price_forecasts: dict = {}
+        self, model: OptimisationModel, parameters: PortfolioOptimisationParameters, price_forecasts: dict | None = None
     ):
+        if price_forecasts is None:
+            price_forecasts = {}
         eq = self.equipment
         if eq.maximum_energy.max() <= 0:
             cfg.logger.debug(f"Skipping objective for storage unit {eq.name} - maximum energy is 0")

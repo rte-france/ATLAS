@@ -75,7 +75,11 @@ class TestCISHandler:
             patch("atlas.config.MODEL_ORDER_INSTANTIATION", [BusinessModelName.MARKET_AREA, BusinessModelName.ORDER]),
             patch(
                 "atlas.config.INVERSE_MODEL_MAPPING_NAME",
-                {Order: BusinessModelName.ORDER, MarketArea: BusinessModelName.MARKET_AREA, ControlBlock: BusinessModelName.CONTROL_BLOCK},
+                {
+                    Order: BusinessModelName.ORDER,
+                    MarketArea: BusinessModelName.MARKET_AREA,
+                    ControlBlock: BusinessModelName.CONTROL_BLOCK,
+                },
             ),
         ):
             CISHandler.apply([add1, add2], cis)
@@ -97,7 +101,10 @@ class TestCISHandler:
 
         with (
             patch("atlas.config.MODEL_ORDER_INSTANTIATION", [BusinessModelName.ORDER]),
-            patch("atlas.config.INVERSE_MODEL_MAPPING_NAME", {Order: BusinessModelName.ORDER, MarketArea: BusinessModelName.MARKET_AREA}),
+            patch(
+                "atlas.config.INVERSE_MODEL_MAPPING_NAME",
+                {Order: BusinessModelName.ORDER, MarketArea: BusinessModelName.MARKET_AREA},
+            ),
         ):
             CISHandler.apply([add, update, delete], cis)
 
@@ -117,7 +124,10 @@ class TestCISHandler:
 
         with (
             patch("atlas.config.MODEL_ORDER_INSTANTIATION", [BusinessModelName.ORDER]),
-            patch("atlas.config.INVERSE_MODEL_MAPPING_NAME", {Order: BusinessModelName.ORDER, MarketArea: BusinessModelName.MARKET_AREA}),
+            patch(
+                "atlas.config.INVERSE_MODEL_MAPPING_NAME",
+                {Order: BusinessModelName.ORDER, MarketArea: BusinessModelName.MARKET_AREA},
+            ),
         ):
             with pytest.raises(ChangeSetApplicationError):
                 CISHandler.apply([delete, add], cis)
@@ -137,7 +147,10 @@ class TestCISHandler:
 
         with (
             patch("atlas.config.MODEL_ORDER_INSTANTIATION", [BusinessModelName.ORDER]),
-            patch("atlas.config.INVERSE_MODEL_MAPPING_NAME", {Order: BusinessModelName.ORDER, MarketArea: BusinessModelName.MARKET_AREA}),
+            patch(
+                "atlas.config.INVERSE_MODEL_MAPPING_NAME",
+                {Order: BusinessModelName.ORDER, MarketArea: BusinessModelName.MARKET_AREA},
+            ),
         ):
             with pytest.raises(ChangeSetApplicationError):
                 CISHandler.apply([add, invalid_update], cis, rollback_on_error=True)
@@ -161,7 +174,10 @@ class TestCISHandler:
 
         with (
             patch("atlas.config.MODEL_ORDER_INSTANTIATION", [BusinessModelName.ORDER]),
-            patch("atlas.config.INVERSE_MODEL_MAPPING_NAME", {Order: BusinessModelName.ORDER, MarketArea: BusinessModelName.MARKET_AREA}),
+            patch(
+                "atlas.config.INVERSE_MODEL_MAPPING_NAME",
+                {Order: BusinessModelName.ORDER, MarketArea: BusinessModelName.MARKET_AREA},
+            ),
         ):
             with pytest.raises(ChangeSetApplicationError):
                 CISHandler.apply([add, invalid_update], cis, rollback_on_error=False)

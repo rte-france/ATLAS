@@ -188,6 +188,7 @@ class ThermalConstraintBuilder:
                 m.entered_down.set_extended(t, 0)
 
     def _init_from_previous(self, ic: ThermalInitialConditions) -> None:
+        assert ic.power_ts is not None
         m = self._m
         for t in ic.initial_times:
             m.q.set_extended(t, int(ic.power_ts.get_value(t)))
@@ -202,6 +203,7 @@ class ThermalConstraintBuilder:
             self._init_flat_down_stop_from_previous(ic)
 
     def _init_state_variables_from_previous(self, ic: ThermalInitialConditions) -> None:
+        assert ic.power_ts is not None
         m = self._m
         for t in ic.initial_times:
             q = ic.power_ts.get_value(t)

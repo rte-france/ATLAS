@@ -28,5 +28,5 @@ class AbstractOptimStep(ABC, Generic[T]):
 
     @abstractmethod
     def add_objective(
-        self, model: OptimisationModel, parameters: PortfolioOptimisationParameters, price_forecasts: dict = {}
+        self, model: OptimisationModel, parameters: PortfolioOptimisationParameters, price_forecasts: dict | None = None
     ) -> None: ...

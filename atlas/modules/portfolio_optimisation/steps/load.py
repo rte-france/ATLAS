@@ -41,8 +41,10 @@ class LoadStep(AbstractOptimStep[LoadPO]):
             model.add_constraint(power_level_var <= 0, f"power_min_{time}_{eq.name}")
 
     def add_objective(
-        self, model: OptimisationModel, parameters: PortfolioOptimisationParameters, price_forecasts: dict = {}
+        self, model: OptimisationModel, parameters: PortfolioOptimisationParameters, price_forecasts: dict | None = None
     ):
+        if price_forecasts is None:
+            price_forecasts = {}
         eq = self.equipment
         for time in eq.optimisation_time_window:
             cfg.logger.debug(f"Adding objective for load unit {eq.name} at time {time}")

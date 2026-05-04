@@ -67,7 +67,7 @@ class WindStep(AbstractOptimStep[WindPO]):
             model.add_constraint(reserves_down_var <= max_power, f"reserves_down_max_{time}_{eq.name}")
 
     def add_objective(
-        self, model: OptimisationModel, parameters: PortfolioOptimisationParameters, price_forecasts: dict = {}
+        self, model: OptimisationModel, parameters: PortfolioOptimisationParameters, price_forecasts: dict | None = None
     ):
         eq = self.equipment
         for time in eq.optimisation_time_window:

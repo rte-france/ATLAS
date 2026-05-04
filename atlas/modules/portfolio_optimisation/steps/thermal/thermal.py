@@ -112,8 +112,10 @@ class ThermalStep(AbstractOptimStep[ThermalPO]):
         self._add_daily_energy_constraint(model, parameters.temporal.timestep)
 
     def add_objective(
-        self, model: OptimisationModel, parameters: PortfolioOptimisationParameters, price_forecasts: dict = {}
+        self, model: OptimisationModel, parameters: PortfolioOptimisationParameters, price_forecasts: dict | None = None
     ):
+        if price_forecasts is None:
+            price_forecasts = {}
         eq = self.equipment
         for time in eq.optimisation_time_window:
             price_forecast = price_forecasts.get(time, 0.0)
@@ -187,7 +189,7 @@ class ThermalStep(AbstractOptimStep[ThermalPO]):
         self._setup_state_variables(model)
         self._add_initial_variables(parameters)
 
-        self._builder = ThermalConstraintBuilder(self)
+        self._builder = ThermalConstraintBuilder(self)  # type: ignore[arg-type]
         self._builder.add_initial_conditions(parameters)
 
     def _setup_state_variables(self, model: OptimisationModel):

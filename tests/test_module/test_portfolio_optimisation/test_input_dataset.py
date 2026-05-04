@@ -161,7 +161,10 @@ class TestPortfolioOptimisationInputDataset:
         """Test that InputDataset initializes correctly with storage equipment."""
         mock_storage_po_instance = Mock(spec=StoragePO)
         mock_storage_po_instance.portfolio = mock_storage_equipment.portfolio
-        mock_storage_po_instance.optimisation_time_window = [pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
+        mock_storage_po_instance.optimisation_time_window = [
+            pendulum.datetime(2024, 1, 1),
+            pendulum.datetime(2024, 1, 2),
+        ]
         mock_storage_po_instance.additional_hours = pendulum.duration(hours=0)
         mock_storage_po_class.return_value = mock_storage_po_instance
 
