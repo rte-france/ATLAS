@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import polars as pl
 from pendulum import DateTime
 
 import atlas.config as cfg
@@ -22,7 +23,6 @@ from atlas.modules.day_ahead_orders.steps.storage.optim.battery import BatteryMo
 from atlas.modules.day_ahead_orders.steps.storage.optim.electric_vehicle import ElectricVehicleModel
 from atlas.modules.day_ahead_orders.steps.storage.optim.storage import StorageModel
 from atlas.solver.models import SolverOptions
-from atlas.timing import generate_datetimes
 
 
 @dataclass
@@ -48,17 +48,18 @@ class StorageOptimizationResult:
     """
 
     storage_name: str
+    buy_submitted_volumes: Timeseries = field(default_factory=Timeseries)
+    sell_submitted_volumes: Timeseries = field(default_factory=Timeseries)
+    variable_cost: Timeseries = field(default_factory=Timeseries)
+    success: bool = True
     orders: list[OrderDAO] = field(default_factory=list)
     order_couplings: list[OrderCouplingDAO] = field(default_factory=list)
-    buy_submitted_volumes: Timeseries | None = None
-    sell_submitted_volumes: Timeseries | None = None
-    variable_cost: Timeseries | None = None
-    success: bool = True
 
 
 def optimize_single_storage(
     storage: StorageDAO,
     parameters: DayAheadOrdersParameters,
+    local_timewindow: list[DateTime],
 ) -> StorageOptimizationResult:
     """
     Worker function for storage optimization (works for both multiprocessing and sequential).
@@ -74,19 +75,7 @@ def optimize_single_storage(
     :rtype: StorageOptimizationResult
     """
     try:
-        # Check if storage should be skipped
-        end_date = parameters.penultimate_date
-        local_index = generate_datetimes(
-            parameters.temporal.start_date,
-            end_date,
-            parameters.temporal.timestep,
-        )
-
-        local_max_energy = (
-            storage.maximum_energy.set_frequency(parameters.temporal.timestep, False)
-            .filter(item=local_index, inplace=False)
-            .max()
-        )
+        local_max_energy = storage.maximum_energy.filter(item=local_timewindow, inplace=False).max()
 
         if local_max_energy <= 0:
             cfg.logger.debug(f"Equipment {str(storage.name)} avoided, as its maximum_energy is 0")
@@ -94,18 +83,8 @@ def optimize_single_storage(
 
         cfg.logger.debug(f"Optimizing storage equipment {str(storage.name)}")
 
-        # Initialize result timeseries
-        buy_submitted_volumes = Timeseries.from_index(
-            parameters.temporal.start_date, parameters.temporal.timestep, end_date, 0
-        )
-        sell_submitted_volumes = Timeseries.from_index(
-            parameters.temporal.start_date, parameters.temporal.timestep, end_date, 0
-        )
-
-        # Get initial stock
         initial_stock = _initiate_stock(storage, parameters)
 
-        # Run optimization
         solver_options = SolverOptions(
             presolve=parameters.solver.use_presolve,
             duality_gap=parameters.solver.duality_gap,
@@ -117,24 +96,32 @@ def optimize_single_storage(
         else:
             Qv, Qa = _optimize_battery(storage, initial_stock, solver_options, parameters)
 
+        buy_submitted_volumes = Timeseries.from_values(
+            parameters.temporal.start_date, parameters.temporal.timestep, list(Qa.values())
+        )
+        sell_submitted_volumes = Timeseries.from_values(
+            parameters.temporal.start_date, parameters.temporal.timestep, list(Qv.values())
+        )
+
         # Calculate prices
         Psale, Ppurchase = _price_calculation(storage, Qv, Qa, parameters)
 
         # Update variable cost
-        variable_cost = Timeseries.from_index(parameters.temporal.start_date, parameters.temporal.timestep, end_date, 0)
         if Ppurchase != 0:
-            for t in generate_datetimes(parameters.temporal.start_date, end_date, parameters.temporal.timestep):
-                variable_cost.set_value(t, round(Ppurchase, 2))
+            variable_cost = round(Ppurchase, 2)
         elif storage.discharge_efficiency != 0 and storage.charge_efficiency != 0:
-            for t in generate_datetimes(parameters.temporal.start_date, end_date, parameters.temporal.timestep):
-                variable_cost.set_value(t, round(Psale * storage.discharge_efficiency * storage.charge_efficiency, 2))
+            variable_cost = round(Psale * storage.discharge_efficiency * storage.charge_efficiency, 2)
         else:
-            for t in generate_datetimes(parameters.temporal.start_date, end_date, parameters.temporal.timestep):
-                variable_cost.set_value(t, round(Psale, 2))
+            variable_cost = round(Psale, 2)
             cfg.logger.warning(
                 f"ChargeEfficiency or DischargeEfficiency is null for equipment {storage.name}. "
                 "This is not supposed to be the case, as the default value for these is 1 and not 0"
             )
+        variable_costs = Timeseries.from_values(
+            parameters.temporal.start_date,
+            parameters.temporal.timestep,
+            [variable_cost] * len(local_timewindow),
+        )
 
         # Create orders and couplings
         orders, order_couplings = _create_orders_with_couplings(
@@ -147,7 +134,7 @@ def optimize_single_storage(
             order_couplings=order_couplings,
             buy_submitted_volumes=buy_submitted_volumes,
             sell_submitted_volumes=sell_submitted_volumes,
-            variable_cost=variable_cost,
+            variable_cost=variable_costs,
             success=True,
         )
 
@@ -284,13 +271,12 @@ def _price_calculation(
     else:
         raise AttributeError(f"{storage.portfolio.market_area.name} has no attribute 'price_forecast_medium'")
 
-    Qv_empty = all(qv_value == 0 for qv_value in Qv.values())
-    Qa_empty = all(qa_value == 0 for qa_value in Qa.values())
-
-    if [i for i, e in Qv.items() if e != 0]:
-        P_v_min = min([price_forecast.get_value(t) for t in [i for i, e in Qv.items() if e != 0]])
-    if [i for i, e in Qa.items() if e != 0]:
-        P_a_max = max([price_forecast.get_value(t) for t in [i for i, e in Qa.items() if e != 0]])
+    nonzero_qv = [t for t, v in Qv.items() if v != 0]
+    if nonzero_qv:
+        P_v_min = price_forecast.dataframe.filter(pl.col("time").is_in(nonzero_qv)).min().select("value").item()
+    nonzero_qa = [t for t, v in Qa.items() if v != 0]
+    if nonzero_qa:
+        P_a_max = price_forecast.dataframe.filter(pl.col("time").is_in(nonzero_qa)).max().select("value").item()
 
     if (storage.storage_type in [StorageType.BATTERY, StorageType.PUMPED_HYDRAULIC_STORAGE]) or (storage.is_v2g):
         if P_a_max <= 0:
@@ -298,10 +284,10 @@ def _price_calculation(
         if P_v_min <= 0:
             P_v_min = 0.0
 
-        if Qa_empty:
+        if not nonzero_qa:
             Psale = P_v_min
             Ppurchase = 0.0
-        elif Qv_empty:
+        elif not nonzero_qv:
             Psale = 0.0
             Ppurchase = P_a_max
         elif P_a_max == 0 and P_v_min == 0:
@@ -339,23 +325,15 @@ def _create_orders_with_couplings(
 
     coupling_orders: list[OrderDAO] = []
 
-    for t in [i for i, e in Qa.items()]:
-        order = _create_spot_order(OrderType.Buy, storage, t, Qa[t], Ppurchase, parameters)
+    for t, qa_val in Qa.items():
+        order = _create_spot_order(OrderType.Buy, storage, t, qa_val, Ppurchase, parameters)
         orders.append(order)
         coupling_orders.append(order)
-        if t in buy_submitted_volumes:
-            buy_submitted_volumes.set_value(t, Qa[t])
-        else:
-            buy_submitted_volumes.add_index(t, Qa[t])
 
-    for t in [i for i, e in Qv.items()]:
-        order = _create_spot_order(OrderType.Sell, storage, t, Qv[t], Psale, parameters)
+    for t, qv_val in Qv.items():
+        order = _create_spot_order(OrderType.Sell, storage, t, qv_val, Psale, parameters)
         orders.append(order)
         coupling_orders.append(order)
-        if t in sell_submitted_volumes:
-            sell_submitted_volumes.set_value(t, Qv[t])
-        else:
-            sell_submitted_volumes.add_index(t, Qv[t])
 
     if storage.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
         assert storage.displacement_energy is not None, "displacement_energy must be set for electric vehicles"
@@ -368,7 +346,7 @@ def _create_orders_with_couplings(
 
         order_couplings.append(
             OrderCouplingDAO(
-                name=f"COMPLEMENT_DA_{storage.name}_{parameters.temporal.execution_date}",
+                name=f"COMPLEMENT_DA_{storage.name}_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}",
                 coupling_type=CouplingType.COMPLEMENT,
                 complement_direction=ComplementDirection.EqualTo,
                 complement_energy=complement_energy,
@@ -400,13 +378,13 @@ def _create_spot_order(
     """Create a single spot order."""
 
     return OrderDAO(
-        name=f"storage_order_type_{order_type}_at_{start_date}_for_unit_{storage.name}",
+        name=f"storage_order_type_{order_type}_at_{start_date.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{storage.name}",
         equipment=storage,
         portfolio=storage.portfolio,
         market_area=storage.portfolio.market_area,
         execution_date=parameters.temporal.execution_date,
-        start_date=start_date,
-        end_date=start_date + parameters.temporal.timestep,
+        start_date=start_date,  # type: ignore [arg-type]
+        end_date=start_date + parameters.temporal.timestep,  # type: ignore [arg-type]
         order_type=order_type,
         product=Product.DayAhead,
         qmax=qmax,

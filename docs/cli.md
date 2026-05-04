@@ -244,5 +244,5 @@ atlas --show-completion
 
 - [Getting Started](getting_started.md) - Installation and setup
 - [Workflow System](api/workflow/workflow.md) - Understanding workflows
-- [Module Development](concepts/overview.md) - Creating custom modules
+- [Module Development](implementing-a-module.md) - Creating custom modules
 - [AtlasDataset](api/io/atlas_dataset.md) - Input/output data format

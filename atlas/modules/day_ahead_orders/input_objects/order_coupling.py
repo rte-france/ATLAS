@@ -10,5 +10,4 @@ from atlas.objects.market.order_coupling import OrderCoupling
 
 
 class OrderCouplingDAO(OrderCoupling):
-    complement_energy: float = 0.0
     coupling_type: CouplingType

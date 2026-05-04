@@ -33,6 +33,8 @@ Atlas uses a **workflow-based architecture** to simulate realistic market dynami
 
     [:octicons-arrow-right-24: Day-Ahead Orders](modules/day-ahead-orders/index.md)
 
+    [:octicons-arrow-right-24: Intraday Price Forecast](modules/intraday-price-forecast/index.md)
+
 -   :material-code-braces:{ .lg .middle } **API Reference**
 
     ---
@@ -41,7 +43,7 @@ Atlas uses a **workflow-based architecture** to simulate realistic market dynami
 
     [:octicons-arrow-right-24: API Overview](api/index.md)
 
-    [:octicons-arrow-right-24: Equipment Models](api/models/equipment.md)
+    [:octicons-arrow-right-24: Equipment Models](api/models/equipment/equipment.md)
 
     [:octicons-arrow-right-24: Math Objects](api/math/timeseries.md)
 

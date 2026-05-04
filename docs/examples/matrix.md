@@ -11,7 +11,7 @@ The `ScenarioMatrix` stores multiple time series as columns, where each column r
 #### From File
 
 ```python
-from atlas.math.matrix import ScenarioMatrix
+from atlas import ScenarioMatrix
 
 # Load from file (CSV or Parquet)
 matrix = ScenarioMatrix.from_file("data/scenarios.parquet", timezone="UTC")
@@ -36,7 +36,7 @@ matrix = ScenarioMatrix(df, timezone="UTC")
 #### Building from Timeseries
 
 ```python
-from atlas.math.timeseries import Timeseries
+from atlas import Timeseries
 
 # Create empty matrix
 matrix = ScenarioMatrix(timezone="UTC")
@@ -157,7 +157,7 @@ The `ForecastingMatrix` is a specialized matrix where each column represents a f
 #### From File
 
 ```python
-from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas import ForecastingMatrix
 
 # Load from file
 forecast_matrix = ForecastingMatrix.from_file(
@@ -170,8 +170,8 @@ forecast_matrix = ForecastingMatrix.from_file(
 #### Building from Timeseries
 
 ```python
-from atlas.math.timeseries import Timeseries
-from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas import Timeseries
+from atlas import ForecastingMatrix
 
 # Create empty forecasting matrix
 forecast_matrix = ForecastingMatrix(
@@ -284,7 +284,7 @@ For large datasets, use lazy evaluation with `LazyScenarioMatrix` and `LazyForec
 ### LazyScenarioMatrix
 
 ```python
-from atlas.math.lazy_matrix import LazyScenarioMatrix
+from atlas import LazyScenarioMatrix
 
 # Load lazily from file
 lazy_matrix = LazyScenarioMatrix.from_file("data/large_scenarios.parquet")
@@ -299,7 +299,7 @@ matrix = lazy_matrix.collect()
 ### LazyForecastingMatrix
 
 ```python
-from atlas.math.forecasting_matrix import LazyForecastingMatrix
+from atlas import LazyForecastingMatrix
 
 # Load lazily
 lazy_forecast = LazyForecastingMatrix.from_file(

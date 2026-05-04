@@ -561,11 +561,11 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :type timezone: str
         """
         check_timezone(timezone)
-
         self.timezone = timezone
         self.timeseries = self.timeseries.with_columns(
             pl.col("time").dt.convert_time_zone(timezone),
         )
+        self._invalidate_cache()
 
     def set_value(
         self,
@@ -589,17 +589,14 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :return: Timeseries with the set value
         :rtype: Timeseries
         """
-        dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
+        dt = build_datetime(time, date_format).in_tz(self.timezone)
 
         if dt not in self.dataframe["time"]:
             raise ValueError(f"Could not set value at {dt} because timestamp is not in the Timeseries")
 
-        df = self.timeseries.filter(pl.col("time") != dt)
-        new_row = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
-            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
-            pl.col("value").cast(pl.Float64()),
+        df = self.timeseries.with_columns(
+            pl.when(pl.col("time") == dt).then(pl.lit(value)).otherwise(pl.col("value")).alias("value")
         )
-        df = pl.concat([df, new_row])
 
         return self._return(df, inplace)
 
@@ -1082,12 +1079,10 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         if len(self.timeseries) == 0:
             raise ValueError("Can't get value on empty timeseries.")
         dt = build_datetime(datetime, date_format).in_tz(self.timezone)
-
-        df: pl.DataFrame = self.filter(datetime, date_format, inplace=False).dataframe
-        if len(df) > 0:
-            return df.to_dicts()[0]["value"]
-        else:
+        lookup = self._get_lookup()
+        if dt not in lookup:
             raise KeyError(f"Value for {dt.to_datetime_string()} not found in the Timeseries.")
+        return lookup[dt]
 
     def plot(
         self,
@@ -1155,8 +1150,11 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :rtype: Timeseries
         """
         if inplace:
+            old_len = len(self.timeseries)
             self.timeseries = df.sort("time")
-            self.frequency = infer_frequency(self.timeseries)
+            if getattr(self, "frequency", None) is None or len(self.timeseries) != old_len:
+                self.frequency = infer_frequency(self.timeseries)
+            self._invalidate_cache()
             return self
         return Timeseries(df, self.timezone)
 

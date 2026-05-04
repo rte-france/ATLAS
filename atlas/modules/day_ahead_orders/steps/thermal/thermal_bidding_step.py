@@ -8,14 +8,11 @@ This file is part of the ATLAS project.
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from pendulum import DateTime
-
 import atlas.config as cfg
 from atlas.enums import CouplingType, Product, ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
-from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_worker import optimize_single_thermal_unit
 from atlas.objects.equipment.thermal import Thermal
 from atlas.objects.market.order import Order
@@ -27,43 +24,22 @@ class Coupling:
         self.orders = orders
 
 
-class ThermalBiddingStep:
-    def __init__(
-        self, dataset: DayAheadOrdersOutput, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ):
-        """
-        :param dataset: the dataset
-        :type dataset: DayAheadOrdersOutput
-        :param orders_time: a list of dates over which orders will be formulated.
-        :type orders_time: list[DateTime]
-        :param parameters: the parameters
-        :type parameters: DayAheadOrdersParameters
-        """
-        self.dataset = dataset
-        self.orders_time = orders_time
-        self.parameters = parameters
-
-    def formulate_thermal_orders(self) -> None:
-        """
-        This wrapper function formulates orders for all thermic units.
-        Supports both sequential and parallel processing based on use_multiprocessing parameter.
-        :return: None
-        """
+class ThermalBiddingStep(AbstractOrderStep):
+    def formulate(self) -> StepResult:
         if self.parameters.multiprocessing.enable:
-            self._formulate_thermal_orders_parallel()
+            result = self._formulate_parallel()
         else:
-            self._formulate_thermal_orders_sequential()
+            result = self._formulate_sequential()
 
-        # This is done last and not during the bidding process because of mutually exclusive programs, and to simplify debug
         cfg.logger.info("Computing maximum sell volumes...")
-        self.compute_da_sell_submitted_volume()
+        self._compute_da_sell_submitted_volume(result)
         cfg.logger.info("End of computation.")
 
-    def _formulate_thermal_orders_parallel(self) -> None:
-        """
-        Formulate thermal orders using multiprocessing for parallel execution at the unit level.
-        """
+        return result
+
+    def _formulate_parallel(self) -> StepResult:
         cfg.logger.info(f"Starting parallel thermal optimization for {len(self.dataset.thermal)} units")
+        result = StepResult()
 
         with ProcessPoolExecutor(max_workers=self.parameters.multiprocessing.max_workers) as executor:
             future_to_thermal = {
@@ -74,14 +50,13 @@ class ThermalBiddingStep:
             for future in as_completed(future_to_thermal):
                 thermal_name = future_to_thermal[future]
                 try:
-                    result = future.result()
+                    unit_result = future.result()
 
-                    if result.success:
-                        # Add orders and couplings to the dataset
-                        self.dataset.order.extend(result.orders)
-                        self.dataset.order_coupling.extend(result.order_couplings)
+                    if unit_result.success:
+                        result.orders.extend(unit_result.orders)
+                        result.order_couplings.extend(unit_result.order_couplings)
                         cfg.logger.info(
-                            f"Completed order formulation for thermal unit: {thermal_name} ({result.strategy.value})"
+                            f"Completed order formulation for thermal unit: {thermal_name} ({unit_result.strategy.value})"
                         )
                     else:
                         cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal_name}")
@@ -89,30 +64,27 @@ class ThermalBiddingStep:
                 except Exception as e:
                     cfg.logger.error(f"Error processing thermal unit {thermal_name}: {e}")
 
-    def _formulate_thermal_orders_sequential(self) -> None:
-        """
-        Formulate thermal orders using sequential processing.
-        """
+        return result
+
+    def _formulate_sequential(self) -> StepResult:
         cfg.logger.info(f"Starting sequential thermal optimization for {len(self.dataset.thermal)} units")
+        result = StepResult()
 
         for thermal in self.dataset.thermal:
-            result = optimize_single_thermal_unit(thermal, self.orders_time, self.parameters)
+            unit_result = optimize_single_thermal_unit(thermal, self.orders_time, self.parameters)
 
-            if result.success:
-                # Add orders and couplings to the dataset
-                self.dataset.order.extend(result.orders)
-                self.dataset.order_coupling.extend(result.order_couplings)
+            if unit_result.success:
+                result.orders.extend(unit_result.orders)
+                result.order_couplings.extend(unit_result.order_couplings)
                 cfg.logger.info(
-                    f"Completed order formulation for thermal unit: {thermal.name} ({result.strategy.value})"
+                    f"Completed order formulation for thermal unit: {thermal.name} ({unit_result.strategy.value})"
                 )
             else:
                 cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal.name}")
 
-    def compute_da_sell_submitted_volume(self) -> None:
-        """
-        compute DA sell submitted volumes
-        :return: None
-        """
+        return result
+
+    def _compute_da_sell_submitted_volume(self, result: StepResult) -> None:
         da_sell_submitted_volumes: dict[str, Timeseries] = {
             equipment.name: Timeseries.from_index(
                 self.parameters.temporal.start_date,
@@ -123,11 +95,10 @@ class ThermalBiddingStep:
             for equipment in self.dataset.thermal
         }
 
-        # Getting only relevant orders
         relevent_orders_intermediate: list[OrderDAO] = []
-        relevant_orders_names: set[str] = set()  # For O(1) membership checks using order names
+        relevant_orders_names: set[str] = set()
 
-        for order in self.dataset.order:
+        for order in result.orders:
             if (
                 order.product == Product.DayAhead
                 and isinstance(order.equipment, Thermal)
@@ -146,15 +117,11 @@ class ThermalBiddingStep:
                     relevent_orders_intermediate.append(order)
                     relevant_orders_names.add(order.name)
 
-        # --- Intermediate ---
-        # Creation of a reversed dict of all coupling in which a given order is involved
-        # Use defaultdict to eliminate redundant key existence checks
         unit_order_coupling_list: dict[str, Coupling] = defaultdict(lambda: Coupling([]))
-        for coupling_instance in self.dataset.order_coupling:
+        for coupling_instance in result.order_couplings:
             coupling_type = coupling_instance.coupling_type
             orders = coupling_instance.orders
 
-            # Pre-filter relevant orders to avoid redundant checks
             relevant_orders_in_coupling = [o for o in orders if o.name in relevant_orders_names]
             if not relevant_orders_in_coupling:
                 continue
@@ -164,18 +131,14 @@ class ThermalBiddingStep:
                     continue
 
                 if coupling_type == CouplingType.EXCLUSION:
-                    # Avoid list comprehension: build others list more efficiently
                     others = orders[:order_index] + orders[order_index + 1 :]
                     new_coupling = Coupling(others, CouplingType.EXCLUSION)
                 elif coupling_type == CouplingType.PARENT_CHILDREN:
                     if order_index == 0:
-                        # order is parent - use slice reference
                         new_coupling = Coupling(orders[1:], "PARENT")
                     else:
-                        # order is child - create single-element list without comprehension
                         new_coupling = Coupling(orders[:1], "CHILD")
                 elif coupling_type == CouplingType.IDENTICAL_VOLUME:
-                    # Avoid list comprehension: build others list more efficiently
                     others = orders[:order_index] + orders[order_index + 1 :]
                     new_coupling = Coupling(others, CouplingType.IDENTICAL_VOLUME)
                 else:
@@ -186,14 +149,12 @@ class ThermalBiddingStep:
 
                 unit_order_coupling_list[order_from_coupling.name] = new_coupling
 
-        # This stored already considered orders to prevent double counting
-        # We use a dict to access elements using hashing to improve compute time
         already_considered_orders = {order.name: False for order in relevent_orders_intermediate}
         list_of_mutually_exclusive_programms: dict[str, list[Timeseries]] = {
             equipment.name: [] for equipment in self.dataset.thermal
         }
 
-        for coupling_instance in self.dataset.order_coupling:
+        for coupling_instance in result.order_couplings:
             if coupling_instance.coupling_type != CouplingType.EXCLUSION:
                 continue
 
@@ -218,7 +179,6 @@ class ThermalBiddingStep:
                     for order_name in list_of_considerer_orders:
                         already_considered_orders[order_name] = True
 
-        # Uncoupled orders or orders coupled to non-exclusive groups (COMPLEMENT for instance)
         for order in relevent_orders_intermediate:
             if not already_considered_orders[order.name]:
                 if order.start_date in da_sell_submitted_volumes[order.equipment.name]:
@@ -230,7 +190,6 @@ class ThermalBiddingStep:
                         order.start_date, order.qmax if order.qmax is not None else 0
                     )
 
-        # --- Export ---
         for equipment in self.dataset.thermal:
             if equipment.strategy == ThermalStrategy.INTERMEDIATE:
                 cfg.logger.warning(
@@ -242,7 +201,6 @@ class ThermalBiddingStep:
 
                 if programms:
                     for t in self.orders_time:
-                        # Use generator expression instead of list comprehension for better memory efficiency
                         max_val = max((programm.get_value(t) for programm in programms), default=0)
                         if t in da_sell_submitted_volume:
                             da_sell_submitted_volume.set_value(t, max_val)
@@ -261,33 +219,18 @@ class ThermalBiddingStep:
         already_considered_orders_n: list[str],
     ) -> tuple[Timeseries, list[str]]:
         """
-        This overcomplexified recursive search is used to make sure that all possible scenarios are returned in case of internal EXCLUSION couplings
-        It also prevents from double computation
-        This is valid only if at most one internal EXCLUSION order exists
-        This search might not behave correctly if one internal EXCLUSION coupling exists between two PARENTS (CHILDREN might be added)
-
-        :param current_order: the current order
-        :type current_order: Order
-        :param unit_order_coupling_list: a reversed dict of all coupling in which a given order is involved
-        :type unit_order_coupling_list: dict[str, Coupling]
-        :param current_programm: The current timeseries program
-        :type current_programm: Timeseries
-        :param already_considered_orders_n: the list of already considered orders
-        :type already_considered_orders_n: list[str]
-        :return: the connected orders
-        :rtype: tuple[Timeseries, list[str]]
+        Recursive search to find all possible scenarios in case of internal EXCLUSION couplings.
+        Valid only if at most one internal EXCLUSION order exists.
         """
-        if current_order.name in already_considered_orders_n:  # This checks prevents cycles and ensures termination
+        if current_order.name in already_considered_orders_n:
             return current_programm, already_considered_orders_n
 
-        # If current_order is mutually exclusive with one order of the current_programm, we ignore it
         coupling = unit_order_coupling_list[current_order.name]
         if coupling.coupling_type == CouplingType.EXCLUSION:
             for coupled_order in coupling.orders:
                 if coupled_order.name in already_considered_orders_n:
                     return current_programm, already_considered_orders_n
 
-        # Else, we add it to the current programm
         if current_order.start_date is not None:
             if current_order.start_date in current_programm:
                 current_programm.set_value(
@@ -299,7 +242,6 @@ class ThermalBiddingStep:
                 )
         already_considered_orders_n.append(current_order.name)
 
-        # Then, we search for connected orders Exclusion orders are already dealt with
         if coupling.coupling_type != CouplingType.EXCLUSION:
             for coupled_order in coupling.orders:
                 if coupled_order.name not in already_considered_orders_n:

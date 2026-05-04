@@ -16,7 +16,6 @@ from atlas.enums import ThermalStrategy
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_base_orders import ThermalBaseLoadOrders
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_intermediate_orders import ThermalIntermediateLoadOrders
@@ -69,35 +68,28 @@ def optimize_single_thermal_unit(
     try:
         cfg.logger.debug(f"Formulating orders for thermal unit {thermal.name} with strategy {thermal.strategy}")
 
-        # Create a minimal temporary output dataset for this single unit
-        # We'll collect the orders and couplings generated
-        temp_dataset = DayAheadOrdersOutput.__new__(DayAheadOrdersOutput)
-        temp_dataset.order = []
-        temp_dataset.order_coupling = []
-        temp_dataset.thermal = [thermal]
-
         if thermal.strategy == ThermalStrategy.BASE:
-            formulator = ThermalBaseLoadOrders(temp_dataset, orders_time, parameters)
-            formulator.formulate_thermal_baseload_orders()
+            formulator = ThermalBaseLoadOrders(orders_time, parameters)
+            orders, order_couplings = formulator.formulate(thermal)
         elif thermal.strategy == ThermalStrategy.INTERMEDIATE:
-            formulator_inter = ThermalIntermediateLoadOrders(temp_dataset, orders_time, parameters)
-            formulator_inter.formulate_thermal_intermediate_load_orders()
+            formulator_inter = ThermalIntermediateLoadOrders(orders_time, parameters)
+            orders, order_couplings = formulator_inter.formulate(thermal)
         elif thermal.strategy == ThermalStrategy.PEAK:
-            formulator_peak = ThermalPeakLoadOrders(temp_dataset, orders_time, parameters)
-            formulator_peak.formulate_thermal_peak_load_orders()
+            formulator_peak = ThermalPeakLoadOrders(orders_time, parameters)
+            orders, order_couplings = formulator_peak.formulate(thermal)
         else:
             cfg.logger.warning(f"Unknown thermal strategy {thermal.strategy} for unit {thermal.name}")
             return ThermalOptimizationResult(
                 thermal_name=thermal.name,
-                strategy=thermal.strategy or ThermalStrategy.BASE,  # Default to BASE if None
+                strategy=thermal.strategy or ThermalStrategy.BASE,
                 success=False,
             )
 
         return ThermalOptimizationResult(
             thermal_name=thermal.name,
             strategy=thermal.strategy or ThermalStrategy.BASE,
-            orders=temp_dataset.order,
-            order_couplings=temp_dataset.order_coupling,
+            orders=orders,
+            order_couplings=order_couplings,
             success=True,
         )
 
@@ -105,7 +97,7 @@ def optimize_single_thermal_unit(
         cfg.logger.error(f"Order formulation failed for thermal unit {thermal.name}: {e}")
         import traceback
 
-        cfg.logger.debug(traceback.format_exc())
+        cfg.logger.info(traceback.format_exc())
         return ThermalOptimizationResult(
             thermal_name=thermal.name,
             strategy=thermal.strategy or ThermalStrategy.BASE,

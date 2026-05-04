@@ -14,6 +14,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep
 from atlas.modules.day_ahead_orders.steps.hydro import HydraulicStep
 from atlas.modules.day_ahead_orders.steps.load import LoadStep
 from atlas.modules.day_ahead_orders.steps.non_dispatchable import NonDispatchableStep
@@ -66,44 +67,33 @@ class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrde
             parameters.temporal.start_date, parameters.penultimate_date, parameters.temporal.timestep
         )
 
-        # ensure output folder exists
         if parameters.solver.export_lp:
             output_path = parameters.get_output_dir() / "lp_export"
             output_path.mkdir(parents=True, exist_ok=True)
 
-        if len(orders_time) > 0:
-            cfg.logger.info("Extraction completed, now starting the formulation of orders...")
-
-            cfg.logger.info("Formulation of the load orders...")
-            LoadStep.formulate_load_orders(output_dataset, orders_time, parameters)
-            cfg.logger.info("Consumption orders formulated.")
-
-            cfg.logger.info("Formulation of the non-dispatchable orders...")
-            NonDispatchableStep.formulate_non_dispatchable_orders(output_dataset, orders_time, parameters)
-            cfg.logger.info("Non-dispatchable orders formulated.")
-
-            cfg.logger.info("Formulation of the storage orders...")
-            storage = StorageStep(output_dataset, parameters)
-            storage.formulate_storage_orders()
-            cfg.logger.info("Storage orders formulated.")
-
-            cfg.logger.info("Formulation of the hydraulic orders...")
-            HydraulicStep.formulate_hydraulic_orders(output_dataset, orders_time, parameters)
-            cfg.logger.info("Hydraulic orders formulated.")
-
-            cfg.logger.info("Formulation of the wind/pv orders...")
-            WindPVStep.formulate_wind_and_pv_orders(output_dataset, orders_time, parameters)
-            cfg.logger.info("wind/pv orders formulated.")
-
-            cfg.logger.info("Formulation of the thermic orders...")
-            thermal_bidding = ThermalBiddingStep(output_dataset, orders_time, parameters)
-            thermal_bidding.formulate_thermal_orders()
-            cfg.logger.info("Thermic orders formulated.")
-
-            cfg.logger.info("Formulation of orders successfully completed.")
-        else:
+        if len(orders_time) == 0:
             cfg.logger.warning("The time window to formulate orders is empty.")
+            return output_dataset
 
+        cfg.logger.info("Extraction completed, now starting the formulation of orders...")
+
+        steps: list[tuple[str, AbstractOrderStep]] = [
+            ("load", LoadStep(output_dataset, orders_time, parameters)),
+            ("non-dispatchable", NonDispatchableStep(output_dataset, orders_time, parameters)),
+            ("storage", StorageStep(output_dataset, orders_time, parameters)),
+            ("hydraulic", HydraulicStep(output_dataset, orders_time, parameters)),
+            ("wind/pv", WindPVStep(output_dataset, orders_time, parameters)),
+            ("thermic", ThermalBiddingStep(output_dataset, orders_time, parameters)),
+        ]
+
+        for name, step in steps:
+            cfg.logger.info(f"Formulation of the {name} orders...")
+            step_result = step.formulate()
+            output_dataset.order.extend(step_result.orders)
+            output_dataset.order_coupling.extend(step_result.order_couplings)
+            cfg.logger.info(f"{name.capitalize()} orders formulated.")
+
+        cfg.logger.info("Formulation of orders successfully completed.")
         return output_dataset
 
     @staticmethod

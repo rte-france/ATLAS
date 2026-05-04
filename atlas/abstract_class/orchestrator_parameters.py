@@ -34,7 +34,6 @@ class AbstractOrchestratorParameters(Parameters):
 
     name: str | None = None
     dataset_path: Path
-    output_dataset_path: Path
     parameters_path: Path | None = None
     path_from_workflow: bool = Field(
         default=True,

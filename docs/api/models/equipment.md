@@ -1,33 +1,12 @@
 # Equipment Models
 
-::: atlas.Equipment
-    options:
-        show_if_no_docstring: false
+See the individual pages below — one per class, mirroring `atlas/objects/equipment/`.
 
-::: atlas.Load
-    options:
-        show_if_no_docstring: false
-
-::: atlas.OtherNonDispatchable
-    options:
-        show_if_no_docstring: false
-
-::: atlas.Hydro
-    options:
-        show_if_no_docstring: false
-
-::: atlas.Solar
-    options:
-        show_if_no_docstring: false
-
-::: atlas.Wind
-    options:
-        show_if_no_docstring: false
-
-::: atlas.Storage
-    options:
-        show_if_no_docstring: false
-
-::: atlas.Thermal
-    options:
-        show_if_no_docstring: false
+- [Equipment](equipment/equipment.md) — base class
+- [Thermal](equipment/thermal.md)
+- [Hydro](equipment/hydro.md)
+- [Solar](equipment/solar.md)
+- [Wind](equipment/wind.md)
+- [Storage](equipment/storage.md)
+- [Load](equipment/load.md)
+- [OtherNonDispatchable](equipment/other_non_dispatchable.md)
