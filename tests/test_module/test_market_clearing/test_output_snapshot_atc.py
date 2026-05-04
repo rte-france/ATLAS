@@ -7,12 +7,9 @@ Numerical snapshot comparison of the MarketClearing solver outputs on the ATC
 dataset. Complements ``test_lp_comparison_atc`` by catching changes that affect
 solver values (objective coefficients, RHS, constraint signs) without altering
 the LP coefficient matrix structure.
-
-Set ``MC_REGENERATE_REFS=1`` to rewrite the snapshot from the current run.
 """
 
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -33,23 +30,10 @@ def _dump_snapshot(output_dataset: MarketClearingOutputDataset) -> dict[str, lis
     }
 
 
-def _maybe_regenerate(output_dataset: MarketClearingOutputDataset) -> bool:
-    if os.environ.get("MC_REGENERATE_REFS") != "1":
-        return False
-    SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    SNAPSHOT_PATH.write_text(json.dumps(_dump_snapshot(output_dataset), indent=2))
-    return True
-
-
 @pytest.fixture(scope="module")
 def expected_snapshot(output_dataset: MarketClearingOutputDataset) -> dict[str, list]:
-    if _maybe_regenerate(output_dataset):
-        pytest.skip(f"Regenerated output snapshot at {SNAPSHOT_PATH}")
     if not SNAPSHOT_PATH.exists():
-        pytest.fail(
-            f"Output snapshot missing: {SNAPSHOT_PATH}. "
-            "Generate it once with MC_REGENERATE_REFS=1."
-        )
+        pytest.fail(f"Output snapshot missing: {SNAPSHOT_PATH}. Generate it once with MC_REGENERATE_REFS=1.")
     return json.loads(SNAPSHOT_PATH.read_text())
 
 
@@ -88,6 +72,5 @@ class TestOutputSnapshotATC:
                 drifted.append((key, expected_value, actual_value))
 
         assert not drifted, (
-            f"{field}: {len(drifted)} values drifted beyond tolerance {NUMERICAL_TOLERANCE}, "
-            f"e.g. {drifted[:3]}"
+            f"{field}: {len(drifted)} values drifted beyond tolerance {NUMERICAL_TOLERANCE}, e.g. {drifted[:3]}"
         )
