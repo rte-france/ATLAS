@@ -152,17 +152,17 @@ class AbstractScenarioMatrix(ABC, Generic[TBackend]):
         ...
 
     @abstractmethod
-    def add(self, timeseries: Any, index: str) -> None:
+    def add(self, timeseries: Any, index: str, inplace: bool = True) -> Self | None:
         """Add a timeseries to the matrix."""
         ...
 
     @abstractmethod
-    def delete(self, index: str) -> None:
+    def delete(self, index: str, inplace: bool = True) -> Self | None:
         """Delete a timeseries by index."""
         ...
 
     @abstractmethod
-    def replace(self, index: str, timeseries: Any) -> None:
+    def replace(self, index: str, timeseries: Any, inplace: bool = True) -> Self | None:
         """Replace a Timeseries in the matrix."""
         ...
 
