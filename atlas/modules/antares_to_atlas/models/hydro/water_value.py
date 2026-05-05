@@ -47,7 +47,9 @@ def compute_water_values(
             continue
 
         area = areas[area_name]
-        if not ((parameters.hydro.use_heuristic or area.hydro.properties.reservoir) and parameters.hydro.use_water_value):
+        if not (
+            (parameters.hydro.use_heuristic or area.hydro.properties.reservoir) and parameters.hydro.use_water_value
+        ):
             continue
 
         mapping_mc_ts = study_output.get_hydro_ts_numbers(area.name)
@@ -157,8 +159,7 @@ def _run_bellman_iteration(
 
     # Initialize WV accumulator
     wv: dict[int, dict[int, float]] = {
-        level_idx: dict.fromkeys(range(n_time_steps), 0.0)
-        for level_idx in range(1, len(stock_levels))
+        level_idx: dict.fromkeys(range(n_time_steps), 0.0) for level_idx in range(1, len(stock_levels))
     }
 
     for scenario, inflows_ts in scenario_inflows:
@@ -203,7 +204,11 @@ def _run_bellman_iteration(
 
                         for j in range(parameters.hydro.storage_subdivision + 1):
                             stock_i = stock_levels[level_idx] + inflows_t
-                            stock_j = stock_levels[level_idx] - j * max_power_t / parameters.hydro.storage_subdivision + inflows_t
+                            stock_j = (
+                                stock_levels[level_idx]
+                                - j * max_power_t / parameters.hydro.storage_subdivision
+                                + inflows_t
+                            )
 
                             if j == 0:
                                 g1 = bellman[t + 1][level_idx] * parameters.hydro.beta + inflows_t * price_t

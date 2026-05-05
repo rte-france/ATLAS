@@ -15,7 +15,11 @@ from atlas.modules.module_run import ModuleRun
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.orchestrator.workflow.workflow import Workflow
+from atlas.profiling.module import run as run_module
+from atlas.profiling.workflow import run as run_workflow
 from atlas.timing import timer
+
+_PROFILING_LEVELS = ["workflow", "module"]
 
 app = typer.Typer()
 
@@ -96,6 +100,64 @@ def run(
         except Exception as e:
             logger.exception(f"✗ Module '{module_name}' failed: {e}")
             raise typer.Exit(code=1) from e
+
+
+@app.command()
+def profiling(
+    level: str = typer.Option(
+        ..., "--level", "-l", help=f"Profiling level. Valid levels: {', '.join(_PROFILING_LEVELS)}"
+    ),
+    parameters: Path = typer.Option(..., "--parameters", "-p", help="Path to the workflow or module parameters YAML"),
+    module_name: str | None = typer.Option(None, "--module", "-m", help="Module name (required for level 'module')"),
+    dataset_path: Path | None = typer.Option(
+        None, "--dataset", "-d", help="Dataset directory (required for level 'module')"
+    ),
+    output: Path | None = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Output path stem. Workflow: saves <stem>.json + <stem>.csv. Module: saves <stem>.html + <stem>_stats.txt",
+    ),
+) -> None:
+    """Profile an Atlas workflow or module.
+
+    \b
+    Workflow-level profiling (timing breakdown per job):
+      atlas profiling --level workflow --parameters workflow.yml
+
+    \b
+    Module-level profiling (pyinstrument + cProfile):
+      atlas profiling --level module --parameters params.yml --module DayAheadOrders --dataset ./data
+    """
+    if level not in _PROFILING_LEVELS:
+        rprint(f"[bold red]Error[/bold red]: Unknown level '{level}'. Valid levels: {', '.join(_PROFILING_LEVELS)}")
+        raise typer.Exit(code=1)
+
+    if not parameters.exists():
+        rprint(f"[bold red]Error[/bold red]: Parameters file not found: {parameters}")
+        raise typer.Exit(code=1)
+
+    if level == "workflow":
+        run_workflow(parameters, output)
+
+    elif level == "module":
+        if module_name is None:
+            rprint("[bold red]Error[/bold red]: --module is required for level 'module'.")
+            raise typer.Exit(code=1)
+        if dataset_path is None:
+            rprint("[bold red]Error[/bold red]: --dataset is required for level 'module'.")
+            raise typer.Exit(code=1)
+        if not dataset_path.exists() or not dataset_path.is_dir():
+            rprint(f"[bold red]Error[/bold red]: Dataset directory not found: {dataset_path}")
+            raise typer.Exit(code=1)
+
+        try:
+            ModuleRegistry.get(module_name)
+        except ValueError as e:
+            rprint(f"[bold red]Error[/bold red]: {e}")
+            raise typer.Exit(code=1) from e
+
+        run_module(parameters, module_name, dataset_path, output)
 
 
 @app.command()

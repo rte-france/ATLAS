@@ -30,9 +30,7 @@ def convert_other_non_dispatchable_units(
             continue
 
         ror = areas[area_name].hydro.get_ror_series()
-        scenario = (
-            study_output.get_hydro_ts_numbers(area_name).get(parameters.scenario, None)
-        )
+        scenario = study_output.get_hydro_ts_numbers(area_name).get(parameters.scenario, None)
         if scenario is not None:
             ror = ror[parameters.scenario - 1]
             if ror.abs().max().item() > 0:

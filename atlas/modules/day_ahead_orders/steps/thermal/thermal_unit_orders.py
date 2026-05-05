@@ -64,7 +64,9 @@ class ThermalUnitOrders:
         # Determine if the unit is offline or not. A sufficient condition is that the online_timeframe doesn't contain a 1
         # since by construction the unit is ON for at least one time step.
         # JL excludes an online sequence with an incomplete start-up ramp. For now, we will leave it as such.
-        offline = True if 0 in online_timeframe.values else False
+        # Cache index/values once: each access on Timeseries rebuilds a Python list from polars.
+        online_values = online_timeframe.values
+        offline = 0 in online_values
 
         # If the unit is offline, no orders are formulated.
         if offline:
@@ -72,64 +74,28 @@ class ThermalUnitOrders:
             cfg.logger.debug(f"Unit {unit.name} is offline. No orders have been formulated for this unit")
             return orders, couplings
 
+        online_index = online_timeframe.index
+
         # If not offline, start the configuration of variables necessary for order formulation
 
         # Configuration of variables for orders' formulation
         ## Get the reserve procurements at the executionDate and collapse them into automated and manual reserves procurements
 
-        automated_reserves_up_procured = Timeseries.from_index(
-            self.parameters.temporal.start_date, self.parameters.temporal.timestep, self.parameters.temporal.end_date, 0
-        )
-        automated_reserves_down_procured = Timeseries.from_index(
-            self.parameters.temporal.start_date, self.parameters.temporal.timestep, self.parameters.temporal.end_date, 0
-        )
-        manual_reserves_up_procured = Timeseries.from_index(
-            self.parameters.temporal.start_date, self.parameters.temporal.timestep, self.parameters.temporal.end_date, 0
-        )
-        manual_reserves_down_procured = Timeseries.from_index(
-            self.parameters.temporal.start_date, self.parameters.temporal.timestep, self.parameters.temporal.end_date, 0
-        )
+        start = self.parameters.temporal.start_date
+        end = self.parameters.temporal.end_date
+        step = self.parameters.temporal.timestep
+        ed = self.parameters.temporal.execution_date
 
-        if unit.afrr_up_procured and unit.fcr_up_procured:
-            automated_reserves_up_procured = unit.afrr_up_procured.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.end_date,
-            ) + unit.fcr_up_procured.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.end_date,
-            )
-        if unit.afrr_down_procured and unit.fcr_down_procured:
-            automated_reserves_down_procured = unit.afrr_down_procured.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.end_date,
-            ) + unit.fcr_down_procured.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.end_date,
-            )
-        if unit.mfrr_up_procured and unit.rr_up_procured:
-            manual_reserves_up_procured = unit.mfrr_up_procured.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.end_date,
-            ) + unit.rr_up_procured.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.end_date,
-            )
-        if unit.mfrr_down_procured and unit.rr_down_procured:
-            manual_reserves_down_procured = unit.mfrr_down_procured.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.end_date,
-            ) + unit.rr_down_procured.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.end_date,
-            )
+        _default = Timeseries.from_index(start, step, end, 0)
+
+        def _get(attr: str) -> Timeseries:
+            source = getattr(unit, attr)
+            return source.get_forecast(ed, start, end) if source else _default
+
+        automated_reserves_up_procured = _get("afrr_up_procured") + _get("fcr_up_procured")
+        automated_reserves_down_procured = _get("afrr_down_procured") + _get("fcr_down_procured")
+        manual_reserves_up_procured = _get("mfrr_up_procured") + _get("rr_up_procured")
+        manual_reserves_down_procured = _get("mfrr_down_procured") + _get("rr_down_procured")
 
         ## Get the unit-specific parameters:
         T_start = int(math.floor(unit.startup_duration / self.parameters.temporal.timestep))
@@ -141,31 +107,25 @@ class ThermalUnitOrders:
             min_power = unit.minimum_power.collect()
         else:
             min_power = cast(Timeseries, unit.minimum_power)
-            if min_power.filter(self.orders_time, inplace=False).dataframe["value"].min() == 0:
-                null_minimum_power = True
-            else:
-                null_minimum_power = False
+        null_minimum_power = min_power.filter(self.orders_time, inplace=False).min() == 0
 
         ## See whether there is a startup or not. Used to know if we need to amortise startup cost over the inflexible
         # orders or not.
-        startup = True if 2 in online_timeframe.values else False
+        startup = 2 in online_values
 
-        ## See whether the ramps are complete or not
+        ## See whether the ramps are complete or not.
+        # Single pass over consecutive value pairs to detect both transitions:
+        #   1 -> 3 (incomplete shutdown ramp start, diff +2; 0 is excluded by the offline check)
+        #   2 -> 1 (end of startup ramp, diff -1)
         T_startSD_in_sim = False
-        if 3 in online_timeframe.values:
-            for t in list(online_timeframe.index)[:-1]:
-                t_next = t + self.parameters.temporal.timestep
-                if online_timeframe.get_value(t_next) - online_timeframe.get_value(t) == 2:
-                    # passage from 1 to 3 in sequence, indicating the beginning of a shutdown
-                    T_startSD_in_sim = True
-
         T_endSU_in_sim = False
-        if startup:
-            for t in list(online_timeframe.index)[:-1]:
-                t_next = t + self.parameters.temporal.timestep
-                if online_timeframe.get_value(t) - online_timeframe.get_value(t_next) == 1:
-                    # passage from 2 to 1 in sequence, indicating the end of a startup
-                    T_endSU_in_sim = True
+        for a, b in zip(online_values[:-1], online_values[1:], strict=False):
+            if b - a == 2:
+                T_startSD_in_sim = True
+            if a - b == 1:
+                T_endSU_in_sim = True
+            if T_startSD_in_sim and T_endSU_in_sim:
+                break
 
         ## Extract K_start, K_stop.
         # K_start is the number of timesteps actually startup within the simulation timeframe (shorter than overall
@@ -173,104 +133,118 @@ class ThermalUnitOrders:
         # K_start is the number of timesteps actually shutdown within the simulation timeframe (shorter than overall
         # timeframe used for computing states sequences).
 
-        # Compute K_start and K_stop
-        K_start, K_stop = 0, 0
-        m, n = 0, 0
+        # Single pass over orders_time: collect K_start, K_stop, the time frames' starting points,
+        # and the flexible time frame (time indexes labelled with a 1).
+        online_index_set = set(online_index)
+        orders_time_set = set(self.orders_time)
+        K_start = K_stop = 0
+        begin_of_startTimeFrame: DateTime | None = None
+        begin_of_stopTimeFrame: DateTime | None = None
+        flexible_time_frame: list[DateTime] = []
         for t in self.orders_time:
-            if t in online_timeframe.index and online_timeframe.get_value(t) == 2:
-                m += 1
-            elif t in online_timeframe.index and online_timeframe.get_value(t) == 3:
-                n += 1
-
-        # Update the values
-        K_start += m
-        K_stop += n
+            if t not in online_index_set:
+                continue
+            v = online_timeframe.get_value(t)
+            if v == 1:
+                flexible_time_frame.append(t)
+            elif v == 2:
+                K_start += 1
+                if begin_of_startTimeFrame is None:
+                    begin_of_startTimeFrame = t
+            elif v == 3:
+                K_stop += 1
+                if begin_of_stopTimeFrame is None:
+                    begin_of_stopTimeFrame = t
 
         ## Definition of the time frames.
         ### Ramping timeframes: by construction, the associated start_time_frame and stop_time_frame
         # will be one time step longer than the usual start-up and shutdown periods.
-
-        # Getting the starting date of the time frames.
-        if K_start > 0 or K_stop > 0:
-            for t in self.orders_time:
-                if t in online_timeframe.index and online_timeframe.get_value(t) == 2:
-                    begin_of_startTimeFrame = t
-                    break
-            for t in self.orders_time:
-                if t in online_timeframe.index and online_timeframe.get_value(t) == 3:
-                    begin_of_stopTimeFrame = t
-                    break
-
+        # In corner cases on the border of the time frame, remove excess time indexes.
+        start_set: set[DateTime] = set()
+        stop_set: set[DateTime] = set()
         if K_start > 0:
+            assert begin_of_startTimeFrame is not None
             start_time_frame = generate_datetimes(
                 begin_of_startTimeFrame,
-                begin_of_startTimeFrame + K_start * self.parameters.temporal.timestep,
-                self.parameters.temporal.timestep,
+                begin_of_startTimeFrame + K_start * step,
+                step,
             )
+            start_time_frame = [t for t in start_time_frame if t in orders_time_set]
+            start_set = set(start_time_frame)
         if K_stop > 0:  # Shift by one time step because the time frame encompasses the last time step in the ON state
             # and remove one index because the last time step (null power) is formally excluded.
+            assert begin_of_stopTimeFrame is not None
             stop_time_frame = generate_datetimes(
-                begin_of_stopTimeFrame - self.parameters.temporal.timestep,
-                begin_of_stopTimeFrame + (K_stop - 1) * self.parameters.temporal.timestep,
-                self.parameters.temporal.timestep,
+                begin_of_stopTimeFrame - step,
+                begin_of_stopTimeFrame + (K_stop - 1) * step,
+                step,
             )
+            stop_time_frame = [t for t in stop_time_frame if t in orders_time_set]
+            stop_set = set(stop_time_frame)
 
-        # In corner cases on the border of the time frame, remove excess time indexes.
-        if K_start > 0:
-            start_time_frame = [t for t in start_time_frame if t in self.orders_time]
-        if K_stop > 0:
-            stop_time_frame = [t for t in stop_time_frame if t in self.orders_time]
-
-        ### FlexibleTimeFrame : all time indexes labelled with a 1 that are not in the start_time_frame or stop_time_frame
+        ### FlexibleTimeFrame : remove time steps that overlap with the ramping timeframes.
         # The potential overlapping is due to the fact that, by convention, the start and stop timeFrames are one time
         # step longer than the usual start-up and shutdown periods.
         # In case of startup: the last startup timestep, at Pmin, is the first one of the stable state sequence (state = 1),
         # to be removed from the flexible_time_frame.
         # In case of shutdown: the first shutdown timestep, at Pmin, is the last one of the previous stable state sequence,
         # to be removed from the flexible_time_frame.
-        flexible_time_frame: list[DateTime] = []
-        for t in self.orders_time:
-            if t in online_timeframe.index and online_timeframe.get_value(t) == 1:
-                flexible_time_frame.append(t)
+        if start_set or stop_set:
+            flexible_time_frame = [t for t in flexible_time_frame if t not in start_set and t not in stop_set]
 
-        # Sanity check : the flexible_time_frame only contains timestamps within the orders_time time frame.
-        flexible_time_frame = [t for t in flexible_time_frame if t in self.orders_time]
-
-        # Remove potential overlapping time steps with the ramping timeframes.
-        if K_start > 0:
-            flexible_time_frame = [t for t in flexible_time_frame if t not in start_time_frame]
-        if K_stop > 0:
-            flexible_time_frame = [t for t in flexible_time_frame if t not in stop_time_frame]
-            if K_start > 0:
-                # Deal with the last corner case where the unit remains online for one time step. In this case, the overlapping time steps
-                # between the start_time_frame and stop_time_frame is a singleton and by convention we remove this time step from the shutdown time frame.
-                overlapping_time_steps = set(start_time_frame) & set(stop_time_frame)
-                if len(overlapping_time_steps) == 1:
-                    stop_time_frame = [t for t in stop_time_frame if t not in overlapping_time_steps]
+        # Deal with the corner case where the unit remains online for one time step: the overlap between
+        # start_time_frame and stop_time_frame is a singleton and by convention we drop it from the shutdown time frame.
+        if K_start > 0 and K_stop > 0:
+            overlapping_time_steps = start_set & stop_set
+            if len(overlapping_time_steps) == 1:
+                stop_time_frame = [t for t in stop_time_frame if t not in overlapping_time_steps]
 
         ## Inflexible timeframe
-        inflexible_time_frame = online_timeframe.index
+        inflexible_time_frame = online_index
 
-        # Formulate orders only if the unit is online
+        q_max_ts = (
+            unit.maximum_power.filter(flexible_time_frame, inplace=False)
+            - unit.minimum_power.filter(flexible_time_frame, inplace=False)
+            - manual_reserves_down_procured.filter(flexible_time_frame, inplace=False)
+            - manual_reserves_up_procured.filter(flexible_time_frame, inplace=False)
+            - automated_reserves_down_procured.filter(flexible_time_frame, inplace=False)
+            - automated_reserves_up_procured.filter(flexible_time_frame, inplace=False)
+        )
+
+        prop_pen = 1 - self.parameters.proportional_reserves_penalty
+        auto_pen = self.parameters.automated_unprocured_reserves_penalty
+        manual_unprocured_reserves_penalty = self.parameters.manual_unprocured_reserves_penalty
+
+        portfolio = unit.portfolio
+        market_area = portfolio.market_area if portfolio is not None else None
 
         # ------------------------------------------------------- #
         #                                                         #
         #                   Flexible layer                        #
         #                                                         #
         # ------------------------------------------------------- #
-        # Loop over the flexible_time_frame to create the flexible orders first, formulated no matter what.
-        for t in flexible_time_frame:
-            # Part 1: flexible order
-            # Compute the maximum amount to be offered.
-            q_max = (
-                unit.maximum_power.get_value(t)
-                - unit.minimum_power.get_value(t)
-                - manual_reserves_down_procured.get_value(t)
-                - manual_reserves_up_procured.get_value(t)
-                - automated_reserves_down_procured.get_value(t)
-                - automated_reserves_up_procured.get_value(t)
-            )
+        # Precompute filtered values aligned with flexible_time_frame to avoid per-step Timeseries.get_value calls.
+        flex_qmax = q_max_ts.values
+        flex_vc = unit.variable_cost.filter(flexible_time_frame, inplace=False).values
+        flex_auto_dn = automated_reserves_down_procured.filter(flexible_time_frame, inplace=False).values
+        flex_man_dn = manual_reserves_down_procured.filter(flexible_time_frame, inplace=False).values
+        flex_auto_up = automated_reserves_up_procured.filter(flexible_time_frame, inplace=False).values
+        flex_man_up = manual_reserves_up_procured.filter(flexible_time_frame, inplace=False).values
 
+        for t, q_max, variable_cost, auto_dn, man_dn, auto_up, man_up in zip(
+            flexible_time_frame,
+            flex_qmax,
+            flex_vc,
+            flex_auto_dn,
+            flex_man_dn,
+            flex_auto_up,
+            flex_man_up,
+            strict=True,
+        ):
+            formatted_t = t.format("DD_MM_YYYY_HH_mm_ss")
+            t_end = t + step
+
+            # Part 1: flexible order
             # We only formulate the order if its maximal power is positive
             if q_max <= 0.0:
                 cfg.logger.warning(
@@ -278,107 +252,104 @@ class ThermalUnitOrders:
                     "The order will therefore not be created."
                 )
             else:
-                # Flexible part of the order
-                flexible_part = OrderDAO(
-                    name=f"flexible_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}{scenario_suffix}",
-                    market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
-                    portfolio=unit.portfolio,
-                    equipment=unit,
-                    qmax=q_max,
-                    qmin=0,
-                    price=unit.variable_cost.get_value(t),
-                    product=Product.DayAhead,
-                    order_type=OrderType.Sell,
-                    is_agent_tso=False,
-                    execution_date=self.parameters.temporal.execution_date,
-                    start_date=t,  # type: ignore [arg-type]
-                    end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
+                orders.append(
+                    OrderDAO(
+                        name=f"flexible_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
+                        market_area=market_area,
+                        portfolio=portfolio,
+                        equipment=unit,
+                        qmax=q_max,
+                        qmin=0,
+                        price=variable_cost,
+                        product=Product.DayAhead,
+                        order_type=OrderType.Sell,
+                        is_agent_tso=False,
+                        execution_date=ed,
+                        start_date=t,  # type: ignore [arg-type]
+                        end_date=t_end,  # type: ignore [arg-type]
+                    )
                 )
-                orders.append(flexible_part)
 
             # Part 2: reserve requirement orders
             # Automated downward reserves requirements
-            if automated_reserves_down_procured.get_value(t) > 0.0:
-                # This order will be the child of the current inflexible order.
-                reserve_bid = OrderDAO(
-                    name=f"automated_downward_reserve_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}{scenario_suffix}",
-                    market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
-                    portfolio=unit.portfolio,
-                    equipment=unit,
-                    qmax=automated_reserves_down_procured.get_value(t),
-                    qmin=(1 - self.parameters.proportional_reserves_penalty)
-                    * automated_reserves_down_procured.get_value(t),
-                    price=unit.variable_cost.get_value(t) - self.parameters.automated_unprocured_reserves_penalty,
-                    product=Product.DayAhead,
-                    order_type=OrderType.Sell,
-                    is_agent_tso=False,
-                    execution_date=self.parameters.temporal.execution_date,
-                    start_date=t,  # type: ignore [arg-type]
-                    end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
+            if auto_dn > 0.0:
+                orders.append(
+                    OrderDAO(
+                        name=f"automated_downward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
+                        market_area=market_area,
+                        portfolio=portfolio,
+                        equipment=unit,
+                        qmax=auto_dn,
+                        qmin=prop_pen * auto_dn,
+                        price=variable_cost - auto_pen,
+                        product=Product.DayAhead,
+                        order_type=OrderType.Sell,
+                        is_agent_tso=False,
+                        execution_date=ed,
+                        start_date=t,  # type: ignore [arg-type]
+                        end_date=t_end,  # type: ignore [arg-type]
+                    )
                 )
-                orders.append(reserve_bid)
 
-            # Manual downard reserves requirements
-            if manual_reserves_down_procured.get_value(t) > 0.0:
-                # This order will be the child of the current inflexible order.
-                reserve_bid = OrderDAO(
-                    name=f"manual_downward_reserve_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}{scenario_suffix}",
-                    market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
-                    portfolio=unit.portfolio,
-                    equipment=unit,
-                    qmax=manual_reserves_down_procured.get_value(t),
-                    qmin=(1 - self.parameters.proportional_reserves_penalty)
-                    * manual_reserves_down_procured.get_value(t),
-                    price=unit.variable_cost.get_value(t) - self.parameters.manual_unprocured_reserves_penalty,
-                    product=Product.DayAhead,
-                    order_type=OrderType.Sell,
-                    is_agent_tso=False,
-                    execution_date=self.parameters.temporal.execution_date,
-                    start_date=t,  # type: ignore [arg-type]
-                    end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
+            # Manual downward reserves requirements
+            if man_dn > 0.0:
+                orders.append(
+                    OrderDAO(
+                        name=f"manual_downward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
+                        market_area=market_area,
+                        portfolio=portfolio,
+                        equipment=unit,
+                        qmax=man_dn,
+                        qmin=prop_pen * man_dn,
+                        price=variable_cost - manual_unprocured_reserves_penalty,
+                        product=Product.DayAhead,
+                        order_type=OrderType.Sell,
+                        is_agent_tso=False,
+                        execution_date=ed,
+                        start_date=t,  # type: ignore [arg-type]
+                        end_date=t_end,  # type: ignore [arg-type]
+                    )
                 )
-                orders.append(reserve_bid)
 
             # Automated upward reserves requirements
-            if automated_reserves_up_procured.get_value(t) > 0.0:
-                # This order will be the child of the current flexible order.
-                reserve_bid = OrderDAO(
-                    name=f"automated_upward_reserve_order_at_{t}_for_unit_{unit.name}{scenario_suffix}",
-                    market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
-                    portfolio=unit.portfolio,
-                    equipment=unit,
-                    qmax=automated_reserves_up_procured.get_value(t),
-                    qmin=(1 - self.parameters.proportional_reserves_penalty)
-                    * automated_reserves_up_procured.get_value(t),
-                    price=unit.variable_cost.get_value(t) + self.parameters.automated_unprocured_reserves_penalty,
-                    product=Product.DayAhead,
-                    order_type=OrderType.Sell,
-                    is_agent_tso=False,
-                    execution_date=self.parameters.temporal.execution_date,
-                    start_date=t,  # type: ignore [arg-type]
-                    end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
+            if auto_up > 0.0:
+                orders.append(
+                    OrderDAO(
+                        name=f"automated_upward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
+                        market_area=market_area,
+                        portfolio=portfolio,
+                        equipment=unit,
+                        qmax=auto_up,
+                        qmin=prop_pen * auto_up,
+                        price=variable_cost + auto_pen,
+                        product=Product.DayAhead,
+                        order_type=OrderType.Sell,
+                        is_agent_tso=False,
+                        execution_date=ed,
+                        start_date=t,  # type: ignore [arg-type]
+                        end_date=t_end,  # type: ignore [arg-type]
+                    )
                 )
-                orders.append(reserve_bid)
 
             # Manual upward reserves requirements
-            if manual_reserves_up_procured.get_value(t) > 0.0:
-                # This order will be the child of the current flexible order.
-                reserve_bid = OrderDAO(
-                    name=f"manual_upward_reserve_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}{scenario_suffix}",
-                    market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
-                    portfolio=unit.portfolio,
-                    equipment=unit,
-                    qmax=manual_reserves_up_procured.get_value(t),
-                    qmin=(1 - self.parameters.proportional_reserves_penalty) * manual_reserves_up_procured.get_value(t),
-                    price=unit.variable_cost.get_value(t) + self.parameters.manual_unprocured_reserves_penalty,
-                    product=Product.DayAhead,
-                    order_type=OrderType.Sell,
-                    is_agent_tso=False,
-                    execution_date=self.parameters.temporal.execution_date,
-                    start_date=t,  # type: ignore [arg-type]
-                    end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
+            if man_up > 0.0:
+                orders.append(
+                    OrderDAO(
+                        name=f"manual_upward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
+                        market_area=market_area,
+                        portfolio=portfolio,
+                        equipment=unit,
+                        qmax=man_up,
+                        qmin=prop_pen * man_up,
+                        price=variable_cost + manual_unprocured_reserves_penalty,
+                        product=Product.DayAhead,
+                        order_type=OrderType.Sell,
+                        is_agent_tso=False,
+                        execution_date=ed,
+                        start_date=t,  # type: ignore [arg-type]
+                        end_date=t_end,  # type: ignore [arg-type]
+                    )
                 )
-                orders.append(reserve_bid)
 
         # ------------------------------------------------------- #
         #                                                         #
@@ -418,8 +389,8 @@ class ThermalUnitOrders:
 
                     bid_output = OrderDAO(
                         name=f"startup_ramp_order_at_{t}_for_unit_{unit.name}{scenario_suffix}",
-                        market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
-                        portfolio=unit.portfolio,
+                        market_area=market_area,
+                        portfolio=portfolio,
                         equipment=unit,
                         qmax=q_sell,
                         qmin=q_sell,
@@ -427,9 +398,9 @@ class ThermalUnitOrders:
                         product=Product.DayAhead,
                         order_type=OrderType.Sell,
                         is_agent_tso=False,
-                        execution_date=self.parameters.temporal.execution_date,
+                        execution_date=ed,
                         start_date=t,  # type: ignore [arg-type]
-                        end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
+                        end_date=t + step,  # type: ignore [arg-type]
                     )
                     orders.append(bid_output)
 
@@ -449,8 +420,8 @@ class ThermalUnitOrders:
 
                     bid_output = OrderDAO(
                         name=f"shutdown_ramp_order_at_{t}_for_unit_{unit.name}{scenario_suffix}",
-                        market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
-                        portfolio=unit.portfolio,
+                        market_area=market_area,
+                        portfolio=portfolio,
                         equipment=unit,
                         qmax=q_sell,
                         qmin=q_sell,
@@ -458,9 +429,9 @@ class ThermalUnitOrders:
                         product=Product.DayAhead,
                         order_type=OrderType.Sell,
                         is_agent_tso=False,
-                        execution_date=self.parameters.temporal.execution_date,
+                        execution_date=ed,
                         start_date=t,  # type: ignore [arg-type]
-                        end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
+                        end_date=t + step,  # type: ignore [arg-type]
                     )
                     orders.append(bid_output)
 
@@ -469,50 +440,54 @@ class ThermalUnitOrders:
 
             # Part 3: inflexible orders at Pmin
             # TODO: should be inflexible_time_frame, but not working currently for format reasons
-            for t in inflexible_time_frame:
-                t = pendulum.instance(t)
+            # Build a name->order index once to look up flexible bids in O(1) instead of O(N) per check.
+            orders_by_name: dict[str, OrderDAO] = {bid.name: bid for bid in orders}
+            flexible_types = (
+                "flexible_order",
+                "manual_upward_reserve_order",
+                "automated_upward_reserve_order",
+                "manual_downward_reserve_order",
+                "automated_downward_reserve_order",
+            )
+            for t_raw in inflexible_time_frame:
+                t = pendulum.instance(t_raw)
+                formatted_t = t.format("DD_MM_YYYY_HH_mm_ss")
+                min_p = unit.minimum_power.get_value(t)
+                variable_cost = unit.variable_cost.get_value(t)
                 name = (
-                    f"order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_under_price_{case}"
+                    f"order_at_{formatted_t}_for_unit_{unit.name}_under_price_{case}"
                     if case
-                    else f"order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_under_price"
+                    else f"order_at_{formatted_t}_for_unit_{unit.name}_under_price"
                 )
                 bid_output = OrderDAO(
                     name=name,
-                    market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
-                    portfolio=unit.portfolio,
+                    market_area=market_area,
+                    portfolio=portfolio,
                     equipment=unit,
-                    qmax=unit.minimum_power.get_value(t),
-                    qmin=unit.minimum_power.get_value(t),
-                    price=round(unit.variable_cost.get_value(t), 2),
+                    qmax=min_p,
+                    qmin=min_p,
+                    price=round(variable_cost, 2),
                     product=Product.DayAhead,
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
-                    execution_date=self.parameters.temporal.execution_date,
+                    execution_date=ed,
                     start_date=t,  # type: ignore [arg-type]
-                    end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
+                    end_date=t + step,  # type: ignore [arg-type]
                 )
                 orders.append(bid_output)
 
                 inflexible_orders.append(bid_output)
-                Q += unit.minimum_power.get_value(t)
+                Q += min_p
 
                 # Check the existence of flexible bids to be linked by a parent-child coupling
-                flexible_types = [
-                    "flexible_order",
-                    "manual_upward_reserve_order",
-                    "automated_upward_reserve_order",
-                    "manual_downward_reserve_order",
-                    "automated_downward_reserve_order",
-                ]
+                config_bid_name = f"_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}"
                 for flex_type in flexible_types:
-                    config_bid_name = f"_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}{scenario_suffix}"
-                    flexible_bid_name = flex_type + config_bid_name
-                    flexible_bid = next((bid for bid in orders if bid.name == flexible_bid_name), None)
+                    flexible_bid = orders_by_name.get(flex_type + config_bid_name)
                     if flexible_bid is not None:
                         # Add parent-children link between the flexible and inflexible parts
                         couplings.append(
                             OrderCouplingDAO(
-                                name=f"parent_children_inflexible_flexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}{scenario_suffix}",
+                                name=f"parent_children_inflexible_flexible_orders_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
                                 coupling_type=CouplingType.PARENT_CHILDREN,
                                 orders=[bid_output, flexible_bid],
                             )
