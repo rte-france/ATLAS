@@ -606,9 +606,9 @@ class TestInplace:
         lm.add(new_ts_data, "3", inplace=False)
         assert lm.indexes == original_indexes
 
-    def test_add_inplace_returns_none(self, lm, new_ts_data):
+    def test_add_inplace_returns_self(self, lm, new_ts_data):
         result = lm.add(new_ts_data, "3", inplace=True)
-        assert result is None
+        assert result is lm
         assert "3" in lm.indexes
 
     def test_delete_not_inplace_returns_new_matrix(self, lm):
@@ -622,9 +622,9 @@ class TestInplace:
         assert "2" in result.indexes
         assert len(result.indexes) == 1
 
-    def test_delete_inplace_returns_none(self, lm):
+    def test_delete_inplace_returns_self(self, lm):
         result = lm.delete("1", inplace=True)
-        assert result is None
+        assert result is lm
         assert "1" not in lm.indexes
 
     def test_replace_not_inplace_returns_new_matrix(self, lm, new_ts_data):
@@ -641,7 +641,7 @@ class TestInplace:
         result = lm.replace("1", new_ts_data, inplace=False)
         assert result.collect()["1"].to_frame()["value"].to_list() == [99.0, 100.0]
 
-    def test_replace_inplace_returns_none(self, lm, new_ts_data):
+    def test_replace_inplace_returns_self(self, lm, new_ts_data):
         result = lm.replace("1", new_ts_data, inplace=True)
-        assert result is None
+        assert result is lm
         assert lm.collect()["1"].to_frame()["value"].to_list() == [99.0, 100.0]

@@ -255,7 +255,7 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         timeseries: AbstractTimeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str,
         inplace: bool = True,
-    ) -> Self | None:
+    ) -> Self:
         """
         Add a timeseries to the matrix.
 
@@ -286,12 +286,9 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         ).sort("time")
 
         target.indexes = target._get_indexes()
+        return target
 
-        if not inplace:
-            return target
-        return None
-
-    def delete(self, index: str, inplace: bool = True) -> Self | None:
+    def delete(self, index: str, inplace: bool = True) -> Self:
         """
         Delete a timeseries by index.
 
@@ -309,17 +306,14 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         target.matrix = target.matrix.drop(index).sort("time")
         target.indexes = target._get_indexes()
         target.matrix = target._trim_null_extremities(target.matrix)
-
-        if not inplace:
-            return target
-        return None
+        return target
 
     def replace(
         self,
         index: str,
         timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         inplace: bool = True,
-    ) -> Self | None:
+    ) -> Self:
         """
         Replace a Timeseries in the matrix and keep indexes sorted.
 
@@ -333,9 +327,7 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         target = self if inplace else copy.deepcopy(self)
         target.delete(index=index)
         target.add(timeseries=timeseries, index=index)
-        if not inplace:
-            return target
-        return None
+        return target
 
     def get_matrix(self) -> pl.DataFrame:
         """
