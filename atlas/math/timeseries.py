@@ -1169,6 +1169,9 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
             return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").head(1).item()))
         return None
 
+    def first_value(self) -> float | None:
+        return cast(float, self.timeseries.select("value").head(1).item()) if len(self.timeseries) > 0 else None
+
     def last_date(self) -> pendulum.DateTime | None:
         """
         Return the last date in the Timeseries index.
