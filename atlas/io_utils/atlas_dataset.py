@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Literal, cast, get_origin
 
 import pendulum
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 import atlas.config as cfg
 from atlas.enums import BusinessModelName
@@ -87,8 +87,6 @@ class AtlasDataset(BaseModel):
     storage: Container[Storage] = Field(default_factory=lambda: Container())
     thermal: Container[Thermal] = Field(default_factory=lambda: Container())
     wind: Container[Wind] = Field(default_factory=lambda: Container())
-
-    _indices: dict[str, dict[str, BusinessModel]] = {}
 
     @classmethod
     def from_directory(
@@ -264,33 +262,6 @@ class AtlasDataset(BaseModel):
         with open(file_path, "rb") as f:
             return pickle.load(f)
 
-    @model_validator(mode="after")
-    def _build_indices(self) -> AtlasDataset:
-        """
-        Build lookup indices after model initialization for O(1) name-based lookups.
-        Also validates that all object names are unique within their type.
-        """
-        self._indices = {}
-
-        for object_type in cfg.MODEL_MAPPING_NAME.keys():
-            objects = getattr(self, object_type, [])
-            if not objects:
-                continue
-
-            # Build index and check for duplicate names
-            type_index: dict[str, BusinessModel] = {}
-            for obj in objects:
-                if obj.name in type_index:
-                    raise ValueError(
-                        f"Duplicate object name '{obj.name}' found in {object_type}. "
-                        f"All object names must be unique within their type."
-                    )
-                type_index[obj.name] = obj
-
-            self._indices[object_type] = type_index
-
-        return self
-
     def get(self, object_type: str, name: str) -> BusinessModel | None:
         """
         Get a BusinessModel object by type and name with O(1) lookup.
@@ -410,10 +381,16 @@ class AtlasDataset(BaseModel):
                     return True
             return False
         elif isinstance(item, BusinessModel):
-            for object_type in cfg.MODEL_MAPPING_NAME.keys():
-                container = getattr(self, object_type, None)
-                if container and item in container:
-                    return True
+            for cls in type(item).__mro__:
+                item_type = cfg.INVERSE_MODEL_MAPPING_NAME.get(cls)
+                if item_type is not None:
+                    container = getattr(self, item_type, None)
+                    if container is None:
+                        return False
+                    try:
+                        return container.get(item.name) is item
+                    except KeyError:
+                        return False
             return False
         else:
             return False
@@ -455,35 +432,6 @@ class AtlasDataset(BaseModel):
     def __str__(self) -> str:
         """User-friendly string representation."""
         return self.__repr__()
-
-    def __getstate__(self) -> dict[str, Any]:
-        """
-        Prepare the object for pickling.
-
-        Returns the model's state, excluding the _indices cache which will be rebuilt on unpickling.
-
-        :return: Dictionary containing the object's state
-        :rtype: dict[str, Any]
-        """
-        # Get the default state from Pydantic
-        state = self.__dict__.copy()
-        # Remove the _indices cache as it will be rebuilt by _build_indices validator
-        state.pop("_indices", None)
-        return state
-
-    def __setstate__(self, state: dict[str, Any]) -> None:
-        """
-        Restore the object from pickled state.
-
-        Reconstructs the object and rebuilds the _indices cache.
-
-        :param state: Dictionary containing the object's pickled state
-        :type state: dict[str, Any]
-        """
-        # Restore the state
-        self.__dict__.update(state)
-        # Rebuild indices (the validator will be called automatically by Pydantic)
-        self._build_indices()
 
     @field_validator(
         "control_block",

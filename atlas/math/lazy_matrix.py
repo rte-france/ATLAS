@@ -178,7 +178,7 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
         timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str,
         inplace: bool = True,
-    ) -> Self | None:
+    ) -> Self:
         """
         Add a timeseries to the lazy matrix.
 
@@ -210,12 +210,9 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
         )
 
         target.indexes = target._get_indexes()
+        return target
 
-        if not inplace:
-            return target
-        return None
-
-    def delete(self, index: str, inplace: bool = True) -> Self | None:
+    def delete(self, index: str, inplace: bool = True) -> Self:
         """
         Delete a timeseries by index from the lazy matrix.
 
@@ -232,17 +229,14 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
 
         target.matrix = target._trim_null_extremities(target.matrix.drop(index))
         target.indexes = target._get_indexes()
-
-        if not inplace:
-            return target
-        return None
+        return target
 
     def replace(
         self,
         index: str,
         timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         inplace: bool = True,
-    ) -> Self | None:
+    ) -> Self:
         """
         Replace a Timeseries in the matrix and keep indexes sorted.
 
@@ -256,9 +250,7 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
         target = self if inplace else copy.deepcopy(self)
         target.delete(index=index)
         target.add(timeseries=timeseries, index=index)
-        if not inplace:
-            return target
-        return None
+        return target
 
     def select(self, index: str) -> LazyTimeseries:
         """

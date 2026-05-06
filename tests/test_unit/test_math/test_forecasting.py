@@ -1267,7 +1267,7 @@ class TestForecastingMatrixInplace:
         assert "2025-01-01 02:00:00" in result.indexes
         assert "2025-01-01 02:00:00" not in matrix.indexes
 
-    def test_add_not_inplace_result_is_sorted(self, matrix, new_ts):
+    def test_add_not_inplace_result_is_sorted(self, matrix):
         # Insert a ts between the two existing ones — result must stay sorted
         mid_ts = Timeseries(
             pl.DataFrame(
@@ -1285,11 +1285,14 @@ class TestForecastingMatrixInplace:
         )
         result = matrix.add(mid_ts, datetime(2025, 1, 1, 0, 30, 0), inplace=False)
         assert result.indexes == ["2025-01-01 00:00:00", "2025-01-01 00:30:00", "2025-01-01 01:00:00"]
+        assert matrix.indexes == ["2025-01-01 00:00:00", "2025-01-01 01:00:00"]
+        assert result["2025-01-01 00:30:00"].timeseries["value"].to_list() == [5, 6, 7, 8, 9]
 
-    def test_add_inplace_returns_none(self, matrix, new_ts):
+    def test_add_inplace_returns_self(self, matrix, new_ts):
         result = matrix.add(new_ts, datetime(2025, 1, 1, 2, 0, 0), inplace=True)
-        assert result is None
+        assert result is matrix
         assert "2025-01-01 02:00:00" in matrix.indexes
+        assert matrix["2025-01-01 02:00:00"].timeseries["value"].to_list() == [10, 20, 30, 40, 50]
 
     def test_delete_not_inplace_returns_forecasting_matrix(self, matrix):
         result = matrix.delete(datetime(2025, 1, 1, 0, 0, 0), inplace=False)
@@ -1302,9 +1305,9 @@ class TestForecastingMatrixInplace:
         assert "2025-01-01 01:00:00" in result.indexes
         assert len(result.indexes) == 1
 
-    def test_delete_inplace_returns_none(self, matrix):
+    def test_delete_inplace_returns_self(self, matrix):
         result = matrix.delete(datetime(2025, 1, 1, 0, 0, 0), inplace=True)
-        assert result is None
+        assert result is matrix
         assert "2025-01-01 00:00:00" not in matrix.indexes
 
     def test_replace_not_inplace_returns_forecasting_matrix(self, matrix, new_ts):
@@ -1321,9 +1324,9 @@ class TestForecastingMatrixInplace:
         result = matrix.replace(datetime(2025, 1, 1, 0, 0, 0), new_ts, inplace=False)
         assert result["2025-01-01 00:00:00"].get_value(datetime(2025, 1, 1, 0, 0, 0)) == 10.0
 
-    def test_replace_inplace_returns_none(self, matrix, new_ts):
+    def test_replace_inplace_returns_self(self, matrix, new_ts):
         result = matrix.replace(datetime(2025, 1, 1, 0, 0, 0), new_ts, inplace=True)
-        assert result is None
+        assert result is matrix
         assert matrix["2025-01-01 00:00:00"].get_value(datetime(2025, 1, 1, 0, 0, 0)) == 10.0
 
 
@@ -1360,9 +1363,9 @@ class TestLazyForecastingMatrixInplace:
         assert "2025-01-01 02:00:00" in result.indexes
         assert "2025-01-01 02:00:00" not in lm.indexes
 
-    def test_add_inplace_returns_none(self, lm, new_ts):
+    def test_add_inplace_returns_self(self, lm, new_ts):
         result = lm.add(new_ts, datetime(2025, 1, 1, 2, 0, 0), inplace=True)
-        assert result is None
+        assert result is lm
         assert "2025-01-01 02:00:00" in lm.indexes
 
     def test_delete_not_inplace_returns_lazy_forecasting_matrix(self, lm):
@@ -1371,9 +1374,9 @@ class TestLazyForecastingMatrixInplace:
         assert "2025-01-01 00:00:00" not in result.indexes
         assert "2025-01-01 00:00:00" in lm.indexes
 
-    def test_delete_inplace_returns_none(self, lm):
+    def test_delete_inplace_returns_self(self, lm):
         result = lm.delete(datetime(2025, 1, 1, 0, 0, 0), inplace=True)
-        assert result is None
+        assert result is lm
         assert "2025-01-01 00:00:00" not in lm.indexes
 
     def test_replace_not_inplace_returns_lazy_forecasting_matrix(self, lm, new_ts):
@@ -1382,7 +1385,7 @@ class TestLazyForecastingMatrixInplace:
         assert "2025-01-01 00:00:00" in result.indexes
         assert "2025-01-01 00:00:00" in lm.indexes
 
-    def test_replace_inplace_returns_none(self, lm, new_ts):
+    def test_replace_inplace_returns_self(self, lm, new_ts):
         result = lm.replace(datetime(2025, 1, 1, 0, 0, 0), new_ts, inplace=True)
-        assert result is None
+        assert result is lm
         assert "2025-01-01 00:00:00" in lm.indexes

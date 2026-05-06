@@ -654,10 +654,11 @@ class TestInplace:
         matrix.add(new_ts, "scenario3", inplace=False)
         assert matrix.indexes == original_indexes
 
-    def test_add_inplace_returns_none(self, matrix, new_ts):
+    def test_add_inplace_returns_self(self, matrix, new_ts):
         result = matrix.add(new_ts, "scenario3", inplace=True)
-        assert result is None
+        assert result is matrix
         assert "scenario3" in matrix.indexes
+        assert matrix["scenario3"].to_frame()["value"].to_list() == [100, 200, 300]
 
     def test_delete_not_inplace_returns_new_matrix(self, matrix):
         result = matrix.delete("scenario1", inplace=False)
@@ -670,9 +671,9 @@ class TestInplace:
         assert "scenario2" in result.indexes
         assert len(result.indexes) == 1
 
-    def test_delete_inplace_returns_none(self, matrix):
+    def test_delete_inplace_returns_self(self, matrix):
         result = matrix.delete("scenario1", inplace=True)
-        assert result is None
+        assert result is matrix
         assert "scenario1" not in matrix.indexes
 
     def test_replace_not_inplace_returns_new_matrix(self, matrix, new_ts):
@@ -689,7 +690,7 @@ class TestInplace:
         result = matrix.replace("scenario1", new_ts, inplace=False)
         assert result["scenario1"].to_frame()["value"].to_list() == [100, 200, 300]
 
-    def test_replace_inplace_returns_none(self, matrix, new_ts):
+    def test_replace_inplace_returns_self(self, matrix, new_ts):
         result = matrix.replace("scenario1", new_ts, inplace=True)
-        assert result is None
+        assert result is matrix
         assert matrix["scenario1"].to_frame()["value"].to_list() == [100, 200, 300]

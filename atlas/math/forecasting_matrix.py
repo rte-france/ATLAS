@@ -141,7 +141,7 @@ class ForecastingMatrix(ScenarioMatrix):
         timeseries: AbstractTimeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str | datetime | pendulum.DateTime,
         inplace: bool = True,
-    ) -> Self | None:
+    ) -> Self:
         """
         Add a Timeseries to the matrix and keep indexes sorted.
 
@@ -154,13 +154,8 @@ class ForecastingMatrix(ScenarioMatrix):
         """
         dt: str = build_datetime(index, self.date_format).format(self.date_format)
         result = super().add(timeseries, dt, inplace=inplace)
-        if inplace:
-            self._sort_indexes()
-        else:
-            assert result is not None
-            result._sort_indexes()
-            return result
-        return None
+        result._sort_indexes()
+        return result
 
     def __contains__(self, index: str | datetime | pendulum.DateTime) -> bool:
         """
@@ -205,7 +200,7 @@ class ForecastingMatrix(ScenarioMatrix):
         """
         return self.__getitem__(index)
 
-    def delete(self, index: str | datetime | pendulum.DateTime, inplace: bool = True) -> Self | None:
+    def delete(self, index: str | datetime | pendulum.DateTime, inplace: bool = True) -> Self:
         """
         Delete a timeseries by index.
 
@@ -217,20 +212,15 @@ class ForecastingMatrix(ScenarioMatrix):
         """
         dt: str = build_datetime(index, self.date_format).format(self.date_format)
         result = super().delete(dt, inplace=inplace)
-        if inplace:
-            self._sort_indexes()
-        else:
-            assert result is not None
-            result._sort_indexes()
-            return result
-        return None
+        result._sort_indexes()
+        return result
 
     def replace(
         self,
         index: str | datetime | pendulum.DateTime,
         timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         inplace: bool = True,
-    ) -> Self | None:
+    ) -> Self:
         """
         Replace a Timeseries in the matrix and keep indexes sorted.
 
@@ -244,10 +234,7 @@ class ForecastingMatrix(ScenarioMatrix):
         target = self if inplace else copy.deepcopy(self)
         target.delete(index=index)
         target.add(timeseries=timeseries, index=index)
-        if not inplace:
-            return target
-        return None
-        return None
+        return target
 
     def _get_parsed_indexes(self) -> pl.DataFrame:
         """
@@ -501,7 +488,7 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
         timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str | datetime | pendulum.DateTime,
         inplace: bool = True,
-    ) -> Self | None:
+    ) -> Self:
         """
         Add a timeseries to the lazy forecasting matrix.
 
@@ -514,12 +501,9 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
         :raises KeyError: If index already exists in the matrix.
         """
         dt: str = build_datetime(index, self.date_format).format(self.date_format)
-        result = super().add(timeseries, dt, inplace=inplace)
-        if not inplace:
-            return result
-        return None
+        return super().add(timeseries, dt, inplace=inplace)
 
-    def delete(self, index: str | datetime | pendulum.DateTime, inplace: bool = True) -> Self | None:
+    def delete(self, index: str | datetime | pendulum.DateTime, inplace: bool = True) -> Self:
         """
         Delete a timeseries by index.
 
@@ -530,17 +514,14 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
         :raises KeyError: If the index does not exist in the matrix.
         """
         dt: str = build_datetime(index, self.date_format).format(self.date_format)
-        result = super().delete(dt, inplace=inplace)
-        if not inplace:
-            return result
-        return None
+        return super().delete(dt, inplace=inplace)
 
     def replace(
         self,
         index: str | datetime | pendulum.DateTime,
         timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         inplace: bool = True,
-    ) -> Self | None:
+    ) -> Self:
         """
         Replace a Timeseries in the matrix and keep indexes sorted.
 
@@ -554,9 +535,7 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
         target = self if inplace else copy.deepcopy(self)
         target.delete(index=index)
         target.add(timeseries=timeseries, index=index)
-        if not inplace:
-            return target
-        return None
+        return target
 
     def get_forecast(
         self,

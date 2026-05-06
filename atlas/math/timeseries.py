@@ -1158,30 +1158,17 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
             return self
         return Timeseries(df, self.timezone)
 
-    def first_date(self) -> pendulum.DateTime | None:
-        """
-        Return the first date in the Timeseries index.
+    def get_by_index(self, index: int) -> float:
+        n = len(self.timeseries)
+        if n == 0 or index >= n or index < -n:
+            raise IndexError(f"index {index} is out of bounds for timeseries of length {n}")
+        return cast(float, self.timeseries.row(index, named=True)["value"])
 
-        :return: The first date in the Timeseries index
-        :rtype: DateTime or None
-        """
-        if len(self.timeseries) > 0:
-            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").head(1).item()))
-        return None
-
-    def first_value(self) -> float | None:
-        return cast(float, self.timeseries.select("value").head(1).item()) if len(self.timeseries) > 0 else None
-
-    def last_date(self) -> pendulum.DateTime | None:
-        """
-        Return the last date in the Timeseries index.
-
-        :return: The last date in the Timeseries index
-        :rtype: DateTime or None
-        """
-        if len(self.timeseries) > 0:
-            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").tail(1).item()))
-        return None
+    def get_time_by_index(self, index: int) -> pendulum.DateTime:
+        n = len(self.timeseries)
+        if n == 0 or index >= n or index < -n:
+            raise IndexError(f"index {index} is out of bounds for timeseries of length {n}")
+        return cast(pendulum.DateTime, pendulum.instance(self.timeseries.row(index, named=True)["time"]))
 
     def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
         """
