@@ -89,6 +89,17 @@ class TestAtlasDatasetBasic:
         assert 123 not in dataset
         assert None not in dataset
 
+    def test_get_after_add(self):
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        dataset = AtlasDataset()
+
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        dataset.node.add(node)
+
+        assert dataset.get("node", "node1") is node
+        assert node in dataset
+
     def test_len_operator(self):
         cb = ControlBlock(name="cb1")
         ma = MarketArea(name="ma1", control_block=cb)
