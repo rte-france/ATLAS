@@ -463,7 +463,7 @@ class ThermalPO(BaseEquipmentPO, Thermal):
         # Determine if this is dayZero initialization
         day_zero = power_ts is None
         if power_ts is not None:
-            if parameters.temporal.start_date - parameters.temporal.timestep != power_ts.get_time_by_index(-1):
+            if parameters.temporal.start_date - parameters.temporal.timestep != power_ts.last_date():
                 day_zero = True
 
         initial_condition_functions: dict[int, Callable[..., None]] = {

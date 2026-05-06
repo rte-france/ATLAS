@@ -78,10 +78,10 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
             # time frames are mutually exclusive provided that the unit's minimum power is not null
             if unit.minimum_power.timeseries.filter(pl.col("time").is_in(self.orders_time))["value"].sum() > 0.0:
                 orders_names = [
-                    f"order_at_{ts.get_time_by_index(0)}_for_unit_{unit.name}_under_price_{case}"
+                    f"order_at_{ts.first_date()}_for_unit_{unit.name}_under_price_{case}"
                     for (ts, case), _ in overlapping_blocks
                 ] + [
-                    f"order_at_{ts.get_time_by_index(0)}_for_unit_{unit.name}_under_price_{case}"
+                    f"order_at_{ts.first_date()}_for_unit_{unit.name}_under_price_{case}"
                     for _, (ts, case) in overlapping_blocks
                 ]
                 orders_list = [order for order in orders if order.name in orders_names]
@@ -231,8 +231,8 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
             (ts1, name1), (ts2, name2) = pair
             if name1 == name2:
                 continue
-            s1, e1 = ts1.get_time_by_index(0), ts1.get_time_by_index(-1)
-            s2, e2 = ts2.get_time_by_index(0), ts2.get_time_by_index(-1)
+            s1, e1 = ts1.first_date(), ts1.last_date()
+            s2, e2 = ts2.first_date(), ts2.last_date()
             if s1 <= s2 <= e1 or s2 <= s1 <= e2:
                 overlapping_blocks.append(pair)
         return overlapping_blocks
