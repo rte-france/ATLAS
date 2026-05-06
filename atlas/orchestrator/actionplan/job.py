@@ -38,7 +38,11 @@ class ActionPlanJob(AbstractJob):
 class TaskIterator(ABC):
     def __init__(self, task: Task):
         self.task: Task = task
-        self.next_execution_date: DateTime = task.from_
+        self._next_execution_date: DateTime = task.from_
+
+    @property
+    def next_execution_date(self):
+        return self._next_execution_date
 
     @property
     def next_start_date(self):
@@ -49,14 +53,14 @@ class TaskIterator(ABC):
         return self.task.offset_end_date + self.next_execution_date
 
     def __iter__(self):
-        self.next_execution_date = self.task.from_
+        self._next_execution_date = self.task.from_
         return self
 
     def __next__(self) -> list[AbstractJob]:
         if self.next_execution_date > self.task.until:
             raise StopIteration()  # Signals the end of iteration
         jobs = self.build_jobs()
-        self.next_execution_date += self.task.frequency
+        self._next_execution_date += self.task.frequency
         return jobs
 
     @abstractmethod

@@ -37,7 +37,7 @@ class AbstractOrchestratorParameters(Parameters):
     parameters_path: Path | None = None
     path_from_workflow: bool = Field(
         default=True,
-        validation_alias=AliasChoices("path_from_workflow", "path_from_orchestrator"),
+        validation_alias=AliasChoices("path_from_workflow", "path_from_orchestrator", "path_from_action_plan"),
     )
     output_dir: Path = Path()
     rollback_on_job_failure: bool = True

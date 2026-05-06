@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,13 @@ from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorPar
 from atlas.orchestrator.hook.hook import Hook
 from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.validators import convert_to_duration
+
+
+# FIXME Move this class to an other file
+class DataQualityWarning(UserWarning):
+    """Warning for potential input data quality issues."""
+
+    pass
 
 
 class ActionPlanParameters(AbstractOrchestratorParameters):
@@ -83,6 +91,23 @@ class Task(BaseModel):
     def parse_duration(cls, v):
         """Convert various duration formats to Duration objects."""
         return convert_to_duration(v)
+
+    @model_validator(mode="after")
+    def until_from_frequency(self) -> Task:  # FIXME Can we override validate()?
+        if self.until < self.from_:
+            raise ValueError(
+                f"Task {self.name} must have an 'until' date before 'from' date {self.from_}, current value is {self.until}"
+            )
+        timedelta = self.until - self.from_
+        if timedelta.total_seconds() % (self.frequency.total_seconds()) != 0:
+            diff_seconds = timedelta.total_seconds() % (self.frequency.total_seconds())
+            last_execution_date = self.until - Duration(seconds=diff_seconds)
+            warnings.warn(
+                f"Task {self.name} last execution date is not equal to 'until' {self.until}', last value is {last_execution_date}",
+                DataQualityWarning,
+                stacklevel=2,
+            )
+        return self
 
     @model_validator(mode="after")
     def module_or_workflow(self) -> Task:  # FIXME better function name? Can we overide validate()
