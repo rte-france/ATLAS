@@ -166,8 +166,8 @@ class OrchestratorConfigBuilder:
     def build(self, tmp_path):
         if self.dataset_dir is None:
             self.dataset_dir = tmp_path / "dataset"
-        if self.output_dir is None:
-            self.output_dir = tmp_path / "output"
+        if self.output_dir is not None:
+            self.output_dir = "output_dataset_path: " + tmp_path / "output"
 
         self.dataset_dir.mkdir(exist_ok=True)
         self.output_dir.mkdir(exist_ok=True)
@@ -175,7 +175,7 @@ class OrchestratorConfigBuilder:
         content = (
             f"name: {self.name}\n"
             f"dataset_path: {self.dataset_dir}\n"
-            f"output_dataset_path: {self.output_dir}\n"
+            f"{self.output_dir}\n"
             f"{self.context}\n"
             f"{self.misc}\n"
         )
