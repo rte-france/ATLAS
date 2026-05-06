@@ -3,6 +3,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from collections.abc import Mapping
+
 from antares.craft.model.area import Area
 from antares.craft.model.binding_constraint import BindingConstraint
 from antares.craft.model.study import Study
@@ -74,7 +76,7 @@ def _convert_dsr_fr(
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
     area: Area,
-    binding_constraints: dict[str, BindingConstraint],
+    binding_constraints: Mapping[str, BindingConstraint],
     study: Study,
 ) -> list[Thermal]:
     """Convert France-specific DSR units (industrie, tertiaire, implicite)."""
@@ -138,7 +140,7 @@ def _convert_dsr_other_country(
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
     area: Area,
-    binding_constraints: dict[str, BindingConstraint],
+    binding_constraints: Mapping[str, BindingConstraint],
     study: Study,
 ) -> Thermal | None:
     """Convert DSR unit for a non-France country."""

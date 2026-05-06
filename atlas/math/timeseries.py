@@ -10,7 +10,7 @@ This module provides a Timeseries class for handling Timeseries data using Polar
 from __future__ import annotations
 
 import pickle
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -86,7 +86,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         cls,
         start_date: str | datetime | pendulum.DateTime,
         frequency: str | timedelta | pendulum.Duration,
-        values: list[float],
+        values: Sequence[float] | pd.Series,
         date_format="YYYY-MM-DD HH:mm:ss",
         timezone: str = "UTC",
     ) -> Timeseries:

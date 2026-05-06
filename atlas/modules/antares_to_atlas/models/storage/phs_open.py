@@ -3,6 +3,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from collections.abc import Mapping
+
 import numpy as np
 from antares.craft import Frequency, MCIndLinksDataType
 from antares.craft.model.area import Area
@@ -78,7 +80,7 @@ def _create_open_phs(
     study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-    links: dict[str, Link],
+    links: Mapping[str, Link],
 ) -> Storage | None:
     """Create open-loop PHS equipment and update the corresponding hydro equipment.
 

@@ -466,7 +466,6 @@ def _convert_france_heavy_vehicles(
         return []
 
     try:
-        # CalculatedTransit is an MC output, not an input capacity
         transit_df = study.get_output(parameters.output_name).get_mc_ind_link(
             parameters.scenario,
             frequency=Frequency.HOURLY,
@@ -474,11 +473,11 @@ def _convert_france_heavy_vehicles(
             area_from=hv_link.area_from_id,
             area_to=hv_link.area_to_id,
         )[("FLOW LIN.", "MWh")]
+
         maximum_power_ts = Timeseries.from_values(
             parameters.start_date,
             frequency="1h",
-            values=transit_df,
-            dtype=float * -1,
+            values=transit_df * -1,
         )
     except Exception as e:
         logger.warning(f"Could not get transit data for FR heavy vehicles: {e}")

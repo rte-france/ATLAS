@@ -3,6 +3,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from collections.abc import Mapping
+
 from antares.craft.model.area import Area
 from antares.craft.model.link import Link
 from antares.craft.model.study import Study
@@ -69,7 +71,11 @@ def convert_p2g_units(
 
 
 def _convert_p2g_base(
-    area: Area, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset, links: dict[str, Link], study: Study
+    area: Area,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+    links: Mapping[str, Link],
+    study: Study,
 ) -> Load | None:
     """Convert P2G base unit (fatal load)."""
     link_name = f"{area.id}_z_p2g_base"
@@ -112,8 +118,8 @@ def _convert_p2g_marg(
     area: Area,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-    areas: dict[str, Area],
-    links: dict[str, Link],
+    areas: Mapping[str, Area],
+    links: Mapping[str, Link],
     study: Study,
 ) -> Load | None:
     """Convert P2G marginal unit (dispatchable load)."""
@@ -172,8 +178,8 @@ def _convert_p2g_methanation(
     area: Area,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-    areas: dict[str, Area],
-    links: dict[str, Link],
+    areas: Mapping[str, Area],
+    links: Mapping[str, Link],
     study: Study,
 ) -> Load | None:
     """Convert P2G methanation unit (dispatchable load)."""
