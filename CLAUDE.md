@@ -5,9 +5,10 @@ Power market simulator (day-ahead, intraday, reserves) developed by Artelys for 
 ## Stack
 
 - Python 3.13+, managed with `uv`
-- OR-Tools for optimization, Pydantic for models, Polars/Pandas for data.
+- OR-Tools for optimization, Pydantic for models, Polars for data.
 - `antares-craft` for Antares study parsing
 - Linting: Ruff | Types: mypy | Tests: pytest
+- Typer for cli entrypoint.
 
 ## Setup
 
@@ -97,5 +98,5 @@ Always use these APIs and avoid falling back to raw Polars. No pandas. If a meth
 * Use built-in typing where possible: `list`, `str`, `int`, `float`, `dict`. Use `X | None` instead of `Optional[X]`.
 * Create custom errors if necessary or use specific built-in exceptions: `ValueError`, `TypeError`, `FileNotFoundError`.
 * Use `pathlib.Path` for file operations.
-* Make sure code produced is well typed.
+* Make sure code produced is well typed. Use type-only imports when possible: `from typing import TYPE_CHECKING`
 * Use Zensical to build documentation; docstring format is Sphinx. Provide examples when necessary (for complex or non-obvious functions/methods).
