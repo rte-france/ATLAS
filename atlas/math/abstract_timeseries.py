@@ -267,18 +267,19 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         ...
 
     @abstractmethod
-    def first_date(self) -> pendulum.DateTime | None:
-        """Return the first date in the Timeseries index."""
+    def get_by_index(self, index: int) -> float:
+        """Return the value at numeric position index. Index is zero-based; supports negative indexing (-1 = last).
+
+        :raises IndexError: if index is out of bounds.
+        """
         ...
 
     @abstractmethod
-    def first_value(self) -> float | None:
-        """Return the first value in the Timeseries."""
-        ...
+    def get_time_by_index(self, index: int) -> pendulum.DateTime:
+        """Return the timestamp at numeric position index. Index is zero-based; supports negative indexing (-1 = last).
 
-    @abstractmethod
-    def last_date(self) -> pendulum.DateTime | None:
-        """Return the last date in the Timeseries index."""
+        :raises IndexError: if index is out of bounds.
+        """
         ...
 
     @abstractmethod

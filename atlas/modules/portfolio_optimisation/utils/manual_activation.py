@@ -429,7 +429,7 @@ def _get_initial_stored_energy(equipment: HydroPO | StoragePO, parameters: Portf
         )
 
         target_time = parameters.temporal.start_date - parameters.temporal.timestep
-        if local_stored_energy.first_date() <= target_time:
+        if local_stored_energy.get_time_by_index(0) <= target_time:
             return local_stored_energy.get_value(target_time)
 
     # Fallback to initial level calculations

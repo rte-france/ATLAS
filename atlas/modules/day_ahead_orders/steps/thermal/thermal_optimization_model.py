@@ -347,7 +347,7 @@ class ThermalOptimizationModel(OptimisationModel):
                 temporal.start_date - temporal.timestep,
                 0,
             )
-        self.last_date = self.last_power.last_date()
+        self.last_date = self.last_power.get_time_by_index(-1)
 
     def _setup_bounds(self) -> None:
         self.q_lower = Timeseries.from_timeseries(self.thermal_unit.minimum_power)

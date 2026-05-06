@@ -641,63 +641,45 @@ def test_len_empty_timeseries():
     assert len(lt) == 0
 
 
-# Tests for first_date and last_date
-
-
-def test_first_date_with_values(sample_df_extended):
-    """Test first_date() returns the earliest date."""
+def test_get_by_index(sample_df_extended):
     lt = LazyTimeseries(sample_df_extended.lazy())
 
-    # Get first date using lazy method
-    first = lt.first_date()
+    assert lt.get_by_index(0) == 10.0
+    assert lt.get_by_index(-1) == 65.0
+    assert lt.get_by_index(3) == 25.0
+    with pytest.raises(IndexError):
+        lt.get_by_index(99)
+    with pytest.raises(IndexError):
+        lt.get_by_index(-99)
+    with pytest.raises(IndexError):
+        LazyTimeseries().get_by_index(0)
 
-    # Verify it matches the first row's time
-    expected_first = sample_df_extended.select("time").head(1).item()
-    assert first is not None
-    assert first.to_datetime_string() == pendulum.instance(expected_first).to_datetime_string()
 
-
-def test_last_date_with_values(sample_df_extended):
-    """Test last_date() returns the latest date."""
+def test_get_time_by_index(sample_df_extended):
     lt = LazyTimeseries(sample_df_extended.lazy())
 
-    # Get last date using lazy method
-    last = lt.last_date()
+    expected_first = pendulum.instance(sample_df_extended.select("time").head(1).item())
+    expected_last = pendulum.instance(sample_df_extended.select("time").tail(1).item())
 
-    # Verify it matches the last row's time
-    expected_last = sample_df_extended.select("time").tail(1).item()
-    assert last is not None
-    assert last.to_datetime_string() == pendulum.instance(expected_last).to_datetime_string()
-
-
-def test_first_date_empty_timeseries():
-    """Test first_date() returns None for empty timeseries."""
-    lt = LazyTimeseries()
-
-    assert lt.first_date() is None
+    assert lt.get_time_by_index(0).to_datetime_string() == expected_first.to_datetime_string()
+    assert lt.get_time_by_index(-1).to_datetime_string() == expected_last.to_datetime_string()
+    with pytest.raises(IndexError):
+        lt.get_time_by_index(99)
+    with pytest.raises(IndexError):
+        lt.get_time_by_index(-99)
+    with pytest.raises(IndexError):
+        LazyTimeseries().get_time_by_index(0)
 
 
-def test_last_date_empty_timeseries():
-    """Test last_date() returns None for empty timeseries."""
-    lt = LazyTimeseries()
-
-    assert lt.last_date() is None
-
-
-def test_first_last_date_after_filter(sample_df_extended):
-    """Test first_date() and last_date() work correctly after filtering."""
+def test_get_time_by_index_after_filter(sample_df_extended):
     lt = LazyTimeseries(sample_df_extended.lazy())
-
-    # Filter to a subset
     dates = [datetime(2023, 1, 1, 1, 0), datetime(2023, 1, 1, 2, 0), datetime(2023, 1, 1, 3, 0)]
     lt.filter(dates, inplace=True)
 
-    # Check first and last dates
-    first = lt.first_date()
-    last = lt.last_date()
+    first = lt.get_time_by_index(0)
+    last = lt.get_time_by_index(-1)
 
-    assert first is not None
-    assert last is not None
+    assert first is not None and last is not None
     assert first <= last
     assert first.to_datetime_string() == "2023-01-01 01:00:00"
     assert last.to_datetime_string() == "2023-01-01 03:00:00"
@@ -783,7 +765,7 @@ def test_get_value_timezone_handling(sample_df_extended):
     lt = LazyTimeseries(sample_df_extended.lazy(), timezone="Europe/Paris")
 
     # Get the first time in the series
-    first_time = lt.first_date()
+    first_time = lt.get_time_by_index(0)
     if first_time:
         value = lt.get_value(first_time)
         assert isinstance(value, float)
@@ -1098,7 +1080,7 @@ class TestFromValues:
             values=[5.0, 10.0, 15.0],
         )
         assert len(lt) == 3
-        assert lt.first_date() == start
+        assert lt.get_time_by_index(0) == start
 
     def test_from_values_too_few_values(self):
         """from_values raises ValueError when fewer than 2 values are provided."""
@@ -1186,8 +1168,8 @@ class TestFromIndex:
             end_date="2023-03-05 00:00:00",
         )
         assert len(lt) == 5
-        assert lt.first_date().date() == pendulum.date(2023, 3, 1)
-        assert lt.last_date().date() == pendulum.date(2023, 3, 5)
+        assert lt.get_time_by_index(0).date() == pendulum.date(2023, 3, 1)
+        assert lt.get_time_by_index(-1).date() == pendulum.date(2023, 3, 5)
 
 
 class TestFromTimeseries:
