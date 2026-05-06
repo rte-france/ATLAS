@@ -99,9 +99,9 @@ class ModuleTaskIterator(TaskIterator):
         self.root_output_dir = root_output_dir
 
     def build_jobs(self) -> list[AbstractJob]:
-        return [ActionPlanJob("insert_name", self.module, self.build_current_parameters())]
+        return [ActionPlanJob("insert_name", self.module, self._build_current_parameters())]
 
-    def build_current_parameters(self) -> AbstractModuleParameters:
+    def _build_current_parameters(self) -> AbstractModuleParameters:
         parameters = copy.deepcopy(self.parameters)
         parameters.output.output_dir = self.root_output_dir / self.next_execution_date
         parameters.temporal.start_date = self.next_start_date
@@ -116,7 +116,7 @@ class WorkflowTaskIterator(TaskIterator):
         self.parameters: WorkflowParameters = parameters
         self.root_output_dir = root_output_dir
 
-    def build_current_parameters(self) -> WorkflowParameters:
+    def _build_current_parameters(self) -> WorkflowParameters:
         parameters = copy.deepcopy(self.parameters)
         deep_update(
             parameters.context.forced,
@@ -135,5 +135,5 @@ class WorkflowTaskIterator(TaskIterator):
         return parameters
 
     def build_jobs(self) -> list[AbstractJob]:
-        workflow = Workflow(self.build_current_parameters())
+        workflow = Workflow(self._build_current_parameters())
         return list(workflow.jobs)
