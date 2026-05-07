@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 from loguru import logger
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
@@ -45,7 +46,7 @@ def merge_open_and_closed_phs(
     for node_name in open_phs_list:
         if node_name in closed_phs_list:
             # Both open and closed PHS exist - merge them
-            _merge_phs_for_node(atlas_dataset, node_name)
+            _merge_phs_for_node(atlas_dataset, node_name, parameters)
         else:
             # Only open PHS exists - rename it
             _rename_open_phs_to_standard(atlas_dataset, node_name)
@@ -55,7 +56,7 @@ def merge_open_and_closed_phs(
     return atlas_dataset
 
 
-def _merge_phs_for_node(atlas_dataset: AtlasDataset, node_name: str) -> None:
+def _merge_phs_for_node(atlas_dataset: AtlasDataset, node_name: str, parameters: AntaresToAtlasParameters) -> None:
     """Merge open and closed PHS for a specific node.
 
     Finds both PHS equipment, adds their capacities together,
@@ -82,31 +83,33 @@ def _merge_phs_for_node(atlas_dataset: AtlasDataset, node_name: str) -> None:
         logger.warning(f"Open PHS {open_name} not found for merging")
         return
 
-    # Merge capacities
     logger.debug(f"Merging PHS for node {node_name}")
 
-    # TODO: Verify how to add Timeseries objects in the new model
-    # In old code: closed_phs.MaximumPower += open_phs.MaximumPower
-    # This might require element-wise addition or special handling
     try:
-        if closed_phs.maximum_power and open_phs.maximum_power:
-            closed_phs.maximum_power = closed_phs.maximum_power + open_phs.maximum_power
+        if closed_phs.maximum_power is not None and open_phs.maximum_power is not None:
+            closed_phs.maximum_power += open_phs.maximum_power
 
-        if closed_phs.minimum_power and open_phs.minimum_power:
-            closed_phs.minimum_power = closed_phs.minimum_power + open_phs.minimum_power
+        if closed_phs.minimum_power is not None and open_phs.minimum_power is not None:
+            closed_phs.minimum_power += open_phs.minimum_power
 
-        if closed_phs.maximum_energy and open_phs.maximum_energy:
-            closed_phs.maximum_energy = closed_phs.maximum_energy + open_phs.maximum_energy
+        if closed_phs.maximum_energy is not None and open_phs.maximum_energy is not None:
+            closed_phs.maximum_energy += open_phs.maximum_energy
 
-        # TODO: Merge power forecasts if they exist
-        # In old code: power time series were stored in Power property
-        # May need to merge stored_energy or other forecast matrices
+        if isinstance(open_phs.power, ForecastingMatrix):
+            exec_key = parameters.execution_date.format(open_phs.power.date_format)
+            open_ts = open_phs.power[exec_key]
+            if isinstance(closed_phs.power, ForecastingMatrix) and exec_key in closed_phs.power.indexes:
+                closed_ts = closed_phs.power[exec_key]
+                closed_phs.power.replace(parameters.execution_date, closed_ts + open_ts)
+            elif isinstance(closed_phs.power, ForecastingMatrix):
+                closed_phs.power.add(open_ts, parameters.execution_date)
+            else:
+                closed_phs.power = open_phs.power
 
     except Exception as e:
         logger.error(f"Error merging PHS capacities for node {node_name}: {e}")
         return
 
-    # Remove the open PHS from the storage list
     atlas_dataset.storage.remove(open_name)
     logger.debug(f"Merged and removed {open_name}, kept {closed_name}")
 
@@ -121,8 +124,6 @@ def _rename_open_phs_to_standard(atlas_dataset: AtlasDataset, node_name: str) ->
 
     for storage in atlas_dataset.storage:
         if storage.name == open_name:
-            # TODO: Verify if we can directly modify the name attribute
-            # or if we need to use a specific method
             storage.name = new_name
             logger.debug(f"Renamed {open_name} to {new_name}")
             return

@@ -106,7 +106,11 @@ def _process_waste_unit(
     Waste units from the same area are merged (power is accumulated) into a
     single OtherNonDispatchable named "{area}_Waste".
     """
-    scenario = study.get_output(parameters.output_name).get_thermal_ts_numbers(area.name, thermal.name).get(parameters.scenario, None)
+    scenario = (
+        study.get_output(parameters.output_name)
+        .get_thermal_ts_numbers(area.name, thermal.name)
+        .get(parameters.scenario, None)
+    )
     if scenario is None:
         logger.warning(f"Could not find thermal time series for area {area.id} and scenario {parameters.scenario}")
         return

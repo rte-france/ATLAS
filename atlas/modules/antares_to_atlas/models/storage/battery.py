@@ -54,7 +54,9 @@ def convert_battery_units(
         area_id = link_pcomp.area_to_id
         if area_id in parameters.market_areas and area_id in areas:
             prefix = parameters.storage.battery_pcomp_link.lstrip("z_")
-            pcomp_battery = _convert_battery(areas[area_id], study, parameters, atlas_dataset, link_pcomp, prefix=prefix)
+            pcomp_battery = _convert_battery(
+                areas[area_id], study, parameters, atlas_dataset, link_pcomp, prefix=prefix
+            )
 
     if normal_battery and pcomp_battery:
         logger.debug(f"Merging normal and pcomp batteries for area {area_id}")
@@ -188,11 +190,7 @@ def _merge_batteries(normal_battery: Storage, pcomp_battery: Storage, parameters
 
     Merges capacities and calculates weighted average efficiencies.
     """
-    if (
-        normal_battery.maximum_power is None
-        or pcomp_battery.maximum_power is None
-        or normal_battery.power is None
-    ):
+    if normal_battery.maximum_power is None or pcomp_battery.maximum_power is None or normal_battery.power is None:
         logger.warning("Cannot merge batteries: missing capacity data")
         return
     normal_battery.maximum_power += pcomp_battery.maximum_power
