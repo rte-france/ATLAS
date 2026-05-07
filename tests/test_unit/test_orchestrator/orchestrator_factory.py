@@ -61,6 +61,46 @@ class MockOutPutBuilder:
     def build(self):
         return self.mock_output
 
+class MockModuleParametersBuilder:
+    def __init__(self):
+        self.temporal = MagicMock()
+        self.temporal.start_date = None
+        self.temporal.end_date = None
+        self.temporal.execution_date = None
+        self.temporal.timestep = Duration(minutes=60)
+        self.output = None
+        self.relative_src = None
+
+    def with_start_date(self, date) -> Self:
+        self.temporal.start_date = date
+        return self
+
+    def with_end_date(self, date) -> Self:
+        self.temporal.end_date = date
+        return self
+
+    def with_execution_date(self, date) -> Self:
+        self.temporal.execution_date = date
+        return self
+
+    def with_timestep_date(self, duration) -> Self:
+        self.temporal.timestep = duration
+        return self
+
+    def with_output(self, path) -> Self:
+        self.output = path
+        return self
+
+    def with_relative_src(self, path) -> Self:
+        self.relative_src = path
+        return self
+
+    def build(self, tmp_path = None):
+        if not self.output and tmp_path is not None:
+            self.output = tmp_path / "output_path"
+        if not self.relative_src and tmp_path is not None:
+            self.relative_src = tmp_path / "relative_src"
+        return self
 
 class MockModuleBuilder:
     """Default: return a module so that module.run() returns an output with no change set."""
@@ -166,19 +206,27 @@ class OrchestratorConfigBuilder:
     def build(self, tmp_path):
         if self.dataset_dir is None:
             self.dataset_dir = tmp_path / "dataset"
-        if self.output_dir is not None:
-            self.output_dir = "output_dataset_path: " + tmp_path / "output"
 
         self.dataset_dir.mkdir(exist_ok=True)
-        self.output_dir.mkdir(exist_ok=True)
         config = tmp_path / "orchestrator_config.yaml"
-        content = (
-            f"name: {self.name}\n"
-            f"dataset_path: {self.dataset_dir}\n"
-            f"{self.output_dir}\n"
-            f"{self.context}\n"
-            f"{self.misc}\n"
-        )
+
+        if self.output_dir is not None:
+            self.output_dir.mkdir(exist_ok=True)
+            content = (
+                f"name: {self.name}\n"
+                f"dataset_path: {self.dataset_dir}\n"
+                f"output_dataset_path: {self.output_dir}\n"
+                f"{self.context}\n"
+                f"{self.misc}\n"
+            )
+        else: #FIXME improve code
+            content = (
+                f"name: {self.name}\n"
+                f"dataset_path: {self.dataset_dir}\n"
+                f"output_dataset_path: {self.output_dir}\n"
+                f"{self.context}\n"
+                f"{self.misc}\n"
+            )
         config.write_text(content)
         return config
 
@@ -191,6 +239,9 @@ class MockTaskBuilder:
         self.offset_start_date = Duration(days=1)
         self.offset_end_date = Duration(days=2)
         self.priority = 1
+        self.module = None
+        self.workflow = None
+        self.parameters = None
 
     def with_from_until_frequency(self, from_, until, frequency) -> Self:
         self.from_ = from_
@@ -208,6 +259,18 @@ class MockTaskBuilder:
 
     def with_priority(self, priority: int) -> Self:
         self.priority = priority
+        return self
+
+    def with_module(self, module) -> Self:
+        self.module = module
+        return self
+
+    def with_workflow(self, workflow) -> Self:
+        self.workflow = workflow
+        return self
+
+    def with_parameters(self, parameters) -> Self:
+        self.parameters = parameters
         return self
 
     def build(self):
