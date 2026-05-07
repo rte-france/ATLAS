@@ -44,14 +44,12 @@ def convert_p2g_units(
         area = areas[area_name]
         logger.debug(f"Processing P2G units for area {area.id}")
 
-        # Process P2G base
         p2g_base = _convert_p2g_base(
             area=area, parameters=parameters, atlas_dataset=atlas_dataset, links=links, study=study
         )
         if p2g_base:
             p2g_units.append(p2g_base)
 
-        # Process P2G marginal
         p2g_marg = _convert_p2g_marg(
             area=area, parameters=parameters, atlas_dataset=atlas_dataset, areas=areas, links=links, study=study
         )
@@ -203,7 +201,9 @@ def _convert_p2g_methanation(
         )
 
     thermal_name = "z_p2g_methanation_z_P2G_methanation_methanation"
-    _p2g_meth_tc = areas["z_p2g_methanation"].get_thermals().get(thermal_name, None) if "z_p2g_methanation" in areas else None
+    _p2g_meth_tc = (
+        areas["z_p2g_methanation"].get_thermals().get(thermal_name, None) if "z_p2g_methanation" in areas else None
+    )
     variable_cost_value = _p2g_meth_tc.properties.market_bid_cost if _p2g_meth_tc is not None else 0.0
 
     variable_cost = Timeseries.from_index(

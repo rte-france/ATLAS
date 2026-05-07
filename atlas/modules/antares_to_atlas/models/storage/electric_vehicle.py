@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 from pathlib import Path
 
 import numpy as np
+import polars as pl
 from antares.craft import Frequency, MCIndAreasDataType, MCIndLinksDataType
 from antares.craft.model.study import Study
 from loguru import logger
@@ -70,24 +71,15 @@ def convert_electric_vehicle_units(
 
 
 def _load_baseline_displacement_energy(parameters: AntaresToAtlasParameters) -> Timeseries | None:
-    """Load baseline displacement energy from CSV file (first column, semicolon-separated, header skipped)."""
+    """Load baseline displacement energy from CSV file (first column, semicolon-separated)."""
     if parameters.baseline_displacement_energy is None:
         logger.warning("baseline_displacement_energy parameter not set, skipping EV displacement energy")
         return None
 
     file_path = Path(parameters.baseline_displacement_energy)
-    if not file_path.exists():
-        logger.warning(f"Baseline displacement energy file not found: {file_path}")
-        return None
 
-    values: list[float] = []
-    with open(file_path) as f:
-        lines = f.readlines()
-
-    for line in lines[1:]:  # skip header
-        parts = line.strip().split(";")
-        if parts and parts[0].strip():
-            values.append(round(float(parts[0].strip())))
+    df = pl.read_csv(file_path, separator=";")
+    values = df[:, 0].cast(pl.Float64).round(0)
 
     if len(values) < 2:
         logger.warning("Baseline displacement energy file has insufficient data")
@@ -103,26 +95,10 @@ def _load_specific_node_parameters(parameters: AntaresToAtlasParameters) -> dict
         return {}
 
     file_path = Path(parameters.disp_energy_node_parameters)
-    if not file_path.exists():
-        logger.warning(f"Node parameters file not found: {file_path}")
-        return {}
 
-    params: dict[str, tuple[int, float]] = {}
-    with open(file_path) as f:
-        lines = f.readlines()
-
-    for line in lines[1:]:  # skip header
-        parts = line.strip().split(";")
-        if len(parts) >= 3:
-            node = parts[0].lower().strip()
-            try:
-                shift_h = int(parts[1].strip())
-                scale = float(parts[2].strip())
-                params[node] = (shift_h, scale)
-            except ValueError:
-                logger.warning(f"Invalid EV node parameters for node '{parts[0]}': {parts[1:]}")
-
-    return params
+    df = pl.read_csv(file_path, separator=";")
+    nodes, shifts, scales = df.to_dict(as_series=False).values()
+    return {node.lower(): (int(shift), float(scale)) for node, shift, scale in zip(nodes, shifts, scales, strict=True)}
 
 
 def _compute_displacement_energy(
