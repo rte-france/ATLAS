@@ -48,9 +48,7 @@ def convert_wind_units(
 
         if use_clusters:
             scenario = (
-                study.get_output(parameters.output_name)
-                .get_wind_ts_numbers(area_name)
-                .get(parameters.scenario, None)
+                study.get_output(parameters.output_name).get_wind_ts_numbers(area_name).get(parameters.scenario, None)
             )
             renewables = area.get_renewables()
             for cluster_res in renewables.values():

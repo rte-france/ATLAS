@@ -75,7 +75,7 @@ class AntaresToAtlas:
         self.registry = self._build_registry()
 
     @classmethod
-    def from_file(cls, parameters_file: str) -> AntaresToAtlas:
+    def from_file(cls, parameters_file: str | Path) -> AntaresToAtlas:
         """Create converter from a parameters file.
 
         :param parameters_file: Path to YAML or JSON parameters file
@@ -175,9 +175,17 @@ class AntaresToAtlas:
         return results
 
     def list_converters(self) -> list[str]:
-        """List all registered converters.
+        """List converters that would run with the current parameters.
 
         :return: List of converter names in registration order
         :rtype: list[str]
         """
-        return self.registry.get_converter_names()
+        return self.registry.get_converter_names(self.parameters)
+
+    def list_converter_details(self) -> list[tuple[str, str]]:
+        """List converters that would run with the current parameters, with descriptions.
+
+        :return: List of (name, description) pairs in registration order
+        :rtype: list[tuple[str, str]]
+        """
+        return self.registry.get_converter_details(self.parameters)

@@ -1,16 +1,18 @@
 import os
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 import typer
 from rich import print as rprint
+from rich.table import Table
 
 import atlas
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.config import logger
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
+from atlas.modules.antares_to_atlas.antares_to_atlas import AntaresToAtlas
 from atlas.modules.module_run import ModuleRun
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.module_registry import ModuleRegistry
@@ -158,6 +160,149 @@ def profiling(
             raise typer.Exit(code=1) from e
 
         run_module(parameters, module_name, dataset_path, output)
+
+
+_VALID_FORMATS = ("parquet", "csv", "pickle")
+
+antares_app = typer.Typer(help="Convert Antares studies to Atlas dataset format.")
+app.add_typer(antares_app, name="antares-to-atlas")
+
+
+def _load_converter(parameters_file: Path) -> AntaresToAtlas:
+    try:
+        return AntaresToAtlas.from_file(parameters_file)
+    except Exception as e:
+        rprint(f"[bold red]Error[/bold red]: Failed to load parameters: {e}")
+        raise typer.Exit(code=1) from e
+
+
+@antares_app.command("run")
+def antares_run(
+    study_path: Path = typer.Argument(help="Path to the Antares study directory"),
+    parameters_file: Path = typer.Option(..., "--parameters", "-p", help="Parameters YAML file"),
+    output: Path = typer.Option(..., "--output", "-o", help="Directory to write the converted AtlasDataset"),
+    fmt: str = typer.Option("parquet", "--format", "-f", help=f"Output format: {', '.join(_VALID_FORMATS)}"),
+) -> None:
+    """Convert an Antares study to Atlas dataset format.
+
+    \b
+    Basic conversion:
+      atlas antares-to-atlas run ./study -p params.yaml -o ./dataset/
+
+    \b
+    CSV output:
+      atlas antares-to-atlas run ./study -p params.yaml -o ./dataset/ -f csv
+    """
+    if not parameters_file.exists():
+        rprint(f"[bold red]Error[/bold red]: Parameters file not found: {parameters_file}")
+        raise typer.Exit(code=1)
+
+    if not study_path.exists() or not study_path.is_dir():
+        rprint(f"[bold red]Error[/bold red]: Study directory not found: {study_path}")
+        raise typer.Exit(code=1)
+
+    if fmt not in _VALID_FORMATS:
+        rprint(f"[bold red]Error[/bold red]: Unknown format '{fmt}'. Valid: {', '.join(_VALID_FORMATS)}")
+        raise typer.Exit(code=1)
+
+    converter = _load_converter(parameters_file)
+
+    logger.info(f"Study     : {study_path}")
+    logger.info(f"Parameters: {parameters_file}")
+    logger.info(f"Output    : {output} ({fmt})")
+
+    try:
+        with timer() as t:
+            dataset = converter.convert(study_path)
+        rprint(f"[bold green]✓[/bold green] Conversion completed in {t()} seconds")
+    except Exception as e:
+        logger.exception(f"✗ Conversion failed: {e}")
+        raise typer.Exit(code=1) from e
+
+    try:
+        dataset.to_directory(
+            output,
+            timeseries_file_extension=cast(Literal["csv", "parquet", "pickle"], fmt),
+            matrix_file_extension=cast(Literal["csv", "parquet", "pickle"], fmt),
+        )
+        rprint(f"[bold green]✓[/bold green] Dataset written to: {output}")
+    except Exception as e:
+        logger.exception(f"✗ Failed to write dataset: {e}")
+        raise typer.Exit(code=1) from e
+
+
+@antares_app.command("validate")
+def antares_validate(
+    parameters_file: Path = typer.Option(..., "--parameters", "-p", help="Parameters YAML to validate"),
+) -> None:
+    """Validate a parameters file without running the conversion.
+
+    \b
+    Check parameters and list converters that would run:
+      atlas antares-to-atlas validate -p params.yaml
+    """
+    if not parameters_file.exists():
+        rprint(f"[bold red]Error[/bold red]: Parameters file not found: {parameters_file}")
+        raise typer.Exit(code=1)
+
+    converter = _load_converter(parameters_file)
+    p = converter.parameters
+
+    rprint(f"[bold green]✓[/bold green] Parameters loaded from [cyan]{parameters_file}[/cyan]")
+    rprint(f"  start_date   : {p.start_date}")
+    rprint(f"  execution_date: {p.execution_date}")
+    rprint(f"  hypothesis   : {p.hypothesis or '(none)'}")
+    rprint(f"  scenario     : {p.scenario}")
+    rprint(f"  output_name  : {p.output_name}")
+    rprint(f"  market_areas : {', '.join(p.market_areas)}")
+
+    paths = {
+        "initialization_curve": p.hydro.initialization_curve,
+        "path_inflows": p.hydro.path_inflows,
+        "baseline_displacement_energy": p.baseline_displacement_energy,
+        "disp_energy_node_parameters": p.disp_energy_node_parameters,
+    }
+    path_issues = [f"{k}: {v}" for k, v in paths.items() if v is not None and not Path(v).exists()]
+    if path_issues:
+        rprint("\n[bold red]✗ Missing paths:[/bold red]")
+        for issue in path_issues:
+            rprint(f"  {issue}")
+    else:
+        rprint("  paths        : [green]OK[/green]")
+
+    details = converter.list_converter_details()
+    table = Table(title=f"\nConverters that would run ({len(details)})", show_lines=False)
+    table.add_column("#", style="dim", width=4)
+    table.add_column("Name", style="bold")
+    table.add_column("Description", style="dim")
+    for i, (name, description) in enumerate(details, 1):
+        table.add_row(str(i), name, description)
+    rprint(table)
+
+
+@antares_app.command("converters")
+def antares_converters(
+    parameters_file: Path = typer.Option(..., "--parameters", "-p", help="Parameters YAML"),
+) -> None:
+    """List converters that would run for a given parameters file.
+
+    \b
+      atlas antares-to-atlas converters -p params.yaml
+    """
+    if not parameters_file.exists():
+        rprint(f"[bold red]Error[/bold red]: Parameters file not found: {parameters_file}")
+        raise typer.Exit(code=1)
+
+    converter = _load_converter(parameters_file)
+    details = converter.list_converter_details()
+
+    table = Table(title=f"Converters ({len(details)})", show_lines=False)
+    table.add_column("#", style="dim", width=4)
+    table.add_column("Name", style="bold")
+    table.add_column("Description", style="dim")
+    for i, (name, description) in enumerate(details, 1):
+        table.add_row(str(i), name, description)
+    rprint(table)
 
 
 @app.command()

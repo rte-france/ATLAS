@@ -65,8 +65,7 @@ def convert_battery_units(
     if normal_battery and pcomp_battery:
         if normal_area_id != pcomp_area_id:
             raise AssertionError(
-                f"Cannot merge batteries from different areas: "
-                f"normal={normal_area_id!r} vs pcomp={pcomp_area_id!r}"
+                f"Cannot merge batteries from different areas: normal={normal_area_id!r} vs pcomp={pcomp_area_id!r}"
             )
         logger.debug(f"Merging normal and pcomp batteries for area {normal_area_id}")
         _merge_batteries(normal_battery, pcomp_battery, parameters)
@@ -220,13 +219,11 @@ def _merge_batteries(normal_battery: Storage, pcomp_battery: Storage, parameters
 
     if total_max > 0:
         normal_battery.discharge_efficiency = (
-            normal_battery.discharge_efficiency * normal_max
-            + pcomp_battery.discharge_efficiency * pcomp_max
+            normal_battery.discharge_efficiency * normal_max + pcomp_battery.discharge_efficiency * pcomp_max
         ) / total_max
 
         normal_battery.charge_efficiency = (
-            normal_battery.charge_efficiency * normal_max
-            + pcomp_battery.charge_efficiency * pcomp_max
+            normal_battery.charge_efficiency * normal_max + pcomp_battery.charge_efficiency * pcomp_max
         ) / total_max
 
     # Merge power ForecastingMatrix by extracting and summing the underlying timeseries

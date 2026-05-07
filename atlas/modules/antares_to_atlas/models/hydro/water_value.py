@@ -214,7 +214,8 @@ def _run_bellman_iteration(
                 denom_j0 = stock_arr[n_idx_clipped] - stock_arr[n_idx_prev]
                 safe_denom_j0 = np.where(denom_j0 != 0.0, denom_j0, 1.0)
                 interp_g2 = bellman_next[n_idx_clipped] + (
-                    (stock_i - stock_arr[n_idx_clipped]) / safe_denom_j0
+                    (stock_i - stock_arr[n_idx_clipped])
+                    / safe_denom_j0
                     * (bellman_next[n_idx_clipped] - bellman_next[n_idx_prev])
                 )
                 g2 = np.where(
@@ -238,9 +239,7 @@ def _run_bellman_iteration(
                         denom_j = stock_arr[m1] - stock_arr[m]
                         safe_denom_j = np.where(denom_j != 0.0, denom_j, 1.0)
                         sv = beta * (
-                            (bellman_next[m] - bellman_next[m1])
-                            * (stock_arr[m1] - stock_j)
-                            / safe_denom_j
+                            (bellman_next[m] - bellman_next[m1]) * (stock_arr[m1] - stock_j) / safe_denom_j
                             + bellman_next[m1]
                         )
                         gain_lv1 = (stock_i - stock_j) * (-5000.0)

@@ -136,13 +136,13 @@ def get_variable_cost(thermal: ThermalCluster, parameters: AntaresToAtlasParamet
         return Timeseries.from_values(
             parameters.start_date,
             frequency="1h",
-            values=(thermal.get_prepro_modulation_matrix()[1] * thermal.properties.market_bid_cost).to_list(),  # MarketBidModulation × MarketBidCost
+            values=(thermal.get_prepro_modulation_matrix()[1] * thermal.properties.market_bid_cost),
         )
     else:
         return Timeseries.from_values(
             parameters.start_date,
             frequency="1h",
-            values=(thermal.get_prepro_modulation_matrix()[0] * thermal.properties.marginal_cost).to_list(),  # MarginalCostModulation × MarginalCost
+            values=(thermal.get_prepro_modulation_matrix()[0] * thermal.properties.marginal_cost),
         )
 
 
