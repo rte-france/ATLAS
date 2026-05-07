@@ -107,12 +107,12 @@ def _convert_pcomp_units(
 
         unit = _create_pcomp_equipment(
             area_name=area_name,
-            thermal_name=thermal_name,
             thermal=thermal,
             parameters=parameters,
             atlas_dataset=atlas_dataset,
             installed_capacity=installed_capacity,
             properties=properties,
+            study=study,
         )
         if unit:
             new_units.append(unit)
@@ -146,12 +146,7 @@ def _create_pcomp_equipment(
         default_value=thermal.properties.min_stable_power,
     )
 
-    variable_cost_ts = Timeseries.from_index(
-        start_date=parameters.start_date,
-        frequency="1h",
-        end_date=parameters.start_date + duration(years=1),
-        default_value=get_variable_cost(thermal, parameters),
-    )
+    variable_cost_ts = get_variable_cost(thermal, parameters)
 
     startup_cost_ts = Timeseries.from_index(
         start_date=parameters.start_date,

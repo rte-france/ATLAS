@@ -47,7 +47,7 @@ def convert_phs_closed_units(
 
         if (
             area_name not in parameters.hydro.reservoirs
-            or parameters.hydro.reservoirs.get(area_name).closed_loop_capacity == 0.0
+            or parameters.hydro.reservoirs[area_name].closed_loop_capacity == 0.0
         ):
             continue
 
@@ -76,11 +76,10 @@ def convert_phs_closed_units(
 
         if (
             area_name not in parameters.hydro.reservoirs
-            or parameters.hydro.reservoirs.get(area_name).closed_loop_capacity == 0.0
+            or parameters.hydro.reservoirs[area_name].closed_loop_capacity == 0.0
         ):
             continue
 
-        # Look for pump link
         pump_link = links.get(f"{area.id}_x_closed_pump")
         if pump_link:
             # Find existing PHS or create new one
@@ -165,7 +164,7 @@ def _create_phs_from_turb_link(
             start_date=parameters.start_date,
             frequency="1h",
             end_date=parameters.start_date + duration(years=1),
-            default_value=parameters.hydro.reservoirs.get(area.id).closed_loop_capacity,
+            default_value=parameters.hydro.reservoirs[area.id].closed_loop_capacity,
         ),
         minimum_state_of_charge=Timeseries.from_index(
             start_date=parameters.start_date,
@@ -234,7 +233,7 @@ def _create_phs_from_pump_link(
             start_date=parameters.start_date,
             frequency="1h",
             end_date=parameters.start_date + duration(years=1),
-            default_value=parameters.hydro.reservoirs.get(area.id).closed_loop_capacity,
+            default_value=parameters.hydro.reservoirs[area.id].closed_loop_capacity,
         ),
         minimum_state_of_charge=Timeseries.from_index(
             start_date=parameters.start_date,
@@ -279,11 +278,10 @@ def _update_phs_with_pump_link(phs: Storage, link: Link, parameters: AntaresToAt
 
         power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=transit_df * -1.0)
 
-        # Merge pump power into existing turb power for the same execution date
         if phs.power is not None:
             fm = phs.power
             exec_key = parameters.execution_date.format(fm.date_format)
-            if exec_key in fm.indexes:
+            if isinstance(fm, ForecastingMatrix) and exec_key in fm.indexes:
                 prev_ts = fm[exec_key]
                 fm.replace(parameters.execution_date, prev_ts + power_ts)
             else:

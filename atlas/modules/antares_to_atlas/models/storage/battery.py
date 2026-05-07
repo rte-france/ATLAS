@@ -34,6 +34,7 @@ def convert_battery_units(
     """
     logger.info("Converting Battery units")
 
+    areas = study.get_areas()
     links = study.get_links()
     batteries: list[Storage] = []
 
@@ -44,19 +45,19 @@ def convert_battery_units(
     pcomp_battery = None
 
     if link is not None:
-        area = link.area_to_id
-        if area in parameters.market_areas:
+        area_id = link.area_to_id
+        if area_id in parameters.market_areas and area_id in areas:
             prefix = parameters.storage.battery_normal_link.lstrip("z_")
-            normal_battery = _convert_battery(area, study, parameters, atlas_dataset, link, prefix=prefix)
+            normal_battery = _convert_battery(areas[area_id], study, parameters, atlas_dataset, link, prefix=prefix)
 
     if link_pcomp is not None:
-        area = link_pcomp.area_to_id
-        if area in parameters.market_areas:
+        area_id = link_pcomp.area_to_id
+        if area_id in parameters.market_areas and area_id in areas:
             prefix = parameters.storage.battery_pcomp_link.lstrip("z_")
-            pcomp_battery = _convert_battery(area, study, parameters, atlas_dataset, link_pcomp, prefix=prefix)
+            pcomp_battery = _convert_battery(areas[area_id], study, parameters, atlas_dataset, link_pcomp, prefix=prefix)
 
     if normal_battery and pcomp_battery:
-        logger.debug(f"Merging normal and pcomp batteries for area {area.id}")
+        logger.debug(f"Merging normal and pcomp batteries for area {area_id}")
         _merge_batteries(normal_battery, pcomp_battery, parameters)
         batteries.append(normal_battery)
     elif normal_battery:
@@ -103,7 +104,7 @@ def _convert_battery(
 
     maximum_power_df = inj_thermal.get_series_matrix()[scenario - 1]
     power_discharge_df = study.get_output(parameters.output_name).get_mc_ind_area(
-        parameters.scenario, Frequency.HOURLY, data_type=MCIndAreasDataType, area=area.id
+        parameters.scenario, Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.id
     )[()]  # TODO get the columns corresponding to CalculatedPower
 
     if maximum_power_df.abs().max().max() or power_discharge_df.abs().max().max() == 0:
@@ -115,6 +116,9 @@ def _convert_battery(
     )
 
     stock_thermal = thermals.get(f"z_{prefix}_{prefix}_{area.id}_1", None)
+    if stock_thermal is None:
+        logger.warning(f"Stock thermal z_{prefix}_{prefix}_{area.id}_1 not found, skipping battery conversion")
+        return None
     maximum_energy_df = stock_thermal.get_series_matrix()[scenario - 1]
     maximum_energy_ts = Timeseries.from_values(
         start_date=parameters.start_date, frequency="1h", values=maximum_energy_df
@@ -184,6 +188,13 @@ def _merge_batteries(normal_battery: Storage, pcomp_battery: Storage, parameters
 
     Merges capacities and calculates weighted average efficiencies.
     """
+    if (
+        normal_battery.maximum_power is None
+        or pcomp_battery.maximum_power is None
+        or normal_battery.power is None
+    ):
+        logger.warning("Cannot merge batteries: missing capacity data")
+        return
     normal_battery.maximum_power += pcomp_battery.maximum_power
     normal_battery.minimum_power += pcomp_battery.minimum_power
     normal_battery.maximum_energy += pcomp_battery.maximum_energy

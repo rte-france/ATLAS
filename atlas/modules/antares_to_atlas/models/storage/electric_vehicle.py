@@ -357,13 +357,13 @@ def _convert_france_evs(
 
     # MinimumPower requires ROW balance of virtual node ve_fr_load_total (output data)
     try:
-        row_balance_arr = (
+        row_balance_arr = np.asarray(
             study.get_output(parameters.output_name).get_mc_ind_area(
                 mc_year=parameters.scenario,
                 frequency=Frequency.HOURLY,
                 data_type=MCIndAreasDataType.VALUES,
                 area="ve_fr_load_total",
-            )[("ROW BAL.", "MWh")],
+            )[("ROW BAL.", "MWh")]
         )  # TODO verify column name in antares craft output API
 
     except Exception as e:

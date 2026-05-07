@@ -60,7 +60,7 @@ def convert_hydro_units(
             hydro_units.append(hydro)
 
     logger.info(f"Converted {len(hydro_units)} hydro units")
-    atlas_dataset.hydro = hydro_units
+    atlas_dataset.hydro.add(hydro_units)
     return atlas_dataset
 
 

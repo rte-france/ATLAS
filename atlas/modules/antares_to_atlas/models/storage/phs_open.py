@@ -4,6 +4,7 @@ This file is part of the ATLAS project.
 """
 
 from collections.abc import Mapping
+from typing import cast
 
 import numpy as np
 from antares.craft import Frequency, MCIndLinksDataType
@@ -19,6 +20,7 @@ from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.modules.antares_to_atlas.utils import get_binding_constraint_for_phs
+from atlas.objects.equipment.hydro import Hydro
 from atlas.objects.equipment.storage import Storage
 
 
@@ -128,7 +130,7 @@ def _create_open_phs(
     closed_ratio_arr = np.where(w_hydro_cap_df > 0, closed_delta_arr / w_hydro_cap_df, 0.0)
 
     # --- Update existing hydro equipment with the open part ---
-    hydro = atlas_dataset.get("hydro", f"{area.id}_hydro")
+    hydro = cast(Hydro, atlas_dataset.get("hydro", f"{area.id}_hydro"))
     if hydro is not None:
         # Add closed_delta to hydro MaximumPower
         delta_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=closed_delta_arr.tolist())

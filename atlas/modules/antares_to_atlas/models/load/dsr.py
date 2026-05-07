@@ -163,7 +163,7 @@ def _convert_dsr_other_country(
     cluster = thermals[thermal_name]
 
     try:
-        scenario = study.get_output(parameters.output_name).get_thermal_ts_numbers().get(parameters.scenario, None)
+        scenario = study.get_output(parameters.output_name).get_thermal_ts_numbers(area.id, thermal_name).get(parameters.scenario, None)
         maximum_power_df = cluster.get_series_matrix()[scenario - 1]
 
         if maximum_power_df.abs().max() == 0:

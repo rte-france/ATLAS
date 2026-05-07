@@ -49,7 +49,9 @@ def update_variable_cost_for_gas_units(
             logger.info(f"Adding CH4 variable cost to thermal: {thermal_name}")
 
             equipment.variable_cost = Timeseries.from_values(
-                start_date=parameters.start_date, frequency="1h", values=marginal_price_ch4 * ch4_yields[thermal_name]
+                start_date=parameters.start_date,
+                frequency="1h",
+                values=(marginal_price_ch4 * ch4_yields[thermal_name]).values,
             )
 
     # Update H2 thermal units
@@ -61,7 +63,9 @@ def update_variable_cost_for_gas_units(
 
             logger.info(f"Adding H2 variable cost to thermal: {thermal_name}")
             equipment.variable_cost = Timeseries.from_values(
-                start_date=parameters.start_date, frequency="1h", values=marginal_price_h2 * h2_yields[thermal_name]
+                start_date=parameters.start_date,
+                frequency="1h",
+                values=(marginal_price_h2 * h2_yields[thermal_name]).values,
             )
 
     logger.info("Variable cost update for gas units done")

@@ -65,7 +65,8 @@ def add_nuclear_modulation(
             )
 
     # Remove Nuclear_peak units
-    atlas_dataset.thermal = [t for t in atlas_dataset.thermal if t.name not in units_to_remove]
+    for name in units_to_remove:
+        atlas_dataset.thermal.remove(name)
     logger.debug(f"Removed {len(units_to_remove)} Nuclear_peak units: {units_to_remove}")
 
     logger.info("Nuclear modulation done")

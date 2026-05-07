@@ -78,6 +78,9 @@ def _load_initialization_curve(parameters: AntaresToAtlasParameters) -> Timeseri
     :return: Timeseries of reservoir fill percentages, or None if file not found
     """
     path = parameters.hydro.initialization_curve
+    if path is None:
+        logger.debug("No hydro initialization curve configured")
+        return None
     logger.debug(f"Loading hydro initialization curve from: {path}")
 
     try:

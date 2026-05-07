@@ -110,6 +110,10 @@ def _compute_node_water_values(
     )
     total_time_steps = n_time_steps * parameters.hydro.water_value_nb_years
 
+    if hydro.maximum_power is None or hydro.maximum_energy is None:
+        logger.warning(f"Cannot compute water values for {area.id}: missing power or energy timeseries")
+        return
+
     power_average = np.mean(hydro.maximum_power.values)
     capacity = hydro.maximum_energy.first_value()
 
@@ -155,6 +159,7 @@ def _run_bellman_iteration(
     Assumes hourly timestep: MaxPower (MW) × 1h = MWh, consistent with stock levels in MWh.
     """
     # Pre-compute max power at hourly resolution: daily (365) → hourly (8760)
+    assert hydro.maximum_power is not None
     max_power_arr = np.repeat(np.array(hydro.maximum_power.values, dtype=float), 24)
 
     # Initialize WV accumulator

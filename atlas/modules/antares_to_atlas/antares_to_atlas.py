@@ -14,6 +14,7 @@ from antares.craft import read_study_local
 from loguru import logger
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.converters.bp23 import (
     BatteryConverterBP23,
     DSRConverterBP23,
@@ -105,7 +106,7 @@ class AntaresToAtlas:
         """
         registry = ConverterRegistry()
 
-        standard_converters = [
+        standard_converters: list[type[Converter]] = [
             SystemStructureConverter,
             LoadConverter,
             WindConverter,
@@ -129,7 +130,7 @@ class AntaresToAtlas:
         :param registry: Converter registry
         :type registry: ConverterRegistry
         """
-        bp23_converters = [
+        bp23_converters: list[type[Converter]] = [
             MixedFuelConverterBP23,  # Depends on thermal converter
             ElectricVehicleConverterBP23,
             BatteryConverterBP23,

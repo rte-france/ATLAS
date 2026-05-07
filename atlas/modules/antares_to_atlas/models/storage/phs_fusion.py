@@ -107,7 +107,7 @@ def _merge_phs_for_node(atlas_dataset: AtlasDataset, node_name: str) -> None:
         return
 
     # Remove the open PHS from the storage list
-    atlas_dataset.storage = [s for s in atlas_dataset.storage if s.name != open_name]
+    atlas_dataset.storage.remove(open_name)
     logger.debug(f"Merged and removed {open_name}, kept {closed_name}")
 
 

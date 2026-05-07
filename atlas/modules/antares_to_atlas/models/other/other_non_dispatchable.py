@@ -32,12 +32,12 @@ def convert_other_non_dispatchable_units(
         ror = areas[area_name].hydro.get_ror_series()
         scenario = study_output.get_hydro_ts_numbers(area_name).get(parameters.scenario, None)
         if scenario is not None:
-            ror = ror[parameters.scenario - 1]
-            if ror.abs().max().item() > 0:
+            ror_series = ror[parameters.scenario - 1]
+            if ror_series.abs().max().item() > 0:
                 ror_ts = Timeseries.from_values(
                     start_date=parameters.execution_date,
                     frequency="1h",
-                    values=ror,
+                    values=ror_series,
                 )
                 non_disp_units.append(
                     OtherNonDispatchable(

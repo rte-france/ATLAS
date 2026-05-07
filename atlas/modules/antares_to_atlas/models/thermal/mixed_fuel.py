@@ -81,6 +81,7 @@ def convert_mixed_fuel_units(
                 thermal=thermal,
                 parameters=parameters,
                 atlas_dataset=atlas_dataset,
+                study=study,
             )
             if thermal_unit:
                 new_thermal_units.append(thermal_unit)
@@ -105,7 +106,7 @@ def _process_waste_unit(
     Waste units from the same area are merged (power is accumulated) into a
     single OtherNonDispatchable named "{area}_Waste".
     """
-    scenario = study.get_output(parameters.output_name).get_thermal_ts_numbers(area.name).get(parameters.scenario, None)
+    scenario = study.get_output(parameters.output_name).get_thermal_ts_numbers(area.name, thermal.name).get(parameters.scenario, None)
     if scenario is None:
         logger.warning(f"Could not find thermal time series for area {area.id} and scenario {parameters.scenario}")
         return
@@ -143,9 +144,10 @@ def _process_waste_unit(
     else:
         # Accumulate power into existing Waste unit for the same execution date
         fm = existing_waste.maximum_power_forecast
-        exec_key = parameters.execution_date.format(fm.date_format)
-        prev_ts = fm[exec_key]
-        fm.replace(parameters.execution_date, prev_ts + prod_ts)
+        if isinstance(fm, ForecastingMatrix):
+            exec_key = parameters.execution_date.format(fm.date_format)
+            prev_ts = fm[exec_key]
+            fm.replace(parameters.execution_date, prev_ts + prod_ts)
         logger.debug(f"Accumulated power into existing Waste unit {waste_name}")
 
 
@@ -154,6 +156,7 @@ def _process_classic_mixed_fuel(
     thermal: ThermalCluster,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
+    study: Study,
 ) -> Thermal | None:
     """Convert a classic Mixed_fuel cluster (Coal, CCGT, OCGT, Oil, Lignite) to Thermal equipment."""
     techno = _detect_mixed_fuel_technology(thermal)
@@ -161,7 +164,7 @@ def _process_classic_mixed_fuel(
         logger.warning(f"Could not detect technology for Mixed_fuel unit {thermal.name}, skipping")
         return None
 
-    maximum_power_ts = get_maximum_power(area, thermal, parameters)
+    maximum_power_ts = get_maximum_power(area, thermal, parameters, study)
     if maximum_power_ts is None:
         return None
 

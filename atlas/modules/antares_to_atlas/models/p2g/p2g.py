@@ -145,11 +145,8 @@ def _convert_p2g_marg(
         )
 
     thermal_name = "z_p2g_marg_z_P2G_marg_marg"
-    variable_cost_value = (
-        areas["z_p2g_marg"].get_thermals().get(thermal_name, None).properties.market_bid_cost
-        if "z_p2g_marg" in areas
-        else 0.0
-    )
+    _p2g_marg_tc = areas["z_p2g_marg"].get_thermals().get(thermal_name, None) if "z_p2g_marg" in areas else None
+    variable_cost_value = _p2g_marg_tc.properties.market_bid_cost if _p2g_marg_tc is not None else 0.0
 
     variable_cost = Timeseries.from_index(
         start_date=parameters.start_date,
@@ -206,11 +203,8 @@ def _convert_p2g_methanation(
         )
 
     thermal_name = "z_p2g_methanation_z_P2G_methanation_methanation"
-    variable_cost_value = (
-        areas["z_p2g_methanation"].get_thermals().get(thermal_name, None).properties.market_bid_cost
-        if "z_p2g_methanation" in areas
-        else 0.0
-    )
+    _p2g_meth_tc = areas["z_p2g_methanation"].get_thermals().get(thermal_name, None) if "z_p2g_methanation" in areas else None
+    variable_cost_value = _p2g_meth_tc.properties.market_bid_cost if _p2g_meth_tc is not None else 0.0
 
     variable_cost = Timeseries.from_index(
         start_date=parameters.start_date,
