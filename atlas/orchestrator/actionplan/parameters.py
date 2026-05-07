@@ -93,6 +93,18 @@ class Task(BaseModel):
         return convert_to_duration(v)
 
     @model_validator(mode="after")
+    def module_or_workflow(self) -> Task:  # FIXME better function name? Can we overide validate()
+        if self.module is None and self.workflow is None:
+            raise ValueError(
+                f"Task {self.name} doesn't contains either a module or a workflow, expected exactly one of them"
+            )  # FIXME More appropriate exception name?
+        if self.module is not None and self.workflow is not None:
+            raise ValueError(
+                f"Task {self.name} contains both a module or a workflow, expected exactly one of them"
+            )  # FIXME More appropriate exception name?
+        return self
+
+    @model_validator(mode="after")
     def until_from_frequency(self) -> Task:  # FIXME Can we override validate()?
         if self.until < self.from_:
             raise ValueError(
@@ -106,21 +118,5 @@ class Task(BaseModel):
                 f"Task {self.name} last execution date is not equal to 'until' {self.until}', last value is {last_execution_date}",
                 DataQualityWarning,
                 stacklevel=2,
-            )
-        return self
-
-    @model_validator(mode="after")
-    def module_or_workflow(self) -> Task:  # FIXME better function name? Can we overide validate()
-        if self.module is None and self.workflow is None:
-            raise ValueError(
-                f"Task {self.name} doesn't contains either a module or a workflow, expected exactly once of them"
-            )  # FIXME More appropriate exception name?
-        if self.module is not None and self.workflow is not None:
-            raise ValueError(
-                f"Task {self.name} contains both a module or a workflow, expected exactly once of them"
-            )  # FIXME More appropriate exception name?
-        if self.until <= self.from_:
-            raise ValueError(
-                f"Task {self.name} must have an end date before {self.from_}, current value is {self.until}"
             )
         return self
