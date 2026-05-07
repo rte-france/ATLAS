@@ -48,9 +48,7 @@ def convert_solar_units(
 
         if use_clusters:
             scenario = (
-                study.get_output(parameters.output_name)
-                .get_solar_ts_numbers(area_name)
-                .get(parameters.scenario, None)
+                study.get_output(parameters.output_name).get_solar_ts_numbers(area_name).get(parameters.scenario, None)
             )
             renewables = area.get_renewables()
             for cluster_res in renewables.values():

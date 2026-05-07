@@ -64,7 +64,9 @@ def convert_system_structure(
                 parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.name
             )[(parameters.output.marginal_price_column, "Euro")]
         except Exception as e:
-            logger.warning(f"Could not get marginal price for area {area_name} (scenario {parameters.scenario}): {e}. Skipping area.")
+            logger.warning(
+                f"Could not get marginal price for area {area_name} (scenario {parameters.scenario}): {e}. Skipping area."
+            )
             continue
 
         control_blocks.append(ctrl_block)

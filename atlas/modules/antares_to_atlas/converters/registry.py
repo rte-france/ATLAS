@@ -81,10 +81,21 @@ class ConverterRegistry:
 
         return atlas_dataset
 
-    def get_converter_names(self) -> list[str]:
-        """Get names of all registered converters.
+    def get_converter_names(self, parameters: AntaresToAtlasParameters | None = None) -> list[str]:
+        """Get names of registered converters, optionally filtered by parameters.
 
+        :param parameters: If provided, only converters that would run are returned.
         :return: List of converter names in registration order
         :rtype: list[str]
         """
-        return [c.name for c in self._converters]
+        return [name for name, _ in self.get_converter_details(parameters)]
+
+    def get_converter_details(self, parameters: AntaresToAtlasParameters | None = None) -> list[tuple[str, str]]:
+        """Get names and descriptions of registered converters.
+
+        :param parameters: If provided, only converters that would run are returned
+                           (respects conversion_steps and required_market_areas).
+        :return: List of (name, description) pairs in registration order
+        :rtype: list[tuple[str, str]]
+        """
+        return [(c.name, c.description) for c in self._converters if parameters is None or c().should_run(parameters)]

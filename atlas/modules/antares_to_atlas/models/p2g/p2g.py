@@ -97,9 +97,7 @@ def _convert_p2g_base(
     if capacity_df.abs().max().max() == 0:
         return None
 
-    capacity_ts = Timeseries.from_values(
-        start_date=parameters.start_date, frequency="1h", values=capacity_df * -1.0
-    )
+    capacity_ts = Timeseries.from_values(start_date=parameters.start_date, frequency="1h", values=capacity_df * -1.0)
 
     p2g_base = Load(
         name=f"{area.id}_p2g_base",
@@ -142,9 +140,7 @@ def _convert_p2g_marg(
     capacity_df = link.get_capacity_direct()[scenario - 1]
     if capacity_df.abs().max().max() == 0:
         return None
-    capacity_ts = Timeseries.from_values(
-        start_date=parameters.start_date, frequency="1h", values=capacity_df * -1.0
-    )
+    capacity_ts = Timeseries.from_values(start_date=parameters.start_date, frequency="1h", values=capacity_df * -1.0)
 
     thermal_name = "z_p2g_marg_z_P2G_marg_marg"
     _p2g_marg_tc = areas["z_p2g_marg"].get_thermals().get(thermal_name, None) if "z_p2g_marg" in areas else None
@@ -200,9 +196,7 @@ def _convert_p2g_methanation(
     if capacity_df.abs().max().max() == 0:
         return None
 
-    capacity_ts = Timeseries.from_values(
-        start_date=parameters.start_date, frequency="1h", values=capacity_df * -1.0
-    )
+    capacity_ts = Timeseries.from_values(start_date=parameters.start_date, frequency="1h", values=capacity_df * -1.0)
 
     thermal_name = "z_p2g_methanation_z_P2G_methanation_methanation"
     _p2g_meth_tc = (

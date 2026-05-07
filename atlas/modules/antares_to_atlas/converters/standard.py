@@ -77,7 +77,7 @@ class ThermalConverter(Converter):
     """Converter for thermal generation units."""
 
     name = "thermal"
-    description = "Thermic Conversion"
+    description = "Thermal Conversion"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_thermal_units(study, parameters, atlas_dataset)

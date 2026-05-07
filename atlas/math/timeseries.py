@@ -997,6 +997,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
                     raise ValueError(f"Could not read existing file for concatenation: {e}") from e
 
         # Write the file
+        Path(path_str).parent.mkdir(parents=True, exist_ok=True)
         if file_format_lower == "csv":
             df_to_write.write_csv(path_str, separator=separator)
         elif file_format_lower == "parquet":
