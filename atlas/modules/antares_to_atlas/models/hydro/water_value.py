@@ -150,22 +150,27 @@ def _run_bellman_iteration(
     n_time_steps: int,
     total_time_steps: int,
     study_output: Output,
-) -> dict[int, dict[int, float]]:
+) -> np.ndarray:
     """Run backward Bellman value iteration over all scenarios and time steps.
 
-    Returns WV[level_idx][t] as the sum of water values across all scenarios
+    Returns wv of shape (n_time_steps, n_levels): sum of water values across all scenarios
     (to be divided by n_scenarios in _store_water_values).
 
     Assumes hourly timestep: MaxPower (MW) × 1h = MWh, consistent with stock levels in MWh.
     """
-    # Pre-compute max power at hourly resolution: daily (365) → hourly (8760)
     assert hydro.maximum_power is not None
+    n_levels = len(stock_levels)
+    stock_arr = np.array(stock_levels, dtype=float)
+    level_indices = np.arange(n_levels)
+    beta = parameters.hydro.beta
+    subdiv = parameters.hydro.storage_subdivision
+    use_interp = parameters.hydro.use_bellman_interpolation
+
+    # Pre-compute max power at hourly resolution: daily (365) → hourly (8760)
     max_power_arr = np.repeat(np.array(hydro.maximum_power.values, dtype=float), 24)
 
-    # Initialize WV accumulator
-    wv: dict[int, dict[int, float]] = {
-        level_idx: dict.fromkeys(range(n_time_steps), 0.0) for level_idx in range(1, len(stock_levels))
-    }
+    # Accumulator: wv[t, level_idx] — sum across all scenarios
+    wv = np.zeros((n_time_steps, n_levels), dtype=float)
 
     for scenario, inflows_ts in scenario_inflows:
         logger.debug(f"Running Bellman for scenario {scenario}")
@@ -184,105 +189,86 @@ def _run_bellman_iteration(
         # Inflows: daily /24 → expand to hourly (8760 values)
         inflows_arr = np.repeat(np.array(inflows_ts.values, dtype=float), 24)
 
-        wv_sc: dict[int, dict[int, float]] = {}
-        bellman: dict[int, dict[int, float]] = {}
+        wv_sc = np.zeros((n_time_steps, n_levels), dtype=float)
+        # Rolling buffer: bellman_next holds bellman[t+1] during backward pass
+        bellman_next = np.zeros(n_levels, dtype=float)
 
         for t in range(total_time_steps - 1, -1, -1):
             t_yr = t % n_time_steps
-            max_power_t = max_power_arr[t_yr]
-            price_t = price_arr[t_yr]
-            inflows_t = inflows_arr[t_yr]
+            max_power_t = float(max_power_arr[t_yr])
+            price_t = float(price_arr[t_yr])
+            inflows_t = float(inflows_arr[t_yr])
 
-            bellman[t] = {}
-            if t < n_time_steps:
-                wv_sc[t] = {}
+            if t == total_time_steps - 1:
+                bellman_curr = np.zeros(n_levels, dtype=float)
+            else:
+                bellman_curr = bellman_next * beta  # discounted future value as baseline
 
-            for level_idx in range(len(stock_levels)):
-                if t == total_time_steps - 1:
-                    bellman[t][level_idx] = 0.0
-                else:
-                    bellman[t][level_idx] = bellman[t + 1][level_idx] * parameters.hydro.beta
-                    m = level_idx
+                stock_i = stock_arr + inflows_t  # (n_levels,)
 
-                    if level_idx:
-                        g: float | None = None
+                # j = 0: no discharge — evaluate carrying inflows forward
+                g1 = bellman_next * beta + inflows_t * price_t
+                n_idx = (stock_i // capacity_step + 1).astype(int)
+                n_idx_clipped = np.clip(n_idx, 0, n_levels - 1)
+                n_idx_prev = np.maximum(n_idx_clipped - 1, 0)
+                denom_j0 = stock_arr[n_idx_clipped] - stock_arr[n_idx_prev]
+                safe_denom_j0 = np.where(denom_j0 != 0.0, denom_j0, 1.0)
+                interp_g2 = bellman_next[n_idx_clipped] + (
+                    (stock_i - stock_arr[n_idx_clipped]) / safe_denom_j0
+                    * (bellman_next[n_idx_clipped] - bellman_next[n_idx_prev])
+                )
+                g2 = np.where(
+                    (n_idx != level_indices) & (n_idx < n_levels) & (denom_j0 != 0.0),
+                    interp_g2,
+                    0.0,
+                )
+                g_j0 = np.maximum(g1, g2)
+                bellman_curr = np.where((g_j0 > bellman_curr) & (level_indices > 0), g_j0, bellman_curr)
 
-                        for j in range(parameters.hydro.storage_subdivision + 1):
-                            stock_i = stock_levels[level_idx] + inflows_t
-                            stock_j = (
-                                stock_levels[level_idx]
-                                - j * max_power_t / parameters.hydro.storage_subdivision
-                                + inflows_t
-                            )
+                # j > 0: partial to full discharge at each subdivision step
+                for j in range(1, subdiv + 1):
+                    stock_j = stock_arr - j * max_power_t / subdiv + inflows_t
+                    # np.searchsorted replaces the per-level while-loop bracket search
+                    m = np.searchsorted(stock_arr, stock_j, side="right") - 1
+                    m = np.clip(m, 0, n_levels - 2)
+                    m1 = m + 1
+                    valid = stock_j > 0.0
 
-                            if j == 0:
-                                g1 = bellman[t + 1][level_idx] * parameters.hydro.beta + inflows_t * price_t
-                                n_idx = int((stock_levels[level_idx] + inflows_t) // capacity_step + 1)
-                                g2 = 0.0
-                                if n_idx != level_idx and n_idx < len(stock_levels):
-                                    g2 = bellman[t + 1][n_idx] + (
-                                        (stock_levels[level_idx] + inflows_t - stock_levels[n_idx])
-                                        / (stock_levels[n_idx] - stock_levels[n_idx - 1])
-                                        * (bellman[t + 1][n_idx] - bellman[t + 1][n_idx - 1])
-                                    )
-                                g = max(g1, g2)
+                    if use_interp:
+                        denom_j = stock_arr[m1] - stock_arr[m]
+                        safe_denom_j = np.where(denom_j != 0.0, denom_j, 1.0)
+                        sv = beta * (
+                            (bellman_next[m] - bellman_next[m1])
+                            * (stock_arr[m1] - stock_j)
+                            / safe_denom_j
+                            + bellman_next[m1]
+                        )
+                        gain_lv1 = (stock_i - stock_j) * (-5000.0)
+                        gain_other = (stock_i - stock_j) * price_t
+                    else:
+                        sv = beta * bellman_next[m]
+                        gain_lv1 = (stock_i - stock_arr[m]) * (-5000.0)
+                        gain_other = (stock_i - stock_arr[m]) * price_t
 
-                            elif stock_j > 0:
-                                while m > 0 and stock_levels[m] > stock_j:
-                                    m -= 1
+                    g_lv1 = np.where(valid & (level_indices == 1), gain_lv1 + sv, -np.inf)
+                    g_other = np.where(valid & (level_indices > 1), gain_other + sv, -np.inf)
+                    g_j = np.maximum(g_lv1, g_other)
+                    bellman_curr = np.where((g_j > bellman_curr) & (level_indices > 0), g_j, bellman_curr)
 
-                                if level_idx == 1:
-                                    if parameters.hydro.use_bellman_interpolation:
-                                        gain = (stock_i - stock_j) * (-5000)
-                                        stock_value = parameters.hydro.beta * (
-                                            (bellman[t + 1][m] - bellman[t + 1][m + 1])
-                                            * (stock_levels[m + 1] - stock_j)
-                                            / (stock_levels[m + 1] - stock_levels[m])
-                                            + bellman[t + 1][m + 1]
-                                        )
-                                    else:
-                                        gain = (stock_i - stock_levels[m]) * (-5000)
-                                        stock_value = parameters.hydro.beta * bellman[t + 1][m]
-                                    g = gain + stock_value
+            # Water value for t uses bellman_next (= bellman[t+1]) before rolling forward
+            if t < n_time_steps and capacity_step > 0:
+                wv_sc[t, 1:] = (bellman_next[1:] - bellman_next[:-1]) / capacity_step
 
-                                elif m + 1 <= len(stock_levels) - 1:
-                                    if parameters.hydro.use_bellman_interpolation:
-                                        gain = (stock_i - stock_j) * price_t
-                                        stock_value = parameters.hydro.beta * (
-                                            (bellman[t + 1][m] - bellman[t + 1][m + 1])
-                                            * (stock_levels[m + 1] - stock_j)
-                                            / (stock_levels[m + 1] - stock_levels[m])
-                                            + bellman[t + 1][m + 1]
-                                        )
-                                    else:
-                                        gain = (stock_i - stock_levels[m]) * price_t
-                                        stock_value = parameters.hydro.beta * bellman[t + 1][m]
-                                    g = gain + stock_value
+            bellman_next = bellman_curr
 
-                            if g is not None and g > bellman[t][level_idx]:
-                                bellman[t][level_idx] = g
-
-                if level_idx > 0 and t < n_time_steps:
-                    wv_sc[t][level_idx] = (
-                        (bellman[t + 1][level_idx] - bellman[t + 1][level_idx - 1]) / capacity_step
-                        if capacity_step > 0
-                        else 0.0
-                    )
-
-        for level_idx in range(1, len(stock_levels)):
-            for t in range(n_time_steps):
-                try:
-                    wv[level_idx][t] += wv_sc.get(t, {}).get(level_idx, 0.0)
-                except Exception as e:
-                    logger.error(f"Error accumulating water values at level={level_idx}, t={t}: {e}")
-                    raise
+        wv += wv_sc
 
     return wv
 
 
 def _store_water_values(
     hydro: Hydro,
-    water_values: dict[int, dict[int, float]],
+    water_values: np.ndarray,
     stock_levels: list[int],
     parameters: AntaresToAtlasParameters,
     n_time_steps: int,
@@ -293,22 +279,20 @@ def _store_water_values(
     Each column of the matrix corresponds to a stock level (in MWh).
     Water values are averaged across scenarios and capped at max_water_value.
     """
-    if not water_values:
+    if water_values.size == 0:
         return
 
     levels_to_store = _select_storage_levels(stock_levels, parameters)
     scenario_matrix = ScenarioMatrix()
+    n_sc = max(n_scenarios, 1)
 
     for level_idx in levels_to_store:
-        avg_wv = [
-            min(water_values.get(level_idx, {}).get(t, 0.0) / max(n_scenarios, 1), parameters.hydro.max_water_value)
-            for t in range(n_time_steps)
-        ]
+        avg_wv = np.clip(water_values[:, level_idx] / n_sc, None, parameters.hydro.max_water_value)
         stock_level_value = stock_levels[level_idx] if level_idx < len(stock_levels) else 0
         ts = Timeseries.from_values(
             start_date=parameters.start_date,
             frequency="1h",
-            values=avg_wv,
+            values=avg_wv.tolist(),
         )
         scenario_matrix.add(ts, index=str(int(round(stock_level_value, 0))))
 
