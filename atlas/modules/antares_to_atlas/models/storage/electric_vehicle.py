@@ -17,7 +17,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-from atlas.modules.antares_to_atlas.utils import get_cluster_weights_from_bc
+from atlas.modules.antares_to_atlas.utils import get_cluster_weights_from_bc, get_portfolio
 from atlas.objects.equipment.load import Load
 from atlas.objects.equipment.storage import Storage
 
@@ -97,7 +97,8 @@ def _load_specific_node_parameters(parameters: AntaresToAtlasParameters) -> dict
     file_path = Path(parameters.disp_energy_node_parameters)
 
     df = pl.read_csv(file_path, separator=";")
-    nodes, shifts, scales = df.to_dict(as_series=False).values()
+    d = df.to_dict(as_series=False)
+    nodes, shifts, scales = d["node_name"], d["shift_hours"], d["scale_factor"]
     return {node.lower(): (int(shift), float(scale)) for node, shift, scale in zip(nodes, shifts, scales, strict=True)}
 
 
@@ -211,10 +212,7 @@ def _convert_standard_evs(
         ev = Storage(
             name=f"{area_name}_ev",
             node=atlas_dataset.get("node", area_name),
-            portfolio=atlas_dataset.get(
-                "portfolio",
-                f"generator_{area_name}" if parameters.consumption_production_separation else f"portfolio_{area_name}",
-            ),
+            portfolio=get_portfolio(atlas_dataset, parameters, area_name),
             storage_type=StorageType.ELECTRIC_VEHICLE,
             is_v2g=True,
             maximum_power=maximum_power_ts,
@@ -327,8 +325,7 @@ def _convert_france_evs(
     charge_efficiency = abs(weights[0]) if weights else 1.0
     discharge_efficiency = abs(1.0 / weights[2]) if len(weights) > 2 and weights[2] != 0 else 1.0
 
-    portfolio_name = "generator_fr" if parameters.consumption_production_separation else "portfolio_fr"
-    portfolio = atlas_dataset.get("portfolio", portfolio_name)
+    portfolio = get_portfolio(atlas_dataset, parameters, "fr")
     node = atlas_dataset.get("node", "fr")
 
     # MinimumPower requires ROW balance of virtual node ve_fr_load_total (output data)
@@ -462,10 +459,7 @@ def _convert_france_heavy_vehicles(
     hv = Load(
         name="fr_heavy_vehicles",
         node=atlas_dataset.get("node", "fr"),
-        portfolio=atlas_dataset.get(
-            "portfolio",
-            "supplier_fr" if parameters.consumption_production_separation else "portfolio_fr",
-        ),
+        portfolio=get_portfolio(atlas_dataset, parameters, "fr", role="supplier"),
         load_type=LoadType.OTHER_NON_DISPATCHABLE_LOAD,
         maximum_power_forecast=ForecastingMatrix().add(maximum_power_ts, parameters.execution_date, inplace=False),
     )

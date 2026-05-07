@@ -3,14 +3,35 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from typing import Literal
+
 from antares.craft import ClusterData, Frequency, MCIndAreasDataType
 from antares.craft.model.area import Area
 from antares.craft.model.study import Study
 from antares.craft.model.thermal import ThermalCluster
 from loguru import logger
 
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+
+
+def get_portfolio(
+    atlas_dataset: AtlasDataset,
+    parameters: AntaresToAtlasParameters,
+    area_id: str,
+    role: Literal["generator", "supplier"] = "generator",
+):
+    """Resolve the portfolio for an area, honoring the consumption/production split.
+
+    With consumption_production_separation: returns "{role}_{area_id}".
+    Without: returns the unified "portfolio_{area_id}".
+    """
+    if parameters.consumption_production_separation:
+        name = f"{role}_{area_id}"
+    else:
+        name = f"portfolio_{area_id}"
+    return atlas_dataset.get("portfolio", name)
 
 
 def get_cluster_weights_from_bc(study: Study, bc_name: str) -> dict[str, float]:
@@ -83,9 +104,6 @@ def get_maximum_power(
             values=thermal.get_series_matrix()[scenario - 1].to_list(),
         )
 
-        if maximum_power_ts is None:
-            raise ValueError("Disponibility not available")
-
     except Exception:
         default_value = (
             thermal.properties.nominal_capacity
@@ -118,13 +136,13 @@ def get_variable_cost(thermal: ThermalCluster, parameters: AntaresToAtlasParamet
         return Timeseries.from_values(
             parameters.start_date,
             frequency="1h",
-            values=thermal.get_prepro_modulation_matrix()[1].to_list(),  # MarketBidModulation
+            values=(thermal.get_prepro_modulation_matrix()[1] * thermal.properties.market_bid_cost).to_list(),  # MarketBidModulation × MarketBidCost
         )
     else:
         return Timeseries.from_values(
             parameters.start_date,
             frequency="1h",
-            values=thermal.get_prepro_modulation_matrix()[0].to_list(),  # MarginalCostModulation
+            values=(thermal.get_prepro_modulation_matrix()[0] * thermal.properties.marginal_cost).to_list(),  # MarginalCostModulation × MarginalCost
         )
 
 

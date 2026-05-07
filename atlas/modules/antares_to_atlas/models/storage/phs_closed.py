@@ -15,7 +15,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-from atlas.modules.antares_to_atlas.utils import get_binding_constraint_for_phs
+from atlas.modules.antares_to_atlas.utils import get_binding_constraint_for_phs, get_portfolio
 from atlas.objects.equipment.storage import Storage
 
 
@@ -154,10 +154,7 @@ def _create_phs_from_turb_link(
     phs = Storage(
         name=f"{area.id}_phs",
         node=atlas_dataset.get("node", area.id),
-        portfolio=atlas_dataset.get(
-            "portfolio",
-            f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
-        ),
+        portfolio=get_portfolio(atlas_dataset, parameters, area.id),
         storage_type=StorageType.PUMPED_HYDRAULIC_STORAGE,
         maximum_power=maximum_power_ts,
         maximum_energy=Timeseries.from_index(
@@ -223,10 +220,7 @@ def _create_phs_from_pump_link(
     phs = Storage(
         name=f"{area.id}_phs",
         node=atlas_dataset.get("node", area.id),
-        portfolio=atlas_dataset.get(
-            "portfolio",
-            f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
-        ),
+        portfolio=get_portfolio(atlas_dataset, parameters, area.id),
         storage_type=StorageType.PUMPED_HYDRAULIC_STORAGE,
         minimum_power=minimum_power_ts,
         maximum_energy=Timeseries.from_index(

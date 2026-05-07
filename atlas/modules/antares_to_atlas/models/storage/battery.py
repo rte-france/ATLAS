@@ -15,7 +15,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-from atlas.modules.antares_to_atlas.utils import get_weight_for_cluster
+from atlas.modules.antares_to_atlas.utils import get_portfolio, get_weight_for_cluster
 from atlas.objects.equipment.storage import Storage
 
 
@@ -43,23 +43,32 @@ def convert_battery_units(
 
     normal_battery = None
     pcomp_battery = None
+    normal_area_id: str | None = None
+    pcomp_area_id: str | None = None
 
     if link is not None:
-        area_id = link.area_to_id
-        if area_id in parameters.market_areas and area_id in areas:
-            prefix = parameters.storage.battery_normal_link.lstrip("z_")
-            normal_battery = _convert_battery(areas[area_id], study, parameters, atlas_dataset, link, prefix=prefix)
+        normal_area_id = link.area_to_id
+        if normal_area_id in parameters.market_areas and normal_area_id in areas:
+            prefix = parameters.storage.battery_normal_link.removeprefix("z_")
+            normal_battery = _convert_battery(
+                areas[normal_area_id], study, parameters, atlas_dataset, link, prefix=prefix
+            )
 
     if link_pcomp is not None:
-        area_id = link_pcomp.area_to_id
-        if area_id in parameters.market_areas and area_id in areas:
-            prefix = parameters.storage.battery_pcomp_link.lstrip("z_")
+        pcomp_area_id = link_pcomp.area_to_id
+        if pcomp_area_id in parameters.market_areas and pcomp_area_id in areas:
+            prefix = parameters.storage.battery_pcomp_link.removeprefix("z_")
             pcomp_battery = _convert_battery(
-                areas[area_id], study, parameters, atlas_dataset, link_pcomp, prefix=prefix
+                areas[pcomp_area_id], study, parameters, atlas_dataset, link_pcomp, prefix=prefix
             )
 
     if normal_battery and pcomp_battery:
-        logger.debug(f"Merging normal and pcomp batteries for area {area_id}")
+        if normal_area_id != pcomp_area_id:
+            raise AssertionError(
+                f"Cannot merge batteries from different areas: "
+                f"normal={normal_area_id!r} vs pcomp={pcomp_area_id!r}"
+            )
+        logger.debug(f"Merging normal and pcomp batteries for area {normal_area_id}")
         _merge_batteries(normal_battery, pcomp_battery, parameters)
         batteries.append(normal_battery)
     elif normal_battery:
@@ -105,17 +114,26 @@ def _convert_battery(
         return None
 
     maximum_power_df = inj_thermal.get_series_matrix()[scenario - 1]
-    power_discharge_df = study.get_output(parameters.output_name).get_mc_ind_area(
-        parameters.scenario, Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.id
-    )[()]  # TODO get the columns corresponding to CalculatedPower
 
-    if maximum_power_df.abs().max().max() or power_discharge_df.abs().max().max() == 0:
+    # TODO get the columns corresponding to CalculatedPower (column key not yet known).
+    # Until the column is identified, we fall back to a None timeseries handled below.
+    power_discharge_ts: Timeseries | None = None
+    power_discharge_max = 0.0
+    try:
+        power_discharge_df = study.get_output(parameters.output_name).get_mc_ind_area(
+            parameters.scenario, Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.id
+        )[()]
+        power_discharge_max = float(power_discharge_df.abs().max().max())
+        power_discharge_ts = Timeseries.from_values(
+            start_date=parameters.start_date, frequency="1h", values=power_discharge_df
+        )
+    except (KeyError, TypeError) as e:
+        logger.debug(f"Could not get CalculatedPower for area {area.id}: {e}. Falling back to default.")
+
+    if maximum_power_df.abs().max().max() == 0 and power_discharge_max == 0:
         return None
 
     maximum_power_ts = Timeseries.from_values(start_date=parameters.start_date, frequency="1h", values=maximum_power_df)
-    power_discharge_ts = Timeseries.from_values(
-        start_date=parameters.start_date, frequency="1h", values=power_discharge_df
-    )
 
     stock_thermal = thermals.get(f"z_{prefix}_{prefix}_{area.id}_1", None)
     if stock_thermal is None:
@@ -160,10 +178,7 @@ def _convert_battery(
     battery = Storage(
         name=f"{area.id}_{name_suffix}",
         node=atlas_dataset.get("node", area.id),
-        portfolio=atlas_dataset.get(
-            "portfolio",
-            f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
-        ),
+        portfolio=get_portfolio(atlas_dataset, parameters, area.id),
         storage_type=StorageType.BATTERY,
         maximum_power=maximum_power_ts,
         minimum_power=minimum_power_ts,
@@ -193,20 +208,31 @@ def _merge_batteries(normal_battery: Storage, pcomp_battery: Storage, parameters
     if normal_battery.maximum_power is None or pcomp_battery.maximum_power is None or normal_battery.power is None:
         logger.warning("Cannot merge batteries: missing capacity data")
         return
+
+    # Capture weights before mutation (bug: maximum_power is updated in-place below)
+    normal_max = normal_battery.maximum_power.first_value()
+    pcomp_max = pcomp_battery.maximum_power.first_value()
+    total_max = normal_max + pcomp_max
+
     normal_battery.maximum_power += pcomp_battery.maximum_power
     normal_battery.minimum_power += pcomp_battery.minimum_power
     normal_battery.maximum_energy += pcomp_battery.maximum_energy
 
-    normal_battery.discharge_efficiency = (
-        normal_battery.discharge_efficiency * normal_battery.maximum_power.first_value()
-        + pcomp_battery.discharge_efficiency * pcomp_battery.maximum_power.first_value()
-    ) / (normal_battery.maximum_power.first_value() + pcomp_battery.maximum_power.first_value())
+    if total_max > 0:
+        normal_battery.discharge_efficiency = (
+            normal_battery.discharge_efficiency * normal_max
+            + pcomp_battery.discharge_efficiency * pcomp_max
+        ) / total_max
 
-    normal_battery.charge_efficiency = (
-        normal_battery.charge_efficiency * normal_battery.maximum_power.first_value()
-        + pcomp_battery.charge_efficiency * pcomp_battery.maximum_power.first_value()
-    ) / (normal_battery.maximum_power.first_value() + pcomp_battery.maximum_power.first_value())
+        normal_battery.charge_efficiency = (
+            normal_battery.charge_efficiency * normal_max
+            + pcomp_battery.charge_efficiency * pcomp_max
+        ) / total_max
 
-    normal_battery.power = normal_battery.power.replace(
-        parameters.execution_date, normal_battery.power + pcomp_battery.power
-    )
+    # Merge power ForecastingMatrix by extracting and summing the underlying timeseries
+    if isinstance(pcomp_battery.power, type(normal_battery.power)):
+        exec_key = parameters.execution_date.format(normal_battery.power.date_format)
+        if exec_key in normal_battery.power.indexes and exec_key in pcomp_battery.power.indexes:
+            normal_ts = normal_battery.power[exec_key]
+            pcomp_ts = pcomp_battery.power[exec_key]
+            normal_battery.power.replace(parameters.execution_date, normal_ts + pcomp_ts)

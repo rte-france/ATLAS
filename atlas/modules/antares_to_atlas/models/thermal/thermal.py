@@ -13,7 +13,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.container import Container
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-from atlas.modules.antares_to_atlas.utils import get_co2_factor, get_maximum_power, get_variable_cost
+from atlas.modules.antares_to_atlas.utils import get_co2_factor, get_maximum_power, get_portfolio, get_variable_cost
 from atlas.objects.equipment.thermal import Thermal
 
 
@@ -89,10 +89,7 @@ def _convert_single_thermal(
     equipment = Thermal(
         name=thermal_name,
         node=atlas_dataset.get("node", area.id),
-        portfolio=atlas_dataset.get(
-            "portfolio",
-            f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
-        ),
+        portfolio=get_portfolio(atlas_dataset, parameters, area.id),
         has_daily_energy_constraint=False,
         maximum_power=maximum_power_ts,
         minimum_power=Timeseries.from_index(
@@ -113,7 +110,7 @@ def _convert_single_thermal(
         outage_mean_duration=duration(hours=thermal.get_prepro_data_matrix()[0].mean()),  # FODuration
         scheduled_shutdown_mean_duration=duration(hours=thermal.get_prepro_data_matrix()[1].mean()),  # PODuration
         outage_probability=thermal.get_prepro_data_matrix()[2].mean(),  # FORate
-        scheduled_shutdown_probability=thermal.get_prepro_data_matrix()[0].mean(),  # PORate
+        scheduled_shutdown_probability=thermal.get_prepro_data_matrix()[3].mean(),  # PORate
         minimum_time_off=duration(hours=thermal.properties.min_down_time),
         minimum_time_on=duration(hours=thermal.properties.min_up_time),
         unit_count=thermal.properties.unit_count,

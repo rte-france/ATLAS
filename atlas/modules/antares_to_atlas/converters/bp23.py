@@ -21,162 +21,137 @@ from atlas.modules.antares_to_atlas.models.storage import (
     convert_battery_units,
     convert_electric_vehicle_units,
     convert_phs_closed_units,
+    convert_phs_open_fr,
+    convert_phs_open_units,
+    merge_open_and_closed_phs,
 )
 from atlas.modules.antares_to_atlas.models.thermal import add_nuclear_modulation, convert_mixed_fuel_units
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
 class BatteryConverterBP23(Converter):
-    @property
-    def name(self) -> str:
-        return "battery"
-
-    @property
-    def description(self) -> str:
-        return "Battery Storage Conversion"
+    name = "battery"
+    description = "Battery Storage Conversion"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_battery_units(study, parameters, atlas_dataset)
 
 
 class ElectricVehicleConverterBP23(Converter):
-    @property
-    def name(self) -> str:
-        return "electric_vehicle"
-
-    @property
-    def description(self) -> str:
-        return "Electric Vehicle Conversion"
+    name = "electric_vehicle"
+    description = "Electric Vehicle Conversion"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_electric_vehicle_units(study, parameters, atlas_dataset)
 
 
 class PHSClosedConverterBP23(Converter):
-    @property
-    def name(self) -> str:
-        return "phs"
-
-    @property
-    def description(self) -> str:
-        return "Pumped Hydro Storage Conversion"
+    name = "phs_closed"
+    description = "Closed-loop Pumped Hydro Storage Conversion"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_phs_closed_units(study, parameters, atlas_dataset)
 
 
-class MixedFuelConverterBP23(Converter):
-    @property
-    def name(self) -> str:
-        return "mixed_fuel"
+class PHSOpenConverterBP23(Converter):
+    name = "phs_open"
+    description = "Open-loop Pumped Hydro Storage Conversion (non-FR)"
 
-    @property
-    def description(self) -> str:
-        return "Mixed Fuel Conversion"
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
+        return convert_phs_open_units(study, parameters, atlas_dataset)
+
+
+class PHSOpenFRConverterBP23(Converter):
+    name = "phs_open_fr"
+    description = "Open-loop Pumped Hydro Storage Conversion (France)"
+    required_market_areas = ["fr"]
+
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
+        return convert_phs_open_fr(study, parameters, atlas_dataset)
+
+
+class PHSFusionConverterBP23(Converter):
+    name = "phs_fusion"
+    description = "Merge open and closed PHS equipment by node"
+
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
+        closed_list: list[str] = []
+        open_list: list[str] = []
+        for storage in atlas_dataset.storage:
+            if storage.name.endswith("_phs_open"):
+                open_list.append(storage.name.removesuffix("_phs_open"))
+            elif storage.name.endswith("_phs"):
+                closed_list.append(storage.name.removesuffix("_phs"))
+        return merge_open_and_closed_phs(atlas_dataset, closed_list, open_list, parameters)
+
+
+class MixedFuelConverterBP23(Converter):
+    name = "mixed_fuel"
+    description = "Mixed Fuel Conversion"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_mixed_fuel_units(study, parameters, atlas_dataset)
 
 
 class ParticularMidConverterBP23(Converter):
-    @property
-    def name(self) -> str:
-        return "particular_mid_units"
-
-    @property
-    def description(self) -> str:
-        return "Specific Gas Units Conversion"
+    name = "particular_mid_units"
+    description = "Specific Gas Units Conversion (mid)"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_pcomp_mid_units(study, parameters, atlas_dataset)
 
 
 class ParticularPeakConverterBP23(Converter):
-    @property
-    def name(self) -> str:
-        return "particular_peak_units"
-
-    @property
-    def description(self) -> str:
-        return "Specific Gas Units Conversion"
+    name = "particular_peak_units"
+    description = "Specific Gas Units Conversion (peak)"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_pcomp_peak_units(study, parameters, atlas_dataset)
 
 
 class P2GConverterBP23(Converter):
-    @property
-    def name(self) -> str:
-        return "p2g"
-
-    @property
-    def description(self) -> str:
-        return "Power To Gas Conversion"
+    name = "p2g"
+    description = "Power To Gas Conversion"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_p2g_units(study, parameters, atlas_dataset)
 
 
 class MultiEnergyConverterBP23(Converter):
-    @property
-    def name(self) -> str:
-        return "multi_energy"
-
-    @property
-    def description(self) -> str:
-        return "Multi-Energy Variable Cost Update"
+    name = "multi_energy"
+    description = "Multi-Energy Variable Cost Update"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return update_variable_cost_for_gas_units(study, parameters, atlas_dataset)
 
 
 class DSRConverterBP23(Converter):
-    @property
-    def name(self) -> str:
-        return "dsr"
-
-    @property
-    def description(self) -> str:
-        return "Demand-Side Response Conversion"
+    name = "dsr"
+    description = "Demand-Side Response Conversion"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_dsr_units(study, parameters, atlas_dataset)
 
 
 class WaterValueConverterBP23(Converter):
-    @property
-    def name(self) -> str:
-        return "water_value"
-
-    @property
-    def description(self) -> str:
-        return "Water Value Computation"
+    name = "water_value"
+    description = "Water Value Computation"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return compute_water_values(study, parameters, atlas_dataset)
 
 
 class InitialLevelConverterBP23(Converter):
-    @property
-    def name(self) -> str:
-        return "initial_level"
-
-    @property
-    def description(self) -> str:
-        return "Initial Storage Level Configuration"
+    name = "initial_level"
+    description = "Initial Storage Level Configuration"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return compute_initial_levels(study, parameters, atlas_dataset)
 
 
 class NuclearModulationConverterBP23(Converter):
-    @property
-    def name(self) -> str:
-        return "nuclear_modulation"
-
-    @property
-    def description(self) -> str:
-        return "Nuclear Modulation (France)"
+    name = "nuclear_modulation"
+    description = "Nuclear Modulation (France)"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return add_nuclear_modulation(study, parameters, atlas_dataset)

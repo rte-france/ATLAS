@@ -27,6 +27,9 @@ from atlas.modules.antares_to_atlas.converters.bp23 import (
     ParticularMidConverterBP23,
     ParticularPeakConverterBP23,
     PHSClosedConverterBP23,
+    PHSFusionConverterBP23,
+    PHSOpenConverterBP23,
+    PHSOpenFRConverterBP23,
     WaterValueConverterBP23,
 )
 from atlas.modules.antares_to_atlas.converters.registry import ConverterRegistry
@@ -140,6 +143,9 @@ class AntaresToAtlas:
             MultiEnergyConverterBP23,  # Must run after all thermic units
             DSRConverterBP23,
             PHSClosedConverterBP23,  # Depends on hydro converter
+            PHSOpenConverterBP23,  # Open-loop PHS (non-FR), updates hydro equipment
+            PHSOpenFRConverterBP23,  # Open-loop PHS (FR-specific)
+            PHSFusionConverterBP23,  # Merge open + closed PHS by node
             WaterValueConverterBP23,  # Depends on PHS (for updated inflows)
             InitialLevelConverterBP23,
             NuclearModulationConverterBP23,  # France-specific

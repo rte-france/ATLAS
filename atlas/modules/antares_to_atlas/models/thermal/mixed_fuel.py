@@ -13,7 +13,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-from atlas.modules.antares_to_atlas.utils import get_co2_factor, get_maximum_power, get_variable_cost
+from atlas.modules.antares_to_atlas.utils import get_co2_factor, get_maximum_power, get_portfolio, get_variable_cost
 from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.objects.equipment.thermal import Thermal
 
@@ -136,10 +136,7 @@ def _process_waste_unit(
         waste_unit = OtherNonDispatchable(
             name=waste_name,
             node=atlas_dataset.get("node", area.id),
-            portfolio=atlas_dataset.get(
-                "portfolio",
-                f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
-            ),
+            portfolio=get_portfolio(atlas_dataset, parameters, area.id),
             maximum_power_forecast=ForecastingMatrix().add(prod_ts, parameters.execution_date, inplace=False),
         )
         new_waste_units.append(waste_unit)
@@ -184,10 +181,7 @@ def _process_classic_mixed_fuel(
     equipment = Thermal(
         name=thermal.name,
         node=atlas_dataset.get("node", area.id),
-        portfolio=atlas_dataset.get(
-            "portfolio",
-            f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
-        ),
+        portfolio=get_portfolio(atlas_dataset, parameters, area.id),
         has_daily_energy_constraint=False,
         maximum_power=maximum_power_ts,
         minimum_power=Timeseries.from_index(
@@ -205,8 +199,8 @@ def _process_classic_mixed_fuel(
             default_value=thermal.properties.startup_cost,
         ),
         co2_emission_factor=get_co2_factor(thermal, techno, parameters),
-        outage_mean_duration=thermal.get_prepro_data_matrix()[0].mean(),  # FODuration
-        scheduled_shutdown_mean_duration=thermal.get_prepro_data_matrix()[1].mean(),  # PODuration
+        outage_mean_duration=duration(hours=thermal.get_prepro_data_matrix()[0].mean()),  # FODuration
+        scheduled_shutdown_mean_duration=duration(hours=thermal.get_prepro_data_matrix()[1].mean()),  # PODuration
         outage_probability=thermal.get_prepro_data_matrix()[2].mean(),  # FORate
         scheduled_shutdown_probability=thermal.get_prepro_data_matrix()[3].mean(),  # PORate
         minimum_time_off=duration(hours=thermal.properties.min_down_time),

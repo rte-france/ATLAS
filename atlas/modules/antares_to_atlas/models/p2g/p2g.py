@@ -16,6 +16,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.utils import get_portfolio
 from atlas.objects.equipment.load import Load
 
 
@@ -88,22 +89,22 @@ def _convert_p2g_base(
         .get_link_ts_numbers(link.area_from_id, link.area_to_id)
         .get(parameters.scenario, None)
     )
-    if scenario:
-        capacity_df = link.get_capacity_direct()[scenario - 1]
-        if capacity_df.abs().max().max() == 0:
-            return None
+    if not scenario:
+        logger.warning(f"No scenario found for P2G base link {link_name}, skipping")
+        return None
 
-        capacity_ts = Timeseries.from_values(
-            start_date=parameters.start_date, frequency="1h", values=capacity_df * -1.0
-        )
+    capacity_df = link.get_capacity_direct()[scenario - 1]
+    if capacity_df.abs().max().max() == 0:
+        return None
+
+    capacity_ts = Timeseries.from_values(
+        start_date=parameters.start_date, frequency="1h", values=capacity_df * -1.0
+    )
 
     p2g_base = Load(
         name=f"{area.id}_p2g_base",
         node=atlas_dataset.get("node", area.id),
-        portfolio=atlas_dataset.get(
-            "portfolio",
-            f"supplier_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
-        ),
+        portfolio=get_portfolio(atlas_dataset, parameters, area.id, role="supplier"),
         load_type=LoadType.OTHER_NON_DISPATCHABLE_LOAD,
         maximum_power_forecast=ForecastingMatrix().add(capacity_ts, parameters.execution_date, inplace=False),
     )
@@ -134,13 +135,16 @@ def _convert_p2g_marg(
         .get(parameters.scenario, None)
     )
 
-    if scenario:
-        capacity_df = link.get_capacity_direct()[scenario - 1]
-        if capacity_df.abs().max().max() == 0:
-            return None
-        capacity_ts = Timeseries.from_values(
-            start_date=parameters.start_date, frequency="1h", values=capacity_df * -1.0
-        )
+    if not scenario:
+        logger.warning(f"No scenario found for P2G marg link {link_name}, skipping")
+        return None
+
+    capacity_df = link.get_capacity_direct()[scenario - 1]
+    if capacity_df.abs().max().max() == 0:
+        return None
+    capacity_ts = Timeseries.from_values(
+        start_date=parameters.start_date, frequency="1h", values=capacity_df * -1.0
+    )
 
     thermal_name = "z_p2g_marg_z_P2G_marg_marg"
     _p2g_marg_tc = areas["z_p2g_marg"].get_thermals().get(thermal_name, None) if "z_p2g_marg" in areas else None
@@ -156,10 +160,7 @@ def _convert_p2g_marg(
     p2g_marg = Load(
         name=f"{area.id}_p2g_marg",
         node=atlas_dataset.get("node", area.id),
-        portfolio=atlas_dataset.get(
-            "portfolio",
-            f"supplier_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
-        ),
+        portfolio=get_portfolio(atlas_dataset, parameters, area.id, role="supplier"),
         load_type=LoadType.POWER_TO_GAS,
         maximum_power_forecast=ForecastingMatrix().add(capacity_ts, parameters.execution_date, inplace=False),
         variable_cost=variable_cost,
@@ -191,14 +192,17 @@ def _convert_p2g_methanation(
         .get(parameters.scenario, None)
     )
 
-    if scenario:
-        capacity_df = link.get_capacity_direct()[scenario - 1]
-        if capacity_df.abs().max().max() == 0:
-            return None
+    if not scenario:
+        logger.warning(f"No scenario found for P2G methanation link {link_name}, skipping")
+        return None
 
-        capacity_ts = Timeseries.from_values(
-            start_date=parameters.start_date, frequency="1h", values=capacity_df * -1.0
-        )
+    capacity_df = link.get_capacity_direct()[scenario - 1]
+    if capacity_df.abs().max().max() == 0:
+        return None
+
+    capacity_ts = Timeseries.from_values(
+        start_date=parameters.start_date, frequency="1h", values=capacity_df * -1.0
+    )
 
     thermal_name = "z_p2g_methanation_z_P2G_methanation_methanation"
     _p2g_meth_tc = (
@@ -216,10 +220,7 @@ def _convert_p2g_methanation(
     p2g_methanation = Load(
         name=f"{area.id}_p2g_methanation",
         node=atlas_dataset.get("node", area.id),
-        portfolio=atlas_dataset.get(
-            "portfolio",
-            f"supplier_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
-        ),
+        portfolio=get_portfolio(atlas_dataset, parameters, area.id, role="supplier"),
         load_type=LoadType.POWER_TO_GAS,
         maximum_power_forecast=ForecastingMatrix().add(capacity_ts, parameters.execution_date, inplace=False),
         variable_cost=variable_cost,

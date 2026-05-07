@@ -15,6 +15,7 @@ from atlas.enums import ThermalStrategy
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.utils import get_portfolio
 from atlas.objects.equipment.thermal import Thermal
 
 
@@ -120,9 +121,7 @@ def _convert_dsr_fr(
         dsr_unit = Thermal(
             name=dsr_config.name,
             node=atlas_dataset.get("node", "fr"),
-            portfolio=atlas_dataset.get(
-                "portfolio", "generator_fr" if parameters.consumption_production_separation else "portfolio_fr"
-            ),
+            portfolio=get_portfolio(atlas_dataset, parameters, "fr"),
             has_daily_energy_constraint=dsr_config.has_daily_constraint,
             maximum_daily_energy=maximum_daily_energy,
             maximum_power=disponibility,
@@ -149,6 +148,7 @@ def _convert_dsr_other_country(
 
     bc = binding_constraints.get(bc_name, None)
 
+    maximum_daily_energy = None
     if bc is not None:
         maximum_daily_energy = Timeseries(bc.get_less_term_matrix())
 
@@ -162,14 +162,17 @@ def _convert_dsr_other_country(
 
     cluster = thermals[thermal_name]
 
-    try:
-        scenario = (
-            study.get_output(parameters.output_name)
-            .get_thermal_ts_numbers(area.id, thermal_name)
-            .get(parameters.scenario, None)
-        )
-        maximum_power_df = cluster.get_series_matrix()[scenario - 1]
+    scenario = (
+        study.get_output(parameters.output_name)
+        .get_thermal_ts_numbers(area.id, thermal_name)
+        .get(parameters.scenario, None)
+    )
+    if scenario is None:
+        logger.warning(f"No scenario found for {thermal_name} in area {area.id}, skipping DSR")
+        return None
 
+    try:
+        maximum_power_df = cluster.get_series_matrix()[scenario - 1]
         if maximum_power_df.abs().max() == 0:
             return None
         maximum_power = Timeseries.from_values(parameters.start_date, frequency="1h", values=maximum_power_df)
@@ -188,10 +191,7 @@ def _convert_dsr_other_country(
     dsr_unit = Thermal(
         name=f"{area.id}_dsr",
         node=atlas_dataset.get("node", area.id),
-        portfolio=atlas_dataset.get(
-            "portfolio",
-            f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
-        ),
+        portfolio=get_portfolio(atlas_dataset, parameters, area.id),
         has_daily_energy_constraint=True,
         maximum_daily_energy=maximum_daily_energy,
         maximum_power=maximum_power,

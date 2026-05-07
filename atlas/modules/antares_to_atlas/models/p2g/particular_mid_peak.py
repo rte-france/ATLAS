@@ -11,7 +11,7 @@ from pendulum import duration
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters, ThermalTechnologyConfig
-from atlas.modules.antares_to_atlas.utils import get_variable_cost
+from atlas.modules.antares_to_atlas.utils import get_portfolio, get_variable_cost
 from atlas.objects.equipment.thermal import Thermal
 
 
@@ -136,6 +136,9 @@ def _create_pcomp_equipment(
         .get_thermal_ts_numbers(area_name, thermal.name)
         .get(parameters.scenario)
     )
+    if scenario is None:
+        logger.warning(f"No scenario found for {thermal.name} in area {area_name}, skipping")
+        return None
     maximum_power_ts = Timeseries.from_values(
         start_date=parameters.start_date, frequency="1h", values=thermal.get_series_matrix()[scenario - 1]
     )
@@ -158,17 +161,14 @@ def _create_pcomp_equipment(
     equipment = Thermal(
         name=thermal.name,
         node=atlas_dataset.get("node", area_name),
-        portfolio=atlas_dataset.get(
-            "portfolio",
-            f"generator_{area_name}" if parameters.consumption_production_separation else f"portfolio_{area_name}",
-        ),
+        portfolio=get_portfolio(atlas_dataset, parameters, area_name),
         maximum_power=maximum_power_ts,
         minimum_power=minimum_power_ts,
         installed_capacity=installed_capacity,
         variable_cost=variable_cost_ts,
         startup_cost=startup_cost_ts,
         co2_emission_factor=thermal.properties.co2,
-        minimum_stable_power_duration=thermal.properties.min_stable_power,  # TODO a recupérer dans csv et pas via antares
+        minimum_stable_power_duration=properties.minimum_stable_power_duration,
         startup_delay_probability=properties.startup_delay_probability,
         startup_duration=properties.startup_duration,
         shutdown_duration=properties.shutdown_duration,

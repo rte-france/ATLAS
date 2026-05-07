@@ -10,6 +10,7 @@ from pendulum import duration
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.utils import get_portfolio
 from atlas.objects.equipment.wind import Wind
 
 
@@ -17,10 +18,7 @@ def _build_wind(area_name: str, parameters: AntaresToAtlasParameters, atlas_data
     return Wind(
         name=f"{area_name}_wind",
         node=atlas_dataset.get("node", area_name),
-        portfolio=atlas_dataset.get(
-            "portfolio",
-            f"generator_{area_name}" if parameters.consumption_production_separation else f"portfolio_{area_name}",
-        ),
+        portfolio=get_portfolio(atlas_dataset, parameters, area_name),
         maximum_curtailment_ratio=Timeseries.from_index(
             start_date=parameters.start_date,
             frequency="1h",
@@ -49,17 +47,17 @@ def convert_wind_units(
         area = areas[area_name]
 
         if use_clusters:
+            scenario = (
+                study.get_output(parameters.output_name)
+                .get_wind_ts_numbers(area_name)
+                .get(parameters.scenario, None)
+            )
             renewables = area.get_renewables()
             for cluster_res in renewables.values():
                 if cluster_res.properties.group != parameters.renewables.wind_onshore_group:
                     continue
                 if not cluster_res.properties.enabled:
                     continue
-                scenario = (
-                    study.get_output(parameters.output_name)
-                    .get_wind_ts_numbers(area_name)
-                    .get(parameters.scenario, None)
-                )
                 if not scenario or area.get_wind_matrix()[scenario - 1].abs().max().item() == 0:
                     continue
 

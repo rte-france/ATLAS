@@ -308,13 +308,7 @@ def _default_fragments() -> dict[str, HydroFragmentConfig]:
         prices=[-25.963, -15.631, -7.411, 11.13, 20.769, 30.889, 39.475],
         volumes=[0.0569, 0.1742, 0.23, 0.1213, 0.3121, 0.0514, 0.0541],
     )
-    return {
-        "Generic": _generic,
-        "fr": HydroFragmentConfig(
-            prices=[-25.963, -15.631, -7.411, 11.13, 20.769, 30.889, 39.475],
-            volumes=[0.0569, 0.1742, 0.23, 0.1213, 0.3121, 0.0514, 0.0541],
-        ),
-    }
+    return {"Generic": _generic}
 
 
 class HydroParameters(BaseModel):

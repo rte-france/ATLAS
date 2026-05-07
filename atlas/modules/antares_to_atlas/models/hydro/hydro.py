@@ -15,6 +15,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.models.hydro.inflows import add_inflows_from_csv
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.utils import get_portfolio
 from atlas.objects.equipment.hydro import Hydro
 
 
@@ -83,10 +84,7 @@ def _create_hydraulic_equipment(
     hydro = Hydro(
         name=f"{area.id}_hydro",
         node=atlas_dataset.get("node", area.id),
-        portfolio=atlas_dataset.get(
-            "portfolio",
-            f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
-        ),
+        portfolio=get_portfolio(atlas_dataset, parameters, area.id),
         maximum_power=maximum_power_ts,
         minimum_power=Timeseries.from_index(
             start_date=parameters.start_date,

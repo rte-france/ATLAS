@@ -19,7 +19,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-from atlas.modules.antares_to_atlas.utils import get_binding_constraint_for_phs
+from atlas.modules.antares_to_atlas.utils import get_binding_constraint_for_phs, get_portfolio
 from atlas.objects.equipment.hydro import Hydro
 from atlas.objects.equipment.storage import Storage
 
@@ -173,10 +173,7 @@ def _create_open_phs(
     phs = Storage(
         name=f"{area.id}_phs_open",
         node=atlas_dataset.get("node", area.id),
-        portfolio=atlas_dataset.get(
-            "portfolio",
-            f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
-        ),
+        portfolio=get_portfolio(atlas_dataset, parameters, area.id),
         storage_type=StorageType.PUMPED_HYDRAULIC_STORAGE,
         maximum_power=Timeseries.from_values(parameters.start_date, frequency="1h", values=turb_cap_df),
         minimum_power=minimum_power_ts,
@@ -263,10 +260,7 @@ def convert_phs_open_fr(
     phs = Storage(
         name="fr_phs_open",
         node=atlas_dataset.get("node", "fr"),
-        portfolio=atlas_dataset.get(
-            "portfolio",
-            "generator_fr" if parameters.consumption_production_separation else "portfolio_fr",
-        ),
+        portfolio=get_portfolio(atlas_dataset, parameters, "fr"),
         storage_type=StorageType.PUMPED_HYDRAULIC_STORAGE,
         maximum_power=maximum_power_ts,
         minimum_power=minimum_power_ts,

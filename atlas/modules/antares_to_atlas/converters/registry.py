@@ -87,4 +87,4 @@ class ConverterRegistry:
         :return: List of converter names in registration order
         :rtype: list[str]
         """
-        return [c().name for c in self._converters]
+        return [c.name for c in self._converters]

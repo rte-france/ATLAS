@@ -137,7 +137,7 @@ def _compute_node_water_values(
         study_output=study_output,
     )
 
-    _store_water_values(hydro, water_values, stock_levels, parameters, n_time_steps)
+    _store_water_values(hydro, water_values, stock_levels, parameters, n_time_steps, len(scenario_inflows))
 
 
 def _run_bellman_iteration(
@@ -286,6 +286,7 @@ def _store_water_values(
     stock_levels: list[int],
     parameters: AntaresToAtlasParameters,
     n_time_steps: int,
+    n_scenarios: int,
 ) -> None:
     """Store computed water values as hydro.storage_marginal_value (ScenarioMatrix).
 
@@ -295,7 +296,6 @@ def _store_water_values(
     if not water_values:
         return
 
-    n_scenarios = len(parameters.hydro.water_value_scenarios) if parameters.hydro.water_value_scenarios != "all" else 1
     levels_to_store = _select_storage_levels(stock_levels, parameters)
     scenario_matrix = ScenarioMatrix()
 

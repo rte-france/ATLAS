@@ -58,73 +58,76 @@ def convert_system_structure(
 
         # Create Control Block
         ctrl_block = ControlBlock(name=area_name)
-        control_blocks.append(ctrl_block)
+
         try:
             marginal_price = study_output.get_mc_ind_area(
                 parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.name
             )[(parameters.output.marginal_price_column, "Euro")]
+        except Exception as e:
+            logger.warning(f"Could not get marginal price for area {area_name} (scenario {parameters.scenario}): {e}. Skipping area.")
+            continue
 
-            market_area = MarketArea(
-                name=area_name,
-                control_block=ctrl_block,
-                price_forecast_medium=ForecastingMatrix().add(
-                    index=parameters.execution_date,
-                    timeseries=Timeseries.from_values(
-                        start_date=parameters.start_date, frequency="1h", values=marginal_price
-                    ),
-                ),
-                minimum_price=Timeseries.from_index(
-                    parameters.start_date,
-                    frequency="1h",
-                    end_date=parameters.start_date + duration(years=1),
-                    default_value=parameters.minimum_price,
-                ),
-                maximum_price=Timeseries.from_index(
-                    parameters.start_date,
-                    frequency="1h",
-                    end_date=parameters.start_date + duration(years=1),
-                    default_value=parameters.maximum_price,
-                ),
-            )
-            market_areas.append(market_area)
+        control_blocks.append(ctrl_block)
 
-            # Create Node
-            node = Node(
-                name=area_name,
-                control_block=ctrl_block,
+        market_area = MarketArea(
+            name=area_name,
+            control_block=ctrl_block,
+            price_forecast_medium=ForecastingMatrix().add(
+                index=parameters.execution_date,
+                timeseries=Timeseries.from_values(
+                    start_date=parameters.start_date, frequency="1h", values=marginal_price
+                ),
+            ),
+            minimum_price=Timeseries.from_index(
+                parameters.start_date,
+                frequency="1h",
+                end_date=parameters.start_date + duration(years=1),
+                default_value=parameters.minimum_price,
+            ),
+            maximum_price=Timeseries.from_index(
+                parameters.start_date,
+                frequency="1h",
+                end_date=parameters.start_date + duration(years=1),
+                default_value=parameters.maximum_price,
+            ),
+        )
+        market_areas.append(market_area)
+
+        # Create Node
+        node = Node(
+            name=area_name,
+            control_block=ctrl_block,
+            market_area=market_area,
+        )
+        nodes.append(node)
+
+        # Create Portfolio(s)
+        if parameters.consumption_production_separation:
+            logger.debug(f"  Creating separate producer/consumer portfolios for {area_name}")
+
+            # Generator portfolio
+            portfolio_gen = Portfolio(
+                name=f"generator_{area_name}",
                 market_area=market_area,
+                control_block=ctrl_block,
             )
-            nodes.append(node)
+            portfolios.append(portfolio_gen)
 
-            # Create Portfolio(s)
-            if parameters.consumption_production_separation:
-                logger.debug(f"  Creating separate producer/consumer portfolios for {area_name}")
-
-                # Generator portfolio
-                portfolio_gen = Portfolio(
-                    name=f"generator_{area_name}",
-                    market_area=market_area,
-                    control_block=ctrl_block,
-                )
-                portfolios.append(portfolio_gen)
-
-                # Supplier portfolio
-                portfolio_load = Portfolio(
-                    name=f"supplier_{area_name}",
-                    market_area=market_area,
-                    control_block=ctrl_block,
-                )
-                portfolios.append(portfolio_load)
-            else:
-                logger.debug(f"  Creating unified portfolio for {area_name}")
-                portfolio = Portfolio(
-                    name=f"portfolio_{area_name}",
-                    market_area=market_area,
-                    control_block=ctrl_block,
-                )
-                portfolios.append(portfolio)
-        except Exception:
-            logger.warning("Scenario selected not found. Can not proceed to conversion.")
+            # Supplier portfolio
+            portfolio_load = Portfolio(
+                name=f"supplier_{area_name}",
+                market_area=market_area,
+                control_block=ctrl_block,
+            )
+            portfolios.append(portfolio_load)
+        else:
+            logger.debug(f"  Creating unified portfolio for {area_name}")
+            portfolio = Portfolio(
+                name=f"portfolio_{area_name}",
+                market_area=market_area,
+                control_block=ctrl_block,
+            )
+            portfolios.append(portfolio)
 
     logger.info(f"Converted {len(nodes)} nodes, {len(market_areas)} market areas, {len(portfolios)} portfolios")
 

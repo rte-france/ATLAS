@@ -19,66 +19,34 @@ from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
 class HydroConverter(Converter):
-    @property
-    def name(self) -> str:
-        return "hydro"
-
-    @property
-    def description(self) -> str:
-        return "Hydraulic Conversion"
+    name = "hydro"
+    description = "Hydraulic Conversion"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_hydro_units(study, parameters, atlas_dataset)
 
 
 class LinkConverter(Converter):
-    @property
-    def name(self) -> str:
-        return "link"
-
-    @property
-    def description(self) -> str:
-        return "Link Conversion"
+    name = "link"
+    description = "Link Conversion"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_links(study, parameters, atlas_dataset)
 
 
 class LoadConverter(Converter):
-    @property
-    def name(self) -> str:
-        return "load"
-
-    @property
-    def description(self) -> str:
-        return "Load Conversion"
+    name = "load"
+    description = "Load Conversion"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_load_units(study, parameters, atlas_dataset)
 
 
 class SystemStructureConverter(Converter):
-    """Converter for Node, MarketArea, Portfolio and ControlBlock creation.
+    """Converter for Node, MarketArea, Portfolio and ControlBlock creation."""
 
-    This converter creates the basic system structure including:
-    - Nodes (geographical locations)
-    - Market Areas (economic zones)
-    - Portfolios (producer/consumer/both)
-    - Control Blocks (operational zones)
-
-    The converter orchestrates the conversion by calling the business logic
-    in the models.system_structure module.
-    """
-
-    @property
-    def name(self) -> str:
-        """Return converter name."""
-        return "node"
-
-    @property
-    def description(self) -> str:
-        """Return converter description."""
-        return "Node, MarketArea, Portfolio and ControlBlock Conversion"
+    name = "node"
+    description = "Node, MarketArea, Portfolio and ControlBlock Conversion"
 
     def convert(
         self,
@@ -86,87 +54,38 @@ class SystemStructureConverter(Converter):
         parameters: AntaresToAtlasParameters,
         atlas_dataset: AtlasDataset,
     ) -> AtlasDataset:
-        """Convert node and related structures.
-
-        :param study: Antares study object
-        :type study: Study
-        :param parameters: Conversion parameters
-        :type parameters: AntaresToAtlasParameters
-        :param atlas_dataset: Atlas dataset
-        :type atlas_dataset: AtlasDataset
-        :return: List of all created business models
-        :rtype: list[BusinessModel]
-        """
-
         return convert_system_structure(study, parameters, atlas_dataset)
 
 
 class NonDispatchableConverter(Converter):
-    @property
-    def name(self) -> str:
-        return "non_dispatchable"
-
-    @property
-    def description(self) -> str:
-        return "Non-dispatchable Conversion"
+    name = "non_dispatchable"
+    description = "Non-dispatchable Conversion"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_other_non_dispatchable_units(study, parameters, atlas_dataset)
 
 
 class SolarConverter(Converter):
-    @property
-    def name(self) -> str:
-        return "solar"
-
-    @property
-    def description(self) -> str:
-        return "Solar Conversion"
+    name = "solar"
+    description = "Solar Conversion"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_solar_units(study, parameters, atlas_dataset)
 
 
 class ThermalConverter(Converter):
-    """Converter for thermal generation units.
+    """Converter for thermal generation units."""
 
-    This converter orchestrates the conversion by calling the business logic
-    in the models.thermal module.
-    """
-
-    @property
-    def name(self) -> str:
-        return "thermal"
-
-    @property
-    def description(self) -> str:
-        return "Thermic Conversion"
+    name = "thermal"
+    description = "Thermic Conversion"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
-        """Convert thermal generation units.
-
-        :param study: Antares study object
-        :type study: Study
-        :param parameters: Conversion parameters
-        :type parameters: AntaresToAtlasParameters
-        :param atlas_dataset: Atlas dataset
-        :type atlas_dataset: AtlasDataset
-        :return: List of created Thermal equipment
-        :rtype: list[BusinessModel]
-        """
-
-        thermal_units = convert_thermal_units(study, parameters, atlas_dataset)
-        return thermal_units
+        return convert_thermal_units(study, parameters, atlas_dataset)
 
 
 class WindConverter(Converter):
-    @property
-    def name(self) -> str:
-        return "wind"
-
-    @property
-    def description(self) -> str:
-        return "Wind Conversion"
+    name = "wind"
+    description = "Wind Conversion"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_wind_units(study, parameters, atlas_dataset)

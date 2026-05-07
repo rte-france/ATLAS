@@ -8,6 +8,7 @@ from loguru import logger
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.utils import get_portfolio
 from atlas.objects.equipment.load import Load
 
 
@@ -30,15 +31,12 @@ def convert_load_units(study: Study, parameters: AntaresToAtlasParameters, atlas
             load = Load(
                 name=f"{area_name}_load",
                 node=atlas_dataset.get("node", area_name),
-                portfolio=atlas_dataset.get(
-                    "portfolio",
-                    f"supplier_{area_name}"
-                    if parameters.consumption_production_separation
-                    else f"portfolio_{area_name}",
-                ),
+                portfolio=get_portfolio(atlas_dataset, parameters, area_name, role="supplier"),
             )
-        logger.debug(f"Created load unit : {load.name}")
-        loads.append(load)
+            logger.debug(f"Created load unit : {load.name}")
+            loads.append(load)
+        else:
+            logger.warning(f"No scenario found for area {area_name}, skipping load conversion")
 
     atlas_dataset.load.add(loads)
 

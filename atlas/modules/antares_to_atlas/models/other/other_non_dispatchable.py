@@ -11,6 +11,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.utils import get_portfolio
 from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
 
 
@@ -32,7 +33,7 @@ def convert_other_non_dispatchable_units(
         ror = areas[area_name].hydro.get_ror_series()
         scenario = study_output.get_hydro_ts_numbers(area_name).get(parameters.scenario, None)
         if scenario is not None:
-            ror_series = ror[parameters.scenario - 1]
+            ror_series = ror[scenario - 1]
             if ror_series.abs().max().item() > 0:
                 ror_ts = Timeseries.from_values(
                     start_date=parameters.execution_date,
@@ -42,12 +43,7 @@ def convert_other_non_dispatchable_units(
                 non_disp_units.append(
                     OtherNonDispatchable(
                         name=f"{area_name}_ror",
-                        portfolio=atlas_dataset.get(
-                            "portfolio",
-                            f"generator_{area_name}"
-                            if parameters.consumption_production_separation
-                            else f"portfolio_{area_name}",
-                        ),
+                        portfolio=get_portfolio(atlas_dataset, parameters, area_name),
                         node=atlas_dataset.get("node", area_name),
                         maximum_power_forecast=ForecastingMatrix().add(
                             ror_ts, parameters.execution_date, inplace=False
@@ -66,13 +62,8 @@ def convert_other_non_dispatchable_units(
             if prod.abs().max() > 0:
                 non_disp_units.append(
                     OtherNonDispatchable(
-                        name=f"{area_name}_{scenario}",
-                        portfolio=atlas_dataset.get(
-                            "portfolio",
-                            f"generator_{area_name}"
-                            if parameters.consumption_production_separation
-                            else f"portfolio_{area_name}",
-                        ),
+                        name=f"{area_name}_misc_ndg",
+                        portfolio=get_portfolio(atlas_dataset, parameters, area_name),
                         node=atlas_dataset.get("node", area_name),
                         maximum_power_forecast=ForecastingMatrix().add(prod, parameters.execution_date, inplace=False),
                     )

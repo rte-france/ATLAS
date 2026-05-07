@@ -6,6 +6,7 @@ Base converter classes for Antares to Atlas conversion.
 """
 
 from abc import ABC, abstractmethod
+from typing import ClassVar
 
 from antares.craft.model.study import Study
 from loguru import logger
@@ -20,32 +21,26 @@ class Converter(ABC):
     Each converter is responsible for converting a specific aspect of Antares data
     to Atlas format (e.g., load, thermal, hydro, etc.).
 
+    Subclasses must declare class-level ``name`` (and optionally ``description``).
+
     Converters can be configured with:
     - supported_versions: List of supported Antares versions (empty means all)
     - required_market_areas: Market areas that must be present for this converter to run
     """
 
+    name: ClassVar[str]
+    description: ClassVar[str] = ""
+
     # Class-level configuration
     supported_versions: list[str] = []  # Empty means all versions
     required_market_areas: list[str] = []  # Empty means no requirement
 
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Unique name identifying this converter.
-
-        :return: Converter name
-        :rtype: str
-        """
-
-    @property
-    def description(self) -> str:
-        """Human-readable description of what this converter does.
-
-        :return: Converter description
-        :rtype: str
-        """
-        return f"{self.name} converter"
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not getattr(cls, "name", None):
+            raise TypeError(f"Converter subclass {cls.__name__} must declare class attribute 'name'")
+        if not cls.description:
+            cls.description = f"{cls.name} converter"
 
     @abstractmethod
     def convert(
