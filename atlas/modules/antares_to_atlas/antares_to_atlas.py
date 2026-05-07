@@ -18,7 +18,9 @@ from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.converters.bp23 import (
     BatteryConverterBP23,
     DSRConverterBP23,
+    DSRFRConverterBP23,
     ElectricVehicleConverterBP23,
+    ElectricVehicleFRConverterBP23,
     InitialLevelConverterBP23,
     MixedFuelConverterBP23,
     MultiEnergyConverterBP23,
@@ -136,12 +138,14 @@ class AntaresToAtlas:
         bp23_converters: list[type[Converter]] = [
             MixedFuelConverterBP23,  # Depends on thermal converter
             ElectricVehicleConverterBP23,
+            ElectricVehicleFRConverterBP23,  # France-specific EVs + heavy vehicles
             BatteryConverterBP23,
             ParticularMidConverterBP23,
             ParticularPeakConverterBP23,
             P2GConverterBP23,
             MultiEnergyConverterBP23,  # Must run after all thermic units
             DSRConverterBP23,
+            DSRFRConverterBP23,  # France-specific DSR
             PHSClosedConverterBP23,  # Depends on hydro converter
             PHSOpenConverterBP23,  # Open-loop PHS (non-FR), updates hydro equipment
             PHSOpenFRConverterBP23,  # Open-loop PHS (FR-specific)

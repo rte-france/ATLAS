@@ -27,16 +27,8 @@ def convert_electric_vehicle_units(
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
 ) -> AtlasDataset:
-    """Convert Electric Vehicle technologies from Antares to Atlas Storage equipment.
-
-    EV units are modeled as Storage equipment with V2G capabilities:
-    - Standard EVs for most areas
-    - Special handling for France with two EV types (night-only and regular)
-    - France also includes heavy vehicles as Load equipment
-
-    Requires displacement energy and node-specific parameters from CSV files.
-    """
-    logger.info("Converting Electric Vehicle units")
+    """Convert standard EV units for all non-France areas."""
+    logger.info("Converting Electric Vehicle units (standard)")
 
     baseline_displacement_energy_ts = _load_baseline_displacement_energy(parameters)
     specific_node_parameters = _load_specific_node_parameters(parameters)
@@ -48,25 +40,35 @@ def convert_electric_vehicle_units(
         baseline_displacement_energy_ts=baseline_displacement_energy_ts,
         specific_node_parameters=specific_node_parameters,
     )
-
-    if "fr" in parameters.market_areas:
-        ev_units += _convert_france_evs(
-            study=study,
-            parameters=parameters,
-            atlas_dataset=atlas_dataset,
-            baseline_displacement_energy_ts=baseline_displacement_energy_ts,
-            specific_node_parameters=specific_node_parameters,
-        )
-
-        hv_units = _convert_france_heavy_vehicles(
-            study=study,
-            parameters=parameters,
-            atlas_dataset=atlas_dataset,
-        )
-        atlas_dataset.load.add(hv_units)
-
     atlas_dataset.storage.add(ev_units)
+    return atlas_dataset
 
+
+def convert_electric_vehicle_fr_units(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+) -> AtlasDataset:
+    """Convert France-specific EV units (night-only, regular) and heavy vehicles."""
+    logger.info("Converting Electric Vehicle units (France)")
+
+    baseline_displacement_energy_ts = _load_baseline_displacement_energy(parameters)
+    specific_node_parameters = _load_specific_node_parameters(parameters)
+
+    ev_units = _convert_france_evs(
+        study=study,
+        parameters=parameters,
+        atlas_dataset=atlas_dataset,
+        baseline_displacement_energy_ts=baseline_displacement_energy_ts,
+        specific_node_parameters=specific_node_parameters,
+    )
+    hv_units = _convert_france_heavy_vehicles(
+        study=study,
+        parameters=parameters,
+        atlas_dataset=atlas_dataset,
+    )
+    atlas_dataset.storage.add(ev_units)
+    atlas_dataset.load.add(hv_units)
     return atlas_dataset
 
 

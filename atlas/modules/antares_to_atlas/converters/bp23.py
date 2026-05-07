@@ -10,7 +10,7 @@ from antares.craft.model.study import Study
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.models.hydro import compute_initial_levels, compute_water_values
-from atlas.modules.antares_to_atlas.models.load.dsr import convert_dsr_units
+from atlas.modules.antares_to_atlas.models.load.dsr import convert_dsr_fr_units, convert_dsr_other_units
 from atlas.modules.antares_to_atlas.models.p2g.multi_energy import update_variable_cost_for_gas_units
 from atlas.modules.antares_to_atlas.models.p2g.p2g import convert_p2g_units
 from atlas.modules.antares_to_atlas.models.p2g.particular_mid_peak import (
@@ -19,6 +19,7 @@ from atlas.modules.antares_to_atlas.models.p2g.particular_mid_peak import (
 )
 from atlas.modules.antares_to_atlas.models.storage import (
     convert_battery_units,
+    convert_electric_vehicle_fr_units,
     convert_electric_vehicle_units,
     convert_phs_closed_units,
     convert_phs_open_fr,
@@ -39,10 +40,19 @@ class BatteryConverterBP23(Converter):
 
 class ElectricVehicleConverterBP23(Converter):
     name = "electric_vehicle"
-    description = "Electric Vehicle Conversion"
+    description = "Electric Vehicle Conversion (standard)"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_electric_vehicle_units(study, parameters, atlas_dataset)
+
+
+class ElectricVehicleFRConverterBP23(Converter):
+    name = "electric_vehicle_fr"
+    description = "Electric Vehicle Conversion (France)"
+    required_market_areas = ["fr"]
+
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
+        return convert_electric_vehicle_fr_units(study, parameters, atlas_dataset)
 
 
 class PHSClosedConverterBP23(Converter):
@@ -127,10 +137,19 @@ class MultiEnergyConverterBP23(Converter):
 
 class DSRConverterBP23(Converter):
     name = "dsr"
-    description = "Demand-Side Response Conversion"
+    description = "Demand-Side Response Conversion (other countries)"
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
-        return convert_dsr_units(study, parameters, atlas_dataset)
+        return convert_dsr_other_units(study, parameters, atlas_dataset)
+
+
+class DSRFRConverterBP23(Converter):
+    name = "dsr_fr"
+    description = "Demand-Side Response Conversion (France)"
+    required_market_areas = ["fr"]
+
+    def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
+        return convert_dsr_fr_units(study, parameters, atlas_dataset)
 
 
 class WaterValueConverterBP23(Converter):
@@ -152,6 +171,7 @@ class InitialLevelConverterBP23(Converter):
 class NuclearModulationConverterBP23(Converter):
     name = "nuclear_modulation"
     description = "Nuclear Modulation (France)"
+    required_market_areas = ["fr"]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return add_nuclear_modulation(study, parameters, atlas_dataset)
