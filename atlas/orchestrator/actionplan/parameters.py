@@ -18,6 +18,7 @@ from pydantic_extra_types.pendulum_dt import DateTime
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.orchestrator.hook.hook import Hook
 from atlas.orchestrator.module_registry import ModuleRegistry
+from atlas.orchestrator.workflow.workflow import Workflow
 from atlas.validators import convert_to_duration
 
 
@@ -39,6 +40,16 @@ class ActionPlanParameters(AbstractOrchestratorParameters):
     tasks: list[Task]
     hooks: list[Hook] = []
 
+    @model_validator(mode="after")
+    def task_with_workflow_can_be_built(self) -> ActionPlanParameters:
+        for task in self.tasks:
+            if task.workflow is not None and isinstance(task.workflow, Path):
+                try:
+                    workflow = Workflow.from_file(task.workflow, self.context)
+                except ValueError as e:
+                    raise ValueError(f"An exception occurred when building Workflow for task {task.name} using parameters {task.workflow} : {e}")
+                task.workflow = workflow
+        return self
 
 class Task(BaseModel):
     """Definition of a single task
@@ -65,7 +76,7 @@ class Task(BaseModel):
 
     name: str | None = None
     module: ModuleRegistry | None = None
-    workflow: str | None = None
+    workflow: Path | None = None #FIXME NB: we can't build the Workflow at this step since we lack the context that may contains missing parameters in workflow parameters, any idea?
     parameters_path: Path
     priority: int
     from_: DateTime  # FIXME change name, "from" isn't available in python
@@ -79,6 +90,14 @@ class Task(BaseModel):
     def coerce_module(cls, v: Any) -> ModuleRegistry | None:
         if v is not None and isinstance(v, str):
             return ModuleRegistry(ModuleRegistry.get(v))
+        return v
+
+    @field_validator("workflow", mode="before")
+    @classmethod
+    def check_workflow_exist(cls, v: Any) -> Path | None:
+        if v is not None and isinstance(v, Path):
+            v.exists()
+            return v
         return v
 
     @field_validator(
