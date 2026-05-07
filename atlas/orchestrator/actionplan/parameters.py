@@ -111,6 +111,17 @@ class Task(BaseModel):
         """Convert various duration formats to Duration objects."""
         return convert_to_duration(v)
 
+
+    @model_validator(mode="after")
+    def default_name(self) -> Task:
+        if self.name is None:
+            if self.module is not None:
+                self.name = self.module.name
+            if self.workflow is not None:
+                self.name = self.workflow.name
+        return self
+
+
     @model_validator(mode="after")
     def module_or_workflow(self) -> Task:  # FIXME better function name? Can we overide validate()
         if self.module is None and self.workflow is None:
