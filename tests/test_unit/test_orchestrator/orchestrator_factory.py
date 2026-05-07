@@ -1,3 +1,4 @@
+import copy
 from collections.abc import Iterator
 from typing import Self
 from unittest.mock import MagicMock
@@ -22,13 +23,37 @@ class ConcreteJob(AbstractJob):
 class ConcreteTaskIterator(TaskIterator):
     """Minimalist implementation of TaskIterator"""
 
-    def __init__(self, task: Task, job: ConcreteJob):
+    def __init__(self, task: Task, job = None, module_parameters = None):
         super().__init__(task)
+        if module_parameters is None:
+            module_parameters = MockModuleParametersBuilder().build()
+
         self._job: ConcreteJob = job
+        self.parameters = module_parameters
 
     def build_jobs(self):
-        return [self._job]
+        parameters = copy.deepcopy(self.parameters)
+        parameters.temporal.start_date = self.next_start_date
+        parameters.temporal.end_date = self.next_end_date
+        parameters.temporal.execution_date = self.next_execution_date
 
+        module = MockModuleBuilder().build()
+        if self._job is not None:
+            module = self._job.module
+
+        return [MockJobBuilder()
+                .with_name("concrete_task_test")
+                .with_module(module)
+                .with_module_parameters(parameters)
+                .build()]
+
+        return [ActionPlanJob("insert_name", self.module, self._build_current_parameters())]
+
+    def __lt__(self, other):
+        return super().__lt__(other)
+
+    def __eq__(self, other):
+        return super().__eq__(other)
 
 class ConcreteOrchestratorParameters(AbstractOrchestratorParameters):
     """Minimalist implementation of AbstractOrchestratorParameters"""
@@ -59,7 +84,7 @@ class MockOutPutBuilder:
         self.mock_output.change_sets = []
 
     def build(self):
-        return self.mock_output
+        return copy.copy(self.mock_output)
 
 class MockModuleParametersBuilder:
     def __init__(self):
@@ -100,7 +125,7 @@ class MockModuleParametersBuilder:
             self.output = tmp_path / "output_path"
         if not self.relative_src and tmp_path is not None:
             self.relative_src = tmp_path / "relative_src"
-        return self
+        return copy.copy(self)
 
 class MockModuleBuilder:
     """Default: return a module so that module.run() returns an output with no change set."""
@@ -116,7 +141,7 @@ class MockModuleBuilder:
         return self
 
     def build(self):
-        return self.instance
+        return copy.copy(self.instance)
 
 
 class MockJobBuilder:
@@ -274,4 +299,4 @@ class MockTaskBuilder:
         return self
 
     def build(self):
-        return self
+        return copy.copy(self)

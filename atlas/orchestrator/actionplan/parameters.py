@@ -96,7 +96,8 @@ class Task(BaseModel):
     @classmethod
     def check_workflow_exist(cls, v: Any) -> Path | None:
         if v is not None and isinstance(v, Path):
-            v.exists()
+            if not v.exists():
+                raise ValueError(f"Workflow parameter file not found at {v}")
             return v
         return v
 
