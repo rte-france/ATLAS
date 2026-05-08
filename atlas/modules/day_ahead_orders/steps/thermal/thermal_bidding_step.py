@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import as_completed
 
 import atlas.config as cfg
 from atlas.enums import CouplingType, Product, ThermalStrategy
@@ -16,6 +16,7 @@ from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_worker import optimize_single_thermal_unit
 from atlas.objects.equipment.thermal import Thermal
 from atlas.objects.market.order import Order
+from atlas.tracing import ProcessPoolExecutor
 
 
 class Coupling:

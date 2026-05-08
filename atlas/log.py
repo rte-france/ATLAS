@@ -7,12 +7,36 @@ Module that implements the Atlas logger.
 """
 
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import pendulum
 from loguru import logger
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _make_context_format(base: str) -> Callable[[dict], str]:
+    """Wrap a loguru format string to inject flow/task as pipe-separated columns."""
+
+    def format_record(record: dict) -> str:
+        task = record["extra"].get("task", "")
+        flow_name = record["extra"].get("flow", "")
+
+        ctx = ""
+        if flow_name and task:
+            ctx = f"<bold>{flow_name}</bold> | <bold>{task}</bold> | "
+        elif task:
+            ctx = f"<bold>{task}</bold> | "
+        elif flow_name:
+            ctx = f"<bold>{flow_name}</bold> | "
+
+        # Insert before {message} but outside any <level> tag so flow/task stay bold-white
+        if "<level>{message}</level>" in base:
+            return base.replace("<level>{message}</level>", f"{ctx}<level>{{message}}</level>") + "\n"
+        return base.replace("{message}", ctx + "{message}") + "\n"
+
+    return format_record
 
 
 class Logger(BaseSettings):
@@ -57,14 +81,15 @@ class Logger(BaseSettings):
     def _configure_logger(self) -> None:
         logger.remove()
 
-        if not self.to_file:
-            logger.add(
-                sys.stdout,
-                level=self.level,
-                format=self.format,
-                enqueue=True,
-            )
-        else:
+        fmt = _make_context_format(self.format)
+
+        logger.add(
+            sys.stdout,
+            level=self.level,
+            format=fmt,
+            enqueue=True,
+        )
+        if self.to_file:
             self.dir.mkdir(parents=True, exist_ok=True)
             timestamp = pendulum.now().format("YYYY-MM-DD-HH-mm-ss")
 
@@ -73,7 +98,7 @@ class Logger(BaseSettings):
             logger.add(
                 log_file,
                 level=self.level,
-                format=self.format,
+                format=fmt,
                 rotation=self.rotation,
                 retention=self.retention,
                 enqueue=True,

@@ -6,12 +6,13 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from dataclasses import dataclass, field
 
 from pendulum import DateTime
 
 import atlas.config as cfg
+from atlas.tracing import ProcessPoolExecutor
 from atlas.enums import SolverStatus
 from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.optim import PortfolioOptimisationModel
@@ -63,7 +64,9 @@ class PortfolioOptimisationResult:
 
 
 def optimise_single_portfolio(
-    portfolio: PortfolioPO, time_window: list[DateTime], parameters: PortfolioOptimisationParameters
+    portfolio: PortfolioPO,
+    time_window: list[DateTime],
+    parameters: PortfolioOptimisationParameters,
 ) -> tuple[str, PortfolioOptimisationResult]:
     """
     Worker function for portfolio optimization (works for both multiprocessing and sequential).

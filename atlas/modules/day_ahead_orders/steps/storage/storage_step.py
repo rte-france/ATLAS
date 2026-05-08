@@ -5,7 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import as_completed
 
 from pendulum import DateTime
 
@@ -17,6 +17,7 @@ from atlas.modules.day_ahead_orders.steps.storage.storage_worker import (
     optimize_single_storage,
 )
 from atlas.timing import generate_datetimes
+from atlas.tracing import ProcessPoolExecutor
 
 
 class StorageStep(AbstractOrderStep):

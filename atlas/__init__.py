@@ -39,6 +39,7 @@ from atlas.orchestrator.workflow.workflow import Workflow
 from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions, SolverStatus
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
+from atlas.tracing import FlowRecord, TaskRecord, flow, get_log_context, task
 
 __all__ = [
     "AbstractScenarioMatrix",
@@ -84,6 +85,11 @@ __all__ = [
     "PortfolioOptimisationModule",
     "DayAheadOrdersModule",
     "MarketClearingModule",
+    "task",
+    "flow",
+    "get_log_context",
+    "TaskRecord",
+    "FlowRecord",
 ]
 
 __version__ = version("atlas")
