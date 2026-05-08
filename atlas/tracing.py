@@ -8,14 +8,19 @@ from __future__ import annotations
 
 import concurrent.futures
 import functools
+import json
+import uuid
 from collections.abc import Callable
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from functools import wraps
+from pathlib import Path
 from typing import Any, Literal, TypeVar
 
 import pendulum
 from loguru import logger
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -24,7 +29,7 @@ _task_context: ContextVar[str | None] = ContextVar("_task_context", default=None
 
 
 def get_log_context() -> dict[str, str]:
-    """Return the current flow/task context as a plain dict.
+    """Return the current flow/task/run_id context as a plain dict.
 
     Useful for advanced cases where you need to propagate context manually.
     For ``ProcessPoolExecutor``, prefer importing it from ``atlas.tracing`` directly —
@@ -34,6 +39,7 @@ def get_log_context() -> dict[str, str]:
     flow_record = _flow_context.get()
     if flow_record is not None:
         ctx["flow"] = flow_record.name
+        ctx["run_id"] = flow_record.run_id
     task_name = _task_context.get()
     if task_name is not None:
         ctx["task"] = task_name
@@ -78,6 +84,7 @@ class ProcessPoolExecutor(concurrent.futures.ProcessPoolExecutor):
 @dataclass
 class TaskRecord:
     name: str
+    run_id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
     status: Literal["pending", "running", "success", "failed"] = "pending"
     started_at: pendulum.DateTime | None = None
     ended_at: pendulum.DateTime | None = None
@@ -85,10 +92,23 @@ class TaskRecord:
     metadata: dict[str, Any] = field(default_factory=dict)
     error: Exception | None = None
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "name": self.name,
+            "status": self.status,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "ended_at": self.ended_at.isoformat() if self.ended_at else None,
+            "duration_seconds": self.duration_seconds,
+            "metadata": self.metadata,
+            "error": str(self.error) if self.error else None,
+        }
+
 
 @dataclass
 class FlowRecord:
     name: str
+    run_id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
     status: Literal["pending", "running", "success", "failed"] = "pending"
     started_at: pendulum.DateTime | None = None
     ended_at: pendulum.DateTime | None = None
@@ -96,6 +116,22 @@ class FlowRecord:
     tasks: list[TaskRecord] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
     error: Exception | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "name": self.name,
+            "status": self.status,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "ended_at": self.ended_at.isoformat() if self.ended_at else None,
+            "duration_seconds": self.duration_seconds,
+            "tasks": [t.to_dict() for t in self.tasks],
+            "metadata": self.metadata,
+            "error": str(self.error) if self.error else None,
+        }
+
+    def to_json(self, indent: int = 2) -> str:
+        return json.dumps(self.to_dict(), indent=indent)
 
 
 # ---------------------------------------------------------------------------
@@ -133,11 +169,13 @@ def task(
 
             flow_record = _flow_context.get()
             if flow_record is not None:
+                record.run_id = flow_record.run_id
                 flow_record.tasks.append(record)
 
             ctx: dict[str, str] = {"task": task_name}
             if flow_record is not None:
                 ctx["flow"] = flow_record.name
+                ctx["run_id"] = flow_record.run_id
 
             with logger.contextualize(**ctx):
                 task_token = _task_context.set(task_name)
@@ -237,7 +275,7 @@ class _FlowDescriptor:
 
         token = _flow_context.set(record)
 
-        with logger.contextualize(flow=flow_name):
+        with logger.contextualize(flow=flow_name, run_id=record.run_id):
             record.status = "running"
             record.started_at = pendulum.now()
             try:
@@ -258,6 +296,7 @@ class _FlowDescriptor:
                         setattr(instance, "run_record", record)
                     except AttributeError:
                         pass  # __slots__ without run_record — silently skip
+                _run_store.save(record)
 
         return result  # type: ignore[possibly-undefined]
 
@@ -300,3 +339,45 @@ def flow(
         return _FlowDescriptor(func, name=name, metadata=metadata)
 
     return decorator
+
+
+# ---------------------------------------------------------------------------
+# RunStore — persists FlowRecord as JSON files
+# ---------------------------------------------------------------------------
+
+class RunStore(BaseSettings):
+    """Persists :class:`FlowRecord` as JSON files after each flow execution.
+
+    Controlled via environment variables with ``RUNS_`` prefix:
+
+    - ``RUNS_ENABLED`` — enable/disable persistence (default: ``true``)
+    - ``RUNS_DIR``     — directory for run files (default: ``runs``)
+    """
+
+    model_config = SettingsConfigDict(
+        env_prefix="RUNS_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    enabled: bool = Field(default=True)
+    dir: Path = Field(default=Path("runs"))
+
+    def save(self, record: FlowRecord) -> Path | None:
+        """Write *record* to ``{dir}/{started_at}_{name}_{run_id}.json``.
+
+        Returns the written path, or ``None`` if persistence is disabled.
+        """
+        if not self.enabled:
+            return None
+        self.dir.mkdir(parents=True, exist_ok=True)
+        ts = record.started_at.format("YYYYMMDD_HHmmss") if record.started_at else "unknown"
+        filename = f"{ts}_{record.name}_{record.run_id}.json"
+        path = self.dir / filename
+        path.write_text(record.to_json())
+        return path
+
+
+_run_store = RunStore()

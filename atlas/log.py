@@ -20,18 +20,21 @@ def _make_context_format(base: str) -> Callable[[dict], str]:
     """Wrap a loguru format string to inject flow/task as pipe-separated columns."""
 
     def format_record(record: dict) -> str:
-        task = record["extra"].get("task", "")
-        flow_name = record["extra"].get("flow", "")
+        extra = record["extra"]
+        run_id = extra.get("run_id", "")
+        flow_name = extra.get("flow", "")
+        task = extra.get("task", "")
 
-        ctx = ""
-        if flow_name and task:
-            ctx = f"<bold>{flow_name}</bold> | <bold>{task}</bold> | "
-        elif task:
-            ctx = f"<bold>{task}</bold> | "
-        elif flow_name:
-            ctx = f"<bold>{flow_name}</bold> | "
+        parts: list[str] = []
+        if run_id:
+            parts.append(f"<dim>{run_id}</dim>")
+        if flow_name:
+            parts.append(f"<bold>{flow_name}</bold>")
+        if task:
+            parts.append(f"<bold>{task}</bold>")
 
-        # Insert before {message} but outside any <level> tag so flow/task stay bold-white
+        ctx = (" | ".join(parts) + " | ") if parts else ""
+
         if "<level>{message}</level>" in base:
             return base.replace("<level>{message}</level>", f"{ctx}<level>{{message}}</level>") + "\n"
         return base.replace("{message}", ctx + "{message}") + "\n"
@@ -59,6 +62,7 @@ class Logger(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",
     )
 
     name: str = Field(default="atlas", description="Name of the logger")
