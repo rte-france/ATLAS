@@ -47,7 +47,15 @@ def get_log_context() -> dict[str, str]:
 
 
 class _ContextualWorker:
-    """Picklable wrapper that restores the log context in a child process."""
+    """Picklable wrapper that restores the log context in a child process.
+
+    Propagates the parent's flow/task names and ``run_id`` so that ``@task``
+    calls inside the worker emit logs tagged with the parent flow's run_id.
+    A stub :class:`FlowRecord` is installed in ``_flow_context`` so nested
+    tasks see the parent's run_id, but their :class:`TaskRecord` objects are
+    **not** aggregated back into the parent (mutations don't cross process
+    boundaries). For full task aggregation, run inside the parent process.
+    """
 
     __slots__ = ("fn", "log_ctx")
 
@@ -56,8 +64,18 @@ class _ContextualWorker:
         self.log_ctx = log_ctx
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        with logger.contextualize(**self.log_ctx):
-            return self.fn(*args, **kwargs)
+        flow_token = None
+        flow_name = self.log_ctx.get("flow")
+        run_id = self.log_ctx.get("run_id")
+        if flow_name and run_id:
+            stub = FlowRecord(name=flow_name, run_id=run_id)
+            flow_token = _flow_context.set(stub)
+        try:
+            with logger.contextualize(**self.log_ctx):
+                return self.fn(*args, **kwargs)
+        finally:
+            if flow_token is not None:
+                _flow_context.reset(flow_token)
 
 
 class ProcessPoolExecutor(concurrent.futures.ProcessPoolExecutor):
@@ -275,32 +293,36 @@ class _FlowDescriptor:
         flow_name = self._name(*all_args, **kwargs) if callable(self._name) else (self._name or self._func.__name__)
         record = FlowRecord(name=flow_name, metadata=dict(self._metadata))
 
-        token = _flow_context.set(record)
-
         with logger.contextualize(flow=flow_name, run_id=record.run_id):
             record.status = "running"
             record.started_at = pendulum.now()
-            _log_sink_id = _run_store.open_log(record)
+            token = _flow_context.set(record)
+            log_sink_id: int | None = None
             try:
-                result = self._func(*all_args, **kwargs)
-                record.status = "success"
-            except Exception as e:
-                record.status = "failed"
-                record.error = e
-                raise
+                log_sink_id = _run_store.open_log(record)
+                try:
+                    result = self._func(*all_args, **kwargs)
+                    record.status = "success"
+                except Exception as e:
+                    record.status = "failed"
+                    record.error = e
+                    raise
             finally:
                 record.ended_at = pendulum.now()
                 if record.started_at is not None:
                     record.duration_seconds = (record.ended_at - record.started_at).total_seconds()
                 _flow_context.reset(token)
-                self.run_record = record
                 if instance is not None:
                     try:
                         instance.run_record = record
                     except AttributeError:
                         pass  # __slots__ without run_record — silently skip
-                _run_store.close_log(_log_sink_id)
-                _run_store.save(record)
+                else:
+                    self.run_record = record
+                try:
+                    _run_store.close_log(log_sink_id)
+                finally:
+                    _run_store.save(record)
 
         return result  # type: ignore[possibly-undefined]
 

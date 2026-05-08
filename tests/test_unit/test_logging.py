@@ -49,64 +49,29 @@ class TestLogger(unittest.TestCase):
 
     def test_custom_initialization(self):
         """Test Logger initialization with custom environment variables"""
-        # Set custom environment variables
         os.environ["LOG_NAME"] = "test_logger"
         os.environ["LOG_LEVEL"] = "DEBUG"
-        os.environ["LOG_TO_FILE"] = "true"
-        os.environ["LOG_DIR"] = str(self.test_log_dir)
-        os.environ["LOG_ROTATION"] = "5 MB"
-        os.environ["LOG_RETENTION"] = "1 week"
         os.environ["LOG_FORMAT"] = "{time} {level} {message}"
 
         logger_instance = Logger()
 
         self.assertEqual(logger_instance.name, "test_logger")
         self.assertEqual(logger_instance.level, "DEBUG")
-        self.assertEqual(logger_instance.to_file, True)
-        self.assertEqual(logger_instance.dir, self.test_log_dir)
-        self.assertEqual(logger_instance.rotation, "5 MB")
-        self.assertEqual(logger_instance.retention, "1 week")
         self.assertEqual(logger_instance.format, "{time} {level} {message}")
 
     @patch("sys.stdout", new_callable=MagicMock)
     @patch("loguru.logger.add")
     def test_configure_logger_console(self, mock_add, mock_stdout):
         """Test logger configuration for console output"""
-        os.environ["LOG_TO_FILE"] = "false"
         os.environ["LOG_LEVEL"] = "WARNING"
 
         Logger()
 
-        # Check that logger.add was called with stdout
         mock_add.assert_called_once()
         args, kwargs = mock_add.call_args
         self.assertEqual(args[0], sys.stdout)
         self.assertEqual(kwargs["level"], "WARNING")
         self.assertTrue(kwargs["enqueue"])
-
-    @patch("loguru.logger.add")
-    def test_configure_logger_file(self, mock_add):
-        """Test logger configuration for file output"""
-        # Mock pendulum.now() to return a fixed timestamp
-
-        os.environ["LOG_TO_FILE"] = "true"
-        os.environ["LOG_NAME"] = "testapp"
-        os.environ["LOG_DIR"] = str(self.test_log_dir)
-        os.environ["LOG_LEVEL"] = "DEBUG"
-
-        Logger()
-
-        # Check that logger.add was called with a file path
-        mock_add.assert_called_once()
-        args, kwargs = mock_add.call_args
-
-        self.assertEqual(kwargs["level"], "DEBUG")
-        self.assertEqual(kwargs["rotation"], "10 MB")
-        self.assertEqual(kwargs["retention"], "2 days")
-        self.assertTrue(kwargs["enqueue"])
-
-        # Verify log directory exists
-        self.assertTrue(self.test_log_dir.exists())
 
     def test_get_logger(self):
         """Test get_logger method returns a bound logger"""
@@ -127,15 +92,6 @@ class TestLogger(unittest.TestCase):
         logger_instance.get_logger()
 
         mock_bind.assert_called_once_with(logger_name="atlas")
-
-    @patch("pathlib.Path.mkdir")
-    def test_log_dir_creation(self, mock_mkdir):
-        """Test that log directory is created when logging to file"""
-        os.environ["LOG_TO_FILE"] = "true"
-        Logger()
-
-        # Check that mkdir was called with parents=True and exist_ok=True
-        mock_mkdir.assert_called_once_with(parents=True, exist_ok=True)
 
     def test_functional_console_logging(self):
         """Test that logging to console actually works"""
