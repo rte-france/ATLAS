@@ -138,6 +138,7 @@ class FlowRecord:
 # @task
 # ---------------------------------------------------------------------------
 
+
 def task(
     _func: F | None = None,
     *,
@@ -209,6 +210,7 @@ def task(
 # @flow  —  descriptor so that instance.run_record works without store_on
 # ---------------------------------------------------------------------------
 
+
 class _BoundFlow:
     """Bound view of a :class:`_FlowDescriptor` on a specific instance.
 
@@ -278,6 +280,7 @@ class _FlowDescriptor:
         with logger.contextualize(flow=flow_name, run_id=record.run_id):
             record.status = "running"
             record.started_at = pendulum.now()
+            _log_sink_id = _run_store.open_log(record)
             try:
                 result = self._func(*all_args, **kwargs)
                 record.status = "success"
@@ -293,9 +296,10 @@ class _FlowDescriptor:
                 self.run_record = record
                 if instance is not None:
                     try:
-                        setattr(instance, "run_record", record)
+                        instance.run_record = record
                     except AttributeError:
                         pass  # __slots__ without run_record — silently skip
+                _run_store.close_log(_log_sink_id)
                 _run_store.save(record)
 
         return result  # type: ignore[possibly-undefined]
@@ -345,13 +349,15 @@ def flow(
 # RunStore — persists FlowRecord as JSON files
 # ---------------------------------------------------------------------------
 
+
 class RunStore(BaseSettings):
-    """Persists :class:`FlowRecord` as JSON files after each flow execution.
+    """Persists :class:`FlowRecord` as JSON and log files after each flow execution.
 
     Controlled via environment variables with ``RUNS_`` prefix:
 
     - ``RUNS_ENABLED`` — enable/disable persistence (default: ``true``)
     - ``RUNS_DIR``     — directory for run files (default: ``runs``)
+    - ``RUNS_LOG``     — also write a ``.log`` file per run (default: ``true``)
     """
 
     model_config = SettingsConfigDict(
@@ -364,18 +370,39 @@ class RunStore(BaseSettings):
 
     enabled: bool = Field(default=True)
     dir: Path = Field(default=Path("runs"))
+    log: bool = Field(default=True)
+    log_level: str = Field(default="DEBUG")
+
+    def _run_dir(self, record: FlowRecord) -> Path:
+        ts = record.started_at.format("YYYYMMDD_HHmmss") if record.started_at else "unknown"
+        folder = self.dir / f"{ts}_{record.name}_{record.run_id}"
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder
+
+    def open_log(self, record: FlowRecord) -> int | None:
+        """Add a per-run log sink. Returns the loguru sink ID to pass to :meth:`close_log`."""
+        if not self.enabled or not self.log:
+            return None
+        path = self._run_dir(record) / "run.log"
+
+        def fmt(r: dict) -> str:
+            extra = r["extra"]
+            parts = [p for p in [extra.get("run_id", ""), extra.get("flow", ""), extra.get("task", "")] if p]
+            ctx = (" | ".join(parts) + " | ") if parts else ""
+            return "{time:YYYY-MM-DD HH:mm:ss} | {level:<8} | " + ctx + "{message}\n"
+
+        return logger.add(str(path), level=self.log_level.upper(), format=fmt, colorize=False)
+
+    def close_log(self, sink_id: int | None) -> None:
+        """Remove the per-run log sink opened by :meth:`open_log`."""
+        if sink_id is not None:
+            logger.remove(sink_id)
 
     def save(self, record: FlowRecord) -> Path | None:
-        """Write *record* to ``{dir}/{started_at}_{name}_{run_id}.json``.
-
-        Returns the written path, or ``None`` if persistence is disabled.
-        """
+        """Write *record* to ``{dir}/{started_at}_{name}_{run_id}/record.json``."""
         if not self.enabled:
             return None
-        self.dir.mkdir(parents=True, exist_ok=True)
-        ts = record.started_at.format("YYYYMMDD_HHmmss") if record.started_at else "unknown"
-        filename = f"{ts}_{record.name}_{record.run_id}.json"
-        path = self.dir / filename
+        path = self._run_dir(record) / "record.json"
         path.write_text(record.to_json())
         return path
 
