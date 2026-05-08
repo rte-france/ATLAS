@@ -23,7 +23,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
     def __init__(
         self,
         parameters: PortfolioOptimisationParameters,
-        optimisation_results: dict[str, PortfolioOptimisationResult],
+        optimisation_results: list[PortfolioOptimisationResult],
         input_dataset: PortfolioOptimisationInputDataset,
     ):
         self.optimisation_results = optimisation_results
@@ -33,15 +33,16 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
         """Run in-place mutations then export each modified object as an UpdateObject changeset."""
         self.build()
 
-        for optimisation_results in self.optimisation_results.values():
+        for optimisation_results in self.optimisation_results:
             portfolio = optimisation_results.portfolio
             if self.parameters.is_portfolio_bidding:
-                portfolio_data: dict = {
-                    "name": portfolio.name,
-                    "imbalance": portfolio.imbalance,
-                    "power": portfolio.power,
-                }
-                self.change_sets.append(UpdateObject(portfolio_data, type(portfolio)))
+                if not optimisation_results.is_manual_activation:
+                    portfolio_data: dict = {
+                        "name": portfolio.name,
+                        "imbalance": portfolio.imbalance,
+                        "power": portfolio.power,
+                    }
+                    self.change_sets.append(UpdateObject(portfolio_data, type(portfolio)))
 
                 for _, equipment_list in portfolio.equipments.iter_by_type():
                     for equipment in equipment_list:
@@ -53,7 +54,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                         self.change_sets.append(UpdateObject(equipment_data, type(equipment)))
 
     def build(self):
-        for optimisation_results in self.optimisation_results.values():
+        for optimisation_results in self.optimisation_results:
             if optimisation_results.is_manual_activation:
                 continue
 

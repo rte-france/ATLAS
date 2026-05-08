@@ -122,7 +122,7 @@ class PortfolioOptimisationModule(
     def execute(
         self,
         parameters: PortfolioOptimisationParameters,
-        dataset: PortfolioOptimisationInputDataset,
+        input_dataset: PortfolioOptimisationInputDataset,
     ) -> PortfolioOptimisationOutputDataset:
         """
         Executes the module's main logic.
@@ -140,18 +140,18 @@ class PortfolioOptimisationModule(
             f"  Start Date:          {parameters.temporal.start_date}\n"
             f"  End Date:            {parameters.temporal.end_date}\n"
             f"  Execution Date:      {parameters.temporal.execution_date}\n"
-            f"  Portfolios:          {len(dataset.portfolios)}\n"
-            f"  Manual Activation:   {len(dataset.portfolios_manual_activation)}\n"
+            f"  Portfolios:          {len(input_dataset.portfolios)}\n"
+            f"  Manual Activation:   {len(input_dataset.portfolios_manual_activation)}\n"
             f"  Mode:                {'Portfolio Bidding' if parameters.is_portfolio_bidding else 'Individual Equipment'}\n"
         )
-        optimisation_results: dict[str, PortfolioOptimisationResult] = {}
+        optimisation_results: list[PortfolioOptimisationResult] = []
 
         if parameters.is_portfolio_bidding:
             portfolios_with_time_windows = [
-                (portfolio, dataset.time_windows[portfolio.name]) for portfolio in dataset.portfolios
+                (portfolio, input_dataset.time_windows[portfolio.name]) for portfolio in input_dataset.portfolios
             ]
         else:
-            portfolios_with_time_windows = self._prepare_equipment_portfolios(dataset, parameters)
+            portfolios_with_time_windows = self._prepare_equipment_portfolios(input_dataset, parameters)
 
         if parameters.multiprocessing.enable:
             optimisation_results = run_parallel(portfolios_with_time_windows, parameters)
@@ -159,15 +159,14 @@ class PortfolioOptimisationModule(
             optimisation_results = run_sequential(portfolios_with_time_windows, parameters)
 
         if parameters.is_portfolio_bidding:
-            for portfolio in dataset.portfolios_manual_activation:
-                optimisation_results[portfolio.name] = optimise_portfolio_manual_activated(
-                    portfolio=portfolio, parameters=parameters
+            for portfolio in input_dataset.portfolios_manual_activation:
+                optimisation_results.append(
+                    optimise_portfolio_manual_activated(portfolio=portfolio, parameters=parameters)
                 )
         else:
-            for portfolio_manual in dataset.portfolios_manual_activation:
+            for portfolio_manual in input_dataset.portfolios_manual_activation:
                 for equipment_type, list_equipment in portfolio_manual.equipments.iter_by_type():
                     for equipment in list_equipment:
-                        # Create a single-equipment portfolio
                         single_equipment = PortfolioEquipments()
                         single_equipment.add(equipment_type, equipment)
 
@@ -178,12 +177,12 @@ class PortfolioOptimisationModule(
                             market_area=portfolio_manual.market_area,
                         )
 
-                        optimisation_results[equipment_portfolio.name] = optimise_portfolio_manual_activated(
-                            portfolio=equipment_portfolio, parameters=parameters
+                        optimisation_results.append(
+                            optimise_portfolio_manual_activated(portfolio=equipment_portfolio, parameters=parameters)
                         )
 
         output_dataset = PortfolioOptimisationOutputDataset(
-            parameters=parameters, optimisation_results=optimisation_results, input_dataset=dataset
+            parameters=parameters, optimisation_results=optimisation_results, input_dataset=input_dataset
         )
 
         return output_dataset
