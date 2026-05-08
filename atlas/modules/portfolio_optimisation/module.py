@@ -182,7 +182,7 @@ class PortfolioOptimisationModule(
                         )
 
         output_dataset = PortfolioOptimisationOutputDataset(
-            parameters=parameters, optimisation_results=optimisation_results, input_dataset=input_dataset
+            parameters=parameters, optimisation_results=optimisation_results
         )
 
         return output_dataset

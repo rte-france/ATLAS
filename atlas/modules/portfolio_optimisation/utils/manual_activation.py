@@ -53,7 +53,7 @@ def is_excluded_technology(excluded_technologies: list[str], equipment: Equipmen
     """
     Check if equipment technology is excluded.
 
-    Supports both friendly names (e.g., 'thermal', 'storage', 'wind') and technical class names (e.g., 'ThermalPO').
+    Supported values: 'thermal', 'storage', 'wind', 'solar', 'hydro', 'load', 'other_non_dispatchable', 'all'.
 
     :param excluded_technologies: List of technologies to exclude
     :type excluded_technologies: list[str]
@@ -463,7 +463,7 @@ def _calculate_new_energy_value(
     :rtype: float
     """
     power_value = new_power.get_value(time)
-    time_factor_hours = parameters.temporal.timestep.in_hours()
+    time_factor_hours = parameters.temporal.timestep.total_hours()
 
     if isinstance(equipment, StoragePO):
         if equipment.storage_type == StorageType.ELECTRIC_VEHICLE:
@@ -503,10 +503,10 @@ def _apply_energy_bounds(
     timestep_hours = parameters.temporal.timestep.total_hours()
 
     if energy_value > max_energy:
-        correction = (max_energy - energy_value) * timestep_hours
+        correction = (max_energy - energy_value) / timestep_hours
         return max_energy, correction
     elif energy_value < min_energy:
-        correction = (min_energy - energy_value) * timestep_hours
+        correction = (min_energy - energy_value) / timestep_hours
         return min_energy, correction
     else:
         return energy_value, 0.0

@@ -24,7 +24,6 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
         self,
         parameters: PortfolioOptimisationParameters,
         optimisation_results: list[PortfolioOptimisationResult],
-        input_dataset: PortfolioOptimisationInputDataset,
     ):
         self.optimisation_results = optimisation_results
         self.parameters = parameters
@@ -35,23 +34,22 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
 
         for optimisation_results in self.optimisation_results:
             portfolio = optimisation_results.portfolio
-            if self.parameters.is_portfolio_bidding:
-                if not optimisation_results.is_manual_activation:
-                    portfolio_data: dict = {
-                        "name": portfolio.name,
-                        "imbalance": portfolio.imbalance,
-                        "power": portfolio.power,
-                    }
-                    self.change_sets.append(UpdateObject(portfolio_data, type(portfolio)))
+            if self.parameters.is_portfolio_bidding and not optimisation_results.is_manual_activation:
+                portfolio_data: dict = {
+                    "name": portfolio.name,
+                    "imbalance": portfolio.imbalance,
+                    "power": portfolio.power,
+                }
+                self.change_sets.append(UpdateObject(portfolio_data, type(portfolio)))
 
-                for _, equipment_list in portfolio.equipments.iter_by_type():
-                    for equipment in equipment_list:
-                        equipment_data: dict = {"name": equipment.name, "power": equipment.power}
-                        if isinstance(equipment, (HydroPO, StoragePO)):
-                            equipment_data["stored_energy"] = equipment.stored_energy
-                        if isinstance(equipment, ThermalPO):
-                            equipment_data["state_sequence"] = equipment.state_sequence
-                        self.change_sets.append(UpdateObject(equipment_data, type(equipment)))
+            for _, equipment_list in portfolio.equipments.iter_by_type():
+                for equipment in equipment_list:
+                    equipment_data: dict = {"name": equipment.name, "power": equipment.power}
+                    if isinstance(equipment, (HydroPO, StoragePO)):
+                        equipment_data["stored_energy"] = equipment.stored_energy
+                    if isinstance(equipment, ThermalPO):
+                        equipment_data["state_sequence"] = equipment.state_sequence
+                    self.change_sets.append(UpdateObject(equipment_data, type(equipment)))
 
     def build(self):
         for optimisation_results in self.optimisation_results:
@@ -74,7 +72,10 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                     values=imbalance_values,
                 )
                 if portfolio.imbalance:
-                    portfolio.imbalance.add(imbalance_ts, self.parameters.temporal.execution_date)
+                    if self.parameters.temporal.execution_date in portfolio.imbalance:
+                        portfolio.imbalance.replace(self.parameters.temporal.execution_date, imbalance_ts)
+                    else:
+                        portfolio.imbalance.add(imbalance_ts, self.parameters.temporal.execution_date)
                 else:
                     portfolio.imbalance = ForecastingMatrix().add(imbalance_ts, self.parameters.temporal.execution_date)
 
@@ -105,8 +106,8 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                 else:
                     portfolio.power = ForecastingMatrix().add(power_ts, self.parameters.temporal.execution_date)
 
-                for type, equipment_list in portfolio.equipments.iter_by_type():
-                    self.update_equipment(optimisation_results, type, equipment_list)
+                for equipment_type, equipment_list in portfolio.equipments.iter_by_type():
+                    self.update_equipment(optimisation_results, equipment_type, equipment_list)
 
     def _extract_values(
         self, equipment: EquipmentPO, equipment_type: str, optimisation_results: PortfolioOptimisationResult
@@ -270,6 +271,9 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
             equipment.stored_energy = ForecastingMatrix().add(stored_energy_ts, self.parameters.temporal.execution_date)
 
     def _update_state_sequence(self, equipment: ThermalPO, state_sequence: list[float]):
+        if len(state_sequence) < 2:
+            return
+
         state_sequence_ts = Timeseries.from_values(
             start_date=self.parameters.target_times[0],
             frequency=self.parameters.temporal.timestep,
