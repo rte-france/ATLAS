@@ -4,23 +4,20 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import os
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from atlas.tracing import (
-    FlowRecord,
     ProcessPoolExecutor,
     RunStore,
-    TaskRecord,
+    StepRecord,
     _ContextualWorker,
-    _flow_context,
-    flow,
+    _step_context,
     get_log_context,
-    task,
+    step,
 )
 
 # ---------------------------------------------------------------------------
@@ -28,149 +25,80 @@ from atlas.tracing import (
 # ---------------------------------------------------------------------------
 
 
-def _disabled_store():
-    """RunStore with persistence disabled — no files written during tests."""
+def _disabled_store() -> RunStore:
     return RunStore(enabled=False)
 
 
 # ---------------------------------------------------------------------------
-# @task — standalone
+# @step — standalone function
 # ---------------------------------------------------------------------------
 
 
-class TestTaskDecorator:
+class TestStepOnFunction:
     def test_returns_value(self):
-        @task
-        def add(a, b):
-            return a + b
-
-        assert add(2, 3) == 5
-
-    def test_run_record_on_success(self):
-        @task
-        def noop():
-            pass
-
-        noop()
-        assert isinstance(noop.run_record, TaskRecord)
-        assert noop.run_record.status == "success"
-        assert noop.run_record.duration_seconds is not None
-
-    def test_run_record_on_failure(self):
-        @task
-        def boom():
-            raise ValueError("oops")
-
-        with pytest.raises(ValueError):
-            boom()
-
-        assert boom.run_record.status == "failed"
-        assert isinstance(boom.run_record.error, ValueError)
-
-    def test_custom_name(self):
-        @task(name="my-task")
-        def something():
-            pass
-
-        something()
-        assert something.run_record.name == "my-task"
-
-    def test_callable_name(self):
-        @task(name=lambda x: f"task-{x}")
-        def work(x):
-            pass
-
-        work("abc")
-        assert work.run_record.name == "task-abc"
-
-    def test_task_inherits_flow_run_id(self):
-        @task
-        def inner():
-            pass
-
-        @flow(name="parent-flow")
-        def parent():
-            inner()
-
-        with patch("atlas.tracing._run_store", _disabled_store()):
-            parent()
-
-        assert inner.run_record.run_id == parent.run_record.run_id
-
-    def test_task_appended_to_flow_tasks(self):
-        @task
-        def step():
-            pass
-
-        @flow(name="pipe")
-        def pipeline():
-            step()
-            step()
-
-        with patch("atlas.tracing._run_store", _disabled_store()):
-            pipeline()
-
-        assert len(parent_record(pipeline).tasks) == 2
-
-    def test_task_outside_flow_has_own_run_id(self):
-        @task
-        def standalone():
-            pass
-
-        standalone()
-        assert standalone.run_record.run_id is not None
-        assert _flow_context.get() is None
-
-
-# ---------------------------------------------------------------------------
-# @flow — standalone function
-# ---------------------------------------------------------------------------
-
-
-class TestFlowOnFunction:
-    def test_returns_value(self):
-        @flow
+        @step
         def compute():
             return 42
 
         with patch("atlas.tracing._run_store", _disabled_store()):
             assert compute() == 42
 
-    def test_run_record_stored_on_function(self):
-        @flow
-        def pipeline():
+    def test_run_record_on_success(self):
+        @step
+        def noop():
             pass
 
         with patch("atlas.tracing._run_store", _disabled_store()):
-            pipeline()
+            noop()
 
-        assert isinstance(pipeline.run_record, FlowRecord)
-        assert pipeline.run_record.status == "success"
+        assert isinstance(noop.run_record, StepRecord)
+        assert noop.run_record.status == "success"
+        assert noop.run_record.duration_seconds is not None
 
     def test_run_record_on_failure(self):
-        @flow
-        def failing():
-            raise RuntimeError("fail")
+        @step
+        def boom():
+            raise ValueError("oops")
 
         with patch("atlas.tracing._run_store", _disabled_store()):
-            with pytest.raises(RuntimeError):
-                failing()
+            with pytest.raises(ValueError):
+                boom()
 
-        assert failing.run_record.status == "failed"
-        assert isinstance(failing.run_record.error, RuntimeError)
+        assert boom.run_record.status == "failed"
+        assert isinstance(boom.run_record.error, ValueError)
 
-    def test_flow_context_reset_after_call(self):
-        @flow
+    def test_custom_name(self):
+        @step(name="my-step")
+        def something():
+            pass
+
+        with patch("atlas.tracing._run_store", _disabled_store()):
+            something()
+
+        assert something.run_record.name == "my-step"
+
+    def test_callable_name(self):
+        @step(name=lambda x: f"step-{x}")
+        def work(x):
+            pass
+
+        with patch("atlas.tracing._run_store", _disabled_store()):
+            work("abc")
+
+        assert work.run_record.name == "step-abc"
+
+    def test_context_reset_after_call(self):
+        @step
         def f():
             pass
 
-        assert _flow_context.get() is None
+        assert _step_context.get() is None
         with patch("atlas.tracing._run_store", _disabled_store()):
             f()
-        assert _flow_context.get() is None
+        assert _step_context.get() is None
 
-    def test_flow_context_reset_after_exception(self):
-        @flow
+    def test_context_reset_after_exception(self):
+        @step
         def f():
             raise ValueError
 
@@ -178,18 +106,18 @@ class TestFlowOnFunction:
             with pytest.raises(ValueError):
                 f()
 
-        assert _flow_context.get() is None
+        assert _step_context.get() is None
 
 
 # ---------------------------------------------------------------------------
-# @flow — method on class
+# @step — method on class
 # ---------------------------------------------------------------------------
 
 
-class TestFlowOnMethod:
+class TestStepOnMethod:
     def test_run_record_stored_on_instance(self):
         class Worker:
-            @flow(name="worker-flow")
+            @step(name="worker-step")
             def run(self):
                 pass
 
@@ -197,18 +125,17 @@ class TestFlowOnMethod:
         with patch("atlas.tracing._run_store", _disabled_store()):
             w.run()
 
-        assert isinstance(w.run_record, FlowRecord)
-        assert w.run_record.name == "worker-flow"
+        assert isinstance(w.run_record, StepRecord)
+        assert w.run_record.name == "worker-step"
 
     def test_two_instances_have_independent_records(self):
         class Worker:
-            @flow(name="w")
+            @step(name="w")
             def run(self):
                 pass
 
         a, b = Worker(), Worker()
-        store = _disabled_store()
-        with patch("atlas.tracing._run_store", store):
+        with patch("atlas.tracing._run_store", _disabled_store()):
             a.run()
             b.run()
 
@@ -219,7 +146,7 @@ class TestFlowOnMethod:
             def __init__(self, name):
                 self.name = name
 
-            @flow(name=lambda self: f"flow-{self.name}")
+            @step(name=lambda self: f"step-{self.name}")
             def run(self):
                 pass
 
@@ -227,7 +154,177 @@ class TestFlowOnMethod:
         with patch("atlas.tracing._run_store", _disabled_store()):
             w.run()
 
-        assert w.run_record.name == "flow-alpha"
+        assert w.run_record.name == "step-alpha"
+
+
+# ---------------------------------------------------------------------------
+# Nesting — child steps
+# ---------------------------------------------------------------------------
+
+
+class TestNestedSteps:
+    def test_child_registered_in_parent_children(self):
+        @step
+        def inner():
+            pass
+
+        @step
+        def outer():
+            inner()
+
+        with patch("atlas.tracing._run_store", _disabled_store()):
+            outer()
+
+        assert len(outer.run_record.children) == 1
+        assert outer.run_record.children[0].name == "inner"
+
+    def test_child_inherits_parent_run_id(self):
+        @step
+        def inner():
+            pass
+
+        @step
+        def outer():
+            inner()
+
+        with patch("atlas.tracing._run_store", _disabled_store()):
+            outer()
+
+        assert inner.run_record.run_id == outer.run_record.run_id
+
+    def test_grandchild_nesting(self):
+        @step
+        def leaf():
+            pass
+
+        @step
+        def mid():
+            leaf()
+
+        @step
+        def root():
+            mid()
+
+        with patch("atlas.tracing._run_store", _disabled_store()):
+            root()
+
+        assert len(root.run_record.children) == 1
+        assert len(root.run_record.children[0].children) == 1
+        assert root.run_record.children[0].children[0].name == "leaf"
+        run_id = root.run_record.run_id
+        assert mid.run_record.run_id == run_id
+        assert leaf.run_record.run_id == run_id
+
+    def test_context_restored_to_parent_after_child(self):
+        captured = {}
+
+        @step
+        def inner():
+            pass
+
+        @step
+        def outer():
+            inner()
+            captured["after_inner"] = _step_context.get().name
+
+        with patch("atlas.tracing._run_store", _disabled_store()):
+            outer()
+
+        assert captured["after_inner"] == "outer"
+
+    def test_to_dict_includes_children(self):
+        @step
+        def inner():
+            pass
+
+        @step
+        def outer():
+            inner()
+
+        with patch("atlas.tracing._run_store", _disabled_store()):
+            outer()
+
+        d = outer.run_record.to_dict()
+        assert "children" in d
+        assert len(d["children"]) == 1
+        assert d["children"][0]["name"] == "inner"
+
+    def test_standalone_step_has_own_run_id(self):
+        @step
+        def standalone():
+            pass
+
+        with patch("atlas.tracing._run_store", _disabled_store()):
+            standalone()
+
+        assert standalone.run_record.run_id is not None
+        assert _step_context.get() is None
+
+    def test_store_called_once_for_root_only(self):
+        mock_store = MagicMock()
+        mock_store.open_log.return_value = None
+
+        @step
+        def inner():
+            pass
+
+        @step
+        def outer():
+            inner()
+
+        with patch("atlas.tracing._run_store", mock_store):
+            outer()
+
+        assert mock_store.save.call_count == 1
+
+
+# ---------------------------------------------------------------------------
+# flow and task are aliases of step
+# ---------------------------------------------------------------------------
+
+
+
+
+# ---------------------------------------------------------------------------
+# Callable metadata
+# ---------------------------------------------------------------------------
+
+
+class TestCallableMetadata:
+    def test_callable_metadata_on_function(self):
+        @step(name="t", metadata=lambda x, y: {"sum": x + y})
+        def add(x, y):
+            return x + y
+
+        with patch("atlas.tracing._run_store", _disabled_store()):
+            add(2, 3)
+
+        assert add.run_record.metadata == {"sum": 5}
+
+    def test_static_metadata(self):
+        @step(metadata={"version": "1.0"})
+        def fn():
+            pass
+
+        with patch("atlas.tracing._run_store", _disabled_store()):
+            fn()
+
+        assert fn.run_record.metadata == {"version": "1.0"}
+
+    def test_callable_metadata_on_method(self):
+        class Worker:
+            def __init__(self, label):
+                self.label = label
+
+            @step(name="w", metadata=lambda self: {"label": self.label})
+            def run(self):
+                pass
+
+        w = Worker("prod")
+        with patch("atlas.tracing._run_store", _disabled_store()):
+            w.run()
+
+        assert w.run_record.metadata == {"label": "prod"}
 
 
 # ---------------------------------------------------------------------------
@@ -236,48 +333,49 @@ class TestFlowOnMethod:
 
 
 class TestContextualWorker:
-    def test_installs_stub_flow_record(self):
+    def test_installs_stub_step_record(self):
         captured = {}
 
         def probe():
-            record = _flow_context.get()
+            record = _step_context.get()
             captured["run_id"] = record.run_id if record else None
             captured["name"] = record.name if record else None
 
-        worker = _ContextualWorker(probe, {"flow": "my-flow", "run_id": "abc123"})
+        worker = _ContextualWorker(probe, {"step": "my-step", "run_id": "abc123"})
         worker()
 
         assert captured["run_id"] == "abc123"
-        assert captured["name"] == "my-flow"
+        assert captured["name"] == "my-step"
 
-    def test_flow_context_reset_after_worker(self):
-        worker = _ContextualWorker(lambda: None, {"flow": "f", "run_id": "x"})
-        assert _flow_context.get() is None
+    def test_context_reset_after_worker(self):
+        worker = _ContextualWorker(lambda: None, {"step": "s", "run_id": "x"})
+        assert _step_context.get() is None
         worker()
-        assert _flow_context.get() is None
+        assert _step_context.get() is None
 
     def test_no_stub_when_context_missing(self):
         captured = {}
 
         def probe():
-            captured["record"] = _flow_context.get()
+            captured["record"] = _step_context.get()
 
         worker = _ContextualWorker(probe, {})
         worker()
         assert captured["record"] is None
 
-    def test_task_inside_worker_gets_parent_run_id(self):
+    def test_step_inside_worker_inherits_parent_run_id(self):
         captured = {}
 
-        @task
+        @step
         def inner():
-            captured["run_id"] = inner.run_record.run_id if inner.run_record else None
+            pass
 
         def run_task():
-            inner()
+            with patch("atlas.tracing._run_store", _disabled_store()):
+                inner()
             captured["run_id"] = inner.run_record.run_id
 
-        worker = _ContextualWorker(run_task, {"flow": "parent", "run_id": "parentid"})
+        worker = _ContextualWorker(run_task, {"step": "parent", "run_id": "parentid"})
         worker()
 
         assert captured["run_id"] == "parentid"
@@ -289,29 +387,28 @@ class TestContextualWorker:
 
 
 def _worker_get_run_id():
-    record = _flow_context.get()
+    record = _step_context.get()
     return record.run_id if record else None
 
 
 class TestProcessPoolExecutor:
     def test_run_id_propagated_to_worker(self):
-        @flow(name="test-flow")
+        @step(name="test-step")
         def pipeline():
             with ProcessPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(_worker_get_run_id)
-                return future.result(), _flow_context.get().run_id
+                return future.result(), _step_context.get().run_id
 
         with patch("atlas.tracing._run_store", _disabled_store()):
             worker_id, parent_id = pipeline()
 
         assert worker_id == parent_id
 
-    def test_no_wrapper_when_no_flow_context(self):
-        results = []
+    def test_no_wrapper_when_no_step_context(self):
         with ProcessPoolExecutor(max_workers=1) as executor:
-            results.append(executor.submit(_worker_get_run_id).result())
+            result = executor.submit(_worker_get_run_id).result()
 
-        assert results[0] is None
+        assert result is None
 
 
 # ---------------------------------------------------------------------------
@@ -321,40 +418,43 @@ class TestProcessPoolExecutor:
 
 class TestRunStore:
     def test_save_writes_json(self):
+        import json
+
+        import pendulum
+
         with tempfile.TemporaryDirectory() as tmpdir:
             store = RunStore(enabled=True, dir=Path(tmpdir), log=False)
-            import pendulum
-
-            record = FlowRecord(name="test-flow")
+            record = StepRecord(name="test-step")
             record.started_at = pendulum.now()
             path = store.save(record)
 
             assert path is not None
             assert path.exists()
-            data = __import__("json").loads(path.read_text())
-            assert data["name"] == "test-flow"
+            data = json.loads(path.read_text())
+            assert data["name"] == "test-step"
+            assert "children" in data
 
     def test_save_disabled_returns_none(self):
         store = RunStore(enabled=False)
-        record = FlowRecord(name="noop")
+        record = StepRecord(name="noop")
         assert store.save(record) is None
 
     def test_open_close_log_disabled_returns_none(self):
-        store = RunStore(enabled=False)
         import pendulum
 
-        record = FlowRecord(name="noop")
+        store = RunStore(enabled=False)
+        record = StepRecord(name="noop")
         record.started_at = pendulum.now()
         sink_id = store.open_log(record)
         assert sink_id is None
-        store.close_log(sink_id)  # must not raise
+        store.close_log(sink_id)
 
     def test_open_close_log_creates_file(self):
+        import pendulum
+
         with tempfile.TemporaryDirectory() as tmpdir:
             store = RunStore(enabled=True, dir=Path(tmpdir), log=True)
-            import pendulum
-
-            record = FlowRecord(name="log-flow")
+            record = StepRecord(name="log-step")
             record.started_at = pendulum.now()
             sink_id = store.open_log(record)
             assert sink_id is not None
@@ -370,35 +470,28 @@ class TestRunStore:
 
 
 class TestGetLogContext:
-    def test_empty_outside_flow(self):
+    def test_empty_outside_step(self):
         assert get_log_context() == {}
 
-    def test_contains_flow_and_run_id_inside_flow(self):
-        @flow(name="ctx-flow")
+    def test_contains_step_and_run_id_inside_step(self):
+        @step(name="ctx-step")
         def f():
             return get_log_context()
 
         with patch("atlas.tracing._run_store", _disabled_store()):
             ctx = f()
 
-        assert ctx["flow"] == "ctx-flow"
+        assert ctx["step"] == "ctx-step"
         assert "run_id" in ctx
 
-    def test_contains_task_inside_task(self):
+    def test_child_step_context_visible_inside(self):
         captured = {}
 
-        @task(name="my-task")
+        @step(name="my-step")
         def t():
             captured["ctx"] = get_log_context()
 
-        t()
-        assert captured["ctx"].get("task") == "my-task"
+        with patch("atlas.tracing._run_store", _disabled_store()):
+            t()
 
-
-# ---------------------------------------------------------------------------
-# Utilities
-# ---------------------------------------------------------------------------
-
-
-def parent_record(decorated_flow) -> FlowRecord:
-    return decorated_flow.run_record
+        assert captured["ctx"].get("step") == "my-step"

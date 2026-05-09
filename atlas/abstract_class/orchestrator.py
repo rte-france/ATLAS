@@ -10,7 +10,7 @@ from atlas.custom_errors import WorkflowJobError
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.timing import timer
-from atlas.tracing import FlowRecord, flow, task
+from atlas.tracing import StepRecord, model_to_metadata, step
 
 
 class AbstractOrchestrator(ABC, Generic[PO, J]):
@@ -25,9 +25,9 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
         Return jobs to execute.
         """
 
-    run_record: FlowRecord | None = None
+    run_record: StepRecord | None = None
 
-    @flow(name=lambda self: self.parameters.name)
+    @step(name=lambda self: self.parameters.name)
     def execute(self) -> CurrentInputState:
         """
         Execute the orchestrator
@@ -92,7 +92,10 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
 
         return cis
 
-    @task(name=lambda *args: args[1].name)
+    @step(
+        name=lambda *args: args[1].name,
+        metadata=lambda *args: model_to_metadata(args[1].parameters),
+    )
     def _execute_job(self, job: AbstractJob, cis: CurrentInputState):
         """Execute a single job.
 

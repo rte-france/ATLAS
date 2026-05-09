@@ -13,7 +13,7 @@ from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
-from atlas.tracing import flow
+from atlas.tracing import model_to_metadata, step
 
 
 class ModuleRun:
@@ -27,7 +27,10 @@ class ModuleRun:
         self.dataset = dataset
         self.parameters = parameters
 
-    @flow(name=lambda self: type(self.module).__name__)
+    @step(
+        name=lambda self: type(self.module).__name__,
+        metadata=lambda self: model_to_metadata(self.parameters),
+    )
     def run(self) -> AtlasDataset:
         cis = CurrentInputState(self.dataset)
         output_dataset = self.module.run(cis.get_data(), self.parameters)
