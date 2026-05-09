@@ -283,8 +283,6 @@ class TestNestedSteps:
 # ---------------------------------------------------------------------------
 
 
-
-
 # ---------------------------------------------------------------------------
 # Callable metadata
 # ---------------------------------------------------------------------------
@@ -484,14 +482,55 @@ class TestGetLogContext:
         assert ctx["step"] == "ctx-step"
         assert "run_id" in ctx
 
-    def test_child_step_context_visible_inside(self):
+    def test_child_step_path_includes_ancestors(self):
         captured = {}
 
-        @step(name="my-step")
-        def t():
+        @step(name="child")
+        def inner():
+            captured["ctx"] = get_log_context()
+
+        @step(name="root")
+        def outer():
+            inner()
+
+        with patch("atlas.tracing._run_store", _disabled_store()):
+            outer()
+
+        assert captured["ctx"]["step"] == "root | child"
+
+    def test_grandchild_path_includes_full_ancestry(self):
+        captured = {}
+
+        @step(name="leaf")
+        def leaf():
+            captured["ctx"] = get_log_context()
+
+        @step(name="mid")
+        def mid():
+            leaf()
+
+        @step(name="root")
+        def root():
+            mid()
+
+        with patch("atlas.tracing._run_store", _disabled_store()):
+            root()
+
+        assert captured["ctx"]["step"] == "root | mid | leaf"
+
+    def test_path_reset_after_child_returns(self):
+        captured = {}
+
+        @step(name="child")
+        def inner():
+            pass
+
+        @step(name="root")
+        def outer():
+            inner()
             captured["ctx"] = get_log_context()
 
         with patch("atlas.tracing._run_store", _disabled_store()):
-            t()
+            outer()
 
-        assert captured["ctx"].get("step") == "my-step"
+        assert captured["ctx"]["step"] == "root"

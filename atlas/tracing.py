@@ -9,6 +9,7 @@ from __future__ import annotations
 import concurrent.futures
 import functools
 import json
+import traceback as tb_module
 import uuid
 from collections.abc import Callable
 from contextvars import ContextVar
@@ -21,7 +22,11 @@ from loguru import logger
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from atlas.log import format_context_prefix
+
 F = TypeVar("F", bound=Callable[..., Any])
+
+STEP_PATH_SEPARATOR = " | "
 
 _step_context: ContextVar[StepRecord | None] = ContextVar("_step_context", default=None)
 
@@ -38,28 +43,83 @@ def model_to_metadata(model: Any) -> dict[str, Any]:
 
 
 def get_log_context() -> dict[str, str]:
-    """Return the current step/run_id context as a plain dict.
+    """Return the current step path and ``run_id`` as a plain dict.
 
     Useful for advanced cases where you need to propagate context manually.
     For ``ProcessPoolExecutor``, prefer importing it from ``atlas.tracing`` directly —
     it propagates context automatically without any changes to worker functions.
     """
-    ctx: dict[str, str] = {}
     record = _step_context.get()
-    if record is not None:
-        ctx["step"] = record.name
-        ctx["run_id"] = record.run_id
-    return ctx
+    if record is None:
+        return {}
+    return {"step": record.path, "run_id": record.run_id}
+
+
+@dataclass
+class StepRecord:
+    """Execution record for a single ``@step`` call.
+
+    A root step (``parent is None``) owns a unique ``run_id`` and is persisted to
+    disk. A child step inherits the parent's ``run_id`` and is appended to the
+    parent's ``children`` list — the whole tree is serialised in one ``record.json``.
+    """
+
+    name: str
+    run_id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
+    status: Literal["pending", "running", "success", "failed"] = "pending"
+    started_at: pendulum.DateTime | None = None
+    ended_at: pendulum.DateTime | None = None
+    children: list[StepRecord] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    error: Exception | None = None
+    traceback: str | None = None
+    parent: StepRecord | None = field(default=None, repr=False, compare=False)
+
+    @property
+    def is_root(self) -> bool:
+        return self.parent is None
+
+    @property
+    def path(self) -> str:
+        """``" | "``-joined chain of names from the root step down to this one."""
+        names: list[str] = []
+        node: StepRecord | None = self
+        while node is not None:
+            names.append(node.name)
+            node = node.parent
+        return STEP_PATH_SEPARATOR.join(reversed(names))
+
+    @property
+    def duration_seconds(self) -> float | None:
+        if self.started_at is None or self.ended_at is None:
+            return None
+        return (self.ended_at - self.started_at).total_seconds()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "name": self.name,
+            "status": self.status,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "ended_at": self.ended_at.isoformat() if self.ended_at else None,
+            "duration_seconds": self.duration_seconds,
+            "children": [c.to_dict() for c in self.children],
+            "metadata": self.metadata,
+            "error": str(self.error) if self.error else None,
+            "traceback": self.traceback,
+        }
+
+    def to_json(self, indent: int = 2) -> str:
+        return json.dumps(self.to_dict(), indent=indent)
 
 
 class _ContextualWorker:
     """Picklable wrapper that restores the step context in a child process.
 
-    Propagates the parent's step name and ``run_id`` so that ``@step`` calls inside
-    the worker emit logs tagged with the parent's run_id. A stub :class:`StepRecord`
-    is installed in ``_step_context`` so nested steps see the parent's run_id, but
-    their records are **not** aggregated back into the parent (mutations don't cross
-    process boundaries). For full aggregation, run inside the parent process.
+    Rebuilds a parent chain of stub :class:`StepRecord` nodes from the dotted path
+    so that nested ``@step`` calls inside the worker produce the correct full path
+    and inherit the parent's ``run_id``. Mutations don't cross process boundaries,
+    so child records are not aggregated back into the parent.
     """
 
     __slots__ = ("fn", "log_ctx")
@@ -69,25 +129,27 @@ class _ContextualWorker:
         self.log_ctx = log_ctx
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        step_token = None
-        step_name = self.log_ctx.get("step")
+        step_path = self.log_ctx.get("step", "")
         run_id = self.log_ctx.get("run_id")
-        if step_name and run_id:
-            stub = StepRecord(name=step_name, run_id=run_id)
-            step_token = _step_context.set(stub)
+        token = None
+        if step_path and run_id:
+            node: StepRecord | None = None
+            for name in step_path.split(STEP_PATH_SEPARATOR):
+                node = StepRecord(name=name, run_id=run_id, parent=node)
+            token = _step_context.set(node)
         try:
             with logger.contextualize(**self.log_ctx):
                 return self.fn(*args, **kwargs)
         finally:
-            if step_token is not None:
-                _step_context.reset(step_token)
+            if token is not None:
+                _step_context.reset(token)
 
 
 class ProcessPoolExecutor(concurrent.futures.ProcessPoolExecutor):
     """Drop-in replacement for ``concurrent.futures.ProcessPoolExecutor``.
 
-    Automatically captures the current step context at ``submit()`` time and restores
-    it in each worker process — no changes to worker functions required.
+    Captures the current step context at ``submit()`` time and restores it in each
+    worker process — no changes to worker functions required.
 
     Usage::
 
@@ -104,76 +166,15 @@ class ProcessPoolExecutor(concurrent.futures.ProcessPoolExecutor):
         return super().submit(fn, *args, **kwargs)
 
 
-@dataclass
-class StepRecord:
-    """Execution record for a single ``@step`` call.
-
-    A root step (no parent in context) owns a unique ``run_id`` and is persisted to
-    disk. A child step inherits the parent's ``run_id`` and is embedded in the parent's
-    ``children`` list — the whole tree is serialised in a single ``record.json``.
-    """
-
-    name: str
-    run_id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
-    status: Literal["pending", "running", "success", "failed"] = "pending"
-    started_at: pendulum.DateTime | None = None
-    ended_at: pendulum.DateTime | None = None
-    duration_seconds: float | None = None
-    children: list[StepRecord] = field(default_factory=list)
-    metadata: dict[str, Any] = field(default_factory=dict)
-    error: Exception | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "run_id": self.run_id,
-            "name": self.name,
-            "status": self.status,
-            "started_at": self.started_at.isoformat() if self.started_at else None,
-            "ended_at": self.ended_at.isoformat() if self.ended_at else None,
-            "duration_seconds": self.duration_seconds,
-            "children": [c.to_dict() for c in self.children],
-            "metadata": self.metadata,
-            "error": str(self.error) if self.error else None,
-        }
-
-    def to_json(self, indent: int = 2) -> str:
-        return json.dumps(self.to_dict(), indent=indent)
-
-
-# ---------------------------------------------------------------------------
-# @step — descriptor so that instance.run_record works on methods
-# ---------------------------------------------------------------------------
-
-
-class _BoundStep:
-    """Bound view of a :class:`_StepDescriptor` on a specific instance."""
-
-    __slots__ = ("_descriptor", "_instance")
-
-    def __init__(self, descriptor: _StepDescriptor, instance: Any) -> None:
-        self._descriptor = descriptor
-        self._instance = instance
-
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        return self._descriptor._execute(self._instance, args, kwargs)
-
-    @property
-    def run_record(self) -> StepRecord | None:
-        return getattr(self._instance, "run_record", self._descriptor.run_record)
-
-
 class _StepDescriptor:
     """Descriptor backing :func:`step`.
 
-    When applied to a class method, ``__set_name__`` is called and after each call
-    the :class:`StepRecord` is stored directly on the instance as ``self.run_record``.
+    On a method, the :class:`StepRecord` is stored on the instance as ``run_record``.
+    On a plain function, it is stored on the descriptor itself.
 
-    When applied to a plain function ``__set_name__`` is never called, and the record
-    is stored on the descriptor itself (``my_step.run_record``).
-
-    If a parent step is already in context, the new record inherits the parent's
-    ``run_id`` and is appended to ``parent.children``. Persistence (log sink +
-    ``record.json``) only happens for the root step.
+    If a parent step is in context, the new record inherits the parent's ``run_id``
+    and is appended to ``parent.children``. Persistence (log sink + ``record.json``)
+    only happens for the root step.
     """
 
     def __init__(
@@ -195,56 +196,62 @@ class _StepDescriptor:
     def __get__(self, obj: Any, objtype: Any = None) -> Any:
         if obj is None:
             return self
-        return _BoundStep(self, obj)
+
+        @functools.wraps(self._func)
+        def bound(*args: Any, **kwargs: Any) -> Any:
+            return self._execute(obj, args, kwargs)
+
+        return bound
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         return self._execute(None, args, kwargs)
 
     def _execute(self, instance: Any, args: tuple, kwargs: dict) -> Any:
         all_args = (instance, *args) if instance is not None else args
-        step_name = self._name(*all_args, **kwargs) if callable(self._name) else (self._name or self._func.__name__)
-        metadata_val = self._metadata(*all_args, **kwargs) if callable(self._metadata) else self._metadata
-        record = StepRecord(name=step_name, metadata=metadata_val)
+        name = self._name(*all_args, **kwargs) if callable(self._name) else (self._name or self._func.__name__)
+        metadata = self._metadata(*all_args, **kwargs) if callable(self._metadata) else self._metadata
 
         parent = _step_context.get()
+        record = StepRecord(name=name, metadata=metadata, parent=parent)
         if parent is not None:
             record.run_id = parent.run_id
             parent.children.append(record)
 
-        with logger.contextualize(step=step_name, run_id=record.run_id):
-            record.status = "running"
-            record.started_at = pendulum.now()
-            token = _step_context.set(record)
-            log_sink_id: int | None = None
+        record.status = "running"
+        record.started_at = pendulum.now()
+        ctx_token = _step_context.set(record)
+
+        with logger.contextualize(step=record.path, run_id=record.run_id):
+            sink_id = _run_store.open_log(record) if record.is_root else None
             try:
-                if parent is None:
-                    log_sink_id = _run_store.open_log(record)
-                try:
-                    result = self._func(*all_args, **kwargs)
-                    record.status = "success"
-                except Exception as e:
-                    record.status = "failed"
-                    record.error = e
-                    raise
+                result = self._func(*all_args, **kwargs)
+                record.status = "success"
+                return result
+            except Exception as e:
+                record.status = "failed"
+                record.error = e
+                record.traceback = tb_module.format_exc()
+                raise
             finally:
                 record.ended_at = pendulum.now()
-                if record.started_at is not None:
-                    record.duration_seconds = (record.ended_at - record.started_at).total_seconds()
-                _step_context.reset(token)
-                if instance is not None:
+                _step_context.reset(ctx_token)
+                self._publish(record, instance)
+                if record.is_root:
                     try:
-                        instance.run_record = record
-                    except AttributeError:
-                        pass  # __slots__ without run_record — silently skip
-                else:
-                    self.run_record = record
-                if parent is None:
-                    try:
-                        _run_store.close_log(log_sink_id)
+                        _run_store.close_log(sink_id)
                     finally:
                         _run_store.save(record)
 
-        return result  # type: ignore[possibly-undefined]
+    def _publish(self, record: StepRecord, instance: Any) -> None:
+        if instance is None:
+            self.run_record = record
+            return
+        try:
+            instance.run_record = record
+        except AttributeError:
+            logger.debug(
+                f"Cannot store run_record on {type(instance).__name__} (likely __slots__ without 'run_record')"
+            )
 
 
 def step(
@@ -291,11 +298,6 @@ def step(
     return decorator
 
 
-# ---------------------------------------------------------------------------
-# RunStore — persists StepRecord as JSON + log files
-# ---------------------------------------------------------------------------
-
-
 class RunStore(BaseSettings):
     """Persists the root :class:`StepRecord` as JSON and log files after each run.
 
@@ -332,10 +334,7 @@ class RunStore(BaseSettings):
         path = self._run_dir(record) / "run.log"
 
         def fmt(r: dict) -> str:
-            extra = r["extra"]
-            parts = [p for p in [extra.get("run_id", ""), extra.get("step", "")] if p]
-            ctx = (" | ".join(parts) + " | ") if parts else ""
-            return "{time:YYYY-MM-DD HH:mm:ss} | {level:<8} | " + ctx + "{message}\n"
+            return "{time:YYYY-MM-DD HH:mm:ss} | {level:<8} | " + format_context_prefix(r["extra"]) + "{message}\n"
 
         return logger.add(str(path), level=self.log_level.upper(), format=fmt, colorize=False)
 

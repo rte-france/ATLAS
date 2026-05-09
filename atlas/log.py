@@ -14,25 +14,32 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def format_context_prefix(extra: dict, decorate: Callable[[str, str], str] | None = None) -> str:
+    """Return a ``" | "``-joined prefix from ``extra['run_id']`` and ``extra['step']``.
+
+    Both values are populated by ``atlas.tracing`` via ``logger.contextualize(...)``.
+    Pass ``decorate(kind, value) -> str`` to wrap each part (e.g. with loguru tags
+    for colored console output). Returns ``""`` when neither key is set.
+    """
+    wrap = decorate or (lambda _kind, val: val)
+    parts: list[str] = []
+    run_id = extra.get("run_id", "")
+    if run_id:
+        parts.append(wrap("run_id", run_id))
+    step = extra.get("step", "")
+    if step:
+        parts.append(wrap("step", step))
+    return " | ".join(parts) + " | " if parts else ""
+
+
 def _make_context_format(base: str) -> Callable[[dict], str]:
-    """Wrap a loguru format string to inject flow/task as pipe-separated columns."""
+    """Wrap a loguru format string to inject run_id and step path as pipe-separated columns."""
+
+    def _decorate(kind: str, value: str) -> str:
+        return f"<dim>{value}</dim>" if kind == "run_id" else f"<bold>{value}</bold>"
 
     def format_record(record: dict) -> str:
-        extra = record["extra"]
-        run_id = extra.get("run_id", "")
-        flow_name = extra.get("flow", "")
-        task = extra.get("task", "")
-
-        parts: list[str] = []
-        if run_id:
-            parts.append(f"<dim>{run_id}</dim>")
-        if flow_name:
-            parts.append(f"<bold>{flow_name}</bold>")
-        if task:
-            parts.append(f"<bold>{task}</bold>")
-
-        ctx = (" | ".join(parts) + " | ") if parts else ""
-
+        ctx = format_context_prefix(record["extra"], _decorate)
         if "<level>{message}</level>" in base:
             return base.replace("<level>{message}</level>", f"{ctx}<level>{{message}}</level>") + "\n"
         return base.replace("{message}", ctx + "{message}") + "\n"

@@ -407,10 +407,14 @@ class TestProfilingCommand:
             app,
             [
                 "profiling",
-                "--level", "module",
-                "--parameters", str(params_file),
-                "--module", "DayAheadOrders",
-                "--dataset", str(tmp_path / "nonexistent"),
+                "--level",
+                "module",
+                "--parameters",
+                str(params_file),
+                "--module",
+                "DayAheadOrders",
+                "--dataset",
+                str(tmp_path / "nonexistent"),
             ],
         )
         assert result.exit_code == 1
@@ -425,10 +429,14 @@ class TestProfilingCommand:
             app,
             [
                 "profiling",
-                "--level", "module",
-                "--parameters", str(params_file),
-                "--module", "NotAModule",
-                "--dataset", str(dataset_dir),
+                "--level",
+                "module",
+                "--parameters",
+                str(params_file),
+                "--module",
+                "NotAModule",
+                "--dataset",
+                str(dataset_dir),
             ],
         )
         assert result.exit_code == 1
@@ -439,9 +447,7 @@ class TestProfilingCommand:
     def test_profiling_workflow_calls_run(self, mock_run, tmp_path):
         params_file = tmp_path / "params.yaml"
         params_file.write_text("")
-        result = runner.invoke(
-            app, ["profiling", "--level", "workflow", "--parameters", str(params_file)]
-        )
+        result = runner.invoke(app, ["profiling", "--level", "workflow", "--parameters", str(params_file)])
         assert result.exit_code == 0
         mock_run.assert_called_once_with(params_file, None)
 
@@ -468,10 +474,14 @@ class TestProfilingCommand:
             app,
             [
                 "profiling",
-                "--level", "module",
-                "--parameters", str(params_file),
-                "--module", "DayAheadOrders",
-                "--dataset", str(dataset_dir),
+                "--level",
+                "module",
+                "--parameters",
+                str(params_file),
+                "--module",
+                "DayAheadOrders",
+                "--dataset",
+                str(dataset_dir),
             ],
         )
         assert result.exit_code == 0
@@ -489,11 +499,16 @@ class TestProfilingCommand:
             app,
             [
                 "profiling",
-                "--level", "module",
-                "--parameters", str(params_file),
-                "--module", "DayAheadOrders",
-                "--dataset", str(dataset_dir),
-                "--output", str(output_path),
+                "--level",
+                "module",
+                "--parameters",
+                str(params_file),
+                "--module",
+                "DayAheadOrders",
+                "--dataset",
+                str(dataset_dir),
+                "--output",
+                str(output_path),
             ],
         )
         assert result.exit_code == 0
