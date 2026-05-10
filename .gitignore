@@ -186,6 +186,9 @@ data/
 *.yaml
 *.txt
 
+# Logging
+runs/
+
 # Notebooks
 test.ipynb
 

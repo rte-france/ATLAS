@@ -194,6 +194,7 @@ nav:
     - Others:
       - Enum: api/enum.md
       - Logging: api/logging.md
+      - Tracing: api/tracing.md
 
 extra:
   version:

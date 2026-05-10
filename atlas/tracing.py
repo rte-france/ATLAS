@@ -301,15 +301,15 @@ def step(
 class RunStore(BaseSettings):
     """Persists the root :class:`StepRecord` as JSON and log files after each run.
 
-    Controlled via environment variables with ``RUNS_`` prefix:
+    Controlled via environment variables with ``RUN_RECORD_`` prefix:
 
-    - ``RUNS_ENABLED`` — enable/disable persistence (default: ``true``)
-    - ``RUNS_DIR``     — directory for run files (default: ``runs``)
-    - ``RUNS_LOG``     — also write a ``run.log`` file per run (default: ``true``)
+    - ``RUN_RECORD_ENABLED`` — enable/disable persistence (default: ``true``)
+    - ``RUN_RECORD_DIR``     — directory for run files (default: ``runs``)
+    - ``RUN_RECORD_LOG``     — also write a ``run.log`` file per run (default: ``true``)
     """
 
     model_config = SettingsConfigDict(
-        env_prefix="RUNS_",
+        env_prefix="RUN_RECORD_",
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,

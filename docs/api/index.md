@@ -45,3 +45,4 @@ Solver interfaces and optimization models.
 
 - [**Enum**](enum.md) - Enumeration types used across Atlas
 - [**Logging**](logging.md) - Logging configuration and utilities
+- [**Tracing**](tracing.md) - `@step` decorator, run records, and per-run persistence
