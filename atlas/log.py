@@ -3,14 +3,14 @@
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Module that implements the Atlas logger.
+Module that configures the Atlas stdout logger sink.
 """
 
 import sys
 from collections.abc import Callable
 
 from loguru import logger
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -47,17 +47,13 @@ def _make_context_format(base: str) -> Callable[[dict], str]:
     return format_record
 
 
-class Logger(BaseSettings):
-    """
-    A configurable logger using Loguru, suitable for project-wide use.
+class LoggerSettings(BaseSettings):
+    """Env-driven logging configuration.
 
-    Logging configuration can be controlled via environment variables with LOG_ prefix:
+    Read from environment variables with ``LOG_`` prefix:
 
-    - LOG_LEVEL:  logging level (e.g., DEBUG, INFO, WARNING)
-    - LOG_FORMAT: log message format string
-    - LOG_NAME:   name of the logger (default: "atlas")
-
-    Per-run log files are handled by :class:`atlas.tracing.RunStore`.
+    - ``LOG_LEVEL``  — logging level (default: ``INFO``)
+    - ``LOG_FORMAT`` — loguru format string for the stdout sink
     """
 
     model_config = SettingsConfigDict(
@@ -68,32 +64,29 @@ class Logger(BaseSettings):
         extra="ignore",
     )
 
-    name: str = Field(default="atlas", description="Name of the logger")
     level: str = Field(default="INFO", description="Logging level (DEBUG, INFO, WARNING, ERROR)")
     format: str = Field(
         default="<green>{time:HH:mm:ss}</green> | <level>{level}</level> | <level>{message}</level>",
         description="Log message format string",
     )
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.level = self.level.upper()
-        self._configure_logger()
+    @field_validator("level")
+    @classmethod
+    def _upper(cls, v: str) -> str:
+        return v.upper()
 
-    def _configure_logger(self) -> None:
-        logger.remove()
-        logger.add(
-            sys.stdout,
-            level=self.level,
-            format=_make_context_format(self.format),
-            enqueue=True,
-        )
 
-    def get_logger(self):  # noqa: ANN201
-        """
-        Returns a bound logger instance, pre-configured.
+def configure_logging(settings: LoggerSettings | None = None) -> None:
+    """Install the stdout sink. Call once at app startup.
 
-        :return: A Loguru logger instance.
-        :rtype: loguru.logger
-        """
-        return logger.bind(logger_name=self.name)
+    Replaces all existing loguru handlers, so call this **before** any per-run sinks
+    (e.g. those added by :class:`atlas.tracing.RunStore`).
+    """
+    settings = settings or LoggerSettings()
+    logger.remove()
+    logger.add(
+        sys.stdout,
+        level=settings.level,
+        format=_make_context_format(settings.format),
+        enqueue=True,
+    )

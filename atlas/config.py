@@ -4,8 +4,10 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from loguru import logger
+
 from atlas.enums import BusinessModelName
-from atlas.log import Logger
+from atlas.log import configure_logging
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.equipment.equipment import Equipment
 from atlas.objects.equipment.hydro import Hydro
@@ -26,7 +28,9 @@ from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
 from atlas.objects.network_operator.control_block import ControlBlock
 
-logger = Logger().get_logger()
+configure_logging()
+
+__all__ = ["logger"]
 
 
 MODEL_MAPPING_NAME: dict[BusinessModelName, type[BusinessModel]] = {

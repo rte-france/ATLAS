@@ -3,7 +3,6 @@ from importlib.metadata import version
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import Parameters
 from atlas.io_utils.utils import get_metadata_from_file, get_metadata_from_frame
-from atlas.log import Logger
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
@@ -66,7 +65,6 @@ __all__ = [
     "MarketBorder",
     "OptimisationModel",
     "Node",
-    "Logger",
     "Parameters",
     "get_metadata_from_file",
     "get_metadata_from_frame",
