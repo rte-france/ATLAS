@@ -227,7 +227,7 @@ def _merge_batteries(normal_battery: Storage, pcomp_battery: Storage, parameters
         ) / total_max
 
     # Merge power ForecastingMatrix by extracting and summing the underlying timeseries
-    if isinstance(pcomp_battery.power, type(normal_battery.power)):
+    if isinstance(normal_battery.power, ForecastingMatrix) and isinstance(pcomp_battery.power, ForecastingMatrix):
         exec_key = parameters.execution_date.format(normal_battery.power.date_format)
         if exec_key in normal_battery.power.indexes and exec_key in pcomp_battery.power.indexes:
             normal_ts = normal_battery.power[exec_key]

@@ -388,9 +388,7 @@ def prometheus_batch(
 
     logger.info(f"Scanning directory: {root_dir}")
 
-    module_dirs = sorted(
-        d for d in root_dir.iterdir() if d.is_dir() and (d / "ts").is_dir()
-    )
+    module_dirs = sorted(d for d in root_dir.iterdir() if d.is_dir() and (d / "ts").is_dir())
 
     if not module_dirs:
         rprint("[bold red]Error[/bold red]: No valid module directories found.")
@@ -405,8 +403,11 @@ def prometheus_batch(
             futures = [
                 executor.submit(
                     _process_single_module,
-                    d, output_root_dir,
-                    date_format_forecasting, date_format_input_files, date_format_timestep,
+                    d,
+                    output_root_dir,
+                    date_format_forecasting,
+                    date_format_input_files,
+                    date_format_timestep,
                     use_mp,
                 )
                 for d in module_dirs
@@ -415,8 +416,11 @@ def prometheus_batch(
     else:
         results = [
             _process_single_module(
-                d, output_root_dir,
-                date_format_forecasting, date_format_input_files, date_format_timestep,
+                d,
+                output_root_dir,
+                date_format_forecasting,
+                date_format_input_files,
+                date_format_timestep,
                 use_mp,
             )
             for d in module_dirs
