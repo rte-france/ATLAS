@@ -100,9 +100,9 @@ class TestOptimiseSinglePortfolio:
         mock_model.solution_info = SolutionInfo(status=SolverStatus.OPTIMAL)
         mock_model_class.return_value = mock_model
 
-        name, result = optimise_single_portfolio(mock_portfolio, mock_parameters)
+        result = optimise_single_portfolio(mock_portfolio, mock_parameters)
 
-        assert name == "test_portfolio"
+        assert result.name == "test_portfolio"
         assert isinstance(result, PortfolioOptimisationResult)
         assert result.portfolio == mock_portfolio
         assert result.variable_values["var1"] == 10.0
@@ -127,9 +127,9 @@ class TestOptimiseSinglePortfolio:
         mock_equipments.get_all_equipment.return_value = []
         mock_portfolio.equipments = mock_equipments
 
-        name, result = optimise_single_portfolio(mock_portfolio, mock_parameters)
+        result = optimise_single_portfolio(mock_portfolio, mock_parameters)
 
-        assert name == "test_portfolio"
+        assert result.name == "test_portfolio"
         assert isinstance(result, PortfolioOptimisationResult)
         assert result.portfolio == mock_portfolio
         assert result.variable_values == {}
