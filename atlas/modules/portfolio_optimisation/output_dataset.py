@@ -12,7 +12,7 @@ from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
 from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
-from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
+from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.orchestration import PortfolioOptimisationResult
 from atlas.orchestrator.change_set import UpdateObject
@@ -129,9 +129,6 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
 
         if equipment_type == "thermal":
             state_sequence = []
-            has_t_start = equipment._T_start >= 1  # type:ignore [union-attr]
-            has_t_stop = equipment._T_stop >= 1  # type:ignore [union-attr]
-            has_t_stable = equipment._T_stable >= 1  # type:ignore [union-attr]
 
             for t in self.parameters.target_times:
                 power = optimisation_results.get_variable_value(f"{equipment.name}_power_level_{t}")
@@ -146,11 +143,11 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                     state_sequence.append(2)
                 elif optimisation_results.get_variable_value(f"off_{equipment.name}_{t}") == 1:
                     state_sequence.append(3)
-                elif has_t_start and optimisation_results.get_variable_value(f"on_start_{equipment.name}_{t}") == 1:
+                elif optimisation_results.get_variable_value(f"on_start_{equipment.name}_{t}") == 1:
                     state_sequence.append(4)
-                elif has_t_stop and optimisation_results.get_variable_value(f"stop_{equipment.name}_{t}") == 1:
+                elif optimisation_results.get_variable_value(f"stop_{equipment.name}_{t}") == 1:
                     state_sequence.append(5)
-                elif has_t_stable and optimisation_results.get_variable_value(f"on_flat_{equipment.name}_{t}") == 1:
+                elif optimisation_results.get_variable_value(f"on_flat_{equipment.name}_{t}") == 1:
                     state_sequence.append(6)
 
         elif equipment_type == "hydro":
