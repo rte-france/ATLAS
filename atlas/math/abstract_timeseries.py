@@ -87,7 +87,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         cls,
         start_date: str | datetime | pendulum.DateTime,
         frequency: str | timedelta | pendulum.Duration,
-        values: Sequence[float] | pd.Series,
+        values: Sequence[float] | pd.Series | pl.Series,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
         timezone: str = "UTC",
     ) -> Self:
