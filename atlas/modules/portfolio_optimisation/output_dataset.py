@@ -9,7 +9,6 @@ from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
 from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
@@ -23,8 +22,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
     def __init__(
         self,
         parameters: PortfolioOptimisationParameters,
-        optimisation_results: dict[str, PortfolioOptimisationResult],
-        input_dataset: PortfolioOptimisationInputDataset,
+        optimisation_results: list[PortfolioOptimisationResult],
     ):
         self.optimisation_results = optimisation_results
         self.parameters = parameters
@@ -33,9 +31,9 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
         """Run in-place mutations then export each modified object as an UpdateObject changeset."""
         self.build()
 
-        for optimisation_results in self.optimisation_results.values():
+        for optimisation_results in self.optimisation_results:
             portfolio = optimisation_results.portfolio
-            if self.parameters.is_portfolio_bidding:
+            if self.parameters.is_portfolio_bidding and not optimisation_results.is_manual_activation:
                 portfolio_data: dict = {
                     "name": portfolio.name,
                     "imbalance": portfolio.imbalance,
@@ -43,17 +41,17 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                 }
                 self.change_sets.append(UpdateObject(portfolio_data, type(portfolio)))
 
-                for _, equipment_list in portfolio.equipments.iter_by_type():
-                    for equipment in equipment_list:
-                        equipment_data: dict = {"name": equipment.name, "power": equipment.power}
-                        if isinstance(equipment, (HydroPO, StoragePO)):
-                            equipment_data["stored_energy"] = equipment.stored_energy
-                        if isinstance(equipment, ThermalPO):
-                            equipment_data["state_sequence"] = equipment.state_sequence
-                        self.change_sets.append(UpdateObject(equipment_data, type(equipment)))
+            for _, equipment_list in portfolio.equipments.iter_by_type():
+                for equipment in equipment_list:
+                    equipment_data: dict = {"name": equipment.name, "power": equipment.power}
+                    if isinstance(equipment, (HydroPO, StoragePO)):
+                        equipment_data["stored_energy"] = equipment.stored_energy
+                    if isinstance(equipment, ThermalPO):
+                        equipment_data["state_sequence"] = equipment.state_sequence
+                    self.change_sets.append(UpdateObject(equipment_data, type(equipment)))
 
     def build(self):
-        for optimisation_results in self.optimisation_results.values():
+        for optimisation_results in self.optimisation_results:
             if optimisation_results.is_manual_activation:
                 continue
 
@@ -73,13 +71,12 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                     values=imbalance_values,
                 )
                 if portfolio.imbalance:
-                    portfolio.imbalance.add(imbalance_ts, self.parameters.temporal.execution_date)
+                    if self.parameters.temporal.execution_date in portfolio.imbalance:
+                        portfolio.imbalance.replace(self.parameters.temporal.execution_date, imbalance_ts)
+                    else:
+                        portfolio.imbalance.add(imbalance_ts, self.parameters.temporal.execution_date)
                 else:
-                    portfolio.imbalance = ForecastingMatrix(
-                        imbalance_ts.dataframe.rename(
-                            {"value": self.parameters.temporal.execution_date.to_datetime_string()}
-                        )
-                    )
+                    portfolio.imbalance = ForecastingMatrix().add(imbalance_ts, self.parameters.temporal.execution_date)
 
                 power_values = [0.0] * len(self.parameters.target_times)
                 for _, equipment_list in portfolio.equipments.iter_by_type():
@@ -91,9 +88,8 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                                 max(self.parameters.target_times),
                             )
 
-                            forecast_dict = {row[0]: row[1] for row in forecast.dataframe.iter_rows()}
-                            for idx, t in enumerate(self.parameters.target_times):
-                                power_values[idx] += forecast_dict.get(t, 0.0)
+                            for idx, value in enumerate(forecast.values):
+                                power_values[idx] += value
 
                 power_ts = Timeseries.from_values(
                     start_date=self.parameters.target_times[0],
@@ -103,16 +99,14 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
 
                 if portfolio.power:
                     if self.parameters.temporal.execution_date in portfolio.power:
-                        portfolio.power.delete(self.parameters.temporal.execution_date)
+                        portfolio.power.replace(self.parameters.temporal.execution_date, power_ts)
+                    else:
+                        portfolio.power.add(power_ts, self.parameters.temporal.execution_date)
                 else:
-                    portfolio.power = ForecastingMatrix(
-                        power_ts.dataframe.rename(
-                            {"value": self.parameters.temporal.execution_date.to_datetime_string()}
-                        )
-                    )
+                    portfolio.power = ForecastingMatrix().add(power_ts, self.parameters.temporal.execution_date)
 
-                for type, equipment_list in portfolio.equipments.iter_by_type():
-                    self.update_equipment(optimisation_results, type, equipment_list)
+                for equipment_type, equipment_list in portfolio.equipments.iter_by_type():
+                    self.update_equipment(optimisation_results, equipment_type, equipment_list)
 
     def _extract_values(
         self, equipment: EquipmentPO, equipment_type: str, optimisation_results: PortfolioOptimisationResult
@@ -219,9 +213,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
             else:
                 equipment.power.add(power_ts, self.parameters.temporal.execution_date)
         else:
-            equipment.power = ForecastingMatrix(
-                power_ts.dataframe.rename({"value": self.parameters.temporal.execution_date.to_datetime_string()})
-            )
+            equipment.power = ForecastingMatrix().add(power_ts, self.parameters.temporal.execution_date)
 
     def _update_id_po_orders_forecasting_matrix(self, equipment: EquipmentPO, power_values: list[float]):
         """
@@ -244,9 +236,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
             else:
                 equipment.id_po_for_orders.add(power_ts, self.parameters.temporal.execution_date)
         else:
-            equipment.id_po_for_orders = ForecastingMatrix(
-                power_ts.dataframe.rename({"value": self.parameters.temporal.execution_date.to_datetime_string()})
-            )
+            equipment.id_po_for_orders = ForecastingMatrix().add(power_ts, self.parameters.temporal.execution_date)
 
     def _update_stored_energy_forecasting_matrix(
         self, equipment: HydroPO | StoragePO, stored_energy_values: list[float]
@@ -270,37 +260,30 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
 
         if equipment.stored_energy:
             if self.parameters.temporal.execution_date in equipment.stored_energy:
-                equipment.stored_energy.delete(self.parameters.temporal.execution_date)
-            equipment.stored_energy.add(stored_energy_ts, self.parameters.temporal.execution_date)
+                equipment.stored_energy.replace(self.parameters.temporal.execution_date, stored_energy_ts)
+            else:
+                equipment.stored_energy.add(stored_energy_ts, self.parameters.temporal.execution_date)
         else:
-            equipment.stored_energy = ForecastingMatrix(
-                stored_energy_ts.dataframe.rename(
-                    {"value": self.parameters.temporal.execution_date.to_datetime_string()}
-                )
-            )
+            equipment.stored_energy = ForecastingMatrix().add(stored_energy_ts, self.parameters.temporal.execution_date)
 
     def _update_state_sequence(self, equipment: ThermalPO, state_sequence: list[float]):
+        if len(state_sequence) < 2:
+            return
+
         state_sequence_ts = Timeseries.from_values(
             start_date=self.parameters.target_times[0],
             frequency=self.parameters.temporal.timestep,
             values=state_sequence,
         )
 
+        exec_date_str = self.parameters.temporal.execution_date.to_datetime_string()
         if equipment.state_sequence:
-            if self.parameters.temporal.execution_date in equipment.state_sequence:
-                equipment.state_sequence.replace(
-                    self.parameters.temporal.execution_date.to_datetime_string(), state_sequence_ts
-                )
+            if exec_date_str in equipment.state_sequence:
+                equipment.state_sequence.replace(exec_date_str, state_sequence_ts)
             else:
-                equipment.state_sequence.add(
-                    state_sequence_ts, self.parameters.temporal.execution_date.to_datetime_string()
-                )
+                equipment.state_sequence.add(state_sequence_ts, exec_date_str)
         else:
-            equipment.state_sequence = ScenarioMatrix(
-                state_sequence_ts.dataframe.rename(
-                    {"value": self.parameters.temporal.execution_date.to_datetime_string()}
-                )
-            )
+            equipment.state_sequence = ScenarioMatrix().add(state_sequence_ts, exec_date_str)
 
     def update_equipment(
         self, optimisation_results: PortfolioOptimisationResult, equipment_type: str, equipment_list: list[EquipmentPO]

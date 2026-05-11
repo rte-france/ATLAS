@@ -100,9 +100,9 @@ class TestOptimiseSinglePortfolio:
         mock_model.solution_info = SolutionInfo(status=SolverStatus.OPTIMAL)
         mock_model_class.return_value = mock_model
 
-        name, result = optimise_single_portfolio(mock_portfolio, mock_parameters)
+        result = optimise_single_portfolio(mock_portfolio, mock_parameters)
 
-        assert name == "test_portfolio"
+        assert result.name == "test_portfolio"
         assert isinstance(result, PortfolioOptimisationResult)
         assert result.portfolio == mock_portfolio
         assert result.variable_values["var1"] == 10.0
@@ -127,9 +127,9 @@ class TestOptimiseSinglePortfolio:
         mock_equipments.get_all_equipment.return_value = []
         mock_portfolio.equipments = mock_equipments
 
-        name, result = optimise_single_portfolio(mock_portfolio, mock_parameters)
+        result = optimise_single_portfolio(mock_portfolio, mock_parameters)
 
-        assert name == "test_portfolio"
+        assert result.name == "test_portfolio"
         assert isinstance(result, PortfolioOptimisationResult)
         assert result.portfolio == mock_portfolio
         assert result.variable_values == {}
@@ -246,13 +246,13 @@ class TestRunSequential:
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
         )
 
-        mock_optimise.side_effect = [("portfolio_1", result1), ("portfolio_2", result2)]
+        mock_optimise.side_effect = [result1, result2]
 
         results = run_sequential(portfolios, mock_parameters)
 
         assert len(results) == 2
-        assert "portfolio_1" in results
-        assert "portfolio_2" in results
+        assert result1 in results
+        assert result2 in results
         assert mock_optimise.call_count == 2
 
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.optimise_single_portfolio")
@@ -264,12 +264,12 @@ class TestRunSequential:
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
         )
 
-        mock_optimise.side_effect = [("portfolio_1", result1), Exception("Optimization failed")]
+        mock_optimise.side_effect = [result1, Exception("Optimization failed")]
 
         results = run_sequential(portfolios, mock_parameters)
 
         assert len(results) == 1
-        assert "portfolio_1" in results
+        assert result1 in results
 
 
 class TestRunParallel:
@@ -309,9 +309,9 @@ class TestRunParallel:
         )
 
         future1 = MagicMock()
-        future1.result.return_value = ("portfolio_1", result1)
+        future1.result.return_value = result1
         future2 = MagicMock()
-        future2.result.return_value = ("portfolio_2", result2)
+        future2.result.return_value = result2
 
         mock_executor.submit.side_effect = [future1, future2]
 
@@ -321,8 +321,8 @@ class TestRunParallel:
             results = run_parallel(portfolios, mock_parameters)
 
         assert len(results) == 2
-        assert "portfolio_1" in results
-        assert "portfolio_2" in results
+        assert result1 in results
+        assert result2 in results
         mock_executor_class.assert_called_once_with(max_workers=2)
 
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.ProcessPoolExecutor")
@@ -337,7 +337,7 @@ class TestRunParallel:
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
         )
         future1 = MagicMock()
-        future1.result.return_value = ("portfolio_1", result1)
+        future1.result.return_value = result1
 
         future2 = MagicMock()
         future2.result.side_effect = Exception("Optimization failed")
@@ -350,7 +350,7 @@ class TestRunParallel:
             results = run_parallel(portfolios, mock_parameters)
 
         assert len(results) == 1
-        assert "portfolio_1" in results
+        assert result1 in results
 
 
 class TestOptimisePortfolioManualActivated:

@@ -62,7 +62,7 @@ class PortfolioOptimisationResult:
 
 def optimise_single_portfolio(
     portfolio: PortfolioPO, parameters: PortfolioOptimisationParameters
-) -> tuple[str, PortfolioOptimisationResult]:
+) -> PortfolioOptimisationResult:
     """
     Worker function for portfolio optimization (works for both multiprocessing and sequential).
 
@@ -73,8 +73,8 @@ def optimise_single_portfolio(
     :type portfolio: PortfolioPO
     :param parameters: Optimization parameters
     :type parameters: PortfolioOptimisationParameters
-    :return: Tuple of (portfolio_name, optimization_result)
-    :rtype: tuple[str, PortfolioOptimisationResult]
+    :return: Optimization result
+    :rtype: PortfolioOptimisationResult
     """
     solver_options = SolverOptions(
         presolve=parameters.solver.use_presolve,
@@ -103,7 +103,7 @@ def optimise_single_portfolio(
             is_manual_activation=False,
         )
 
-        return portfolio.name, result
+        return result
 
     except Exception as e:
         cfg.logger.error(f"Optimisation failed for portfolio {portfolio.name}. Falling back to manual activation: {e}")
@@ -117,13 +117,13 @@ def optimise_single_portfolio(
             is_manual_activation=True,
         )
 
-        return portfolio.name, result
+        return result
 
 
 def run_parallel(
     portfolios: list[PortfolioPO],
     parameters: PortfolioOptimisationParameters,
-) -> dict[str, PortfolioOptimisationResult]:
+) -> list[PortfolioOptimisationResult]:
     """
     Generic function to run optimization using multiprocessing.
 
@@ -131,10 +131,10 @@ def run_parallel(
     :type portfolios: list[PortfolioPO]
     :param parameters: Optimization parameters
     :type parameters: PortfolioOptimisationParameters
-    :return: Dictionary mapping portfolio names to optimization results
-    :rtype: dict[str, PortfolioOptimisationResult]
+    :return: List of optimization results
+    :rtype: list[PortfolioOptimisationResult]
     """
-    optimisation_results: dict[str, PortfolioOptimisationResult] = {}
+    optimisation_results: list[PortfolioOptimisationResult] = []
 
     with ProcessPoolExecutor(max_workers=parameters.multiprocessing.max_workers) as executor:
         future_to_portfolio = {
@@ -145,9 +145,9 @@ def run_parallel(
         for future in as_completed(future_to_portfolio):
             portfolio_name = future_to_portfolio[future]
             try:
-                name, result = future.result()
-                optimisation_results[name] = result
-                cfg.logger.info(f"Completed optimization for: {name}")
+                result = future.result()
+                optimisation_results.append(result)
+                cfg.logger.info(f"Completed optimization for: {portfolio_name}")
             except Exception as e:
                 cfg.logger.error(f"Error processing {portfolio_name}: {e}")
 
@@ -157,7 +157,7 @@ def run_parallel(
 def run_sequential(
     portfolios: list[PortfolioPO],
     parameters: PortfolioOptimisationParameters,
-) -> dict[str, PortfolioOptimisationResult]:
+) -> list[PortfolioOptimisationResult]:
     """
     Generic function to run optimization sequentially.
 
@@ -165,16 +165,16 @@ def run_sequential(
     :type portfolios: list[PortfolioPO]
     :param parameters: Optimization parameters
     :type parameters: PortfolioOptimisationParameters
-    :return: Dictionary mapping portfolio names to optimization results
-    :rtype: dict[str, PortfolioOptimisationResult]
+    :return: List of optimization results
+    :rtype: list[PortfolioOptimisationResult]
     """
-    optimisation_results: dict[str, PortfolioOptimisationResult] = {}
+    optimisation_results: list[PortfolioOptimisationResult] = []
 
     for portfolio in portfolios:
         try:
-            name, result = optimise_single_portfolio(portfolio, parameters)
-            optimisation_results[name] = result
-            cfg.logger.info(f"Completed optimization for: {name}")
+            result = optimise_single_portfolio(portfolio, parameters)
+            optimisation_results.append(result)
+            cfg.logger.info(f"Completed optimization for: {result.name}")
         except Exception as e:
             cfg.logger.error(f"Error processing {portfolio.name}: {e}")
 
