@@ -87,23 +87,12 @@ class TestOptimiseSinglePortfolio:
         params.solver.export_lp = False
         return params
 
-    @pytest.fixture
-    def time_window(self):
-        """Create a test time window."""
-        return [
-            pendulum.datetime(2024, 1, 1, 0),
-            pendulum.datetime(2024, 1, 1, 1),
-            pendulum.datetime(2024, 1, 1, 2),
-        ]
-
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.PortfolioOptimisationModel")
-    def test_successful_optimization(self, mock_model_class, mock_portfolio, mock_parameters, time_window):
+    def test_successful_optimization(self, mock_model_class, mock_portfolio, mock_parameters):
         """Test successful portfolio optimization."""
-        # Setup mock portfolio with equipments (needed for exception handling)
         mock_portfolio.equipments = Mock()
         mock_portfolio.equipments.get_all_equipment.return_value = []
 
-        # Setup mock model
         mock_model = Mock()
         mock_model.portfolio = mock_portfolio
         mock_model._variables_name = ["var1", "var2"]
@@ -111,10 +100,8 @@ class TestOptimiseSinglePortfolio:
         mock_model.solution_info = SolutionInfo(status=SolverStatus.OPTIMAL)
         mock_model_class.return_value = mock_model
 
-        # Call function
-        name, result = optimise_single_portfolio(mock_portfolio, time_window, mock_parameters)
+        name, result = optimise_single_portfolio(mock_portfolio, mock_parameters)
 
-        # Assertions
         assert name == "test_portfolio"
         assert isinstance(result, PortfolioOptimisationResult)
         assert result.portfolio == mock_portfolio
@@ -122,62 +109,51 @@ class TestOptimiseSinglePortfolio:
         assert result.variable_values["var2"] == 20.0
         assert result.solution_info.status == SolverStatus.OPTIMAL
 
-        # Verify model methods were called
         mock_model.set_direction.assert_called_once_with("minimize")
-        mock_model.build.assert_called_once_with(time_window)
+        mock_model.build.assert_called_once_with()
         mock_model.solve.assert_called_once()
 
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.set_manual_activation")
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.PortfolioOptimisationModel")
     def test_optimization_failure_fallback(
-        self, mock_model_class, mock_set_manual_activation, mock_portfolio, mock_parameters, time_window
+        self, mock_model_class, mock_set_manual_activation, mock_portfolio, mock_parameters
     ):
         """Test that optimization failure falls back to manual activation."""
-        # Setup mock model to raise exception
         mock_model = Mock()
         mock_model.solve.side_effect = Exception("Solver failed")
         mock_model_class.return_value = mock_model
 
-        # Setup portfolio with equipments
         mock_equipments = Mock()
         mock_equipments.get_all_equipment.return_value = []
         mock_portfolio.equipments = mock_equipments
 
-        # Call function
-        name, result = optimise_single_portfolio(mock_portfolio, time_window, mock_parameters)
+        name, result = optimise_single_portfolio(mock_portfolio, mock_parameters)
 
-        # Assertions
         assert name == "test_portfolio"
         assert isinstance(result, PortfolioOptimisationResult)
         assert result.portfolio == mock_portfolio
         assert result.variable_values == {}
         assert result.solution_info.status == SolverStatus.NOT_SOLVED
-
-        # Verify manual activation was called
         mock_set_manual_activation.assert_called_once()
 
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.PortfolioOptimisationModel")
-    def test_solver_options_applied(self, mock_model_class, mock_portfolio, mock_parameters, time_window):
+    def test_solver_options_applied(self, mock_model_class, mock_portfolio, mock_parameters):
         """Test that solver options from parameters are correctly applied."""
         mock_parameters.solver.use_presolve = True
         mock_parameters.solver.duality_gap = 0.001
         mock_parameters.solver.timeout = pendulum.duration(seconds=600)
 
-        # Setup mock portfolio with equipments (needed for exception handling)
         mock_portfolio.equipments = Mock()
         mock_portfolio.equipments.get_all_equipment.return_value = []
 
-        # Setup mock model
         mock_model = Mock()
         mock_model.portfolio = mock_portfolio
         mock_model._variables_name = []
         mock_model.solution_info = SolutionInfo(status=SolverStatus.OPTIMAL)
         mock_model_class.return_value = mock_model
 
-        # Call function
-        optimise_single_portfolio(mock_portfolio, time_window, mock_parameters)
+        optimise_single_portfolio(mock_portfolio, mock_parameters)
 
-        # Verify model was created with correct solver options
         call_args = mock_model_class.call_args
         assert call_args[0][0] == mock_portfolio
         assert call_args[0][1] == mock_parameters
@@ -187,18 +163,16 @@ class TestOptimiseSinglePortfolio:
         assert solver_options.time_limit == pendulum.duration(seconds=600)
 
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.PortfolioOptimisationModel")
-    def test_lp_export_when_enabled(self, mock_model_class, mock_parameters, time_window):
+    def test_lp_export_when_enabled(self, mock_model_class, mock_parameters):
         """Test that LP files are exported when export_lp is True."""
         mock_parameters.solver.export_lp = True
         mock_parameters.get_output_dir.return_value = Path("tmp")
 
-        # Create a fresh mock portfolio
         test_portfolio = Mock(spec=PortfolioPO)
         test_portfolio.name = "test_portfolio"
         test_portfolio.equipments = Mock()
         test_portfolio.equipments.get_all_equipment.return_value = []
 
-        # Setup mock model
         mock_model = Mock()
         mock_model.portfolio = test_portfolio
         mock_model._variables_name = []
@@ -206,33 +180,27 @@ class TestOptimiseSinglePortfolio:
         mock_model_class.return_value = mock_model
 
         with patch("pathlib.Path.mkdir"):
-            optimise_single_portfolio(test_portfolio, time_window, mock_parameters)
+            optimise_single_portfolio(test_portfolio, mock_parameters)
 
-        # Verify LP export was called
         mock_model.export_model.assert_called_once_with(Path("tmp/lp_export/po_test_portfolio.lp"))
 
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.PortfolioOptimisationModel")
-    def test_lp_export_when_disabled(self, mock_model_class, mock_portfolio, mock_parameters, time_window):
+    def test_lp_export_when_disabled(self, mock_model_class, mock_portfolio, mock_parameters):
         """Test that LP files are not exported when export_lp is False."""
-        # Setup
         mock_parameters.output.output_dir = Path("tmp")
         mock_parameters.solver.export_lp = False
 
-        # Setup mock portfolio with equipments
         mock_portfolio.equipments = Mock()
         mock_portfolio.equipments.get_all_equipment.return_value = []
 
-        # Setup mock model
         mock_model = Mock()
         mock_model.portfolio = mock_portfolio
         mock_model._variables_name = []
         mock_model.solution_info = SolutionInfo(status=SolverStatus.OPTIMAL)
         mock_model_class.return_value = mock_model
 
-        # Call function
-        optimise_single_portfolio(mock_portfolio, time_window, mock_parameters)
+        optimise_single_portfolio(mock_portfolio, mock_parameters)
 
-        # Verify LP export was not called
         mock_model.export_model.assert_not_called()
 
 
@@ -250,8 +218,8 @@ class TestRunSequential:
         return params
 
     @pytest.fixture
-    def portfolios_with_time_windows(self):
-        """Create test portfolios with time windows."""
+    def portfolios(self):
+        """Create test portfolios."""
         portfolio1 = Mock(spec=PortfolioPO)
         portfolio1.name = "portfolio_1"
         portfolio1.equipments = Mock()
@@ -262,52 +230,44 @@ class TestRunSequential:
         portfolio2.equipments = Mock()
         portfolio2.equipments.get_all_equipment.return_value = []
 
-        time_window = [pendulum.datetime(2024, 1, 1)]
-
-        return [(portfolio1, time_window), (portfolio2, time_window)]
+        return [portfolio1, portfolio2]
 
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.optimise_single_portfolio")
-    def test_run_sequential_success(self, mock_optimise, portfolios_with_time_windows, mock_parameters):
+    def test_run_sequential_success(self, mock_optimise, portfolios, mock_parameters):
         """Test run_sequential processes all portfolios successfully."""
-        # Setup mock results
         result1 = PortfolioOptimisationResult(
-            portfolio=portfolios_with_time_windows[0][0],
+            portfolio=portfolios[0],
             variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
         )
         result2 = PortfolioOptimisationResult(
-            portfolio=portfolios_with_time_windows[1][0],
+            portfolio=portfolios[1],
             variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
         )
 
         mock_optimise.side_effect = [("portfolio_1", result1), ("portfolio_2", result2)]
 
-        # Call function
-        results = run_sequential(portfolios_with_time_windows, mock_parameters)
+        results = run_sequential(portfolios, mock_parameters)
 
-        # Assertions
         assert len(results) == 2
         assert "portfolio_1" in results
         assert "portfolio_2" in results
         assert mock_optimise.call_count == 2
 
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.optimise_single_portfolio")
-    def test_run_sequential_handles_errors(self, mock_optimise, portfolios_with_time_windows, mock_parameters):
+    def test_run_sequential_handles_errors(self, mock_optimise, portfolios, mock_parameters):
         """Test run_sequential handles errors gracefully."""
-        # Setup: first succeeds, second fails
         result1 = PortfolioOptimisationResult(
-            portfolio=portfolios_with_time_windows[0][0],
+            portfolio=portfolios[0],
             variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
         )
 
         mock_optimise.side_effect = [("portfolio_1", result1), Exception("Optimization failed")]
 
-        # Call function
-        results = run_sequential(portfolios_with_time_windows, mock_parameters)
+        results = run_sequential(portfolios, mock_parameters)
 
-        # Assertions - should have first portfolio, second failed
         assert len(results) == 1
         assert "portfolio_1" in results
 
@@ -323,37 +283,31 @@ class TestRunParallel:
         return params
 
     @pytest.fixture
-    def portfolios_with_time_windows(self):
-        """Create test portfolios with time windows."""
+    def portfolios(self):
+        """Create test portfolios."""
         portfolio1 = Mock(spec=PortfolioPO)
         portfolio1.name = "portfolio_1"
         portfolio2 = Mock(spec=PortfolioPO)
         portfolio2.name = "portfolio_2"
-
-        time_window = [pendulum.datetime(2024, 1, 1)]
-
-        return [(portfolio1, time_window), (portfolio2, time_window)]
+        return [portfolio1, portfolio2]
 
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.ProcessPoolExecutor")
-    def test_run_parallel_success(self, mock_executor_class, portfolios_with_time_windows, mock_parameters):
+    def test_run_parallel_success(self, mock_executor_class, portfolios, mock_parameters):
         """Test run_parallel processes all portfolios successfully."""
-        # Setup mock executor
         mock_executor = MagicMock()
         mock_executor_class.return_value.__enter__.return_value = mock_executor
 
-        # Mock results
         result1 = PortfolioOptimisationResult(
-            portfolio=portfolios_with_time_windows[0][0],
+            portfolio=portfolios[0],
             variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
         )
         result2 = PortfolioOptimisationResult(
-            portfolio=portfolios_with_time_windows[1][0],
+            portfolio=portfolios[1],
             variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
         )
 
-        # Mock futures
         future1 = MagicMock()
         future1.result.return_value = ("portfolio_1", result1)
         future2 = MagicMock()
@@ -364,24 +318,21 @@ class TestRunParallel:
         with patch("atlas.modules.portfolio_optimisation.utils.orchestration.as_completed") as mock_as_completed:
             mock_as_completed.return_value = [future1, future2]
 
-            results = run_parallel(portfolios_with_time_windows, mock_parameters)
+            results = run_parallel(portfolios, mock_parameters)
 
-        # Assertions
         assert len(results) == 2
         assert "portfolio_1" in results
         assert "portfolio_2" in results
         mock_executor_class.assert_called_once_with(max_workers=2)
 
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.ProcessPoolExecutor")
-    def test_run_parallel_handles_errors(self, mock_executor_class, portfolios_with_time_windows, mock_parameters):
+    def test_run_parallel_handles_errors(self, mock_executor_class, portfolios, mock_parameters):
         """Test run_parallel handles errors gracefully."""
-        # Setup mock executor
         mock_executor = MagicMock()
         mock_executor_class.return_value.__enter__.return_value = mock_executor
 
-        # Mock futures - one succeeds, one fails
         result1 = PortfolioOptimisationResult(
-            portfolio=portfolios_with_time_windows[0][0],
+            portfolio=portfolios[0],
             variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
         )
@@ -396,9 +347,8 @@ class TestRunParallel:
         with patch("atlas.modules.portfolio_optimisation.utils.orchestration.as_completed") as mock_as_completed:
             mock_as_completed.return_value = [future1, future2]
 
-            results = run_parallel(portfolios_with_time_windows, mock_parameters)
+            results = run_parallel(portfolios, mock_parameters)
 
-        # Assertions - should have one successful result
         assert len(results) == 1
         assert "portfolio_1" in results
 

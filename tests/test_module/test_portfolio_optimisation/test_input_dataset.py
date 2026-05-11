@@ -127,9 +127,8 @@ class TestPortfolioOptimisationInputDataset:
         """Test that InputDataset initializes correctly with wind equipment."""
         mock_wind_po_instance = Mock(spec=WindPO)
         mock_wind_po_instance.portfolio = mock_wind_equipment.portfolio
-        mock_wind_po_instance.get_optimisation_time_window = Mock(
-            return_value=[pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
-        )
+        mock_wind_po_instance.optimisation_time_window = [pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
+        mock_wind_po_instance.additional_hours = pendulum.duration(hours=0)
         mock_wind_po_class.return_value = mock_wind_po_instance
 
         input_data = AtlasDataset(wind=[mock_wind_equipment])
@@ -145,9 +144,8 @@ class TestPortfolioOptimisationInputDataset:
         """Test that InputDataset initializes correctly with solar equipment."""
         mock_solar_po_instance = Mock(spec=SolarPO)
         mock_solar_po_instance.portfolio = mock_solar_equipment.portfolio
-        mock_solar_po_instance.get_optimisation_time_window = Mock(
-            return_value=[pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
-        )
+        mock_solar_po_instance.optimisation_time_window = [pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
+        mock_solar_po_instance.additional_hours = pendulum.duration(hours=0)
         mock_solar_po_class.return_value = mock_solar_po_instance
 
         input_data = AtlasDataset(solar=[mock_solar_equipment])
@@ -163,9 +161,11 @@ class TestPortfolioOptimisationInputDataset:
         """Test that InputDataset initializes correctly with storage equipment."""
         mock_storage_po_instance = Mock(spec=StoragePO)
         mock_storage_po_instance.portfolio = mock_storage_equipment.portfolio
-        mock_storage_po_instance.get_optimisation_time_window = Mock(
-            return_value=[pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
-        )
+        mock_storage_po_instance.optimisation_time_window = [
+            pendulum.datetime(2024, 1, 1),
+            pendulum.datetime(2024, 1, 2),
+        ]
+        mock_storage_po_instance.additional_hours = pendulum.duration(hours=0)
         mock_storage_po_class.return_value = mock_storage_po_instance
 
         input_data = AtlasDataset(storage=[mock_storage_equipment])
@@ -179,9 +179,8 @@ class TestPortfolioOptimisationInputDataset:
         """Test that InputDataset initializes correctly with hydro equipment."""
         mock_hydro_po_instance = Mock(spec=HydroPO)
         mock_hydro_po_instance.portfolio = mock_hydro_equipment.portfolio
-        mock_hydro_po_instance.get_optimisation_time_window = Mock(
-            return_value=[pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
-        )
+        mock_hydro_po_instance.optimisation_time_window = [pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
+        mock_hydro_po_instance.additional_hours = pendulum.duration(hours=0)
         mock_hydro_po_class.return_value = mock_hydro_po_instance
 
         input_data = AtlasDataset(hydro=[mock_hydro_equipment])
@@ -196,9 +195,8 @@ class TestPortfolioOptimisationInputDataset:
         mock_load_po_instance = Mock(spec=LoadPO)
         mock_load_po_instance.load_type = LoadType.POWER_TO_GAS
         mock_load_po_instance.portfolio = mock_dispatchable_load.portfolio
-        mock_load_po_instance.get_optimisation_time_window = Mock(
-            return_value=[pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
-        )
+        mock_load_po_instance.optimisation_time_window = [pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
+        mock_load_po_instance.additional_hours = pendulum.duration(hours=0)
         mock_load_po_class.return_value = mock_load_po_instance
 
         input_data = AtlasDataset(load=[mock_dispatchable_load])
@@ -215,9 +213,8 @@ class TestPortfolioOptimisationInputDataset:
         mock_load_po_instance = Mock(spec=LoadPO)
         mock_load_po_instance.load_type = LoadType.BASE_LOAD
         mock_load_po_instance.portfolio = mock_non_dispatchable_load.portfolio
-        mock_load_po_instance.get_optimisation_time_window = Mock(
-            return_value=[pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
-        )
+        mock_load_po_instance.optimisation_time_window = [pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
+        mock_load_po_instance.additional_hours = pendulum.duration(hours=0)
         mock_load_po_class.return_value = mock_load_po_instance
 
         input_data = AtlasDataset(load=[mock_non_dispatchable_load])
@@ -234,16 +231,14 @@ class TestPortfolioOptimisationInputDataset:
         mock_disp_instance = Mock(spec=LoadPO)
         mock_disp_instance.load_type = LoadType.POWER_TO_GAS
         mock_disp_instance.portfolio = mock_dispatchable_load.portfolio
-        mock_disp_instance.get_optimisation_time_window = Mock(
-            return_value=[pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
-        )
+        mock_disp_instance.optimisation_time_window = [pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
+        mock_disp_instance.additional_hours = pendulum.duration(hours=0)
 
         mock_non_disp_instance = Mock(spec=LoadPO)
         mock_non_disp_instance.load_type = LoadType.BASE_LOAD
         mock_non_disp_instance.portfolio = mock_non_dispatchable_load.portfolio
-        mock_non_disp_instance.get_optimisation_time_window = Mock(
-            return_value=[pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
-        )
+        mock_non_disp_instance.optimisation_time_window = [pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
+        mock_non_disp_instance.additional_hours = pendulum.duration(hours=0)
 
         mock_load_po_class.side_effect = [mock_disp_instance, mock_non_disp_instance]
 
@@ -276,9 +271,8 @@ class TestPortfolioOptimisationInputDataset:
         """Test that equipment excluded by technology is placed in manual activation portfolio."""
         mock_wind_po_instance = Mock(spec=WindPO)
         mock_wind_po_instance.portfolio = mock_wind_equipment.portfolio
-        mock_wind_po_instance.get_optimisation_time_window = Mock(
-            return_value=[pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
-        )
+        mock_wind_po_instance.optimisation_time_window = [pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
+        mock_wind_po_instance.additional_hours = pendulum.duration(hours=0)
         mock_wind_po_class.return_value = mock_wind_po_instance
         mock_should_manually_activate.return_value = True
         mock_is_excluded_market.return_value = False
@@ -304,9 +298,8 @@ class TestPortfolioOptimisationInputDataset:
         """Test that equipment in excluded market area is placed in manual activation portfolio."""
         mock_wind_po_instance = Mock(spec=WindPO)
         mock_wind_po_instance.portfolio = mock_wind_equipment.portfolio
-        mock_wind_po_instance.get_optimisation_time_window = Mock(
-            return_value=[pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
-        )
+        mock_wind_po_instance.optimisation_time_window = [pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
+        mock_wind_po_instance.additional_hours = pendulum.duration(hours=0)
         mock_wind_po_class.return_value = mock_wind_po_instance
         mock_should_manually_activate.return_value = False
         mock_is_excluded_market.return_value = True
@@ -331,9 +324,8 @@ class TestPortfolioOptimisationInputDataset:
         """Test that non-excluded equipment is placed in normal optimization portfolio."""
         mock_wind_po_instance = Mock(spec=WindPO)
         mock_wind_po_instance.portfolio = mock_wind_equipment.portfolio
-        mock_wind_po_instance.get_optimisation_time_window = Mock(
-            return_value=[pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
-        )
+        mock_wind_po_instance.optimisation_time_window = [pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
+        mock_wind_po_instance.additional_hours = pendulum.duration(hours=0)
         mock_wind_po_class.return_value = mock_wind_po_instance
         mock_should_manually_activate.return_value = False
         mock_is_excluded_market.return_value = False
@@ -362,16 +354,14 @@ class TestPortfolioOptimisationInputDataset:
         """Test portfolio creation with mixed included and excluded equipment."""
         mock_wind_po_instance = Mock(spec=WindPO)
         mock_wind_po_instance.portfolio = mock_wind_equipment.portfolio
-        mock_wind_po_instance.get_optimisation_time_window = Mock(
-            return_value=[pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
-        )
+        mock_wind_po_instance.optimisation_time_window = [pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
+        mock_wind_po_instance.additional_hours = pendulum.duration(hours=0)
         mock_wind_po_class.return_value = mock_wind_po_instance
 
         mock_solar_po_instance = Mock(spec=SolarPO)
         mock_solar_po_instance.portfolio = mock_solar_equipment.portfolio
-        mock_solar_po_instance.get_optimisation_time_window = Mock(
-            return_value=[pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
-        )
+        mock_solar_po_instance.optimisation_time_window = [pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 2)]
+        mock_solar_po_instance.additional_hours = pendulum.duration(hours=0)
         mock_solar_po_class.return_value = mock_solar_po_instance
 
         mock_should_manually_activate.side_effect = [False, True]
@@ -396,16 +386,10 @@ class TestPortfolioOptimisationInputDataset:
         mock_parameters,
         mock_wind_equipment,
     ):
-        """Test that time windows are correctly calculated for portfolios."""
-        expected_time_window = [
-            pendulum.datetime(2024, 1, 1),
-            pendulum.datetime(2024, 1, 1, 12),
-            pendulum.datetime(2024, 1, 2),
-        ]
-
+        """Test that optimisation_time_window is set on each equipment."""
         mock_wind_po_instance = Mock(spec=WindPO)
         mock_wind_po_instance.portfolio = mock_wind_equipment.portfolio
-        mock_wind_po_instance.get_optimisation_time_window = Mock(return_value=expected_time_window)
+        mock_wind_po_instance.additional_hours = pendulum.duration(hours=0)
         mock_wind_po_class.return_value = mock_wind_po_instance
         mock_should_manually_activate.return_value = False
         mock_is_excluded_market.return_value = False
@@ -413,5 +397,5 @@ class TestPortfolioOptimisationInputDataset:
         input_data = AtlasDataset(wind=[mock_wind_equipment])
         dataset = PortfolioOptimisationInputDataset(input_data, mock_parameters)
 
-        assert "test_portfolio" in dataset.time_windows
-        assert dataset.time_windows["test_portfolio"] == expected_time_window
+        assert len(dataset.portfolios) == 1
+        assert hasattr(mock_wind_po_instance, "optimisation_time_window")

@@ -10,7 +10,6 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from loguru import logger
-from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.abstract_class.module import AbstractModule
@@ -147,16 +146,14 @@ class PortfolioOptimisationModule(
         optimisation_results: dict[str, PortfolioOptimisationResult] = {}
 
         if parameters.is_portfolio_bidding:
-            portfolios_with_time_windows = [
-                (portfolio, dataset.time_windows[portfolio.name]) for portfolio in dataset.portfolios
-            ]
+            portfolios = dataset.portfolios
         else:
-            portfolios_with_time_windows = self._prepare_equipment_portfolios(dataset, parameters)
+            portfolios = self._prepare_equipment_portfolios(dataset, parameters)
 
         if parameters.multiprocessing.enable:
-            optimisation_results = run_parallel(portfolios_with_time_windows, parameters)
+            optimisation_results = run_parallel(portfolios, parameters)
         else:
-            optimisation_results = run_sequential(portfolios_with_time_windows, parameters)
+            optimisation_results = run_sequential(portfolios, parameters)
 
         if parameters.is_portfolio_bidding:
             for portfolio in dataset.portfolios_manual_activation:
@@ -190,7 +187,7 @@ class PortfolioOptimisationModule(
 
     def _prepare_equipment_portfolios(
         self, input_dataset: PortfolioOptimisationInputDataset, parameters: PortfolioOptimisationParameters
-    ) -> list[tuple[PortfolioPO, list[DateTime]]]:
+    ) -> list[PortfolioPO]:
         """
         Prepare individual equipment portfolios from the input portfolios.
 
@@ -198,10 +195,10 @@ class PortfolioOptimisationModule(
         :type input_dataset: PortfolioOptimisationInputDataset
         :param parameters: Optimization parameters
         :type parameters: PortfolioOptimisationParameters
-        :return: List of tuples containing equipment portfolios and their time windows
-        :rtype: list[tuple[PortfolioPO, list[DateTime]]]
+        :return: List of single-equipment portfolios
+        :rtype: list[PortfolioPO]
         """
-        equipment_portfolios: list[tuple[PortfolioPO, list[DateTime]]] = []
+        equipment_portfolios: list[PortfolioPO] = []
 
         for portfolio in input_dataset.portfolios:
             cfg.logger.debug(f"Processing portfolio {portfolio.name} for individual equipment optimisation")
@@ -219,7 +216,7 @@ class PortfolioOptimisationModule(
 
                     equipment_portfolio.market_area.set_market_context(parameters.market, parameters.use_forecast)
 
-                    equipment_portfolios.append((equipment_portfolio, input_dataset.time_windows[portfolio.name]))
+                    equipment_portfolios.append(equipment_portfolio)
 
         return equipment_portfolios
 
