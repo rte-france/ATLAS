@@ -172,9 +172,9 @@ def run_sequential(
 
     for portfolio in portfolios:
         try:
-            name, result = optimise_single_portfolio(portfolio, parameters)
+            result = optimise_single_portfolio(portfolio, parameters)
             optimisation_results.append(result)
-            cfg.logger.info(f"Completed optimization for: {name}")
+            cfg.logger.info(f"Completed optimization for: {result.name}")
         except Exception as e:
             cfg.logger.error(f"Error processing {portfolio.name}: {e}")
 
