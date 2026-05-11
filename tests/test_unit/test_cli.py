@@ -180,7 +180,7 @@ class TestPrometheusToAtlasCommand:
 
         result = runner.invoke(
             app,
-            ["prometheus-to-atlas", str(nonexistent_ts), str(hdf5_file), str(output_dir)],
+            ["prometheus-to-atlas", "run", str(nonexistent_ts), str(hdf5_file), "--output", str(output_dir)],
         )
         assert result.exit_code == 1
         assert "Timeseries folder not found" in result.stdout
@@ -194,7 +194,7 @@ class TestPrometheusToAtlasCommand:
 
         result = runner.invoke(
             app,
-            ["prometheus-to-atlas", str(ts_folder), str(nonexistent_hdf5), str(output_dir)],
+            ["prometheus-to-atlas", "run", str(ts_folder), str(nonexistent_hdf5), "--output", str(output_dir)],
         )
         assert result.exit_code == 1
         assert "HDF5 file not found" in result.stdout
@@ -215,7 +215,7 @@ class TestPrometheusToAtlasCommand:
 
         result = runner.invoke(
             app,
-            ["prometheus-to-atlas", str(ts_folder), str(hdf5_file), str(output_dir)],
+            ["prometheus-to-atlas", "run", str(ts_folder), str(hdf5_file), "--output", str(output_dir)],
         )
 
         assert result.exit_code == 0
@@ -240,8 +240,10 @@ class TestPrometheusToAtlasCommand:
             app,
             [
                 "prometheus-to-atlas",
+                "run",
                 str(ts_folder),
                 str(hdf5_file),
+                "--output",
                 str(output_dir),
                 "--date-format-forecasting",
                 "YYYY-MM-DD",
@@ -266,7 +268,7 @@ class TestPrometheusToAtlasRecursiveCommand:
 
         result = runner.invoke(
             app,
-            ["prometheus-to-atlas-recursive", str(nonexistent_root), str(output_root)],
+            ["prometheus-to-atlas", "batch", str(nonexistent_root), "--output", str(output_root)],
         )
         assert result.exit_code == 1
         assert "Root directory not found" in result.stdout
@@ -279,10 +281,10 @@ class TestPrometheusToAtlasRecursiveCommand:
 
         result = runner.invoke(
             app,
-            ["prometheus-to-atlas-recursive", str(file_path), str(output_root)],
+            ["prometheus-to-atlas", "batch", str(file_path), "--output", str(output_root)],
         )
         assert result.exit_code == 1
-        assert "Path is not a directory" in result.stdout
+        assert "Root directory not found" in result.stdout
 
     def test_recursive_no_valid_module_directories(self, tmp_path):
         """Test that command fails when no valid module directories are found."""
@@ -294,7 +296,7 @@ class TestPrometheusToAtlasRecursiveCommand:
 
         result = runner.invoke(
             app,
-            ["prometheus-to-atlas-recursive", str(root_dir), str(output_root)],
+            ["prometheus-to-atlas", "batch", str(root_dir), "--output", str(output_root)],
         )
         assert result.exit_code == 1
         # Error message is logged, not printed to stdout
@@ -328,7 +330,7 @@ class TestPrometheusToAtlasRecursiveCommand:
 
         result = runner.invoke(
             app,
-            ["prometheus-to-atlas-recursive", str(root_dir), str(output_root), "--no-use-mp"],
+            ["prometheus-to-atlas", "batch", str(root_dir), "--output", str(output_root), "--no-mp"],
         )
 
         assert result.exit_code == 0
@@ -358,7 +360,7 @@ class TestPrometheusToAtlasRecursiveCommand:
 
         result = runner.invoke(
             app,
-            ["prometheus-to-atlas-recursive", str(root_dir), str(output_root), "--no-use-mp"],
+            ["prometheus-to-atlas", "batch", str(root_dir), "--output", str(output_root), "--no-mp"],
         )
 
         # Should exit with error code since no modules were processed
@@ -515,6 +517,192 @@ class TestProfilingCommand:
         mock_run.assert_called_once_with(params_file, "DayAheadOrders", dataset_dir, output_path)
 
 
+class TestAntaresToAtlasRunCommand:
+    """Tests for the 'atlas antares-to-atlas run' command."""
+
+    def test_run_missing_parameters_file(self, tmp_path):
+        """Test that command fails when parameters file doesn't exist."""
+        study_dir = tmp_path / "study"
+        study_dir.mkdir()
+        nonexistent_params = tmp_path / "nonexistent.yaml"
+        output_dir = tmp_path / "output"
+
+        result = runner.invoke(
+            app,
+            ["antares-to-atlas", "run", str(study_dir), "-p", str(nonexistent_params), "-o", str(output_dir)],
+        )
+        assert result.exit_code == 1
+        assert "Parameters file not found" in result.stdout
+
+    def test_run_missing_study_directory(self, tmp_path):
+        """Test that command fails when study directory doesn't exist."""
+        nonexistent_study = tmp_path / "nonexistent_study"
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("")
+        output_dir = tmp_path / "output"
+
+        result = runner.invoke(
+            app,
+            ["antares-to-atlas", "run", str(nonexistent_study), "-p", str(params_file), "-o", str(output_dir)],
+        )
+        assert result.exit_code == 1
+        assert "Study directory not found" in result.stdout
+
+    def test_run_invalid_format(self, tmp_path):
+        """Test that command fails with an invalid output format."""
+        study_dir = tmp_path / "study"
+        study_dir.mkdir()
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("")
+        output_dir = tmp_path / "output"
+
+        result = runner.invoke(
+            app,
+            [
+                "antares-to-atlas",
+                "run",
+                str(study_dir),
+                "-p",
+                str(params_file),
+                "-o",
+                str(output_dir),
+                "-f",
+                "json",
+            ],
+        )
+        assert result.exit_code == 1
+        assert "Unknown format" in result.stdout
+
+    @patch("atlas.app.AntaresToAtlas")
+    def test_run_with_valid_inputs(self, mock_antares, tmp_path):
+        """Test that command succeeds with valid inputs (mocked execution)."""
+        study_dir = tmp_path / "study"
+        study_dir.mkdir()
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("")
+        output_dir = tmp_path / "output"
+
+        mock_converter = MagicMock()
+        mock_dataset = MagicMock()
+        mock_antares.from_file.return_value = mock_converter
+        mock_converter.convert.return_value = mock_dataset
+
+        result = runner.invoke(
+            app,
+            ["antares-to-atlas", "run", str(study_dir), "-p", str(params_file), "-o", str(output_dir)],
+        )
+
+        assert result.exit_code == 0
+        mock_antares.from_file.assert_called_once()
+        mock_converter.convert.assert_called_once_with(study_dir)
+        mock_dataset.to_directory.assert_called_once()
+
+    @patch("atlas.app.AntaresToAtlas")
+    def test_run_conversion_failure(self, mock_antares, tmp_path):
+        """Test that command fails gracefully when conversion raises an exception."""
+        study_dir = tmp_path / "study"
+        study_dir.mkdir()
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("")
+        output_dir = tmp_path / "output"
+
+        mock_converter = MagicMock()
+        mock_antares.from_file.return_value = mock_converter
+        mock_converter.convert.side_effect = Exception("Conversion error")
+
+        result = runner.invoke(
+            app,
+            ["antares-to-atlas", "run", str(study_dir), "-p", str(params_file), "-o", str(output_dir)],
+        )
+
+        assert result.exit_code == 1
+
+    @patch("atlas.app.AntaresToAtlas")
+    def test_run_load_failure(self, mock_antares, tmp_path):
+        """Test that command fails gracefully when loading parameters raises an exception."""
+        study_dir = tmp_path / "study"
+        study_dir.mkdir()
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("")
+        output_dir = tmp_path / "output"
+
+        mock_antares.from_file.side_effect = Exception("Bad YAML")
+
+        result = runner.invoke(
+            app,
+            ["antares-to-atlas", "run", str(study_dir), "-p", str(params_file), "-o", str(output_dir)],
+        )
+
+        assert result.exit_code == 1
+        assert "Failed to load parameters" in result.stdout
+
+
+class TestAntaresToAtlasValidateCommand:
+    """Tests for the 'atlas antares-to-atlas validate' command."""
+
+    def test_validate_missing_parameters_file(self, tmp_path):
+        """Test that command fails when parameters file doesn't exist."""
+        nonexistent_params = tmp_path / "nonexistent.yaml"
+
+        result = runner.invoke(app, ["antares-to-atlas", "validate", "-p", str(nonexistent_params)])
+        assert result.exit_code == 1
+        assert "Parameters file not found" in result.stdout
+
+    @patch("atlas.app.AntaresToAtlas")
+    def test_validate_with_valid_inputs(self, mock_antares, tmp_path):
+        """Test that validate succeeds and prints parameters summary."""
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("")
+
+        mock_converter = MagicMock()
+        mock_antares.from_file.return_value = mock_converter
+        mock_p = mock_converter.parameters
+        mock_p.hypothesis = None
+        mock_p.market_areas = ["FR", "DE"]
+        mock_p.hydro.initialization_curve = None
+        mock_p.hydro.path_inflows = None
+        mock_p.baseline_displacement_energy = None
+        mock_p.disp_energy_node_parameters = None
+        mock_converter.list_converter_details.return_value = [("ConverterA", "desc A")]
+
+        result = runner.invoke(app, ["antares-to-atlas", "validate", "-p", str(params_file)])
+
+        assert result.exit_code == 0
+        mock_antares.from_file.assert_called_once()
+        mock_converter.list_converter_details.assert_called_once()
+
+
+class TestAntaresToAtlasConvertersCommand:
+    """Tests for the 'atlas antares-to-atlas converters' command."""
+
+    def test_converters_missing_parameters_file(self, tmp_path):
+        """Test that command fails when parameters file doesn't exist."""
+        nonexistent_params = tmp_path / "nonexistent.yaml"
+
+        result = runner.invoke(app, ["antares-to-atlas", "converters", "-p", str(nonexistent_params)])
+        assert result.exit_code == 1
+        assert "Parameters file not found" in result.stdout
+
+    @patch("atlas.app.AntaresToAtlas")
+    def test_converters_with_valid_inputs(self, mock_antares, tmp_path):
+        """Test that converters command lists converters from the parameters file."""
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("")
+
+        mock_converter = MagicMock()
+        mock_antares.from_file.return_value = mock_converter
+        mock_converter.list_converter_details.return_value = [
+            ("ConverterA", "desc A"),
+            ("ConverterB", "desc B"),
+        ]
+
+        result = runner.invoke(app, ["antares-to-atlas", "converters", "-p", str(params_file)])
+
+        assert result.exit_code == 0
+        mock_antares.from_file.assert_called_once()
+        mock_converter.list_converter_details.assert_called_once()
+
+
 class TestCLIHelp:
     """Tests for CLI help and documentation."""
 
@@ -533,14 +721,14 @@ class TestCLIHelp:
         assert "workflow" in result.stdout
 
     def test_prometheus_to_atlas_command_help(self):
-        """Test that prometheus-to-atlas command help works."""
-        result = runner.invoke(app, ["prometheus-to-atlas", "--help"])
+        """Test that prometheus-to-atlas run subcommand help works."""
+        result = runner.invoke(app, ["prometheus-to-atlas", "run", "--help"])
         assert result.exit_code == 0
         assert "timeseries" in result.stdout.lower()
         assert "hdf5" in result.stdout.lower()
 
     def test_prometheus_to_atlas_recursive_command_help(self):
-        """Test that prometheus-to-atlas-recursive command help works."""
-        result = runner.invoke(app, ["prometheus-to-atlas-recursive", "--help"])
+        """Test that prometheus-to-atlas batch subcommand help works."""
+        result = runner.invoke(app, ["prometheus-to-atlas", "batch", "--help"])
         assert result.exit_code == 0
         assert "root" in result.stdout.lower()
