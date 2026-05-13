@@ -1,5 +1,0 @@
-name;afrr_activated;afrr_down_procured;afrr_up_procured;control_block;da_cleared_quantity;fcr_activated;id_cleared_quantity;imbalance;imbalance_settlement_costs;market_area;mfrr_activated;mfrr_down_procured;mfrr_up_procured;power;rr_activated;rr_down_procured;rr_up_procured;total_id_cleared_quantity
-generator_a;;;;cb_a;timeseries;;;forecasting_matrix;;ma_a;;;;forecasting_matrix;;;;
-generator_b;;;;cb_b;timeseries;;;forecasting_matrix;;ma_b;;;;forecasting_matrix;;;;
-supplier_a;;;;cb_a;timeseries;;;forecasting_matrix;;ma_a;;;;forecasting_matrix;;;;
-supplier_b;;;;cb_b;timeseries;;;forecasting_matrix;;ma_b;;;;forecasting_matrix;;;;

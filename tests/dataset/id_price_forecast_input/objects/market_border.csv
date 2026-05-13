@@ -1,2 +1,0 @@
-name;afrr_activated;afrr_down_procured;afrr_up_procured;coupling_type;da_flow;da_shadow_price;downhill_control_block;downhill_market_area;fcr_activated;id_flow;id_shadow_price;loss_factor;maximum_flow;mfrr_activated;mfrr_down_procured;mfrr_up_procured;minimum_flow;reference_flow;rr_activated;rr_down_procured;rr_up_procured;time_resolution;total_id_flow;uphill_control_block;uphill_market_area
-a_b;;;;ATC;timeseries;timeseries;cb_b;ma_b;;;;0.0;timeseries;;;;timeseries;timeseries;;;;0.0;;cb_a;ma_a
