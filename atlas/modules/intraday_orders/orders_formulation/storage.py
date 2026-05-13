@@ -5,31 +5,29 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import List, Tuple
-
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import Storage, Timeseries, OrderCoupling
-from atlas.enums import StorageType, CouplingType, ComplementDirection, OrderType
-from atlas.modules.intraday_orders.orders_formulation.abstract_orders_formulator import AbstractOrdersFormulator
+from atlas import OrderCoupling, Storage, Timeseries
+from atlas.enums import ComplementDirection, CouplingType, OrderType, StorageType
+from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import get_date_to_clean_string, build_intraday_order
+from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
 
 
 def compute_initial_prices(
-    equipment: Storage, orders_timestamps: List[DateTime], parameters: IntradayOrdersParameters
-) -> Tuple[float, float]:
+    equipment: Storage, orders_timestamps: list[DateTime], parameters: IntradayOrdersParameters
+) -> tuple[float, float]:
     min_sell_price = 9999.0
     max_buy_price = 0.0
 
     price_forecast = equipment.portfolio.market_area.id_price_forecast.get_forecast(
-        parameters.execution_date, parameters.start_date, parameters.end_date
+        parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
     )
 
     new_planning = equipment.id_po_for_orders.get_forecast(
-        parameters.execution_date, parameters.start_date, parameters.end_date
+        parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
     )
     previous_planning = equipment.da_cleared_quantity + equipment.total_id_cleared_quantity
 
@@ -98,7 +96,7 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[Storage]):
     def formulate_equipment_orders(
         self,
         equipment: Storage,
-        orders_timestamps: List[DateTime],
+        orders_timestamps: list[DateTime],
         buy_submitted_volume: Timeseries,
         sell_submitted_volume: Timeseries,
         dataset: IntradayOrdersOutputDataset,
@@ -107,7 +105,7 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[Storage]):
         final_sell_price, final_buy_price = compute_initial_prices(equipment, orders_timestamps, parameters)
 
         new_planning = equipment.id_po_for_orders.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_date
+            parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
         )
         previous_planning = equipment.da_cleared_quantity + equipment.total_id_cleared_quantity
 
@@ -139,9 +137,7 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[Storage]):
                 add_order_coupling_to_output = False
 
                 if previous_quantity - equipment.minimum_power.get_value(t) > parameters.allowed_round_off_error:
-                    order_name = "ID_Buy_{}_{}_{}".format(
-                        get_date_to_clean_string(parameters.execution_date), equipment.name, get_date_to_clean_string(t)
-                    )
+                    order_name = f"ID_Buy_{get_date_to_clean_string(parameters.temporal.execution_date)}_{equipment.name}_{get_date_to_clean_string(t)}"
                     order = build_intraday_order(
                         equipment,
                         order_name,
@@ -159,9 +155,7 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[Storage]):
                     buy_submitted_volume.sum_value_at(t, previous_quantity - equipment.minimum_power.get_value(t))
 
                 if equipment.maximum_power.get_value(t) - previous_quantity > parameters.allowed_round_off_error:
-                    order_name = "ID_Sell_{}_{}_{}".format(
-                        get_date_to_clean_string(parameters.execution_date), equipment.name, get_date_to_clean_string(t)
-                    )
+                    order_name = f"ID_Sell_{get_date_to_clean_string(parameters.temporal.execution_date)}_{equipment.name}_{get_date_to_clean_string(t)}"
                     order = build_intraday_order(
                         equipment,
                         order_name,
@@ -203,8 +197,6 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[Storage]):
 
                 # Creation of the order with the relevant parameters
                 if q_order > parameters.allowed_round_off_error:
-                    order_name = "ID_{}_{}_{}".format(
-                        get_date_to_clean_string(parameters.execution_date), equipment.name, get_date_to_clean_string(t)
-                    )
+                    order_name = f"ID_{get_date_to_clean_string(parameters.temporal.execution_date)}_{equipment.name}_{get_date_to_clean_string(t)}"
                     order = build_intraday_order(equipment, order_name, price, 0.0, q_order, order_type, t, parameters)
                     dataset.add_order(order)

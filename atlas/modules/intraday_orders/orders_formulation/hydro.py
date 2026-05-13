@@ -5,17 +5,15 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import List
-
 import pendulum
 from pendulum import DateTime
 
 from atlas import Hydro, Timeseries
 from atlas.enums import OrderType
-from atlas.modules.intraday_orders.orders_formulation.abstract_orders_formulator import AbstractOrdersFormulator
+from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import get_date_to_clean_string, build_intraday_order, intraday_step
+from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
 
 
 class HydroOrdersFormulator(AbstractOrdersFormulator[Hydro]):
@@ -24,7 +22,7 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[Hydro]):
     def formulate_equipment_orders(
         self,
         equipment: Hydro,
-        orders_timestamps: List[DateTime],
+        orders_timestamps: list[DateTime],
         buy_submitted_volume: Timeseries,
         sell_submitted_volume: Timeseries,
         dataset: IntradayOrdersOutputDataset,
@@ -34,20 +32,20 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[Hydro]):
         for category in range(len(equipment.fragment_volumes)):
             delta_wu[category] = (equipment.fragment_volumes[category], equipment.fragment_prices[category])
 
-        forecast_horizon: DateTime = parameters.start_date - parameters.timestep
+        forecast_horizon: DateTime = parameters.temporal.start_date - parameters.temporal.timestep
 
         if equipment.stored_energy is not None:
             energy_forecast = equipment.stored_energy.get_forecast(
-                parameters.execution_date,
+                parameters.temporal.execution_date,
                 forecast_horizon,
                 forecast_horizon,
             )
             if len(energy_forecast) > 0:
                 energy_level = energy_forecast.get_value(forecast_horizon)
             else:
-                energy_level = equipment.initial_level.get_value(parameters.start_date)
+                energy_level = equipment.initial_level.get_value(parameters.temporal.start_date)
         else:
-            energy_level = equipment.initial_level.get_value(parameters.start_date)
+            energy_level = equipment.initial_level.get_value(parameters.temporal.start_date)
 
         xmin = filter(lambda x: int(x) <= energy_level, equipment.storage_marginal_value.index)
         xmax = filter(lambda x: int(x) > energy_level, equipment.storage_marginal_value.index)
@@ -134,13 +132,7 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[Hydro]):
         parameters: IntradayOrdersParameters,
     ):
         if volume > parameters.allowed_round_off_error:
-            bid_name = "ID_hydraulic_{}_fragment_{}_at_{}_for_unit_{}_{}".format(
-                order_type,
-                str(volume),
-                get_date_to_clean_string(time),
-                equipment.name,
-                get_date_to_clean_string(parameters.execution_date),
-            )
+            bid_name = f"ID_hydraulic_{order_type}_fragment_{str(volume)}_at_{get_date_to_clean_string(time)}_for_unit_{equipment.name}_{get_date_to_clean_string(parameters.temporal.execution_date)}"
             bid_output = build_intraday_order(equipment, bid_name, price, 0.0, volume, order_type, time, parameters)
             dataset.add_order(bid_output)
 

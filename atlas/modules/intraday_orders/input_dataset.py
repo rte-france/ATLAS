@@ -5,18 +5,18 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import List, TypeVar
+from typing import TypeVar
 
 import atlas.config as cfg
-from atlas import AtlasDataset, Wind, Solar, Thermal, OtherNonDispatchable, Hydro, Load, Storage, Equipment
-from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas import AtlasDataset, Equipment, Hydro, Load, OtherNonDispatchable, Solar, Storage, Thermal, Wind
+from atlas.abstract_class.dataset import AbstractDataset
 from atlas.io_utils.container import Container
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 
 T = TypeVar("T", bound=Equipment)
 
 
-def container_to_list(container: Container[T]) -> List[T]:
+def container_to_list(container: Container[T]) -> list[T]:
     data_list = []
     for item in container:
         data_list.append(item)
@@ -32,39 +32,41 @@ def has_hydro_water_values(hydro: Hydro) -> bool:
 
 
 class IntradayOrdersInputDataset(AbstractDataset[IntradayOrdersParameters]):
-    def __init__(self, raw_data: AtlasDataset):
-        self.__hydro: List[Hydro] = list(filter(has_hydro_water_values, container_to_list(raw_data.hydro)))
-        self.__load: List[Load] = container_to_list(raw_data.load)
-        self.__other_non_dispatchable: List[OtherNonDispatchable] = container_to_list(raw_data.other_non_dispatchable)
-        self.__solar: List[Solar] = container_to_list(raw_data.solar)
-        self.__storage: List[Storage] = container_to_list(raw_data.storage)
-        self.__thermal: List[Thermal] = container_to_list(raw_data.thermal)
-        self.__wind: List[Wind] = container_to_list(raw_data.wind)
+    def __init__(self, input_dataset: AtlasDataset):
+        self.__hydro: list[Hydro] = list(filter(has_hydro_water_values, container_to_list(input_dataset.hydro)))
+        self.__load: list[Load] = container_to_list(input_dataset.load)
+        self.__other_non_dispatchable: list[OtherNonDispatchable] = container_to_list(
+            input_dataset.other_non_dispatchable
+        )
+        self.__solar: list[Solar] = container_to_list(input_dataset.solar)
+        self.__storage: list[Storage] = container_to_list(input_dataset.storage)
+        self.__thermal: list[Thermal] = container_to_list(input_dataset.thermal)
+        self.__wind: list[Wind] = container_to_list(input_dataset.wind)
 
     @property
-    def hydro(self) -> List[Hydro]:
+    def hydro(self) -> list[Hydro]:
         return self.__hydro[:]
 
     @property
-    def load(self) -> List[Load]:
+    def load(self) -> list[Load]:
         return self.__load[:]
 
     @property
-    def other_non_dispatchable(self) -> List[OtherNonDispatchable]:
+    def other_non_dispatchable(self) -> list[OtherNonDispatchable]:
         return self.__other_non_dispatchable[:]
 
     @property
-    def solar(self) -> List[Solar]:
+    def solar(self) -> list[Solar]:
         return self.__solar[:]
 
     @property
-    def storage(self) -> List[Storage]:
+    def storage(self) -> list[Storage]:
         return self.__storage[:]
 
     @property
-    def thermal(self) -> List[Thermal]:
+    def thermal(self) -> list[Thermal]:
         return self.__thermal[:]
 
     @property
-    def wind(self) -> List[Wind]:
+    def wind(self) -> list[Wind]:
         return self.__wind[:]

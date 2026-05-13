@@ -5,13 +5,11 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import List
-
 from pendulum import DateTime
 
 from atlas import Load, Timeseries
 from atlas.enums import LoadType, OrderType
-from atlas.modules.intraday_orders.orders_formulation.abstract_orders_formulator import AbstractOrdersFormulator
+from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
@@ -23,7 +21,7 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[Load]):
     def formulate_equipment_orders(
         self,
         equipment: Load,
-        orders_timestamps: List[DateTime],
+        orders_timestamps: list[DateTime],
         buy_submitted_volume: Timeseries,
         sell_submitted_volume: Timeseries,
         dataset: IntradayOrdersOutputDataset,
@@ -37,7 +35,7 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[Load]):
 
             # maximum_power < 0 by convention
             maximum_power = equipment.maximum_power_forecast.get_forecast(
-                parameters.execution_date, parameters.start_date, parameters.end_date
+                parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
             )
 
             available_power = consumption_engagement - maximum_power
@@ -75,7 +73,7 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[Load]):
             # Only one order (Buy or Sell)
 
             consumption_new_planing = equipment.maximum_power_forecast.get_forecast(
-                parameters.execution_date, parameters.start_date, parameters.end_date
+                parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
             )
 
             consumption_forecast = consumption_engagement - consumption_new_planing
@@ -107,12 +105,7 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[Load]):
         time: DateTime,
         parameters: IntradayOrdersParameters,
     ):
-        bid_name = "{}_IDOrder_{}_{}_{}".format(
-            order_type.value,
-            get_date_to_clean_string(parameters.execution_date),
-            equipment.name,
-            get_date_to_clean_string(time),
-        )
+        bid_name = f"{order_type.value}_IDOrder_{get_date_to_clean_string(parameters.temporal.execution_date)}_{equipment.name}_{get_date_to_clean_string(time)}"
         return build_intraday_order(
             equipment,
             bid_name,

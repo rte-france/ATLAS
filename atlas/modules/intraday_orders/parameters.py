@@ -5,28 +5,17 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from datetime import datetime
 from functools import cached_property
 
-from pendulum import duration, DateTime
-from pydantic import Field, field_validator
-from pydantic_extra_types.pendulum_dt import Duration
+from pendulum import DateTime
+from pydantic import Field
 
-from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.validators import convert_to_duration
+from atlas.abstract_class.parameters import AbstractModuleParameters
 
 
-class IntradayOrdersParameters(AbstractParameters):
+class IntradayOrdersParameters(AbstractModuleParameters):
     """Pydantic model for module parameters with documentation and defaults."""
 
-    start_date: DateTime = Field(
-        lambda: datetime.now(), description="Beginning of the timeframe studied by the module."
-    )
-    end_date: DateTime = Field(
-        lambda: datetime.now(),
-        description="End of the timeframe studied by the module. More precisely, the end of the last time step of this timeframe.",
-    )
-    execution_date: DateTime = Field(lambda: datetime.now(), description="Date from which the module is executed.")
     debug_mode: bool = Field(
         False,
         description="Boolean indicating whether the debug mode is activated or not for the optimization programs. If activated, returns the LP files of the optimization programs.",
@@ -38,7 +27,6 @@ class IntradayOrdersParameters(AbstractParameters):
         True,
         description="A boolean indicating whether the amount of reserves offered is flexible, resulting in a proportional penalty priced to the market.",
     )
-    verbose: bool = Field(True, description="If True, additional logs are generated.")
     allowed_round_off_error: float = Field(
         0.001,
         description="Threshold, in MW, below which the value of accepted power is considered equal to 0. Typical values: 0.001, 0.0001 or 0.00001.",
@@ -63,18 +51,7 @@ class IntradayOrdersParameters(AbstractParameters):
         12,
         description="Number of extra hours after end_date for the optimization programs applied to Thermal instances.",
     )
-    timestep: Duration = Field(lambda: duration(hours=1), description="Time step of the simulated market.")
 
     @cached_property
     def penultimate_date(self) -> DateTime:
-        return self.end_date - self.timestep
-
-    @field_validator(
-        "timestep",
-        "solver_timeout",
-        mode="before",
-    )
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
+        return self.temporal.end_date - self.temporal.timestep

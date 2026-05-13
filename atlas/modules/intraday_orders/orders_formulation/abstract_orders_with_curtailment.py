@@ -5,16 +5,16 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import List, TypeVar
+from typing import TypeVar
 
 from pendulum import DateTime
 
-from atlas import Timeseries, Solar, Wind
+from atlas import Solar, Timeseries, Wind
 from atlas.enums import OrderType
-from atlas.modules.intraday_orders.orders_formulation.abstract_orders_formulator import AbstractOrdersFormulator
+from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import get_date_to_clean_string, build_intraday_order
+from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
 
 R = TypeVar("R", bound=Solar | Wind)
 
@@ -26,7 +26,7 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
     def formulate_equipment_orders(
         self,
         equipment: R,
-        orders_timestamps: List[DateTime],
+        orders_timestamps: list[DateTime],
         buy_submitted_volume: Timeseries,
         sell_submitted_volume: Timeseries,
         dataset: IntradayOrdersOutputDataset,
@@ -34,7 +34,7 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
     ):
         # Extract the forecasting matrix of the current actor
         production_new_planing = equipment.maximum_power_forecast.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_date
+            parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
         )
         production_engagement = equipment.da_cleared_quantity + equipment.total_id_cleared_quantity
 
@@ -51,7 +51,7 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
 
         # Extract the area price forecast
         price_forecast = equipment.portfolio.market_area.id_price_forecast.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_date
+            parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
         )
 
         # Now we loop over the time stamps for which we want an offer to be made.
@@ -62,10 +62,14 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
             curtailment_value = production_available_for_curtailment.get_value(t)
 
             bid_name = self.ORDER_NAME_TEMPLATE.format(
-                get_date_to_clean_string(parameters.execution_date), equipment.name, get_date_to_clean_string(t)
+                get_date_to_clean_string(parameters.temporal.execution_date),
+                equipment.name,
+                get_date_to_clean_string(t),
             )
             curtailment_bid_name = self.CURTAILMENT_ORDER_NAME_TEMPLATE.format(
-                get_date_to_clean_string(parameters.execution_date), equipment.name, get_date_to_clean_string(t)
+                get_date_to_clean_string(parameters.temporal.execution_date),
+                equipment.name,
+                get_date_to_clean_string(t),
             )
 
             # Curtailment

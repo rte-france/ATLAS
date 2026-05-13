@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from abc import ABC
-from typing import Generic, TypeVar, List
+from typing import Generic, TypeVar
 
 from pendulum import DateTime
 
@@ -21,10 +21,10 @@ E = TypeVar("E", bound=Equipment)
 class AbstractOrdersFormulator(ABC, Generic[E]):
     EQUIPMENT_TYPE_NAME: str
 
-    def formulate_orders(
+    def formulate(
         self,
-        equipments: List[E],
-        orders_timestamps: List[DateTime],
+        equipments: list[E],
+        orders_timestamps: list[DateTime],
         dataset: IntradayOrdersOutputDataset,
         parameters: IntradayOrdersParameters,
     ):
@@ -37,23 +37,23 @@ class AbstractOrdersFormulator(ABC, Generic[E]):
     def process_equipment(
         self,
         equipment: E,
-        orders_timestamps: List[DateTime],
+        orders_timestamps: list[DateTime],
         dataset: IntradayOrdersOutputDataset,
         parameters: IntradayOrdersParameters,
     ):
         sell_submitted_volume = Timeseries.from_index(
-            parameters.start_date, parameters.timestep, parameters.penultimate_date, 0
+            parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, 0
         )
         buy_submitted_volume = Timeseries.from_index(
-            parameters.start_date, parameters.timestep, parameters.penultimate_date, 0
+            parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, 0
         )
 
         self.formulate_equipment_orders(
             equipment, orders_timestamps, buy_submitted_volume, sell_submitted_volume, dataset, parameters
         )
 
-        equipment.id_buy_submitted_volume.add(buy_submitted_volume, parameters.execution_date)
-        equipment.id_sell_submitted_volume.add(sell_submitted_volume, parameters.execution_date)
+        equipment.id_buy_submitted_volume.add(buy_submitted_volume, parameters.temporal.execution_date)
+        equipment.id_sell_submitted_volume.add(sell_submitted_volume, parameters.temporal.execution_date)
 
         equipment.total_id_buy_submitted_volume += buy_submitted_volume
         equipment.total_id_sell_submitted_volume += sell_submitted_volume
@@ -61,7 +61,7 @@ class AbstractOrdersFormulator(ABC, Generic[E]):
     def formulate_equipment_orders(
         self,
         equipment: E,
-        orders_timestamps: List[DateTime],
+        orders_timestamps: list[DateTime],
         buy_submitted_volume: Timeseries,
         sell_submitted_volume: Timeseries,
         dataset: IntradayOrdersOutputDataset,

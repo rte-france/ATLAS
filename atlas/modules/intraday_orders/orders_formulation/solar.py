@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from atlas import Solar
-from atlas.modules.intraday_orders.orders_formulation.abstract_orders_formulator_with_curtailment import (
+from atlas.modules.intraday_orders.orders_formulation.abstract_orders_with_curtailment import (
     AbstractOrdersFormulatorWithCurtailment,
 )
 

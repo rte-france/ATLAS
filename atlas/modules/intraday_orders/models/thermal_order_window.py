@@ -5,8 +5,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import polars as pl
-
 from atlas import Timeseries
 from atlas.modules.intraday_orders.models.window_type import WindowType
 

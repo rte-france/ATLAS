@@ -5,13 +5,13 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import DateTime
+from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas import Equipment, Order
 
 
 class IntraDayOrder(Order):
     equipment: Equipment
-    execution_date: DateTime  # type:ignore[assignment]
-    start_date: DateTime  # type:ignore[assignment]
-    end_date: DateTime  # type:ignore[assignment]
+    execution_date: DateTime
+    start_date: DateTime
+    end_date: DateTime

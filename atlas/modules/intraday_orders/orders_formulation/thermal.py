@@ -5,19 +5,17 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import List
-
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import Thermal, Timeseries, OrderCoupling
-from atlas.enums import ThermalStrategy, CouplingType, OrderType
+from atlas import OrderCoupling, Thermal, Timeseries
+from atlas.enums import CouplingType, OrderType, ThermalStrategy
 from atlas.modules.intraday_orders.models.thermal_order_window import ThermalOrderWindow
 from atlas.modules.intraday_orders.models.window_type import WindowType
-from atlas.modules.intraday_orders.orders_formulation.abstract_orders_formulator import AbstractOrdersFormulator
+from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import get_date_to_clean_string, build_intraday_order
+from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
 
 
 def compare_planning(equipment: Thermal, orders_timestamps: list[DateTime], parameters: IntradayOrdersParameters):
@@ -40,7 +38,7 @@ def compare_planning(equipment: Thermal, orders_timestamps: list[DateTime], para
     # Read the new optimal planning resulting from the optimization
     # TODO: [equipment] change based on optimization results format
     new_p = equipment.id_po_for_orders.get_forecast(
-        parameters.execution_date, parameters.start_date, parameters.end_date
+        parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
     )
     # We create an empty list to store the value to be filled in the output time series
     delta_planning_values = []
@@ -73,7 +71,7 @@ def compare_planning(equipment: Thermal, orders_timestamps: list[DateTime], para
 
     # Creation of a time series over orders_time with the comparing code
     delta_planning = Timeseries()
-    for t, delta_planning_value in zip(orders_timestamps, delta_planning_values):
+    for t, delta_planning_value in zip(orders_timestamps, delta_planning_values, strict=False):
         delta_planning.set_value(t, delta_planning_value)
 
     return delta_planning
@@ -81,7 +79,7 @@ def compare_planning(equipment: Thermal, orders_timestamps: list[DateTime], para
 
 def extract_sequences_from_delta_planning(
     equipment: Thermal, delta_planning: Timeseries, orders_time: list[DateTime], parameters: IntradayOrdersParameters
-) -> List[ThermalOrderWindow]:
+) -> list[ThermalOrderWindow]:
     """
     TODO: rewrite docstring properly
     A helper function that extracts "sequence" (ie consecutive time steps) of
@@ -127,7 +125,7 @@ def extract_sequences_from_delta_planning(
     # otherwise the function will not work properly
     if len(orders_time) > 2:
         for k in range(1, len(orders_time) - 1):
-            if orders_time[k].add(seconds=-parameters.timestep.in_seconds()) != orders_time[k - 1]:
+            if orders_time[k].add(seconds=-parameters.temporal.timestep.in_seconds()) != orders_time[k - 1]:
                 cfg.logger.warning(
                     "orders_time are not with a regular time step equal to DeltaTime, the generation of orders might be impacted"
                 )
@@ -181,14 +179,14 @@ def extract_sequences_from_delta_planning(
             # Read the power in the previous planning at end date of the
             # sequence + p.time_step, necessary to identify the orders to formulate
             previous_status_before = previous_planning.get_value(
-                window_start.add(minutes=-parameters.timestep.in_minutes())
-            ) >= equipment.minimum_power.get_value(window_start.add(minutes=-parameters.timestep.in_minutes()))
+                window_start.add(minutes=-parameters.temporal.timestep.in_minutes())
+            ) >= equipment.minimum_power.get_value(window_start.add(minutes=-parameters.temporal.timestep.in_minutes()))
 
             # Read the power in the previous planning at start date of the
             # sequence - p.time_step, necessary to identify the orders to formulate
             previous_status_after = previous_planning.get_value(
-                window_end.add(minutes=parameters.timestep.in_minutes())
-            ) >= equipment.minimum_power.get_value(window_end.add(minutes=parameters.timestep.in_minutes()))
+                window_end.add(minutes=parameters.temporal.timestep.in_minutes())
+            ) >= equipment.minimum_power.get_value(window_end.add(minutes=parameters.temporal.timestep.in_minutes()))
             # _ delta_planning = 1 or -1
             # _ previous_status_before : True or False
             # _ previous_status_after : True or False
@@ -232,7 +230,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
     def formulate_equipment_orders(
         self,
         equipment: Thermal,
-        orders_timestamps: List[DateTime],
+        orders_timestamps: list[DateTime],
         buy_submitted_volume: Timeseries,
         sell_submitted_volume: Timeseries,
         dataset: IntradayOrdersOutputDataset,
@@ -246,11 +244,11 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
 
             # Order creation
             compare_prices = Timeseries.from_index(
-                parameters.start_date, parameters.timestep, parameters.penultimate_date, 0
+                parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, 0
             )
 
             optimization_result = equipment.id_po_for_orders.get_forecast(
-                parameters.execution_date, parameters.start_date, parameters.end_date
+                parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
             )
 
             # If required in the parameters, provide detailed log
@@ -401,7 +399,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
                         for t in window.index:
                             # TODO: check with POs that start and end forecast dates are proper
                             q += equipment.id_po_for_orders.get_forecast(
-                                parameters.execution_date, window.first_date(), window.last_date()
+                                parameters.temporal.execution_date, window.first_date(), window.last_date()
                             ).get_value(t)
 
                     # For sell orders the startup cost is spread over the inflexible blocks equal to Pmin
@@ -435,11 +433,11 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
                         start_up_wost_per_mw = total_start_up_cost / q
 
                 # Loop over the time Steps to create the orders.
-                t = parent_date.add(minutes=-parameters.timestep.in_minutes() * direction)
+                t = parent_date.add(minutes=-parameters.temporal.timestep.in_minutes() * direction)
 
                 for i in range(0, number_of_indexes):
                     # For i=0, t=ParentDate. Then we go backward or downward depending on the "Direction"
-                    t = t.add(minutes=parameters.timestep.in_minutes() * direction)
+                    t = t.add(minutes=parameters.temporal.timestep.in_minutes() * direction)
 
                     # Read the latest planning in the input Marker
                     p_plan = equipment.da_cleared_quantity + equipment.total_id_cleared_quantity
@@ -494,12 +492,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
                     #   Marginal cost to avoid to lose between its marginal cost and the RE
 
                     if q_max_flexible > parameters.allowed_round_off_error:
-                        order_name = "ID_{}_{}_{}_flexible_{}".format(
-                            get_date_to_clean_string(parameters.execution_date),
-                            equipment.name,
-                            get_date_to_clean_string(t),
-                            window.window_type.value,
-                        )
+                        order_name = f"ID_{get_date_to_clean_string(parameters.temporal.execution_date)}_{equipment.name}_{get_date_to_clean_string(t)}_flexible_{window.window_type.value}"
                         bid_output = build_intraday_order(
                             equipment,
                             order_name,
@@ -518,12 +511,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
                     # If Pmin>0 a second order -inflexible- is created to buy up to
                     # the whole Power (in the flexible part, it is limited by the Pmin)
                     if q_inflexible > parameters.allowed_round_off_error:
-                        order_name = "ID_{}_{}_{}_inflexible_{}".format(
-                            get_date_to_clean_string(parameters.execution_date),
-                            equipment.name,
-                            get_date_to_clean_string(t),
-                            window.window_type.value,
-                        )
+                        order_name = f"ID_{get_date_to_clean_string(parameters.temporal.execution_date)}_{equipment.name}_{get_date_to_clean_string(t)}_inflexible_{window.window_type.value}"
                         bid_output = build_intraday_order(
                             equipment,
                             order_name,
@@ -539,13 +527,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
                         # The inflexible order is coupled with the flexible part if it exists
                         if q_max_flexible > parameters.allowed_round_off_error:
                             coupling = OrderCoupling(
-                                name="{}_ID_{}_{}_{}_{}".format(
-                                    coupling_type_flexible_inflexible,
-                                    equipment.name,
-                                    get_date_to_clean_string(t),
-                                    window.window_type.value,
-                                    get_date_to_clean_string(parameters.execution_date),
-                                ),
+                                name=f"{coupling_type_flexible_inflexible}_ID_{equipment.name}_{get_date_to_clean_string(t)}_{window.window_type.value}_{get_date_to_clean_string(parameters.temporal.execution_date)}",
                                 coupling_type=coupling_type_flexible_inflexible,
                             )
                             # The inflexible part is the parent, the flexible part is the child
@@ -565,12 +547,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
 
                             if e == 0:  # first time step
                                 coupling = OrderCoupling(
-                                    name="PAR_CHIL_ID_{}_{}_{}_{}".format(
-                                        equipment.name,
-                                        get_date_to_clean_string(t),
-                                        window.window_type.value,
-                                        get_date_to_clean_string(parameters.execution_date),
-                                    ),
+                                    name=f"PAR_CHIL_ID_{equipment.name}_{get_date_to_clean_string(t)}_{window.window_type.value}_{get_date_to_clean_string(parameters.temporal.execution_date)}",
                                     coupling_type=CouplingType.PARENT_CHILDREN,
                                 )
                                 time_step_couplings.append(coupling)
@@ -580,12 +557,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
                             # previous coupling and parent of the current coupling
                             elif e < number_of_indexes - 1:
                                 coupling = OrderCoupling(
-                                    name="PAR_CHIL_ID_{}_{}_{}_{}".format(
-                                        equipment.name,
-                                        get_date_to_clean_string(t),
-                                        window.window_type.value,
-                                        get_date_to_clean_string(parameters.execution_date),
-                                    ),
+                                    name=f"PAR_CHIL_ID_{equipment.name}_{get_date_to_clean_string(t)}_{window.window_type.value}_{get_date_to_clean_string(parameters.temporal.execution_date)}",
                                     coupling_type=CouplingType.PARENT_CHILDREN,
                                 )
                                 coupling.orders.append(bid_output)
@@ -605,12 +577,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
                                 # Children of previous order
                                 time_step_couplings[e - 1].orders.append(bid_output)
                                 coupling = OrderCoupling(
-                                    name="PAR_CHIL_ID_{}_{}_{}_{}".format(
-                                        equipment.name,
-                                        get_date_to_clean_string(t),
-                                        window.window_type.value,
-                                        get_date_to_clean_string(parameters.execution_date),
-                                    ),
+                                    name=f"PAR_CHIL_ID_{equipment.name}_{get_date_to_clean_string(t)}_{window.window_type.value}_{get_date_to_clean_string(parameters.temporal.execution_date)}",
                                     coupling_type=CouplingType.PARENT_CHILDREN,
                                 )
                                 time_step_couplings.append(coupling)
@@ -638,9 +605,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
                 if maximum_power == 0.0 or maximum_power < minimum_power:
                     if parameters.verbose:
                         cfg.logger.warning(
-                            "Maximum power of unit {} is null or lower than minimum power at time {}. No order will therefore be created.".format(
-                                equipment.name, str(t)
-                            )
+                            f"Maximum power of unit {equipment.name} is null or lower than minimum power at time {str(t)}. No order will therefore be created."
                         )
                     continue
 
@@ -657,8 +622,8 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
                     price = equipment.startup_cost.get_value(t) / q + equipment.variable_cost.get_value(t)
 
                     # Create the inflex order instance
-                    inflexible_bid_name = "ID_inflexible_order_Sell_at_{}_for_unit_{}".format(
-                        get_date_to_clean_string(t), equipment.name
+                    inflexible_bid_name = (
+                        f"ID_inflexible_order_Sell_at_{get_date_to_clean_string(t)}_for_unit_{equipment.name}"
                     )
                     inflexible_bid_output = build_intraday_order(
                         equipment,
@@ -676,8 +641,8 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
 
                     q_max = maximum_power - minimum_power
                     if q_max > parameters.allowed_round_off_error:
-                        flexible_bid_name = "ID_flexible_order_Sell_at_{}_for_unit_{}".format(
-                            get_date_to_clean_string(t), equipment.name
+                        flexible_bid_name = (
+                            f"ID_flexible_order_Sell_at_{get_date_to_clean_string(t)}_for_unit_{equipment.name}"
                         )
                         flexible_bid_output = build_intraday_order(
                             equipment,
@@ -693,9 +658,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
                         sell_submitted_volume.sum_value_at(t, q_max)
 
                         link_flexible_inflexible = OrderCoupling(
-                            name="PARENT_CHILDREN_ID_inflexible_flexible_orders_Sell_at_{}_for_unit_{}".format(
-                                get_date_to_clean_string(t), equipment.name
-                            ),
+                            name=f"PARENT_CHILDREN_ID_inflexible_flexible_orders_Sell_at_{get_date_to_clean_string(t)}_for_unit_{equipment.name}",
                             coupling_type=CouplingType.PARENT_CHILDREN,
                         )
 
@@ -706,8 +669,8 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
                     q_max = maximum_power - pow_t
 
                     if q_max > parameters.allowed_round_off_error:
-                        flexible_bid_name = "ID_flexible_order_Sell_at_{}_for_unit_{}".format(
-                            get_date_to_clean_string(t), equipment.name
+                        flexible_bid_name = (
+                            f"ID_flexible_order_Sell_at_{get_date_to_clean_string(t)}_for_unit_{equipment.name}"
                         )
                         flexible_bid_output = build_intraday_order(
                             equipment,
@@ -725,8 +688,8 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
                 if pow_t != 0.0 and pow_t != minimum_power:
                     q_max = pow_t - minimum_power
                     if q_max > parameters.allowed_round_off_error:
-                        flexible_bid_name = "ID_flexible_order_Buy_at_{}_for_unit_{}".format(
-                            get_date_to_clean_string(t), equipment.name
+                        flexible_bid_name = (
+                            f"ID_flexible_order_Buy_at_{get_date_to_clean_string(t)}_for_unit_{equipment.name}"
                         )
                         flexible_bid_output = build_intraday_order(
                             equipment,

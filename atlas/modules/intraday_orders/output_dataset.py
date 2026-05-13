@@ -5,12 +5,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas import Load, Hydro, Solar, Wind, OtherNonDispatchable, Thermal, Storage, OrderCoupling
-from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
+from atlas import Hydro, Load, OrderCoupling, OtherNonDispatchable, Solar, Storage, Thermal, Wind
+from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.enums import ThermalStrategy
 from atlas.modules.intraday_orders.models.order import IntraDayOrder
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.workflow.change_set import AddObject, UpdateObject
+from atlas.orchestrator.change_set import AddObject, UpdateObject
 
 
 class IntradayOrdersOutputDataset(AbstractModuleOutput[IntradayOrdersParameters]):
@@ -23,13 +23,13 @@ class IntradayOrdersOutputDataset(AbstractModuleOutput[IntradayOrdersParameters]
         self.__orders.append(order)
 
     def get_orders(self) -> list[IntraDayOrder]:
-        return self.__orders[:]
+        return self.__orders
 
     def add_order_coupling(self, order_coupling: OrderCoupling) -> None:
         self.__order_couplings.append(order_coupling)
 
     def get_order_couplings(self) -> list[OrderCoupling]:
-        return self.__order_couplings[:]
+        return self.__order_couplings
 
     def build_change_sets(self):
         for order in self.order:
