@@ -14,7 +14,7 @@ Mathematical data structures for time series and matrix operations.
 - [**LazyTimeseries**](math/lazy_timeseries.md) - Lazy-evaluated time series
 - [**LazyMatrix**](math/lazy_scenario_matrix.md) - Lazy-evaluated matrices
 
-### Models
+### Model Objects
 
 Pydantic models for equipment and market entities.
 

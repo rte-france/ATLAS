@@ -1,41 +1,25 @@
-# Market Models
+# Market & Network Models
 
-::: atlas.MarketArea
-    options:
-        show_if_no_docstring: false
+See the individual pages below — mirroring `atlas/objects/`.
 
-::: atlas.MarketBorder
-    options:
-        show_if_no_docstring: false
+**market/**
 
-::: atlas.MarketAreaPtdf
-    options:
-        show_if_no_docstring: false
+- [MarketArea](market/market_area.md)
+- [MarketBorder](market/market_border.md)
+- [Order](market/order.md)
+- [OrderCoupling](market/order_coupling.md)
+- [CriticalBranch](market/critical_branch.md)
+- [MarketAreaPtdf](market/market_area_ptdf.md)
+- [NodePtdf](market/node_ptdf.md)
 
-::: atlas.Order
-    options:
-        show_if_no_docstring: false
+**market_operator/**
 
-::: atlas.OrderCoupling
-    options:
-        show_if_no_docstring: false
+- [Portfolio](market_operator/portfolio.md)
 
-::: atlas.NodePtdf
-    options:
-        show_if_no_docstring: false
+**network/**
 
-::: atlas.CriticalBranch
-    options:
-        show_if_no_docstring: false
+- [Node](network/node.md)
 
-::: atlas.Portfolio
-    options:
-        show_if_no_docstring: false
+**network_operator/**
 
-::: atlas.Node
-    options:
-        show_if_no_docstring: false
-
-::: atlas.ControlBlock
-    options:
-        show_if_no_docstring: false
+- [ControlBlock](network_operator/control_block.md)

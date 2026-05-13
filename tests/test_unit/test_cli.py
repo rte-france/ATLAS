@@ -88,9 +88,10 @@ class TestRunCommandModuleMode:
         assert result.exit_code == 1
         assert "Unknown module" in result.stdout
 
-    @patch("atlas.app.CurrentInputState")
+    @patch("atlas.app.ModuleRun")
+    @patch("atlas.app.AtlasDataset")
     @patch("atlas.app.ModuleRegistry")
-    def test_run_module_with_valid_inputs(self, mock_registry, mock_dataset, tmp_path):
+    def test_run_module_with_valid_inputs(self, mock_registry, mock_atlas_dataset, mock_module_run, tmp_path):
         """Test that run succeeds with valid inputs (mocked execution)."""
         # Setup mock module
         mock_module_class = MagicMock()
@@ -105,13 +106,12 @@ class TestRunCommandModuleMode:
         mock_params_class.from_file.return_value = mock_params_instance
         mock_module_instance.get_parameters_class.return_value = mock_params_class
 
-        # Setup mock run
-        mock_output_dataset = MagicMock()
-        mock_output_dataset.change_sets = []
-        mock_module_instance.run.return_value = mock_output_dataset
+        # Setup mock ModuleRun
+        mock_run_instance = MagicMock()
+        mock_module_run.return_value = mock_run_instance
 
-        # Setup mock dataset
-        mock_dataset.from_directory.return_value = MagicMock()
+        # Setup mock dataset loading
+        mock_atlas_dataset.from_directory.return_value = MagicMock()
 
         # Create test files
         params_file = tmp_path / "params.yaml"
@@ -127,7 +127,8 @@ class TestRunCommandModuleMode:
         assert result.exit_code == 0
         assert "completed successfully" in result.stdout
         mock_registry.get.assert_called_once_with("PortfolioOptimisation")
-        mock_module_instance.run.assert_called_once()
+        mock_module_run.assert_called_once()
+        mock_run_instance.run.assert_called_once()
 
 
 class TestRunCommandWorkflowMode:
@@ -153,7 +154,6 @@ class TestRunCommandWorkflowMode:
         workflow_config.write_text(
             """
             dataset_path: ./dataset
-            output_dataset_path: ./output
             steps:
             - module: PortfolioOptimisation
                 parameters_path: params.yaml
@@ -363,6 +363,156 @@ class TestPrometheusToAtlasRecursiveCommand:
 
         # Should exit with error code since no modules were processed
         assert result.exit_code == 1
+
+
+class TestProfilingCommand:
+    """Tests for the 'atlas profiling' command."""
+
+    # --- Validation errors ---
+
+    def test_profiling_invalid_level(self, tmp_path):
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("")
+        result = runner.invoke(app, ["profiling", "--level", "invalid", "--parameters", str(params_file)])
+        assert result.exit_code == 1
+        assert "Unknown level" in result.stdout
+
+    def test_profiling_nonexistent_parameters_file(self, tmp_path):
+        nonexistent = tmp_path / "nonexistent.yaml"
+        result = runner.invoke(app, ["profiling", "--level", "workflow", "--parameters", str(nonexistent)])
+        assert result.exit_code == 1
+        assert "Parameters file not found" in result.stdout
+
+    def test_profiling_module_missing_module_flag(self, tmp_path):
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("")
+        result = runner.invoke(app, ["profiling", "--level", "module", "--parameters", str(params_file)])
+        assert result.exit_code == 1
+        assert "--module is required" in result.stdout
+
+    def test_profiling_module_missing_dataset_flag(self, tmp_path):
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("")
+        result = runner.invoke(
+            app,
+            ["profiling", "--level", "module", "--parameters", str(params_file), "--module", "DayAheadOrders"],
+        )
+        assert result.exit_code == 1
+        assert "--dataset is required" in result.stdout
+
+    def test_profiling_module_nonexistent_dataset(self, tmp_path):
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("")
+        result = runner.invoke(
+            app,
+            [
+                "profiling",
+                "--level",
+                "module",
+                "--parameters",
+                str(params_file),
+                "--module",
+                "DayAheadOrders",
+                "--dataset",
+                str(tmp_path / "nonexistent"),
+            ],
+        )
+        assert result.exit_code == 1
+        assert "Dataset directory not found" in result.stdout
+
+    def test_profiling_module_invalid_module_name(self, tmp_path):
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("")
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        result = runner.invoke(
+            app,
+            [
+                "profiling",
+                "--level",
+                "module",
+                "--parameters",
+                str(params_file),
+                "--module",
+                "NotAModule",
+                "--dataset",
+                str(dataset_dir),
+            ],
+        )
+        assert result.exit_code == 1
+
+    # --- Success paths ---
+
+    @patch("atlas.app.run_workflow")
+    def test_profiling_workflow_calls_run(self, mock_run, tmp_path):
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("")
+        result = runner.invoke(app, ["profiling", "--level", "workflow", "--parameters", str(params_file)])
+        assert result.exit_code == 0
+        mock_run.assert_called_once_with(params_file, None)
+
+    @patch("atlas.app.run_workflow")
+    def test_profiling_workflow_passes_output(self, mock_run, tmp_path):
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("")
+        output_path = tmp_path / "my_results"
+        result = runner.invoke(
+            app,
+            ["profiling", "--level", "workflow", "--parameters", str(params_file), "--output", str(output_path)],
+        )
+        assert result.exit_code == 0
+        mock_run.assert_called_once_with(params_file, output_path)
+
+    @patch("atlas.app.run_module")
+    @patch("atlas.app.ModuleRegistry")
+    def test_profiling_module_calls_run(self, mock_registry, mock_run, tmp_path):
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("")
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        result = runner.invoke(
+            app,
+            [
+                "profiling",
+                "--level",
+                "module",
+                "--parameters",
+                str(params_file),
+                "--module",
+                "DayAheadOrders",
+                "--dataset",
+                str(dataset_dir),
+            ],
+        )
+        assert result.exit_code == 0
+        mock_run.assert_called_once_with(params_file, "DayAheadOrders", dataset_dir, None)
+
+    @patch("atlas.app.run_module")
+    @patch("atlas.app.ModuleRegistry")
+    def test_profiling_module_passes_output(self, mock_registry, mock_run, tmp_path):
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("")
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_path = tmp_path / "my_results"
+        result = runner.invoke(
+            app,
+            [
+                "profiling",
+                "--level",
+                "module",
+                "--parameters",
+                str(params_file),
+                "--module",
+                "DayAheadOrders",
+                "--dataset",
+                str(dataset_dir),
+                "--output",
+                str(output_path),
+            ],
+        )
+        assert result.exit_code == 0
+        mock_run.assert_called_once_with(params_file, "DayAheadOrders", dataset_dir, output_path)
 
 
 class TestCLIHelp:

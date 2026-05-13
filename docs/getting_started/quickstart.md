@@ -55,7 +55,7 @@ Workflows chain multiple modules together, with outputs from one step feeding in
 Now that you've got the basics, explore:
 
 - [Your First Simulation](first-simulation.md) - Complete walkthrough with sample data
-- [Basic Concepts](overview.md) - Understand Atlas architecture
+- [Module Pattern](../modules/module-pattern.md) - Understand Atlas architecture
 - [CLI Reference](../cli.md) - Full command-line documentation
 - [Examples](../examples/atlas_dataset.md) - Code examples and tutorials
 

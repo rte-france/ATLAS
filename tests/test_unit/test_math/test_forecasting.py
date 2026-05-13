@@ -1232,3 +1232,160 @@ class TestGetForecast:
 
         assert res == 4
         assert res_default == default_value
+
+
+# ============================================================
+# inplace parameter — ForecastingMatrix
+# ============================================================
+
+
+class TestForecastingMatrixInplace:
+    @pytest.fixture
+    def matrix(self, hourly_df):
+        return ForecastingMatrix(hourly_df)
+
+    @pytest.fixture
+    def new_ts(self):
+        return Timeseries(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        datetime(2025, 1, 1, 0, 0, 0),
+                        datetime(2025, 1, 1, 4, 0, 0),
+                        "1h",
+                        time_unit="us",
+                        eager=True,
+                    ),
+                    "value": [10, 20, 30, 40, 50],
+                }
+            )
+        )
+
+    def test_add_not_inplace_returns_forecasting_matrix(self, matrix, new_ts):
+        result = matrix.add(new_ts, datetime(2025, 1, 1, 2, 0, 0), inplace=False)
+        assert isinstance(result, ForecastingMatrix)
+        assert "2025-01-01 02:00:00" in result.indexes
+        assert "2025-01-01 02:00:00" not in matrix.indexes
+
+    def test_add_not_inplace_result_is_sorted(self, matrix):
+        # Insert a ts between the two existing ones — result must stay sorted
+        mid_ts = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        datetime(2025, 1, 1, 0, 0, 0),
+                        datetime(2025, 1, 1, 4, 0, 0),
+                        "1h",
+                        time_unit="us",
+                        eager=True,
+                    ),
+                    "value": [5, 6, 7, 8, 9],
+                }
+            )
+        )
+        result = matrix.add(mid_ts, datetime(2025, 1, 1, 0, 30, 0), inplace=False)
+        assert result.indexes == ["2025-01-01 00:00:00", "2025-01-01 00:30:00", "2025-01-01 01:00:00"]
+        assert matrix.indexes == ["2025-01-01 00:00:00", "2025-01-01 01:00:00"]
+        assert result["2025-01-01 00:30:00"].timeseries["value"].to_list() == [5, 6, 7, 8, 9]
+
+    def test_add_inplace_returns_self(self, matrix, new_ts):
+        result = matrix.add(new_ts, datetime(2025, 1, 1, 2, 0, 0), inplace=True)
+        assert result is matrix
+        assert "2025-01-01 02:00:00" in matrix.indexes
+        assert matrix["2025-01-01 02:00:00"].timeseries["value"].to_list() == [10, 20, 30, 40, 50]
+
+    def test_delete_not_inplace_returns_forecasting_matrix(self, matrix):
+        result = matrix.delete(datetime(2025, 1, 1, 0, 0, 0), inplace=False)
+        assert isinstance(result, ForecastingMatrix)
+        assert "2025-01-01 00:00:00" not in result.indexes
+        assert "2025-01-01 00:00:00" in matrix.indexes
+
+    def test_delete_not_inplace_preserves_other_indexes(self, matrix):
+        result = matrix.delete(datetime(2025, 1, 1, 0, 0, 0), inplace=False)
+        assert "2025-01-01 01:00:00" in result.indexes
+        assert len(result.indexes) == 1
+
+    def test_delete_inplace_returns_self(self, matrix):
+        result = matrix.delete(datetime(2025, 1, 1, 0, 0, 0), inplace=True)
+        assert result is matrix
+        assert "2025-01-01 00:00:00" not in matrix.indexes
+
+    def test_replace_not_inplace_returns_forecasting_matrix(self, matrix, new_ts):
+        result = matrix.replace(datetime(2025, 1, 1, 0, 0, 0), new_ts, inplace=False)
+        assert isinstance(result, ForecastingMatrix)
+        assert "2025-01-01 00:00:00" in result.indexes
+
+    def test_replace_not_inplace_original_data_unchanged(self, matrix, new_ts):
+        original_val = matrix["2025-01-01 00:00:00"].get_value(datetime(2025, 1, 1, 0, 0, 0))
+        matrix.replace(datetime(2025, 1, 1, 0, 0, 0), new_ts, inplace=False)
+        assert matrix["2025-01-01 00:00:00"].get_value(datetime(2025, 1, 1, 0, 0, 0)) == original_val
+
+    def test_replace_not_inplace_result_has_new_data(self, matrix, new_ts):
+        result = matrix.replace(datetime(2025, 1, 1, 0, 0, 0), new_ts, inplace=False)
+        assert result["2025-01-01 00:00:00"].get_value(datetime(2025, 1, 1, 0, 0, 0)) == 10.0
+
+    def test_replace_inplace_returns_self(self, matrix, new_ts):
+        result = matrix.replace(datetime(2025, 1, 1, 0, 0, 0), new_ts, inplace=True)
+        assert result is matrix
+        assert matrix["2025-01-01 00:00:00"].get_value(datetime(2025, 1, 1, 0, 0, 0)) == 10.0
+
+
+# ============================================================
+# inplace parameter — LazyForecastingMatrix
+# ============================================================
+
+
+class TestLazyForecastingMatrixInplace:
+    @pytest.fixture
+    def lm(self, hourly_df):
+        return LazyForecastingMatrix(hourly_df.lazy())
+
+    @pytest.fixture
+    def new_ts(self):
+        return Timeseries(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        datetime(2025, 1, 1, 0, 0, 0),
+                        datetime(2025, 1, 1, 4, 0, 0),
+                        "1h",
+                        time_unit="us",
+                        eager=True,
+                    ),
+                    "value": [10, 20, 30, 40, 50],
+                }
+            )
+        )
+
+    def test_add_not_inplace_returns_lazy_forecasting_matrix(self, lm, new_ts):
+        result = lm.add(new_ts, datetime(2025, 1, 1, 2, 0, 0), inplace=False)
+        assert isinstance(result, LazyForecastingMatrix)
+        assert "2025-01-01 02:00:00" in result.indexes
+        assert "2025-01-01 02:00:00" not in lm.indexes
+
+    def test_add_inplace_returns_self(self, lm, new_ts):
+        result = lm.add(new_ts, datetime(2025, 1, 1, 2, 0, 0), inplace=True)
+        assert result is lm
+        assert "2025-01-01 02:00:00" in lm.indexes
+
+    def test_delete_not_inplace_returns_lazy_forecasting_matrix(self, lm):
+        result = lm.delete(datetime(2025, 1, 1, 0, 0, 0), inplace=False)
+        assert isinstance(result, LazyForecastingMatrix)
+        assert "2025-01-01 00:00:00" not in result.indexes
+        assert "2025-01-01 00:00:00" in lm.indexes
+
+    def test_delete_inplace_returns_self(self, lm):
+        result = lm.delete(datetime(2025, 1, 1, 0, 0, 0), inplace=True)
+        assert result is lm
+        assert "2025-01-01 00:00:00" not in lm.indexes
+
+    def test_replace_not_inplace_returns_lazy_forecasting_matrix(self, lm, new_ts):
+        result = lm.replace(datetime(2025, 1, 1, 0, 0, 0), new_ts, inplace=False)
+        assert isinstance(result, LazyForecastingMatrix)
+        assert "2025-01-01 00:00:00" in result.indexes
+        assert "2025-01-01 00:00:00" in lm.indexes
+
+    def test_replace_inplace_returns_self(self, lm, new_ts):
+        result = lm.replace(datetime(2025, 1, 1, 0, 0, 0), new_ts, inplace=True)
+        assert result is lm
+        assert "2025-01-01 00:00:00" in lm.indexes

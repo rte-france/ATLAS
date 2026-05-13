@@ -107,14 +107,6 @@ module.run(input_data, "parameters.yml")
 
 ---
 
-## Module-Specific Parameters
-
-Each module extends these base parameters with additional options:
-
-- [Portfolio Optimisation Parameters](../modules/portfolio-optimisation/user-guide/input-data.md)
-- [Day-Ahead Orders Parameters](../modules/day-ahead-orders/user-guide/input-data.md)
-- [Market Clearing Parameters](../modules/market-clearing/user-guide/input-data.md)
-
 ## See Also
 
 - [Module Pattern](module-pattern.md): Understanding the ATLAS module architecture

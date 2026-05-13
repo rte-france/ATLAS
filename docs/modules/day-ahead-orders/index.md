@@ -7,14 +7,19 @@ Computes all market orders based on equipment in the input dataset, including lo
 ## Quick Start
 
 ```python
-from atlas import AtlasDataset, DayAheadOrdersModule
+from atlas import AtlasDataset
+from atlas.modules.module_run import ModuleRun
+from atlas.modules.day_ahead_orders import DayAheadOrdersModule
 
-module = DayAheadOrdersModule()
-input_data = AtlasDataset.from_directory("path/to/dataset")
-module.run(input_data, "path/to/parameters.yml")
+dataset = AtlasDataset.from_directory("path/to/dataset")
+result = ModuleRun(
+    module=DayAheadOrdersModule(),
+    dataset=dataset,
+    parameters="path/to/parameters.yml",
+).run()
 ```
 
-See [Running Modules](../../concepts/running-modules.md) for execution details.
+See [Running Modules](../running-modules.md) for execution details.
 
 ## Key Features
 
@@ -26,13 +31,13 @@ See [Running Modules](../../concepts/running-modules.md) for execution details.
 
 ### User Guide
 - [Overview](user-guide/overview.md): Module-specific introduction
-- [Parameters](user-guide/input-data.md): Module-specific parameters
-- [Running](user-guide/running.md): Execution details
+- [Parameters](user-guide/parameters.md): Module-specific parameters
+- [Results](user-guide/results.md): Accessing outputs
 
 ### Common Documentation
-- [Module Pattern](../../concepts/module-pattern.md): ATLAS module architecture
-- [Common Parameters](../../concepts/common-parameters.md): Shared configuration options
-- [Running Modules](../../concepts/running-modules.md): General execution guide
+- [Module Pattern](../module-pattern.md): ATLAS module architecture
+- [Common Parameters](../common-parameters.md): Shared configuration options
+- [Running Modules](../running-modules.md): General execution guide
 
 ### Developer Reference
 - [Architecture](developer/architecture.md): Module design and structure

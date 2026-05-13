@@ -7,187 +7,111 @@ This file is part of the ATLAS project.
 
 import math
 
-import pendulum
 from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.enums import ComplementDirection, CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
+from atlas.modules.day_ahead_orders.input_objects.hydro import HydroDAO
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
-from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
 from atlas.timing import generate_datetimes
 
 
-class HydraulicStep:
-    @staticmethod
-    def formulate_hydraulic_orders(
-        dataset: DayAheadOrdersOutput, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ) -> None:
-        """
-        This function formulates the hydraulic reservoir orders.
+class HydraulicStep(AbstractOrderStep):
+    def formulate(self) -> StepResult:
+        result = StepResult()
 
-        :param dataset: the dataset
-        :type dataset: DayAheadOrdersOutput
-        :param orders_time: a list of dates over which orders will be formulated.
-        :type orders_time: list[DateTime]
-        :param parameters: the parameters
-        :type parameters: DayAheadOrdersParameters
-        :return: None
-        """
-        # Keep only hydraulic reservoirs with water values (in storage_marginal_value)
-        hydraulic_units = [unit for unit in dataset.hydro if len(unit.storage_marginal_value.index) > 0]
-
-        hydraulic_empty = [unit for unit in dataset.hydro if len(unit.storage_marginal_value.index) == 0]
+        hydraulic_units = [unit for unit in self.dataset.hydro if len(unit.storage_marginal_value.index) > 0]
+        hydraulic_empty = [unit for unit in self.dataset.hydro if len(unit.storage_marginal_value.index) == 0]
         for equipment in hydraulic_empty:
-            msg = f"There are no water values for instance {equipment.name}. This instance will be ignored in the calculation."
-            cfg.logger.warning(msg)
+            cfg.logger.warning(
+                f"There are no water values for instance {equipment.name}. This instance will be ignored in the order formulation."
+            )
+        local_timewindow = generate_datetimes(
+            self.parameters.temporal.start_date,
+            self.parameters.penultimate_date,
+            self.parameters.temporal.timestep,
+        )
 
-        # Loop each retained hydraulic unit
         for equipment in hydraulic_units:
-            # Retrieve volumes and prices of fragments
             delta_wu: dict[float, tuple[float, float]] = {}
             for category in range(len(equipment.fragment_volumes)):
                 delta_wu[category] = (equipment.fragment_volumes[category], equipment.fragment_prices[category])
 
-            # Avoid equipments that have a MaximumEnergy of 0 (meaning that they are offline)
-            end_date = parameters.penultimate_date
-            local_index = generate_datetimes(
-                parameters.temporal.start_date,
-                end_date,
-                parameters.temporal.timestep,
-            )
             submitted_volumes = Timeseries.from_index(
-                parameters.temporal.start_date, parameters.temporal.timestep, end_date, 0
+                self.parameters.temporal.start_date,
+                self.parameters.temporal.timestep,
+                self.parameters.penultimate_date,
+                0,
             )
 
-            local_max_energy = (
-                equipment.maximum_energy.set_frequency(parameters.temporal.timestep, False)
-                .filter(item=local_index, inplace=False)
-                .max()
-            )
+            local_max_energy = equipment.maximum_energy.filter(item=local_timewindow, inplace=False).max()
             if local_max_energy <= 0:
                 cfg.logger.debug(f"Equipment {str(equipment.name)} avoided, as its maximum_energy is 0")
                 continue
 
-            # Assumption for the identification of the "initial" level, see the storage formulation for more details
-            if equipment.stored_energy is not None:
-                energy_forecast = equipment.stored_energy.get_forecast(
-                    parameters.temporal.execution_date,
-                    parameters.temporal.start_date.subtract(days=1),
-                    parameters.temporal.start_date - parameters.temporal.timestep,
-                )
-                if len(energy_forecast) > 0:
-                    energy_level = energy_forecast.get_value(
-                        parameters.temporal.start_date - parameters.temporal.timestep
-                    )
-                else:
-                    energy_level = equipment.initial_level.get_value(parameters.temporal.start_date)
+            energy_level = self._get_current_energy_level(equipment)
+            marginal_weights = self._calculate_marginal_weights(equipment, energy_level)
+            minimum_energy = equipment.minimum_energy.slice(
+                self.parameters.temporal.start_date, self.parameters.temporal.end_date, "both", False
+            )
+
+            if len(minimum_energy) > 1:
+                complement_energy = -(energy_level - minimum_energy.min())
             else:
-                energy_level = equipment.initial_level.get_value(parameters.temporal.start_date)
-
-            xmin = filter(lambda x: int(x) <= energy_level, equipment.storage_marginal_value.index)
-            xmax = filter(lambda x: int(x) > energy_level, equipment.storage_marginal_value.index)
-
-            if xmin:
-                xpmin = max(xmin, key=lambda x: int(x))
-                level_inf = equipment.storage_marginal_value.select(xpmin).upsample(
-                    frequency=pendulum.Duration(hours=1)
-                )
-            if xmax:
-                xpmax = min(xmax, key=lambda x: int(x))
-                level_sup = equipment.storage_marginal_value.select(xpmax).upsample(
-                    frequency=pendulum.Duration(hours=1)
-                )
-            if xmin and xmax:
-                weight_inf = (int(xpmax) - energy_level) / (int(xpmax) - int(xpmin))
-                weight_sup = (energy_level - int(xpmin)) / (int(xpmax) - int(xpmin))
-
-            if (
-                len(
-                    equipment.minimum_energy.slice(
-                        parameters.temporal.start_date, parameters.temporal.end_date, "both", False
-                    )
-                )
-                > 0
-            ):
                 complement_energy = -(
-                    energy_level
-                    - equipment.minimum_energy.slice(
-                        parameters.temporal.start_date, parameters.temporal.end_date, "both", False
-                    ).min()
+                    energy_level - equipment.minimum_energy.get_value(self.parameters.temporal.start_date)
                 )
-            else:
-                complement_energy = -(energy_level - equipment.minimum_energy.get_value(parameters.temporal.start_date))
 
-            # Now we loop over the time stamps for which we want an offer to be made.
-            # We formulate as many offers as there are time stamps in orders_time.
             coupling_orders = []
-            for t in orders_time:
-                # Compute the actual volumes of fragments, according to MaximumPower
-                # If the unit would be able to empty its entire reservoir within one day,
-                # the sum of fragments volume is limited to avoid this situation.
-
+            for t in self.orders_time:
                 capacity = equipment.maximum_power.get_value(t)
                 volumes = {key: capacity * v[0] for key, v in delta_wu.items()}
 
                 normal_volumes = {
-                    key: v for key, v in volumes.items() if v >= parameters.hydraulic_minimal_fragment_size
+                    key: v for key, v in volumes.items() if v >= self.parameters.hydraulic_minimal_fragment_size
                 }
-                minor_volumes = {key: v for key, v in volumes.items() if v < parameters.hydraulic_minimal_fragment_size}
+                minor_volumes = {
+                    key: v for key, v in volumes.items() if v < self.parameters.hydraulic_minimal_fragment_size
+                }
                 if sum(minor_volumes.values()) > 0:
                     reduced_capacity = sum(normal_volumes.values())
                     if reduced_capacity != 0:
                         volumes = {key: capacity * v / reduced_capacity for (key, v) in normal_volumes.items()}
-                    # Specific case occuring when the total capacity is small
-                    # If no previous fragments is greater than vuThreshold, formulate a single order,
-                    # associated with the price spread of the middle fragment
                     else:
                         volumes = {math.ceil(len(equipment.fragment_prices) / 2): capacity}
 
-                # create an offer for each element in volumes
                 for k, v in volumes.items():
-                    # Do not formulate empty orders
                     if v != 0:
-                        # Assign a unique name.
-                        bid_name = f"hydraulic_order_fragment_{str(k)}_at_{t}_for_unit_{equipment.name}"
-                        bid_qmax = v
-
                         bid_output = OrderDAO(
-                            name=bid_name,
+                            name=f"hydraulic_order_fragment_{str(k)}_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{equipment.name}",
                             market_area=equipment.portfolio.market_area,
                             portfolio=equipment.portfolio,
                             equipment=equipment,
-                            qmax=bid_qmax,
+                            qmax=v,
                             qmin=0,
                             product=Product.DayAhead,
                             order_type=OrderType.Sell,
                             is_agent_tso=False,
-                            execution_date=parameters.temporal.execution_date,
-                            start_date=t,
-                            end_date=t + parameters.temporal.timestep,
+                            execution_date=self.parameters.temporal.execution_date,
+                            start_date=t,  # type: ignore [arg-type]
+                            end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
+                            price=self._calculate_fragment_price(delta_wu[k][1], marginal_weights, t),
                         )
-                        if not xmin:
-                            bid_output.price = level_sup.get_value(t) + delta_wu[k][1]
-                        elif not xmax:
-                            bid_output.price = level_inf.get_value(t) + delta_wu[k][1]
-                        else:
-                            pmin = level_inf.get_value(t)
-                            pmax = level_sup.get_value(t)
-                            bid_output.price = weight_inf * pmin + weight_sup * pmax + delta_wu[k][1]
-                        dataset.order.append(bid_output)
+
+                        result.orders.append(bid_output)
                         coupling_orders.append(bid_output)
 
                         if t in submitted_volumes:
-                            submitted_volumes.set_value(t, bid_qmax)
+                            submitted_volumes.set_value(t, submitted_volumes.get_value(t) + v)
                         else:
-                            submitted_volumes.add_index(t, bid_qmax)
+                            submitted_volumes.add_index(t, v)
 
-            # Create a COMPLEMENT coupling between all orders of the current day to comply with MinimumEnergy constraints
-            dataset.order_coupling.append(
+            result.order_couplings.append(
                 OrderCouplingDAO(
-                    name=f"COMPLEMENT_{str(equipment.name)}_{parameters.temporal.execution_date}",
+                    name=f"complement_{str(equipment.name)}_{self.parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}",
                     coupling_type=CouplingType.COMPLEMENT,
                     complement_direction=ComplementDirection.GreaterThan,
                     complement_energy=complement_energy,
@@ -198,3 +122,62 @@ class HydraulicStep:
                 equipment.da_sell_submitted_volume = submitted_volumes
             else:
                 equipment.da_sell_submitted_volume += submitted_volumes
+
+        return result
+
+    def _get_current_energy_level(self, equipment: HydroDAO) -> float:
+        if equipment.stored_energy is not None:
+            energy_forecast = equipment.stored_energy.get_forecast(
+                self.parameters.temporal.execution_date,
+                self.parameters.temporal.start_date.subtract(days=1),
+                self.parameters.temporal.start_date - self.parameters.temporal.timestep,
+            )
+            if self.parameters.temporal.start_date - self.parameters.temporal.timestep in energy_forecast:
+                return energy_forecast.get_value(
+                    self.parameters.temporal.start_date - self.parameters.temporal.timestep
+                )
+        return equipment.initial_level.get_value(self.parameters.temporal.start_date)
+
+    def _calculate_marginal_weights(self, equipment, energy_level: float) -> dict:
+        storage_indices = equipment.storage_marginal_value.index
+
+        x_min_candidates = [x for x in storage_indices if int(x) <= energy_level]
+        x_max_candidates = [x for x in storage_indices if int(x) > energy_level]
+
+        weights = {
+            "has_min": bool(x_min_candidates),
+            "has_max": bool(x_max_candidates),
+            "weight_inf": 0.0,
+            "weight_sup": 0.0,
+            "level_inf": None,
+            "level_sup": None,
+        }
+
+        if x_min_candidates:
+            xp_min = max(x_min_candidates, key=lambda x: int(x))
+            weights["level_inf"] = equipment.storage_marginal_value.select(xp_min)
+
+        if x_max_candidates:
+            xp_max = min(x_max_candidates, key=lambda x: int(x))
+            weights["level_sup"] = equipment.storage_marginal_value.select(xp_max)
+
+        if weights["has_min"] and weights["has_max"]:
+            range_diff = int(xp_max) - int(xp_min)
+            weights["weight_inf"] = (int(xp_max) - energy_level) / range_diff
+            weights["weight_sup"] = (energy_level - int(xp_min)) / range_diff
+
+        return weights
+
+    def _calculate_fragment_price(self, fragment_price: float, marginal_weights: dict, time: DateTime) -> float:
+        if not marginal_weights["has_min"] and marginal_weights["has_max"]:
+            marginal_adjustment = marginal_weights["level_sup"].get_value(time)
+        elif marginal_weights["has_min"] and not marginal_weights["has_max"]:
+            marginal_adjustment = marginal_weights["level_inf"].get_value(time)
+        elif marginal_weights["has_min"] and marginal_weights["has_max"]:
+            p_min = marginal_weights["level_inf"].get_value(time)
+            p_max = marginal_weights["level_sup"].get_value(time)
+            marginal_adjustment = marginal_weights["weight_inf"] * p_min + marginal_weights["weight_sup"] * p_max
+        else:
+            marginal_adjustment = 0.0
+
+        return fragment_price + marginal_adjustment
