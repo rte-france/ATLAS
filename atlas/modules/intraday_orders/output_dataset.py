@@ -5,6 +5,10 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from atlas import Hydro, Load, OrderCoupling, OtherNonDispatchable, Solar, Storage, Thermal, Wind
 from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.enums import ThermalStrategy
@@ -12,24 +16,29 @@ from atlas.modules.intraday_orders.models.order import IntraDayOrder
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.orchestrator.change_set import AddObject, UpdateObject
 
+if TYPE_CHECKING:
+    from atlas.modules.intraday_orders.input_dataset import IntradayOrdersInputDataset
+
 
 class IntradayOrdersOutputDataset(AbstractModuleOutput[IntradayOrdersParameters]):
-    def __init__(self):
-        super().__init__()
-        self.__orders: list[IntraDayOrder] = []
-        self.__order_couplings: list[OrderCoupling] = []
+    def __init__(self, input_dataset: IntradayOrdersInputDataset):
+        self.change_sets = []
+        self.order: list[IntraDayOrder] = []
+        self.order_coupling: list[OrderCoupling] = []
+
+        self.load: list[Load] = input_dataset.load
+        self.hydro: list[Hydro] = input_dataset.hydro
+        self.solar: list[Solar] = input_dataset.solar
+        self.wind: list[Wind] = input_dataset.wind
+        self.thermal: list[Thermal] = input_dataset.thermal
+        self.storage: list[Storage] = input_dataset.storage
+        self.other_non_dispatchable: list[OtherNonDispatchable] = input_dataset.other_non_dispatchable
 
     def add_order(self, order: IntraDayOrder) -> None:
-        self.__orders.append(order)
-
-    def get_orders(self) -> list[IntraDayOrder]:
-        return self.__orders
+        self.order.append(order)
 
     def add_order_coupling(self, order_coupling: OrderCoupling) -> None:
-        self.__order_couplings.append(order_coupling)
-
-    def get_order_couplings(self) -> list[OrderCoupling]:
-        return self.__order_couplings
+        self.order_coupling.append(order_coupling)
 
     def build_change_sets(self):
         for order in self.order:

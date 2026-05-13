@@ -5,22 +5,9 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import TypeVar
-
-import atlas.config as cfg
-from atlas import AtlasDataset, Equipment, Hydro, Load, OtherNonDispatchable, Solar, Storage, Thermal, Wind
+from atlas import AtlasDataset, Hydro, Load, OtherNonDispatchable, Solar, Storage, Thermal, Wind
 from atlas.abstract_class.dataset import AbstractDataset
-from atlas.io_utils.container import Container
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-
-T = TypeVar("T", bound=Equipment)
-
-
-def container_to_list(container: Container[T]) -> list[T]:
-    data_list = []
-    for item in container:
-        data_list.append(item)
-    return data_list
 
 
 class IntradayOrdersInputDataset(AbstractDataset[IntradayOrdersParameters]):

@@ -5,9 +5,11 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+import atlas.config as cfg
 from atlas import AtlasDataset
 from atlas.abstract_class.module import AbstractModule
 from atlas.modules.intraday_orders.input_dataset import IntradayOrdersInputDataset
+from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.orders_formulation.hydro import HydroOrdersFormulator
 from atlas.modules.intraday_orders.orders_formulation.load import LoadOrdersFormulator
 from atlas.modules.intraday_orders.orders_formulation.non_dispatchable import (
@@ -38,20 +40,30 @@ class IntradayOrdersModule(
     def execute(
         self, parameters: IntradayOrdersParameters, input_dataset: IntradayOrdersInputDataset
     ) -> IntradayOrdersOutputDataset:
-        dataset = IntradayOrdersOutputDataset()
+        cfg.logger.info("Initialization of the Intraday Orders module...")
+        dataset = IntradayOrdersOutputDataset(input_dataset)
         orders_timestamps = generate_datetimes(
-            parameters.temporal.start_date, parameters.temporal.end_date, parameters.temporal.timestep
+            parameters.temporal.start_date, parameters.penultimate_date, parameters.temporal.timestep
         )
-        HydroOrdersFormulator().formulate(input_dataset.hydro, orders_timestamps, dataset, parameters)
-        LoadOrdersFormulator().formulate(input_dataset.load, orders_timestamps, dataset, parameters)
-        NonDispatchableOrdersFormulator().formulate(
-            input_dataset.other_non_dispatchable, orders_timestamps, dataset, parameters
-        )
-        SolarOrdersFormulator().formulate(input_dataset.solar, orders_timestamps, dataset, parameters)
-        StorageOrdersFormulator().formulate(input_dataset.storage, orders_timestamps, dataset, parameters)
-        ThermalOrdersFormulator().formulate(input_dataset.thermal, orders_timestamps, dataset, parameters)
-        WindOrdersFormulator().formulate(input_dataset.wind, orders_timestamps, dataset, parameters)
 
+        if len(orders_timestamps) == 0:
+            cfg.logger.warning("The time window to formulate orders is empty.")
+            return dataset
+
+        formulators: list[tuple[str, AbstractOrdersFormulator, list]] = [
+            ("hydro", HydroOrdersFormulator(), input_dataset.hydro),
+            ("load", LoadOrdersFormulator(), input_dataset.load),
+            ("non-dispatchable", NonDispatchableOrdersFormulator(), input_dataset.other_non_dispatchable),
+            ("solar", SolarOrdersFormulator(), input_dataset.solar),
+            ("storage", StorageOrdersFormulator(), input_dataset.storage),
+            ("thermal", ThermalOrdersFormulator(), input_dataset.thermal),
+            ("wind", WindOrdersFormulator(), input_dataset.wind),
+        ]
+
+        for _name, formulator, equipments in formulators:
+            formulator.formulate(equipments, orders_timestamps, dataset, parameters)
+
+        cfg.logger.info("Formulation of intraday orders successfully completed.")
         return dataset
 
     def validates_results(
