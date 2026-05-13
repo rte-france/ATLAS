@@ -28,8 +28,8 @@ class IntradayOrdersModule(
     def get_parameters_class(self) -> type[IntradayOrdersParameters]:
         return IntradayOrdersParameters
 
-    def import_data(self, raw_data: AtlasDataset, parameters: IntradayOrdersParameters) -> IntradayOrdersInputDataset:
-        return IntradayOrdersInputDataset(raw_data)
+    def import_data(self, input_data: AtlasDataset, parameters: IntradayOrdersParameters) -> IntradayOrdersInputDataset:
+        return IntradayOrdersInputDataset(input_data)
 
     def validate_data(self, parameters: IntradayOrdersParameters, input_dataset: IntradayOrdersInputDataset) -> bool:
         # TODO: ask POs if something is required here
@@ -51,6 +51,7 @@ class IntradayOrdersModule(
         StorageOrdersFormulator().formulate(input_dataset.storage, orders_timestamps, dataset, parameters)
         ThermalOrdersFormulator().formulate(input_dataset.thermal, orders_timestamps, dataset, parameters)
         WindOrdersFormulator().formulate(input_dataset.wind, orders_timestamps, dataset, parameters)
+
         return dataset
 
     def validates_results(
