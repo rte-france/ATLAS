@@ -896,11 +896,22 @@ class TestTimeseriesBasicOperations:
 
         assert sample_ts == sample_ts_copy
 
-    def test_first_date(self, sample_ts):
-        assert sample_ts.first_date() == datetime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone("UTC"))
+    def test_get_by_index(self, sample_ts):
+        assert sample_ts.get_by_index(0) == 10.0
+        assert sample_ts.get_by_index(-1) == 40.0
+        assert sample_ts.get_by_index(2) == 30.0
+        with pytest.raises(IndexError):
+            sample_ts.get_by_index(99)
+        with pytest.raises(IndexError):
+            sample_ts.get_by_index(-99)
 
-    def test_last_date(self, sample_ts):
-        assert sample_ts.last_date() == datetime(2023, 1, 1, 3, 0, 0, tzinfo=Timezone("UTC"))
+    def test_get_time_by_index(self, sample_ts):
+        assert sample_ts.get_time_by_index(0) == datetime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone("UTC"))
+        assert sample_ts.get_time_by_index(-1) == datetime(2023, 1, 1, 3, 0, 0, tzinfo=Timezone("UTC"))
+        with pytest.raises(IndexError):
+            sample_ts.get_time_by_index(99)
+        with pytest.raises(IndexError):
+            sample_ts.get_time_by_index(-99)
 
     def test_iter_rows(self, sample_ts):
         """Test iterating over rows of the Timeseries."""

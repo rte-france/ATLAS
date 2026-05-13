@@ -1,0 +1,11 @@
+dataset_path: tests/dataset/day_ahead_input
+path_from_workflow: false
+name: workflow
+export_output: false
+steps:
+  - module: DayAheadOrders
+    parameters_path: tests/dataset/parameters/day_ahead_orders.yml
+  - module: MarketClearing
+    parameters_path: tests/dataset/parameters/market_clearing.yml
+  - module: PortfolioOptimisation
+    parameters_path: tests/dataset/parameters/portfolio_optimisation.yml

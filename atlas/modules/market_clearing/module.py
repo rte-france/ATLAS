@@ -4,8 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas import AtlasDataset
-from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.abstract_class.module import AbstractModule
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
@@ -27,8 +27,8 @@ class MarketClearingModule(
         """Returns the concrete Parameters class for this module."""
         return MarketClearingParameters
 
-    def import_data(self, raw_data: AtlasDataset, parameters: MarketClearingParameters) -> MarketClearingInputDataset:
-        input_dataset = MarketClearingInputDataset(raw_data, parameters)
+    def import_data(self, input_data: AtlasDataset, parameters: MarketClearingParameters) -> MarketClearingInputDataset:
+        input_dataset = MarketClearingInputDataset(input_data, parameters)
         return input_dataset
 
     def validate_data(self, parameters: MarketClearingParameters, input_dataset: MarketClearingInputDataset) -> bool:
@@ -38,26 +38,26 @@ class MarketClearingModule(
         self, parameters: MarketClearingParameters, input_dataset: MarketClearingInputDataset
     ) -> MarketClearingOutputDataset:
         clearing = Clearing(input_dataset, parameters)
-        clearing.run()
+        clearing.compute()
         saturated_critical_branches = clearing.retrieve_saturated_critical_branch()
         local_balances = clearing.retrieve_local_balances()
         accepted_powers = clearing.retrieve_accepted_powers()
 
         # Launch Exchange Fixing phase
         exchange_fixing = ExchangesFixing(input_dataset, parameters)
-        exchange_fixing.run(local_balances)
+        exchange_fixing.compute(local_balances)
         border_exchanges = exchange_fixing.retrieve_border_exchanges()
 
         # Launch Pricing phase
         pricing = Pricing(
             input_dataset, parameters, saturated_critical_branches, border_exchanges, local_balances, accepted_powers
         )
-        pricing.run()
+        pricing.compute()
         market_prices = pricing.retrieve_market_prices()
 
         # Launch Marginal Fixing phase
         marginal_fixing = MarginalFixing(input_dataset, parameters)
-        marginal_fixing.run(accepted_powers, market_prices)
+        marginal_fixing.compute(accepted_powers, market_prices)
 
         market_clearing_output_dataset = MarketClearingOutputDataset(
             input_dataset, accepted_powers, local_balances, border_exchanges, market_prices
@@ -79,6 +79,7 @@ class MarketClearingModule(
         input_dataset: MarketClearingInputDataset,
         output_dataset: MarketClearingOutputDataset,
     ) -> None:
-        market_clearing_result = MarketClearingResults(input_dataset, parameters, output_dataset.accepted_powers)
-        market_clearing_result.run()
+        if parameters.output.export_result:
+            market_clearing_result = MarketClearingResults(input_dataset, parameters, output_dataset.accepted_powers)
+            market_clearing_result.compute()
         return

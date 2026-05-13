@@ -8,35 +8,44 @@ Module that implements AtlasDataset
 
 from __future__ import annotations
 
+import copy
 import pickle
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Literal, get_origin
+from typing import Any, Literal, cast, get_origin
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+import pendulum
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 import atlas.config as cfg
 from atlas.enums import BusinessModelName
 from atlas.io_utils.container import Container
 from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.output_writer import save_to_directory
-from atlas.models.business_model import BusinessModel
-from atlas.models.control_block import ControlBlock
-from atlas.models.equipment.hydro import Hydro
-from atlas.models.equipment.load import Load
-from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
-from atlas.models.equipment.solar import Solar
-from atlas.models.equipment.storage import Storage
-from atlas.models.equipment.thermal import Thermal
-from atlas.models.equipment.wind import Wind
-from atlas.models.market.critical_branch import CriticalBranch
-from atlas.models.market.market_area import MarketArea
-from atlas.models.market.market_area_ptdf import MarketAreaPtdf
-from atlas.models.market.market_border import MarketBorder
-from atlas.models.market.node_ptdf import NodePtdf
-from atlas.models.market.order import Order
-from atlas.models.market.order_coupling import OrderCoupling
-from atlas.models.node import Node
-from atlas.models.portfolio import Portfolio
+from atlas.io_utils.utils import diff_business_model
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.objects.business_model import BusinessModel
+from atlas.objects.equipment.equipment import Equipment
+from atlas.objects.equipment.hydro import Hydro
+from atlas.objects.equipment.load import Load
+from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
+from atlas.objects.equipment.solar import Solar
+from atlas.objects.equipment.storage import Storage
+from atlas.objects.equipment.thermal import Thermal
+from atlas.objects.equipment.wind import Wind
+from atlas.objects.market.critical_branch import CriticalBranch
+from atlas.objects.market.market_area import MarketArea
+from atlas.objects.market.market_area_ptdf import MarketAreaPtdf
+from atlas.objects.market.market_border import MarketBorder
+from atlas.objects.market.node_ptdf import NodePtdf
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
+from atlas.objects.market_operator.portfolio import Portfolio
+from atlas.objects.network.node import Node
+from atlas.objects.network_operator.control_block import ControlBlock
+from atlas.timing import get_duration
 
 
 class AtlasDataset(BaseModel):
@@ -78,8 +87,6 @@ class AtlasDataset(BaseModel):
     storage: Container[Storage] = Field(default_factory=lambda: Container())
     thermal: Container[Thermal] = Field(default_factory=lambda: Container())
     wind: Container[Wind] = Field(default_factory=lambda: Container())
-
-    _indices: dict[str, dict[str, BusinessModel]] = {}
 
     @classmethod
     def from_directory(
@@ -149,7 +156,6 @@ class AtlasDataset(BaseModel):
         """
         if isinstance(directory_path, str):
             directory_path = Path(directory_path)
-
         raw_data = load_from_directory(
             directory_path=directory_path,
             separator=separator,
@@ -256,33 +262,6 @@ class AtlasDataset(BaseModel):
         with open(file_path, "rb") as f:
             return pickle.load(f)
 
-    @model_validator(mode="after")
-    def _build_indices(self) -> AtlasDataset:
-        """
-        Build lookup indices after model initialization for O(1) name-based lookups.
-        Also validates that all object names are unique within their type.
-        """
-        self._indices = {}
-
-        for object_type in cfg.MODEL_MAPPING_NAME.keys():
-            objects = getattr(self, object_type, [])
-            if not objects:
-                continue
-
-            # Build index and check for duplicate names
-            type_index: dict[str, BusinessModel] = {}
-            for obj in objects:
-                if obj.name in type_index:
-                    raise ValueError(
-                        f"Duplicate object name '{obj.name}' found in {object_type}. "
-                        f"All object names must be unique within their type."
-                    )
-                type_index[obj.name] = obj
-
-            self._indices[object_type] = type_index
-
-        return self
-
     def get(self, object_type: str, name: str) -> BusinessModel | None:
         """
         Get a BusinessModel object by type and name with O(1) lookup.
@@ -294,9 +273,11 @@ class AtlasDataset(BaseModel):
         :return: The BusinessModel object if found, None otherwise
         :rtype: BusinessModel | None
         """
-        if object_type not in self._indices:
+        try:
+            container = self.get_container_by_type(object_type)
+            return container.get(name)
+        except (ValueError, KeyError):
             return None
-        return self._indices[object_type].get(name)
 
     def get_items_by_type(self, object_type: str | type[BusinessModel] | BusinessModelName) -> list[BusinessModel]:
         """
@@ -320,7 +301,18 @@ class AtlasDataset(BaseModel):
         :rtype: Container
         """
         if isinstance(object_type, type) and issubclass(object_type, BusinessModel):
-            object_type_str = cfg.INVERSE_MODEL_MAPPING_NAME[object_type]
+            # For subclasses, we need to find the base type that's registered in INVERSE_MODEL_MAPPING_NAME
+            # by checking the MRO (Method Resolution Order)
+            object_type_str = None
+            for base_class in object_type.__mro__:
+                if base_class in cfg.INVERSE_MODEL_MAPPING_NAME:
+                    object_type_str = cfg.INVERSE_MODEL_MAPPING_NAME[base_class]
+                    break
+            if object_type_str is None:
+                raise ValueError(
+                    f"Type {object_type!r} is not registered in MODEL_MAPPING_NAME. "
+                    f"Available types: {list(cfg.MODEL_MAPPING_NAME.keys())}"
+                )
         elif isinstance(object_type, str):
             object_type_str = BusinessModelName(object_type)
         elif isinstance(object_type, BusinessModelName):
@@ -353,6 +345,26 @@ class AtlasDataset(BaseModel):
             objects = getattr(self, object_type, [])
             yield from objects
 
+    def iter_by_equipments(self) -> Iterable[Equipment]:
+        """
+        Iterator over all equipment model objects in the dataset.
+
+        This method iterates over all equipment types (Hydro, Load, Solar, Storage, Thermal, Wind, OtherNonDispatchable).
+
+        :yield: Equipment objects of all equipment types
+        :rtype: Iterator[Equipment]
+
+        Example:
+            >>> dataset = AtlasDataset(thermal=[Thermal(name="plant1")], solar=[Solar(name="solar1")])
+            >>> for equipment in dataset.iter_by_equipments():
+            ...     print(equipment.name)
+            plant1
+            solar1
+        """
+        for equipment_type in cfg.EQUIPMENT_MODELS:
+            objects = getattr(self, equipment_type.value, [])
+            yield from objects
+
     def __contains__(self, item: str | BusinessModel) -> bool:
         """
         Check if the dataset contains an object with the given name or instance.
@@ -363,14 +375,22 @@ class AtlasDataset(BaseModel):
         :rtype: bool
         """
         if isinstance(item, str):
-            for type_index in self._indices.values():
-                if item in type_index:
+            for object_type in cfg.MODEL_MAPPING_NAME.keys():
+                container = getattr(self, object_type, None)
+                if container and item in container:
                     return True
             return False
         elif isinstance(item, BusinessModel):
-            for type_index in self._indices.values():
-                if item.name in type_index and type_index[item.name] is item:
-                    return True
+            for cls in type(item).__mro__:
+                item_type = cfg.INVERSE_MODEL_MAPPING_NAME.get(cls)
+                if item_type is not None:
+                    container = getattr(self, item_type, None)
+                    if container is None:
+                        return False
+                    try:
+                        return container.get(item.name) is item
+                    except KeyError:
+                        return False
             return False
         else:
             return False
@@ -412,35 +432,6 @@ class AtlasDataset(BaseModel):
     def __str__(self) -> str:
         """User-friendly string representation."""
         return self.__repr__()
-
-    def __getstate__(self) -> dict[str, Any]:
-        """
-        Prepare the object for pickling.
-
-        Returns the model's state, excluding the _indices cache which will be rebuilt on unpickling.
-
-        :return: Dictionary containing the object's state
-        :rtype: dict[str, Any]
-        """
-        # Get the default state from Pydantic
-        state = self.__dict__.copy()
-        # Remove the _indices cache as it will be rebuilt by _build_indices validator
-        state.pop("_indices", None)
-        return state
-
-    def __setstate__(self, state: dict[str, Any]) -> None:
-        """
-        Restore the object from pickled state.
-
-        Reconstructs the object and rebuilds the _indices cache.
-
-        :param state: Dictionary containing the object's pickled state
-        :type state: dict[str, Any]
-        """
-        # Restore the state
-        self.__dict__.update(state)
-        # Rebuild indices (the validator will be called automatically by Pydantic)
-        self._build_indices()
 
     @field_validator(
         "control_block",
@@ -516,7 +507,7 @@ class AtlasDataset(BaseModel):
             for name in in_both:
                 obj = container.get(name)
                 other_obj = other_container.get(name)
-                diff = AtlasDataset.diff_business_model(obj, other_obj)
+                diff = diff_business_model(obj, other_obj)
                 if diff:
                     modified[name] = diff
 
@@ -529,107 +520,221 @@ class AtlasDataset(BaseModel):
 
         return result
 
-    @staticmethod
-    def diff_business_model(
-        obj: BusinessModel,
-        other_obj: BusinessModel,
-        _visited: set[tuple[int, int]] | None = None,
-    ) -> dict[str, Any]:
+    def filter_equipments(self, equipment_names: list[str] | None) -> AtlasDataset:
         """
-        Recursively compare two BusinessModel instances field by field.
-        Returns a dict of fields that differ, with (value_self, value_other) as value.
-        _visited guards against circular references.
+        Filter the dataset to include only specified equipment by name.
+
+        :param equipment_names: List of equipment names to include. If None or empty, returns a copy of the full dataset.
+        :type equipment_names: list[str] | None
+
+        :return: A new AtlasDataset containing only the specified equipment (deep copy)
+        :rtype: AtlasDataset
+
+        Example:
+            >>> dataset = AtlasDataset(thermal=[plant1, plant2, plant3])
+            >>> filtered = dataset.filter_equipments(["plant1", "plant3"])
+            >>> len(filtered.thermal)
+            2
         """
-        if _visited is None:
-            _visited = set()
+        copy_dataset = copy.deepcopy(self)
+        if not equipment_names:
+            return copy_dataset
+        for equipment_type in cfg.EQUIPMENT_MODELS:
+            equipments = copy_dataset.get_container_by_type(equipment_type)
+            for equipment in copy_dataset.get_items_by_type(equipment_type):
+                if equipment.name not in equipment_names:
+                    equipments.remove(equipment.name)
+        return copy_dataset
 
-        # Guard against circular references
-        pair = (id(obj), id(other_obj))
-        if pair in _visited:
-            return {}
-        _visited.add(pair)
+    def filter_zones(self, control_block_names: list[str], include_external_borders: bool = False) -> AtlasDataset:
+        """
+        Filter the dataset to include only objects associated with specified control blocks (zones).
 
-        field_diffs: dict[str, Any] = {}
+        For market borders and critical branches:
+        - If include_external_borders is False (default), only includes borders/branches where both endpoints
+          are in the filtered zones, creating an isolated network
+        - If include_external_borders is True, includes borders/branches where at least one endpoint is in
+          the filtered zones, allowing connections to external zones
 
-        for field_name in obj.model_fields:
-            val = getattr(obj, field_name, None)
-            other_val = getattr(other_obj, field_name, None)
+        :param control_block_names: List of control block names to include in the filtered dataset
+        :type control_block_names: list[str]
+        :param include_external_borders: Whether to include borders/branches with at least one endpoint in filtered zones
+        :type include_external_borders: bool
 
-            # Nested BusinessModel → recurse
-            if isinstance(val, BusinessModel) and isinstance(other_val, BusinessModel):
-                nested_diffs = AtlasDataset.diff_business_model(val, other_val, _visited)
-                if nested_diffs:
-                    field_diffs[field_name] = {
-                        "type": "nested",
-                        "object_name": val.name,
-                        "diffs": nested_diffs,
-                    }
-            elif isinstance(val, list) and isinstance(other_val, list):
-                diff = AtlasDataset.diff_lists(val, other_val, _visited)
-                if diff:
-                    field_diffs[field_name] = diff
-            else:
-                diff = AtlasDataset.diff_on_other_than_business_model(val, other_val, _visited)
-                if diff:
-                    field_diffs[field_name] = diff
+        :return: A new AtlasDataset containing only the filtered objects (deep copy)
+        :rtype: AtlasDataset
 
-        return field_diffs
+        :raises ValueError: If any control block name in control_block_names does not exist in the dataset
+        """
 
-    @staticmethod
-    def diff_on_other_than_business_model(
-        val: Any, other_val: Any, _visited: set[tuple[int, int]] | None = None
-    ) -> dict[str, Any] | None:
-        if isinstance(val, list) and isinstance(other_val, list):
-            return AtlasDataset.diff_lists(val, other_val, _visited)
+        # Validate that all control blocks exist
+        existing_cb_names = {cb.name for cb in self.control_block}
+        invalid_zones = set(control_block_names) - existing_cb_names
+        if invalid_zones:
+            msg = f"Control blocks not found in dataset: {sorted(invalid_zones)}"
+            raise ValueError(msg)
 
-        elif isinstance(val, str | int | float | bool):
-            try:
-                if val != other_val:
-                    return {"self": val, "other": other_val}
-            except Exception:
-                return {"self": str(val), "other": str(other_val)}
-        elif hasattr(val, "equals") and hasattr(other_val, "equals"):
-            try:
-                if not val.equals(other_val):
-                    return {"changed": "not-serializable yet"}
-            except Exception:
-                return {"error": "Couldn't check diff"}
-        else:
-            try:
-                if val != other_val:
-                    return {"changed": "not-serializable yet"}
-            except Exception:
-                return {"error": "Couldn't check diff"}
-        return None
+        # Convert to set for O(1) lookups
+        zone_set = set(control_block_names)
 
-    @staticmethod
-    def diff_lists(
-        _list: list,
-        other_list: list,
-        _visited: set[tuple[int, int]] | None = None,
-    ) -> dict[str, Any] | None:
-        if len(_list) != len(other_list):
-            return {
-                "type": "list_length",
-                "self": len(_list),
-                "other": len(other_list),
-            }
+        dataset = AtlasDataset()
 
-        diffs = {}
-        for i, (a, b) in enumerate(zip(_list, other_list, strict=True)):
-            if isinstance(a, BusinessModel) and isinstance(b, BusinessModel):
-                nested_diffs = AtlasDataset.diff_business_model(a, b, _visited)
-                if nested_diffs:
-                    diffs[str(i)] = {
-                        "type": "nested",
-                        "object_name": a.name,
-                        "diffs": nested_diffs,
-                    }
-            else:
+        for cb in self.control_block:
+            if cb.name in zone_set:
+                dataset.control_block.add(cb)
+
+        # Filter market areas
+        for ma in self.market_area:
+            if ma.control_block.name in zone_set:
+                dataset.market_area.add(ma)
+
+        # Filter nodes
+        for node in self.node:
+            if node.control_block.name in zone_set:
+                dataset.node.add(node)
+
+        # Filter market borders (with configurable logic)
+        for border in self.market_border:
+            downhill_in_zone = border.downhill_control_block.name in zone_set
+            uphill_in_zone = border.uphill_control_block.name in zone_set
+
+            if downhill_in_zone and uphill_in_zone:
+                dataset.market_border.add(border)
+            elif include_external_borders:
+                # Include if ANY endpoint is in filtered zones
+                if downhill_in_zone or uphill_in_zone:
+                    dataset.market_border.add(border)
+
+        for ma_ptdf in self.market_area_ptdf:
+            if ma_ptdf.market_area.control_block.name in zone_set:
+                dataset.market_area_ptdf.add(ma_ptdf)
+
+        # Filter node PTDFs
+        for node_ptdf in self.node_ptdf:
+            if node_ptdf.node.control_block.name in zone_set:
+                dataset.node_ptdf.add(node_ptdf)
+
+        # Filter critical branches (with configurable logic)
+        for critical_branch in self.critical_branch:
+            uphill_in_zone = critical_branch.uphill_node.control_block.name in zone_set
+            downhill_in_zone = critical_branch.downhill_node.control_block.name in zone_set
+
+            if downhill_in_zone and uphill_in_zone:
+                dataset.critical_branch.add(critical_branch)
+            elif include_external_borders:
+                # Include if ANY endpoint is in filtered zones
+                if downhill_in_zone or uphill_in_zone:
+                    dataset.critical_branch.add(critical_branch)
+
+        # Filter orders
+        for order in self.order:
+            if order.market_area.control_block.name in zone_set:
+                dataset.order.add(order)
+
+        # Filter order couplings
+        # Note: Includes coupling if ANY order in the coupling belongs to filtered zones
+        for order_coupling in self.order_coupling:
+            if order_coupling.orders is None:
+                continue
+
+            if any(
+                coupled_order.market_area is not None
+                and coupled_order.market_area.control_block is not None
+                and coupled_order.market_area.control_block.name in zone_set
+                for coupled_order in order_coupling.orders
+            ):
+                dataset.order_coupling.add(order_coupling)
+
+        # Filter portfolios
+        for portfolio in self.portfolio:
+            if portfolio.control_block.name in zone_set:
+                dataset.portfolio.add(portfolio)
+
+        # Filter equipment (all types)
+        for equipment_type in cfg.EQUIPMENT_MODELS:
+            equipments = dataset.get_container_by_type(equipment_type)
+            for equipment in self.get_items_by_type(equipment_type):
+                equipment_node = cast(Equipment, equipment).node
+                if equipment_node.control_block.name in zone_set:
+                    equipments.add(equipment)
+
+        return copy.deepcopy(dataset)
+
+    def set_frequency_all(
+        self,
+        frequency: str | pendulum.Duration,
+        inplace: bool = True,
+        object_types: Iterable[str | BusinessModelName] | None = None,
+    ) -> AtlasDataset:
+        """
+        Set the frequency of all timeseries and matrices in the dataset to a target frequency.
+
+        This method recursively inspects all business objects in the dataset and applies
+        the `set_frequency()` method to any timeseries or matrix attributes found.
+
+        :param frequency: Target frequency for all timeseries/matrices (e.g., "1h", Duration(hours=1))
+        :type frequency: str | pendulum.Duration
+        :param inplace: If True, modifies objects in place. If False, returns a deep copy with modified frequencies.
+        :type inplace: bool
+        :param object_types: Optional list of object types to process. If None, processes all types.
+        :type object_types: Iterable[str | BusinessModelName] | None
+        :return: The dataset with modified frequencies (self if inplace=True, copy otherwise)
+        :rtype: AtlasDataset
+
+        Example:
+            >>> # Set all timeseries to 1 hour frequency
+            >>> dataset.set_frequency_all(Duration(hours=1))
+            >>>
+            >>> # Create a new dataset with 15-minute frequency for specific types
+            >>> new_dataset = dataset.set_frequency_all("15m", inplace=False, object_types=["hydro", "wind"])
+        """
+        target_frequency = get_duration(frequency)
+
+        # Determine which object types to process
+        types_to_process = (
+            [obj_type.value if isinstance(obj_type, BusinessModelName) else obj_type for obj_type in object_types]
+            if object_types
+            else list(cfg.MODEL_ORDER_INSTANTIATION)
+        )
+
+        dataset = self if inplace else copy.deepcopy(self)
+
+        for object_type in types_to_process:
+            if object_type not in cfg.MODEL_MAPPING_NAME:
+                cfg.logger.warning(f"Skipping unknown object type: {object_type}")
+                continue
+
+            container: Container = dataset.get_container_by_type(object_type)
+
+            for business_object in container:
+                dataset._set_frequency_on_object(business_object, target_frequency)
+
+        return dataset
+
+    def _set_frequency_on_object(self, obj: BusinessModel, target_frequency: pendulum.Duration) -> None:
+        """
+        Set frequency on all timeseries/matrix attributes of a single business object.
+
+        :param obj: Business object to process
+        :type obj: BusinessModel
+        :param target_frequency: Target frequency to apply
+        :type target_frequency: pendulum.Duration
+        """
+        # Iterate over all pydantic model fields
+        for field_name in obj.__class__.model_fields.keys():
+            attr_value = getattr(obj, field_name, None)
+
+            if attr_value is None:
+                continue
+
+            # Check if the attribute is a timeseries or matrix type
+            if isinstance(
+                attr_value,
+                AbstractTimeseries | AbstractScenarioMatrix | ForecastingMatrix | LazyForecastingMatrix,
+            ):
                 try:
-                    diff = AtlasDataset.diff_on_other_than_business_model(a, b, _visited)
-                    if diff:
-                        diffs[str(i)] = diff
-                except Exception:
-                    diffs[str(i)] = {"error": "Couldn't check diff"}
-        return diffs if diffs else None
+                    # Apply set_frequency and update the attribute
+                    updated_value = attr_value.set_frequency(target_frequency, inplace=True)
+                    setattr(obj, field_name, updated_value)
+                except Exception as e:
+                    cfg.logger.warning(f"Failed to set frequency on {obj.name}.{field_name}: {e!s}")

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from pendulum import DateTime
 
 if TYPE_CHECKING:
-    from atlas.modules.portfolio_optimisation.models import EquipmentPO
+    from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
 
 
 def get_variable_cost(obj: EquipmentPO, time: DateTime):

@@ -28,7 +28,7 @@ from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.models.business_model import BusinessModel
+from atlas.objects.business_model import BusinessModel
 from atlas.type import get_type_attribute
 
 
@@ -543,6 +543,7 @@ def _resolve_list_object_reference(
     """List object reference resolution using pre-built indices."""
     object_list_string = object_dict[attribute]
     if not object_list_string:
+        object_dict[attribute] = []
         return
 
     object_type_key = cfg.INVERSE_MODEL_MAPPING_NAME[get_args(attribute_type)[0]]

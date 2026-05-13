@@ -9,8 +9,22 @@ import pytest
 
 from atlas import MarketArea, Order
 from atlas.enums import BusinessModelName
-from atlas.models.business_model import BusinessModel
-from atlas.workflow.change_set import AddObject, ChangeSet, DeleteObject, UpdateObject
+from atlas.objects.business_model import BusinessModel
+from atlas.objects.network_operator.control_block import ControlBlock
+from atlas.orchestrator.change_set import AddObject, ChangeSet, DeleteObject, UpdateObject
+
+
+@pytest.fixture
+def test_market_area():
+    """Create a test MarketArea with required fields."""
+    cb = ControlBlock(name="cb1")
+    return MarketArea(name="ma1", control_block=cb)
+
+
+@pytest.fixture
+def test_order(test_market_area):
+    """Create a test Order with required fields."""
+    return Order(name="o1", price=10.0, market_area=test_market_area)
 
 
 class _ConcreteChangeSet(ChangeSet):
@@ -60,28 +74,24 @@ class TestChangSetGetModelType:
 
 
 class TestChangeSetFromObject:
-    def test_add_from_object_builds_correct_type(self):
-        order = Order(name="o1", price=10.0)
-        cs = AddObject.from_object(order)
+    def test_add_from_object_builds_correct_type(self, test_order):
+        cs = AddObject.from_object(test_order)
         assert isinstance(cs, AddObject)
         assert cs.model_type == BusinessModelName.ORDER
 
-    def test_update_from_object_builds_correct_type(self):
-        order = Order(name="o1", price=10.0)
-        cs = UpdateObject.from_object(order)
+    def test_update_from_object_builds_correct_type(self, test_order):
+        cs = UpdateObject.from_object(test_order)
         assert isinstance(cs, UpdateObject)
         assert cs.model_type == BusinessModelName.ORDER
 
-    def test_delete_from_object_builds_correct_type(self):
-        order = Order(name="o1", price=10.0)
-        cs = DeleteObject.from_object(order)
+    def test_delete_from_object_builds_correct_type(self, test_order):
+        cs = DeleteObject.from_object(test_order)
         assert isinstance(cs, DeleteObject)
         assert cs.name == "o1"
         assert cs.model_type == BusinessModelName.ORDER
 
-    def test_from_object_with_market_area(self):
-        ma = MarketArea(name="ma1")
-        cs = AddObject.from_object(ma)
+    def test_from_object_with_market_area(self, test_market_area):
+        cs = AddObject.from_object(test_market_area)
         assert cs.model_type == BusinessModelName.MARKET_AREA
 
 
@@ -115,17 +125,15 @@ class TestAddObject:
     def test_kind(self):
         assert AddObject.kind == "add"
 
-    def test_from_object_copies_attributes(self):
-        order = Order(name="o1", price=99.0)
-        cs = AddObject.from_object(order)
+    def test_from_object_copies_attributes(self, test_order):
+        cs = AddObject.from_object(test_order)
         assert cs.data["name"] == "o1"
 
-    def test_from_object_data_is_independent_copy(self):
-        order = Order(name="o1", price=10.0)
-        cs = AddObject.from_object(order)
+    def test_from_object_data_is_independent_copy(self, test_order):
+        cs = AddObject.from_object(test_order)
         cs.data["price"] = 999.0
         # The original object should be unaffected
-        assert order.price == 10.0
+        assert test_order.price == 10.0
 
 
 class TestUpdateObject:
@@ -146,9 +154,8 @@ class TestUpdateObject:
     def test_kind(self):
         assert UpdateObject.kind == "update"
 
-    def test_from_object(self):
-        order = Order(name="o1", price=7.0)
-        cs = UpdateObject.from_object(order)
+    def test_from_object(self, test_order):
+        cs = UpdateObject.from_object(test_order)
         assert isinstance(cs, UpdateObject)
         assert cs.data["name"] == "o1"
         assert cs.model_type == BusinessModelName.ORDER
@@ -184,9 +191,8 @@ class TestDeleteObject:
     def test_kind(self):
         assert DeleteObject.kind == "delete"
 
-    def test_from_object(self):
-        order = Order(name="o1", price=5.0)
-        cs = DeleteObject.from_object(order)
+    def test_from_object(self, test_order):
+        cs = DeleteObject.from_object(test_order)
         assert cs.name == "o1"
         assert cs.model_type == BusinessModelName.ORDER
 

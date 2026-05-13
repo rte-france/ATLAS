@@ -9,10 +9,11 @@ Module that implements ScenarioMatrix
 
 from __future__ import annotations
 
+import copy
 import pickle
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Literal, Self
+from typing import Any, Literal, Self, cast
 
 import pandas as pd
 import pendulum
@@ -21,6 +22,8 @@ import polars as pl
 
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.timing import check_timezone, get_duration, infer_frequency
 from atlas.type import TimeseriesDict
@@ -249,9 +252,10 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
 
     def add(
         self,
-        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
+        timeseries: AbstractTimeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str,
-    ) -> None:
+        inplace: bool = True,
+    ) -> Self:
         """
         Add a timeseries to the matrix.
 
@@ -259,40 +263,57 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         :type index: str
         :param timeseries: Timeseries to add.
         :type timeseries: Timeseries
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         """
-        if index in self.indexes:
-            raise KeyError(f"Index {index} already exists in the matrix.")
-        timeseries = Timeseries(timeseries) if not isinstance(timeseries, Timeseries) else timeseries
+        target = self if inplace else copy.deepcopy(self)
 
-        self.matrix = self.matrix.join(
+        if index in target.indexes:
+            raise KeyError(f"Index {index} already exists in the matrix.")
+
+        df = (
+            timeseries.collect()
+            if isinstance(timeseries, LazyTimeseries)
+            else cast(Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict, timeseries)
+        )
+        timeseries = Timeseries(df) if not isinstance(timeseries, Timeseries) else timeseries
+
+        target.matrix = target.matrix.join(
             timeseries.to_frame(engine="polars").rename({"value": index}),  # type: ignore[arg-type]
             on="time",
             how="full",
             coalesce=True,
         ).sort("time")
-        self.indexes = self._get_indexes()
 
-    def delete(self, index: str) -> None:
+        target.indexes = target._get_indexes()
+        return target
+
+    def delete(self, index: str, inplace: bool = True) -> Self:
         """
         Delete a timeseries by index.
 
         :param index: Index key to delete from the matrix
         :type index: str
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         :raises KeyError: If index is not found.
         """
-        if index not in self.indexes:
+        target = self if inplace else copy.deepcopy(self)
+
+        if index not in target.indexes:
             raise KeyError(f"No timeseries to delete at index: {index}")
 
-        self.matrix = self.matrix.drop(index).sort("time")
-        self.indexes = self._get_indexes()
-
-        self.matrix = self._trim_null_extremities(self.matrix)
+        target.matrix = target.matrix.drop(index).sort("time")
+        target.indexes = target._get_indexes()
+        target.matrix = target._trim_null_extremities(target.matrix)
+        return target
 
     def replace(
         self,
         index: str,
         timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
-    ) -> None:
+        inplace: bool = True,
+    ) -> Self:
         """
         Replace a Timeseries in the matrix and keep indexes sorted.
 
@@ -300,9 +321,13 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict
         :param index: Datetime key for the new forecast.
         :type index: str | datetime
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         """
-        self.delete(index=index)
-        self.add(timeseries=timeseries, index=index)
+        target = self if inplace else copy.deepcopy(self)
+        target.delete(index=index)
+        target.add(timeseries=timeseries, index=index)
+        return target
 
     def get_matrix(self) -> pl.DataFrame:
         """

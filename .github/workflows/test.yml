@@ -2,9 +2,9 @@ name: Test
 
 on:
   push:
-    branches: ['**']
+    branches: ["**"]
   pull_request:
-    branches: ['**']
+    branches: ["**"]
 
 jobs:
   test:
@@ -18,7 +18,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.13'
+          python-version: "3.13"
 
       - name: Install uv
         run: pip install uv
@@ -26,12 +26,10 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Test with pytest and coverage
-        run: uv run pytest -v --cov=atlas --cov-report=xml --disable-warnings
+      - name: Test with pytest and coverage (without integration tests)
+        if: github.event_name == 'push'
+        run: uv run pytest -v --cov=atlas --cov-report=xml --disable-warnings -m "not integration"
 
-      # - name: Upload coverage to Codecov
-      #   uses: codecov/codecov-action@v4
-      #   with:
-      #     token: ${{ secrets.CODECOV_TOKEN }}
-      #     files: coverage.xml
-      #     fail_ci_if_error: true
+      - name: Test with pytest and coverage (with integration tests)
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        run: uv run pytest -v --cov=atlas --cov-report=xml --disable-warnings -m ""

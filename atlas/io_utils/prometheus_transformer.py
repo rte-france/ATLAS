@@ -23,11 +23,12 @@ import numpy.typing as npt
 import pendulum
 import polars as pl
 from pydantic_extra_types.pendulum_dt import DateTime, Duration
+from rich import print as rprint
 
 import atlas.config as cfg
-from atlas import AtlasDataset
 from atlas.config import DEFAULT_VALUE_IO, logger
 from atlas.enums import BusinessModelName, CouplingType, StorageType
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.utils import to_snake_case
 from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
 from atlas.type import get_class_inheritance_chain, get_type_attribute
@@ -131,7 +132,8 @@ class PrometheusToAtlasDataParser:
             self.add_default_value(dataset)
         shutil.rmtree(self.tmp_dir)
         dataset.to_directory(self.output_dir)
-        logger.success(f"Export done to Atlas dataset - {self.output_dir}!")
+        rprint("\n[bold green]✓[/bold green] Export completed successfully!")
+        rprint(f"[bold cyan]→[/bold cyan] Atlas dataset saved to: [yellow]{self.output_dir}[/yellow]\n")
 
     @staticmethod
     def add_default_value(dataset: AtlasDataset):

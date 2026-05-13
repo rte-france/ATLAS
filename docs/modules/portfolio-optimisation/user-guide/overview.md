@@ -12,19 +12,6 @@ The module:
 - **Considers market conditions**: Accounts for prices, imbalance penalties, and constraints
 - **Supports multiple asset types**: Thermal, hydro, storage, solar, wind, and load
 
-## How to Use
-
-See [Running Modules](../../../concepts/running-modules.md) for the standard ATLAS module execution pattern.
-
-## Module-Specific Workflow
-
-Beyond the standard module lifecycle (see [Module Pattern](../../../concepts/module-pattern.md)), this module:
-
-1. **Groups equipment by portfolio**: Organizes assets into portfolios
-2. **Applies manual activation rules**: Excludes equipment based on configuration
-3. **Runs optimization**: Uses solver to find optimal dispatch
-4. **Updates results**: Writes `power` forecasts to equipment and `imbalance` to portfolios
-
 ## Optimization Modes
 
 **Portfolio-level** (`is_portfolio_bidding=true`):
@@ -39,6 +26,5 @@ Beyond the standard module lifecycle (see [Module Pattern](../../../concepts/mod
 
 ## Next Steps
 
-- [Parameters](input-data.md): Module-specific configuration options
-- [Running](running.md): Execution modes and options
+- [Parameters](parameters.md): Module-specific configuration options
 - [Results](results.md): Accessing outputs

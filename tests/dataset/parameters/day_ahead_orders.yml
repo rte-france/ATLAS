@@ -1,0 +1,25 @@
+temporal:
+  start_date: "2028-09-27 00:00:00"
+  execution_date: "2028-09-26 12:00:00"
+  end_date: "2028-09-28 00:00:00"
+  timestep: "PT1H"
+proportional_reserves_penalty: True
+automated_unprocured_reserves_penalty: 10000
+battery_smoothing_factor: 0.1
+ev_energy_coef: 1.5
+ev_smoothing_factor: 0.1
+epsilon: 0.001
+hydraulic_minimal_fragment_size: 100
+load_price: 3000
+manual_unprocured_reserves_penalty: 100
+phs_smoothing_factor: 0.2
+battery_nb_fragments: 3
+ev_nb_fragments: 3
+phs_nb_fragments: 3
+solver:
+  use_presolve: True
+  timeout: "PT10S"
+  solver_name: "SCIP"
+  export_lp: false
+  duality_gap: 0.0001
+price_forecasts_types: ["Medium", "High", "Low"]

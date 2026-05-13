@@ -5,8 +5,9 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas import Order, Equipment
 from pendulum import DateTime
+
+from atlas import Equipment, Order
 
 
 class IntraDayOrder(Order):

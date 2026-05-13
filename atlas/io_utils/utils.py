@@ -5,6 +5,7 @@ This file is part of the ATLAS project.
 
 """
 
+import copy
 import re
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,8 @@ from typing import Any
 import pandas as pd
 import pendulum
 import polars as pl
+
+from atlas.objects.business_model import BusinessModel
 
 
 def read_data_file(
@@ -159,3 +162,121 @@ def to_snake_case(name: str) -> str:
     name = re.sub("([a-z0-9])([A-Z])", r"\1_\2", name)
     name = re.sub(r"[^0-9a-zA-Z]+", "_", name)
     return name.lower().strip("_")
+
+
+def diff_business_model(
+    obj: BusinessModel,
+    other_obj: BusinessModel,
+    _visited: set[tuple[int, int]] | None = None,
+) -> dict[str, Any]:
+    """
+    Recursively compare two BusinessModel instances field by field.
+    Returns a dict of fields that differ, with (value_self, value_other) as value.
+    _visited guards against circular references.
+    """
+    if _visited is None:
+        _visited = set()
+
+    # Guard against circular references
+    pair = (id(obj), id(other_obj))
+    if pair in _visited:
+        return {}
+    _visited.add(pair)
+
+    field_diffs: dict[str, Any] = {}
+
+    for field_name in obj.model_fields:
+        val = getattr(obj, field_name, None)
+        other_val = getattr(other_obj, field_name, None)
+
+        # Nested BusinessModel → recurse
+        if isinstance(val, BusinessModel) and isinstance(other_val, BusinessModel):
+            nested_diffs = diff_business_model(val, other_val, _visited)
+            if nested_diffs:
+                field_diffs[field_name] = {
+                    "type": "nested",
+                    "object_name": val.name,
+                    "diffs": nested_diffs,
+                }
+        elif isinstance(val, list) and isinstance(other_val, list):
+            diff = diff_lists(val, other_val, _visited)
+            if diff:
+                field_diffs[field_name] = diff
+        else:
+            diff = diff_on_other_than_business_model(val, other_val, _visited)
+            if diff:
+                field_diffs[field_name] = diff
+
+    return field_diffs
+
+
+def diff_on_other_than_business_model(
+    val: Any, other_val: Any, _visited: set[tuple[int, int]] | None = None
+) -> dict[str, Any] | None:
+    if isinstance(val, list) and isinstance(other_val, list):
+        return diff_lists(val, other_val, _visited)
+
+    elif isinstance(val, str | int | float | bool):
+        try:
+            if val != other_val:
+                return {"self": val, "other": other_val}
+        except Exception:
+            return {"self": str(val), "other": str(other_val)}
+    elif hasattr(val, "equals") and hasattr(other_val, "equals"):
+        try:
+            if not val.equals(other_val):
+                return {"changed": "not-serializable yet"}
+        except Exception:
+            return {"error": "Couldn't check diff"}
+    else:
+        try:
+            if val != other_val:
+                return {"changed": "not-serializable yet"}
+        except Exception:
+            return {"error": "Couldn't check diff"}
+    return None
+
+
+def diff_lists(
+    _list: list,
+    other_list: list,
+    _visited: set[tuple[int, int]] | None = None,
+) -> dict[str, Any] | None:
+    if len(_list) != len(other_list):
+        return {
+            "type": "list_length",
+            "self": len(_list),
+            "other": len(other_list),
+        }
+
+    diffs = {}
+    for i, (a, b) in enumerate(zip(_list, other_list, strict=True)):
+        if isinstance(a, BusinessModel) and isinstance(b, BusinessModel):
+            nested_diffs = diff_business_model(a, b, _visited)
+            if nested_diffs:
+                diffs[str(i)] = {
+                    "type": "nested",
+                    "object_name": a.name,
+                    "diffs": nested_diffs,
+                }
+        else:
+            try:
+                diff = diff_on_other_than_business_model(a, b, _visited)
+                if diff:
+                    diffs[str(i)] = diff
+            except Exception:
+                diffs[str(i)] = {"error": "Couldn't check diff"}
+    return diffs if diffs else None
+
+
+def deep_update(base: dict, updates: dict, override: bool):
+    """
+    Similar to function update from dictionary but works with nested dictionaries.
+    If override is True, any value in dictionary base will be overwritten.
+    Otherwise, all value in dictionary base will stay intact.
+    """
+    for key, value in updates.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            deep_update(base[key], value, override)
+        elif override or key not in base:
+            base[key] = copy.copy(value)

@@ -60,6 +60,7 @@ plugins:
             unwrap_annotated: true
 
 markdown_extensions:
+  - admonition
   - pymdownx.details
   - pymdownx.superfences
   - pymdownx.arithmatex:
@@ -97,48 +98,59 @@ nav:
     - Welcome to Atlas: index.md
     - Changelog: changelog.md
     - Authors: authors.md
-  - Getting Started:
+  - Use Atlas:
     - Installation: getting_started/getting_started.md
-    - Quick Start Tutorial: getting_started/quickstart.md
+    - Quickstart (5 min): getting_started/quickstart.md
     - Your First Simulation: getting_started/first-simulation.md
-  - User Guide:
-    - With Command lines: cli.md
-    - In Python Usage: modules/running-modules.md
-    - Module Pattern: modules/module-pattern.md
+    - Running Atlas:
+      - CLI: cli.md
+      - Python API: modules/running-modules.md
+      - Workflows: modules/workflow.md
+      - Profiling: profiling.md
     - Common Parameters: modules/common-parameters.md
+    - Examples:
+      - AtlasDataset: examples/atlas_dataset.md
+      - Timeseries: examples/timeseries.md
+      - Matrix: examples/matrix.md
+      - OptimisationModel: examples/optimisation_model.md
   - Modules:
     - Overview: modules/index.md
     - Portfolio Optimisation:
       - Overview: modules/portfolio-optimisation/index.md
       - User Guide:
         - Overview: modules/portfolio-optimisation/user-guide/overview.md
-        - Parameters: modules/portfolio-optimisation/user-guide/input-data.md
-        - Running: modules/portfolio-optimisation/user-guide/running.md
+        - Parameters: modules/portfolio-optimisation/user-guide/parameters.md
         - Results: modules/portfolio-optimisation/user-guide/results.md
         - Examples: modules/portfolio-optimisation/user-guide/examples.md
-      - Developer:
-        - Architecture: modules/portfolio-optimisation/developer/architecture.md
     - Market Clearing:
       - Overview: modules/market-clearing/index.md
       - User Guide:
         - Overview: modules/market-clearing/user-guide/overview.md
-        - Parameters: modules/market-clearing/user-guide/input-data.md
-        - Running: modules/market-clearing/user-guide/running.md
-      - Developer:
-        - Architecture: modules/market-clearing/developer/architecture.md
+        - Parameters: modules/market-clearing/user-guide/parameters.md
+        - Results: modules/market-clearing/user-guide/results.md
     - Day-Ahead Orders:
-        - Overview: modules/day-ahead-orders/index.md
-        - User Guide:
-            - Overview: modules/day-ahead-orders/user-guide/overview.md
-            - Parameters: modules/day-ahead-orders/user-guide/input-data.md
-            - Running: modules/day-ahead-orders/user-guide/running.md
-        - Developer:
-            - Architecture: modules/day-ahead-orders/developer/architecture.md
-  - Examples:
-    - AtlasDataset: examples/atlas_dataset.md
-    - Timeseries: examples/timeseries.md
-    - Matrix: examples/matrix.md
-    - OptimisationModel: examples/optimisation_model.md
+      - Overview: modules/day-ahead-orders/index.md
+      - User Guide:
+        - Overview: modules/day-ahead-orders/user-guide/overview.md
+        - Parameters: modules/day-ahead-orders/user-guide/parameters.md
+        - Results: modules/day-ahead-orders/user-guide/results.md
+    - Intraday Price Forecast:
+      - Overview: modules/intraday-price-forecast/index.md
+      - User Guide:
+        - Overview: modules/intraday-price-forecast/user-guide/overview.md
+        - Parameters: modules/intraday-price-forecast/user-guide/parameters.md
+        - Results: modules/intraday-price-forecast/user-guide/results.md
+  - Develop:
+    - Data Model: data-model.md
+    - Module Pattern: modules/module-pattern.md
+    - Implementing a Module: implementing-a-module.md
+    - Module Architecture:
+      - Portfolio Optimisation: modules/portfolio-optimisation/developer/architecture.md
+      - Market Clearing: modules/market-clearing/developer/architecture.md
+      - Day-Ahead Orders: modules/day-ahead-orders/developer/architecture.md
+      - Intraday Price Forecast: modules/intraday-price-forecast/developer/architecture.md
+    - Contributing: contributing.md
+    - Release Process: release_process.md
   - API Reference:
     - Overview: api/index.md
     - Math Objects:
@@ -150,20 +162,38 @@ nav:
     - I/O:
       - AtlasDataset: api/io/atlas_dataset.md
     - Models:
-      - Equipement: api/models/equipment.md
-      - Market: api/models/market.md
+      - equipment/:
+        - Equipment: api/models/equipment/equipment.md
+        - Thermal: api/models/equipment/thermal.md
+        - Hydro: api/models/equipment/hydro.md
+        - Solar: api/models/equipment/solar.md
+        - Wind: api/models/equipment/wind.md
+        - Storage: api/models/equipment/storage.md
+        - Load: api/models/equipment/load.md
+        - OtherNonDispatchable: api/models/equipment/other_non_dispatchable.md
+      - market/:
+        - MarketArea: api/models/market/market_area.md
+        - MarketBorder: api/models/market/market_border.md
+        - Order: api/models/market/order.md
+        - OrderCoupling: api/models/market/order_coupling.md
+        - CriticalBranch: api/models/market/critical_branch.md
+        - MarketAreaPtdf: api/models/market/market_area_ptdf.md
+        - NodePtdf: api/models/market/node_ptdf.md
+      - market_operator/:
+        - Portfolio: api/models/market_operator/portfolio.md
+      - network/:
+        - Node: api/models/network/node.md
+      - network_operator/:
+        - ControlBlock: api/models/network_operator/control_block.md
     - Workflows:
       - Workflow: api/workflow/workflow.md
       - Workflow step: api/workflow/workflow_step.md
     - Optimisation:
       - Solver Interface: api/solver/interface.md
-      - Other : api/solver/models.md
+      - Other: api/solver/models.md
     - Others:
       - Enum: api/enum.md
       - Logging: api/logging.md
-  - Development:
-    - Contributing: contributing.md
-    - Release Process: release_process.md
 
 extra:
   version:
@@ -175,4 +205,4 @@ extra:
   generator: true
 
 
-copyright: Copyright &copy; 2024 - Rte
+copyright: Copyright &copy; 2026 - Rte

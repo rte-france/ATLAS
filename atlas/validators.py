@@ -10,7 +10,7 @@ from typing import Any
 
 import pendulum
 
-from atlas.models.business_model import BusinessModel
+from atlas.objects.business_model import BusinessModel
 from atlas.timing import parse_frequency
 
 

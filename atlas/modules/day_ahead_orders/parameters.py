@@ -6,37 +6,26 @@ This file is part of the ATLAS project.
 """
 
 from functools import cached_property
-from pathlib import Path
 
-from pendulum import DateTime, Duration
-from pydantic import Field, field_validator
+from pendulum import DateTime
+from pydantic import Field
 
-from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.validators import convert_to_duration
+from atlas.abstract_class.parameters import AbstractModuleParameters
+from atlas.io_utils.parameters import (
+    MultiProcessingParameters,
+    SolverParameters,
+)
 
 
-class DayAheadOrdersParameters(AbstractParameters):
-    export_lp_path: Path = Field(
-        Path("DAO_lp_exports"),
-        description="Optional parameter to choose an output folder in the folder where the LPs will be exported.",
-    )
-    export_lp: bool = Field(False, description="Boolean indicating if the LP model should be exported to a file.")
+class DayAheadOrdersParameters(AbstractModuleParameters):
+    solver: SolverParameters = SolverParameters()  # type: ignore[call-arg]
+
+    multiprocessing: MultiProcessingParameters = MultiProcessingParameters()
+
     proportional_reserves_penalty: bool = Field(
         True,
         description="A boolean indicating whether the amount of reserves offered is flexible, resulting in a "
         "proportional penalty priced to the market",
-    )
-    use_presolve: bool = Field(
-        True,
-        description="Boolean indicating if a presolve step is desired or not before solving the optimization program.",
-    )
-    use_multiprocessing: bool = Field(
-        False,
-        description="If True, use multiprocessing for parallel storage and thermal optimization. If False, use sequential for loop.",
-    )
-    max_workers: int | None = Field(
-        None,
-        description="Maximum number of parallel processes for equipment optimization. None defaults to CPU count. Only used if use_multiprocessing is True.",
     )
     automated_unprocured_reserves_penalty: float = Field(
         10000,
@@ -82,7 +71,6 @@ class DayAheadOrdersParameters(AbstractParameters):
         description="Coefficient used to determine the extra cost of each power fragment in the optimization problem "
         "related to the Storage instances with the type PumpedHydraulicStorage.",
     )
-    solver_duality_gap: float = Field(0.0001, description="duality gap used for the optimization.")
     battery_nb_fragments: int = Field(
         3,
         description="Number of orders that can be formulated at one timestep for the optimization problem related to "
@@ -98,12 +86,6 @@ class DayAheadOrdersParameters(AbstractParameters):
         description="Number of orders that can be formulated at one timestep for the optimization problem related to "
         "the Storage instances with the type PumpedHydraulicStorage.",
     )
-    solver_timeout: Duration = Field(
-        default_factory=lambda: Duration(minutes=4), description="Timeout of the optimization."
-    )
-    timestep: Duration = Field(
-        default_factory=lambda: Duration(minutes=60), description="Discretization step of the simulated time interval"
-    )
     price_forecasts_types: list[str] = Field(
         ["Medium", "High", "Low"],
         description="List of available PriceForecasts in the input data, separated by ';'. The default value should "
@@ -112,14 +94,4 @@ class DayAheadOrdersParameters(AbstractParameters):
 
     @cached_property
     def penultimate_date(self) -> DateTime:
-        return self.end_date - self.timestep
-
-    @field_validator(
-        "timestep",
-        "solver_timeout",
-        mode="before",
-    )
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
+        return self.temporal.end_date - self.temporal.timestep

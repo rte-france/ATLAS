@@ -8,7 +8,7 @@ import json
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.models.market_border import DEFAULT_MAX_FLOW, DEFAULT_MIN_FLOW
+from atlas.modules.market_clearing.input_objects.market_border import DEFAULT_MAX_FLOW, DEFAULT_MIN_FLOW
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
@@ -16,17 +16,18 @@ from atlas.solver.solver_interface import OptimisationModel
 
 class ExchangesFixing(OptimisationModel):
     def __init__(self, input_dataset: MarketClearingInputDataset, parameters: MarketClearingParameters):
-        solver_option = SolverOptions(presolve=parameters.use_presolve)
-        super().__init__(parameters.solver_name, options=solver_option)
+        solver_options = SolverOptions(presolve=parameters.solver.use_presolve)
+
+        super().__init__(parameters.solver.solver_name, options=solver_options, name="ExchangesFixing")
         self.input_dataset = input_dataset
         self.parameters = parameters
         self.exchange_fixing = None
 
-    def run(self, clearing_local_balances: dict[tuple[str, int], float]):
+    def compute(self, clearing_local_balances: dict[tuple[str, int], float]):
         self.build(clearing_local_balances)
         self.solve()
-        if self.parameters.export_lp:
-            output_path = self.parameters.output_path
+        if self.parameters.solver.export_lp:
+            output_path = self.parameters.get_output_dir() / "lp_export"
             output_path.mkdir(parents=True, exist_ok=True)
             self.export_model(str(output_path / "exchanges_fixing_model.lp"))
 
@@ -262,14 +263,16 @@ class ExchangesFixing(OptimisationModel):
     def create_borders_exchanges_constraints(self):
         for time_index, _time in enumerate(self.input_dataset.times):
             for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-                if mc_border.time_resolution > self.parameters.timestep:
-                    time_elapsed = _time - self.parameters.start_date
+                if mc_border.time_resolution > self.parameters.temporal.timestep:
+                    time_elapsed = _time - self.parameters.temporal.start_date
                     # % and / have same precedence => parsed left to right
                     res_offset = (
-                        time_elapsed.minutes % mc_border.time_resolution / self.parameters.timestep.total_minutes()
+                        time_elapsed.minutes
+                        % mc_border.time_resolution
+                        / self.parameters.temporal.timestep.total_minutes()
                     )
                     if res_offset != 0:
-                        precedent_time_index = res_offset * self.parameters.timestep.total_minutes()
+                        precedent_time_index = res_offset * self.parameters.temporal.timestep.total_minutes()
                         self.add_constraint(
                             self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
                             == self.get_variable(

@@ -193,7 +193,6 @@ def test_delete_non_existing(sample_polars_df):
 
 def test_delete_all_scenarios(sample_polars_df):
     matrix = ScenarioMatrix(sample_polars_df)
-    initial_count = len(matrix.indexes)
 
     # Delete all scenarios
     for index in matrix.indexes.copy():
@@ -287,7 +286,7 @@ def test_from_file_with_invalid_schema(tmp_path):
     with pytest.raises(
         ValueError, match="ScenarioMatrix must have N columns one for datetime and N-1 for numerical values"
     ):
-        matrix = ScenarioMatrix(df)
+        ScenarioMatrix(df)
 
 
 def test_to_file_csv(tmp_path, sample_polars_df):
@@ -621,3 +620,77 @@ def test_matrix_set_frequency_empty():
 
     assert result.matrix.shape[0] == 0
     assert len(result.indexes) == 1  # Has scenario1 column
+
+
+# ============================================================
+# inplace parameter
+# ============================================================
+
+
+class TestInplace:
+    @pytest.fixture
+    def matrix(self, sample_polars_df):
+        return ScenarioMatrix(sample_polars_df)
+
+    @pytest.fixture
+    def new_ts(self):
+        return Timeseries(
+            pl.DataFrame(
+                {
+                    "time": pd.date_range(start="2025-01-01", periods=3, freq="D"),
+                    "value": [100, 200, 300],
+                }
+            )
+        )
+
+    def test_add_not_inplace_returns_new_matrix(self, matrix, new_ts):
+        result = matrix.add(new_ts, "scenario3", inplace=False)
+        assert isinstance(result, ScenarioMatrix)
+        assert "scenario3" in result.indexes
+        assert "scenario3" not in matrix.indexes
+
+    def test_add_not_inplace_preserves_original_data(self, matrix, new_ts):
+        original_indexes = matrix.indexes.copy()
+        matrix.add(new_ts, "scenario3", inplace=False)
+        assert matrix.indexes == original_indexes
+
+    def test_add_inplace_returns_self(self, matrix, new_ts):
+        result = matrix.add(new_ts, "scenario3", inplace=True)
+        assert result is matrix
+        assert "scenario3" in matrix.indexes
+        assert matrix["scenario3"].to_frame()["value"].to_list() == [100, 200, 300]
+
+    def test_delete_not_inplace_returns_new_matrix(self, matrix):
+        result = matrix.delete("scenario1", inplace=False)
+        assert isinstance(result, ScenarioMatrix)
+        assert "scenario1" not in result.indexes
+        assert "scenario1" in matrix.indexes
+
+    def test_delete_not_inplace_preserves_other_indexes(self, matrix):
+        result = matrix.delete("scenario1", inplace=False)
+        assert "scenario2" in result.indexes
+        assert len(result.indexes) == 1
+
+    def test_delete_inplace_returns_self(self, matrix):
+        result = matrix.delete("scenario1", inplace=True)
+        assert result is matrix
+        assert "scenario1" not in matrix.indexes
+
+    def test_replace_not_inplace_returns_new_matrix(self, matrix, new_ts):
+        result = matrix.replace("scenario1", new_ts, inplace=False)
+        assert isinstance(result, ScenarioMatrix)
+        assert "scenario1" in result.indexes
+
+    def test_replace_not_inplace_original_data_unchanged(self, matrix, new_ts):
+        original_values = matrix["scenario1"].to_frame()["value"].to_list()
+        matrix.replace("scenario1", new_ts, inplace=False)
+        assert matrix["scenario1"].to_frame()["value"].to_list() == original_values
+
+    def test_replace_not_inplace_result_has_new_data(self, matrix, new_ts):
+        result = matrix.replace("scenario1", new_ts, inplace=False)
+        assert result["scenario1"].to_frame()["value"].to_list() == [100, 200, 300]
+
+    def test_replace_inplace_returns_self(self, matrix, new_ts):
+        result = matrix.replace("scenario1", new_ts, inplace=True)
+        assert result is matrix
+        assert matrix["scenario1"].to_frame()["value"].to_list() == [100, 200, 300]

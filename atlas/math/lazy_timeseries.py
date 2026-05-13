@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Generator
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import pendulum
@@ -452,33 +452,24 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         lf = resampled_ts.to_lazy()
         return self._return(lf, inplace)
 
-    def first_date(self) -> pendulum.DateTime | None:
-        """
-        Return the first date in the LazyTimeseries index.
+    def _row_at(self, index: int) -> dict:
+        if index >= 0:
+            result = self.timeseries.slice(index, 1).collect()
+            if result.height == 0:
+                raise IndexError(f"index {index} is out of bounds")
+        else:
+            tail_n = -index
+            result = self.timeseries.tail(tail_n).collect()
+            if result.height < tail_n:
+                raise IndexError(f"index {index} is out of bounds for timeseries of length {result.height}")
+            result = result.head(1)
+        return result.row(0, named=True)
 
-        This operation only collects the first row's timestamp, not the entire dataset.
+    def get_by_index(self, index: int) -> float:
+        return cast(float, self._row_at(index)["value"])
 
-        :return: The first date in the Timeseries index
-        :rtype: pendulum.DateTime or None
-        """
-        result = self.timeseries.select("time").head(1).collect()
-        if result.height > 0:
-            return pendulum.instance(result.item())
-        return None
-
-    def last_date(self) -> pendulum.DateTime | None:
-        """
-        Return the last date in the LazyTimeseries index.
-
-        This operation only collects the last row's timestamp, not the entire dataset.
-
-        :return: The last date in the Timeseries index
-        :rtype: pendulum.DateTime or None
-        """
-        result = self.timeseries.select("time").tail(1).collect()
-        if result.height > 0:
-            return pendulum.instance(result.item())
-        return None
+    def get_time_by_index(self, index: int) -> pendulum.DateTime:
+        return pendulum.instance(self._row_at(index)["time"])
 
     def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
         """

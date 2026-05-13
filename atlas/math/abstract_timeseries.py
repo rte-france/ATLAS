@@ -39,6 +39,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
     timezone: str
     frequency: pendulum.Duration
     timeseries: TBackend
+    _lookup_cache: dict | None
 
     @abstractmethod
     def _get_data(self) -> TBackend:
@@ -266,14 +267,36 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         ...
 
     @abstractmethod
-    def first_date(self) -> pendulum.DateTime | None:
-        """Return the first date in the Timeseries index."""
+    def get_by_index(self, index: int) -> float:
+        """Return the value at numeric position index. Index is zero-based; supports negative indexing (-1 = last).
+
+        :raises IndexError: if index is out of bounds.
+        """
         ...
 
     @abstractmethod
-    def last_date(self) -> pendulum.DateTime | None:
-        """Return the last date in the Timeseries index."""
+    def get_time_by_index(self, index: int) -> pendulum.DateTime:
+        """Return the timestamp at numeric position index. Index is zero-based; supports negative indexing (-1 = last).
+
+        :raises IndexError: if index is out of bounds.
+        """
         ...
+
+    def first_date(self) -> pendulum.DateTime:
+        """Return the first date in the Timeseries index."""
+        return self.get_time_by_index(0)
+
+    def last_date(self) -> pendulum.DateTime:
+        """Return the last date in the Timeseries index."""
+        return self.get_time_by_index(-1)
+
+    def first_value(self) -> float:
+        """Return the first value in the Timeseries."""
+        return self.get_by_index(0)
+
+    def last_value(self) -> float:
+        """Return the last value in the Timeseries."""
+        return self.get_by_index(-1)
 
     @abstractmethod
     def get_value(
@@ -385,6 +408,102 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         backend = self._get_data()
         result = backend.with_columns(pl.col("value").round(rounding_precision, mode))
         return self._return(result, inplace)
+
+    def clip(
+        self,
+        lower_bound: AbstractTimeseries | float | None = None,
+        upper_bound: AbstractTimeseries | float | None = None,
+        inplace: bool = True,
+    ) -> Self:
+        """Clip values to [lower_bound, upper_bound].
+
+        Bounds can be scalars or other Timeseries (pointwise clipping). For Timeseries
+        bounds, alignment is done by left-join on the `time` column: rows missing in the
+        bound are left unclipped on that side. To force a default for missing entries,
+        pre-align the bound with :meth:`reindex`.
+
+        :param lower_bound: Minimum value; values below are set to this, defaults to None (no lower clipping)
+        :type lower_bound: AbstractTimeseries | float | None, optional
+        :param upper_bound: Maximum value; values above are set to this, defaults to None (no upper clipping)
+        :type upper_bound: AbstractTimeseries | float | None, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: Clipped timeseries
+        :rtype: Self
+        """
+        backend = self._get_data()
+        backend_is_lazy = isinstance(backend, pl.LazyFrame)
+        drop_cols: list[str] = []
+
+        for bound, alias in [(lower_bound, "_clip_lower"), (upper_bound, "_clip_upper")]:
+            if isinstance(bound, AbstractTimeseries):
+                bound_frame = bound._get_data().select("time", pl.col("value").alias(alias))
+                if backend_is_lazy and isinstance(bound_frame, pl.DataFrame):
+                    bound_frame = bound_frame.lazy()
+                elif not backend_is_lazy and isinstance(bound_frame, pl.LazyFrame):
+                    bound_frame = bound_frame.collect()
+                backend = backend.join(bound_frame, on="time", how="left")
+                drop_cols.append(alias)
+
+        lower_expr = pl.col("_clip_lower") if isinstance(lower_bound, AbstractTimeseries) else lower_bound
+        upper_expr = pl.col("_clip_upper") if isinstance(upper_bound, AbstractTimeseries) else upper_bound
+
+        backend = backend.with_columns(pl.col("value").clip(lower_expr, upper_expr))
+        if drop_cols:
+            backend = backend.drop(drop_cols)
+        return self._return(backend, inplace)
+
+    def reindex(
+        self,
+        times: AbstractTimeseries | pl.Series | list[datetime] | list[pendulum.DateTime] | list[str],
+        default: float = 0.0,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        inplace: bool = True,
+    ) -> Self:
+        """Align the timeseries on a target time index, filling missing entries with `default`.
+
+        Times present in `times` but missing in self get `default`; times in self but
+        not in `times` are dropped. Use this to align a sparse source onto a known
+        grid before pointwise operations like :meth:`clip` or arithmetic.
+
+        :param times: Target index — another Timeseries (its time column is used), a
+            polars Series of datetimes, or a list of datetime / pendulum.DateTime / str.
+        :param default: Value used for rows missing from self, defaults to 0.0
+        :param date_format: Date format string for parsing string entries, defaults to
+            "YYYY-MM-DD HH:mm:ss"
+        :param inplace: Whether to modify the current instance, defaults to True
+        :return: Reindexed timeseries
+        :rtype: Self
+        """
+        backend = self._get_data()
+        target = self._times_to_frame(times, type(backend), date_format)
+        result = target.join(backend.select("time", "value"), on="time", how="left").with_columns(  # type: ignore [arg-type]
+            pl.col("value").fill_null(default)
+        )
+        return self._return(result, inplace)  # type: ignore [arg-type]
+
+    def _times_to_frame(
+        self,
+        times: AbstractTimeseries | pl.Series | list,
+        backend_type: type,
+        date_format: str,
+    ) -> pl.DataFrame | pl.LazyFrame:
+        """Convert a flexible time-index input into a single-column frame matching the backend type."""
+        want_lazy = backend_type is pl.LazyFrame
+        if isinstance(times, AbstractTimeseries):
+            frame = times._get_data().select("time")
+        elif isinstance(times, pl.Series):
+            frame = pl.DataFrame({"time": times})
+        else:
+            frame = pl.DataFrame(
+                {"time": times},
+                schema={"time": pl.Datetime("us", time_zone=self.timezone)},
+            )
+        if want_lazy and isinstance(frame, pl.DataFrame):
+            return frame.lazy()
+        if not want_lazy and isinstance(frame, pl.LazyFrame):
+            return frame.collect()
+        return frame
 
     @abstractmethod
     def set_frequency(self, frequency: str | pendulum.Duration, inplace: bool = True) -> Self:
@@ -640,6 +759,20 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         :rtype: Generator[tuple[datetime, float], None, None]
         """
         ...
+
+    def to_lookup_dict(self) -> dict:
+        """Build a {time: value} dict for O(1) lookups."""
+        return self._get_lookup()
+
+    def _get_lookup(self) -> dict:
+        """Return cached {time: value} dict, building it on first call."""
+        if not hasattr(self, "_lookup_cache") or self._lookup_cache is None:
+            self._lookup_cache = dict(self.iter_rows())
+        return self._lookup_cache
+
+    def _invalidate_cache(self) -> None:
+        """Invalidate the lookup cache. Must be called whenever the underlying data changes."""
+        self._lookup_cache = None
 
     @abstractmethod
     def __repr__(self) -> str:
