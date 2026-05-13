@@ -251,18 +251,15 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
                 parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
             )
 
-            # If required in the parameters, provide detailed log
-            if parameters.verbose:
-                cfg.logger.info(f"Formulating Thermic orders for unit {equipment.name}")
+            cfg.logger.info(f"Formulating thermal orders for unit {equipment.name}")
 
             # Create the orders for each sequence.
             # NB : By construction, each sequence is a list of consecutive dates separated
             # by TimeStep with the same desired variation of planning
             for window in list_of_delta_sequences:
-                if parameters.verbose:
-                    cfg.logger.info(
-                        f"Formulating Thermic orders for unit {equipment.name} between {window.first_date()} and {window.last_date()} for case {window.window_type.value}"
-                    )
+                cfg.logger.info(
+                    f"Formulating thermal orders for unit {equipment.name} between {window.first_date()} and {window.last_date()} for case {window.window_type.value}"
+                )
 
                 number_of_indexes = len(window.index)
 
@@ -603,10 +600,9 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
                 maximum_power = equipment.maximum_power.get_value(t)
 
                 if maximum_power == 0.0 or maximum_power < minimum_power:
-                    if parameters.verbose:
-                        cfg.logger.warning(
-                            f"Maximum power of unit {equipment.name} is null or lower than minimum power at time {str(t)}. No order will therefore be created."
-                        )
+                    cfg.logger.warning(
+                        f"Maximum power of unit {equipment.name} is null or lower than minimum power at time {str(t)}. No order will therefore be created."
+                    )
                     continue
 
                 generate_inflexible_order = minimum_power > 0

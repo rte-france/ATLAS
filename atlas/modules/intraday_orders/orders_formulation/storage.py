@@ -109,9 +109,7 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[Storage]):
         )
         previous_planning = equipment.da_cleared_quantity + equipment.total_id_cleared_quantity
 
-        # If required in the parameters, provide detailed log
-        if parameters.verbose:
-            cfg.logger.info(f"Formulating storage orders for unit {equipment.name}")
+        cfg.logger.info(f"Formulating storage orders for unit {equipment.name}")
 
         daily_buy_quantity = 0.0
         daily_sell_quantity = 0.0
