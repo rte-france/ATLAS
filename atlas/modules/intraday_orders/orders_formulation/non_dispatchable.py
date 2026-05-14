@@ -7,20 +7,21 @@ This file is part of the ATLAS project.
 
 from pendulum import DateTime
 
-from atlas import OtherNonDispatchable, Timeseries
+from atlas import Timeseries
 from atlas.enums import OrderType
+from atlas.modules.intraday_orders.input_objects.other_non_dispatchable import OtherNonDispatchableIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
 
 
-class NonDispatchableOrdersFormulator(AbstractOrdersFormulator[OtherNonDispatchable]):
+class NonDispatchableOrdersFormulator(AbstractOrdersFormulator[OtherNonDispatchableIDO]):
     EQUIPMENT_TYPE_NAME = "non-dispatchable"
 
     def formulate_equipment_orders(
         self,
-        equipment: OtherNonDispatchable,
+        equipment: OtherNonDispatchableIDO,
         orders_timestamps: list[DateTime],
         buy_submitted_volume: Timeseries,
         sell_submitted_volume: Timeseries,

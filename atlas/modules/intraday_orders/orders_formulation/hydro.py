@@ -8,20 +8,21 @@ This file is part of the ATLAS project.
 import pendulum
 from pendulum import DateTime
 
-from atlas import Hydro, Timeseries
+from atlas import Timeseries
 from atlas.enums import OrderType
+from atlas.modules.intraday_orders.input_objects.hydro import HydroIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
 
 
-class HydroOrdersFormulator(AbstractOrdersFormulator[Hydro]):
+class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
     EQUIPMENT_TYPE_NAME = "hydraulic"
 
     def formulate_equipment_orders(
         self,
-        equipment: Hydro,
+        equipment: HydroIDO,
         orders_timestamps: list[DateTime],
         buy_submitted_volume: Timeseries,
         sell_submitted_volume: Timeseries,
@@ -127,7 +128,7 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[Hydro]):
         price: float,
         order_type: OrderType,
         dataset: IntradayOrdersOutputDataset,
-        equipment: Hydro,
+        equipment: HydroIDO,
         time: DateTime,
         parameters: IntradayOrdersParameters,
     ):

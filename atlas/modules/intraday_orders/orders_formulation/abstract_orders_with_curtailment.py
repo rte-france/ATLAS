@@ -9,14 +9,16 @@ from typing import TypeVar
 
 from pendulum import DateTime
 
-from atlas import Solar, Timeseries, Wind
+from atlas import Timeseries
 from atlas.enums import OrderType
+from atlas.modules.intraday_orders.input_objects.solar import SolarIDO
+from atlas.modules.intraday_orders.input_objects.wind import WindIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
 
-R = TypeVar("R", bound=Solar | Wind)
+R = TypeVar("R", bound=SolarIDO | WindIDO)
 
 
 class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):

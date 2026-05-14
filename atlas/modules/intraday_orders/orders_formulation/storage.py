@@ -8,8 +8,9 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import OrderCoupling, Storage, Timeseries
+from atlas import OrderCoupling, Timeseries
 from atlas.enums import ComplementDirection, CouplingType, OrderType, StorageType
+from atlas.modules.intraday_orders.input_objects.storage import StorageIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
@@ -17,7 +18,7 @@ from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_t
 
 
 def compute_initial_prices(
-    equipment: Storage, orders_timestamps: list[DateTime], parameters: IntradayOrdersParameters
+    equipment: StorageIDO, orders_timestamps: list[DateTime], parameters: IntradayOrdersParameters
 ) -> tuple[float, float]:
     min_sell_price = 9999.0
     max_buy_price = 0.0
@@ -90,12 +91,12 @@ def compute_initial_prices(
     return final_sell_price, final_buy_price
 
 
-class StorageOrdersFormulator(AbstractOrdersFormulator[Storage]):
+class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
     EQUIPMENT_TYPE_NAME = "storage"
 
     def formulate_equipment_orders(
         self,
-        equipment: Storage,
+        equipment: StorageIDO,
         orders_timestamps: list[DateTime],
         buy_submitted_volume: Timeseries,
         sell_submitted_volume: Timeseries,

@@ -9,11 +9,25 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from atlas import Hydro, Load, OrderCoupling, OtherNonDispatchable, Solar, Storage, Thermal, Wind
+from atlas import OrderCoupling
 from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.enums import ThermalStrategy
+from atlas.modules.intraday_orders.input_objects.hydro import HydroIDO
+from atlas.modules.intraday_orders.input_objects.load import LoadIDO
+from atlas.modules.intraday_orders.input_objects.other_non_dispatchable import OtherNonDispatchableIDO
+from atlas.modules.intraday_orders.input_objects.solar import SolarIDO
+from atlas.modules.intraday_orders.input_objects.storage import StorageIDO
+from atlas.modules.intraday_orders.input_objects.thermal import ThermalIDO
+from atlas.modules.intraday_orders.input_objects.wind import WindIDO
 from atlas.modules.intraday_orders.models.order import IntraDayOrder
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
+from atlas.objects.equipment.hydro import Hydro
+from atlas.objects.equipment.load import Load
+from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
+from atlas.objects.equipment.solar import Solar
+from atlas.objects.equipment.storage import Storage
+from atlas.objects.equipment.thermal import Thermal
+from atlas.objects.equipment.wind import Wind
 from atlas.orchestrator.change_set import AddObject, UpdateObject
 
 if TYPE_CHECKING:
@@ -26,13 +40,13 @@ class IntradayOrdersOutputDataset(AbstractModuleOutput[IntradayOrdersParameters]
         self.order: list[IntraDayOrder] = []
         self.order_coupling: list[OrderCoupling] = []
 
-        self.load: list[Load] = input_dataset.load
-        self.hydro: list[Hydro] = input_dataset.hydro
-        self.solar: list[Solar] = input_dataset.solar
-        self.wind: list[Wind] = input_dataset.wind
-        self.thermal: list[Thermal] = input_dataset.thermal
-        self.storage: list[Storage] = input_dataset.storage
-        self.other_non_dispatchable: list[OtherNonDispatchable] = input_dataset.other_non_dispatchable
+        self.load: list[LoadIDO] = input_dataset.load
+        self.hydro: list[HydroIDO] = input_dataset.hydro
+        self.solar: list[SolarIDO] = input_dataset.solar
+        self.wind: list[WindIDO] = input_dataset.wind
+        self.thermal: list[ThermalIDO] = input_dataset.thermal
+        self.storage: list[StorageIDO] = input_dataset.storage
+        self.other_non_dispatchable: list[OtherNonDispatchableIDO] = input_dataset.other_non_dispatchable
 
     def add_order(self, order: IntraDayOrder) -> None:
         self.order.append(order)

@@ -8,8 +8,9 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import OrderCoupling, Thermal, Timeseries
+from atlas import OrderCoupling, Timeseries
 from atlas.enums import CouplingType, OrderType, ThermalStrategy
+from atlas.modules.intraday_orders.input_objects.thermal import ThermalIDO
 from atlas.modules.intraday_orders.models.thermal_order_window import ThermalOrderWindow
 from atlas.modules.intraday_orders.models.window_type import WindowType
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
@@ -18,7 +19,7 @@ from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
 
 
-def compare_planning(equipment: Thermal, orders_timestamps: list[DateTime], parameters: IntradayOrdersParameters):
+def compare_planning(equipment: ThermalIDO, orders_timestamps: list[DateTime], parameters: IntradayOrdersParameters):
     """
     TODO: rewrite docstring properly
     For a given unit, compare the latest generation planning and to the new one resulting from an optimization
@@ -78,7 +79,7 @@ def compare_planning(equipment: Thermal, orders_timestamps: list[DateTime], para
 
 
 def extract_sequences_from_delta_planning(
-    equipment: Thermal, delta_planning: Timeseries, orders_time: list[DateTime], parameters: IntradayOrdersParameters
+    equipment: ThermalIDO, delta_planning: Timeseries, orders_time: list[DateTime], parameters: IntradayOrdersParameters
 ) -> list[ThermalOrderWindow]:
     """
     TODO: rewrite docstring properly
@@ -224,12 +225,12 @@ def extract_sequences_from_delta_planning(
     return list_of_delta_sequences
 
 
-class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
+class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
     EQUIPMENT_TYPE_NAME = "thermal"
 
     def formulate_equipment_orders(
         self,
-        equipment: Thermal,
+        equipment: ThermalIDO,
         orders_timestamps: list[DateTime],
         buy_submitted_volume: Timeseries,
         sell_submitted_volume: Timeseries,

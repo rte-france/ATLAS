@@ -7,20 +7,21 @@ This file is part of the ATLAS project.
 
 from pendulum import DateTime
 
-from atlas import Load, Timeseries
+from atlas import Timeseries
 from atlas.enums import LoadType, OrderType
+from atlas.modules.intraday_orders.input_objects.load import LoadIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
 
 
-class LoadOrdersFormulator(AbstractOrdersFormulator[Load]):
+class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
     EQUIPMENT_TYPE_NAME = "load"
 
     def formulate_equipment_orders(
         self,
-        equipment: Load,
+        equipment: LoadIDO,
         orders_timestamps: list[DateTime],
         buy_submitted_volume: Timeseries,
         sell_submitted_volume: Timeseries,
@@ -98,7 +99,7 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[Load]):
 
     def build_offer(
         self,
-        equipment: Load,
+        equipment: LoadIDO,
         price: float,
         qmax: float,
         order_type: OrderType,
