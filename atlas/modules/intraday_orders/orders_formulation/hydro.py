@@ -14,7 +14,7 @@ from atlas.modules.intraday_orders.input_objects.hydro import HydroIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
+from atlas.modules.intraday_orders.utils import build_intraday_order
 
 
 class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
@@ -133,7 +133,7 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
         parameters: IntradayOrdersParameters,
     ):
         if volume > parameters.allowed_round_off_error:
-            bid_name = f"ID_hydraulic_{order_type}_fragment_{str(volume)}_at_{get_date_to_clean_string(time)}_for_unit_{equipment.name}_{get_date_to_clean_string(parameters.temporal.execution_date)}"
+            bid_name = f"ID_hydraulic_{order_type}_fragment_{str(volume)}_at_{time.format('YYYY_MM_DD_HH_mm_ss')}_for_unit_{equipment.name}_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}"
             bid_output = build_intraday_order(equipment, bid_name, price, 0.0, volume, order_type, time, parameters)
             dataset.add_order(bid_output)
 

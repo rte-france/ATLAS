@@ -13,7 +13,7 @@ from atlas.modules.intraday_orders.input_objects.load import LoadIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
+from atlas.modules.intraday_orders.utils import build_intraday_order
 
 
 class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
@@ -106,7 +106,7 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
         time: DateTime,
         parameters: IntradayOrdersParameters,
     ):
-        bid_name = f"{order_type.value}_IDOrder_{get_date_to_clean_string(parameters.temporal.execution_date)}_{equipment.name}_{get_date_to_clean_string(time)}"
+        bid_name = f"{order_type.value}_IDOrder_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}_{equipment.name}_{time.format('YYYY_MM_DD_HH_mm_ss')}"
         return build_intraday_order(
             equipment,
             bid_name,

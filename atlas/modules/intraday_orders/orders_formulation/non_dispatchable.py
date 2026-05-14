@@ -13,7 +13,7 @@ from atlas.modules.intraday_orders.input_objects.other_non_dispatchable import O
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
+from atlas.modules.intraday_orders.utils import build_intraday_order
 
 
 class NonDispatchableOrdersFormulator(AbstractOrdersFormulator[OtherNonDispatchableIDO]):
@@ -49,7 +49,7 @@ class NonDispatchableOrdersFormulator(AbstractOrdersFormulator[OtherNonDispatcha
         # Now we loop over the time stamps for which we want an offer to be made.
         # We formulate as many offers as there are time stamps in orders_time.
         for t in orders_timestamps:
-            bid_name = f"otherND_IDOrder_{get_date_to_clean_string(parameters.temporal.execution_date)}_{equipment.name}_{get_date_to_clean_string(t)}"
+            bid_name = f"otherND_IDOrder_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}_{equipment.name}_{t.format('YYYY_MM_DD_HH_mm_ss')}"
 
             # Extract the desired production level
             production_value = production_forecast.get_value(t)

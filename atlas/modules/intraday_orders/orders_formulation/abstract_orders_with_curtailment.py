@@ -16,7 +16,7 @@ from atlas.modules.intraday_orders.input_objects.wind import WindIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
+from atlas.modules.intraday_orders.utils import build_intraday_order
 
 R = TypeVar("R", bound=SolarIDO | WindIDO)
 
@@ -64,14 +64,14 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
             curtailment_value = production_available_for_curtailment.get_value(t)
 
             bid_name = self.ORDER_NAME_TEMPLATE.format(
-                get_date_to_clean_string(parameters.temporal.execution_date),
+                parameters.temporal.execution_date.format("YYYY_MM_DD_HH_mm_ss"),
                 equipment.name,
-                get_date_to_clean_string(t),
+                t.format("YYYY_MM_DD_HH_mm_ss"),
             )
             curtailment_bid_name = self.CURTAILMENT_ORDER_NAME_TEMPLATE.format(
-                get_date_to_clean_string(parameters.temporal.execution_date),
+                parameters.temporal.execution_date.format("YYYY_MM_DD_HH_mm_ss"),
                 equipment.name,
-                get_date_to_clean_string(t),
+                t.format("YYYY_MM_DD_HH_mm_ss"),
             )
 
             # Curtailment

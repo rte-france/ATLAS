@@ -17,7 +17,7 @@ from atlas.modules.intraday_orders.models.window_type import WindowType
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
+from atlas.modules.intraday_orders.utils import build_intraday_order
 
 
 def compare_planning(equipment: ThermalIDO, orders_timestamps: list[DateTime], parameters: IntradayOrdersParameters):
@@ -491,7 +491,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                     #   Marginal cost to avoid to lose between its marginal cost and the RE
 
                     if q_max_flexible > parameters.allowed_round_off_error:
-                        order_name = f"ID_{get_date_to_clean_string(parameters.temporal.execution_date)}_{equipment.name}_{get_date_to_clean_string(t)}_flexible_{window.window_type.value}"
+                        order_name = f"ID_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}_{equipment.name}_{t.format('YYYY_MM_DD_HH_mm_ss')}_flexible_{window.window_type.value}"
                         bid_output = build_intraday_order(
                             equipment,
                             order_name,
@@ -510,7 +510,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                     # If Pmin>0 a second order -inflexible- is created to buy up to
                     # the whole Power (in the flexible part, it is limited by the Pmin)
                     if q_inflexible > parameters.allowed_round_off_error:
-                        order_name = f"ID_{get_date_to_clean_string(parameters.temporal.execution_date)}_{equipment.name}_{get_date_to_clean_string(t)}_inflexible_{window.window_type.value}"
+                        order_name = f"ID_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}_{equipment.name}_{t.format('YYYY_MM_DD_HH_mm_ss')}_inflexible_{window.window_type.value}"
                         bid_output = build_intraday_order(
                             equipment,
                             order_name,
@@ -529,7 +529,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                         if q_max_flexible > parameters.allowed_round_off_error:
                             dataset.add_order_coupling(
                                 OrderCoupling(
-                                    name=f"{coupling_type_flexible_inflexible}_ID_{equipment.name}_{get_date_to_clean_string(t)}_{window.window_type.value}_{get_date_to_clean_string(parameters.temporal.execution_date)}",
+                                    name=f"{coupling_type_flexible_inflexible}_ID_{equipment.name}_{t.format('YYYY_MM_DD_HH_mm_ss')}_{window.window_type.value}_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}",
                                     coupling_type=coupling_type_flexible_inflexible,
                                     orders=[bid_output, bid_flexible],
                                 )
@@ -548,7 +548,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                         _, next_bid = inflexible_bids[k + 1]
                         dataset.add_order_coupling(
                             OrderCoupling(
-                                name=f"PAR_CHIL_ID_{equipment.name}_{get_date_to_clean_string(ts)}_{window.window_type.value}_{get_date_to_clean_string(parameters.temporal.execution_date)}",
+                                name=f"PAR_CHIL_ID_{equipment.name}_{ts.format('YYYY_MM_DD_HH_mm_ss')}_{window.window_type.value}_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}",
                                 coupling_type=CouplingType.PARENT_CHILDREN,
                                 orders=[bid, next_bid],
                             )
@@ -557,7 +557,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                         ts, bid = inflexible_bids[-1]
                         dataset.add_order_coupling(
                             OrderCoupling(
-                                name=f"PAR_CHIL_ID_{equipment.name}_{get_date_to_clean_string(ts)}_{window.window_type.value}_{get_date_to_clean_string(parameters.temporal.execution_date)}",
+                                name=f"PAR_CHIL_ID_{equipment.name}_{ts.format('YYYY_MM_DD_HH_mm_ss')}_{window.window_type.value}_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}",
                                 coupling_type=CouplingType.PARENT_CHILDREN,
                                 orders=[bid, inflexible_bids[0][1]],
                             )
@@ -590,7 +590,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
 
                     # Create the inflex order instance
                     inflexible_bid_name = (
-                        f"ID_inflexible_order_Sell_at_{get_date_to_clean_string(t)}_for_unit_{equipment.name}"
+                        f"ID_inflexible_order_Sell_at_{t.format('YYYY_MM_DD_HH_mm_ss')}_for_unit_{equipment.name}"
                     )
                     inflexible_bid_output = build_intraday_order(
                         equipment,
@@ -609,7 +609,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                     q_max = maximum_power - minimum_power
                     if q_max > parameters.allowed_round_off_error:
                         flexible_bid_name = (
-                            f"ID_flexible_order_Sell_at_{get_date_to_clean_string(t)}_for_unit_{equipment.name}"
+                            f"ID_flexible_order_Sell_at_{t.format('YYYY_MM_DD_HH_mm_ss')}_for_unit_{equipment.name}"
                         )
                         flexible_bid_output = build_intraday_order(
                             equipment,
@@ -626,7 +626,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
 
                         dataset.add_order_coupling(
                             OrderCoupling(
-                                name=f"PARENT_CHILDREN_ID_inflexible_flexible_orders_Sell_at_{get_date_to_clean_string(t)}_for_unit_{equipment.name}",
+                                name=f"PARENT_CHILDREN_ID_inflexible_flexible_orders_Sell_at_{t.format('YYYY_MM_DD_HH_mm_ss')}_for_unit_{equipment.name}",
                                 coupling_type=CouplingType.PARENT_CHILDREN,
                                 orders=[inflexible_bid_output, flexible_bid_output],
                             )
@@ -636,7 +636,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
 
                     if q_max > parameters.allowed_round_off_error:
                         flexible_bid_name = (
-                            f"ID_flexible_order_Sell_at_{get_date_to_clean_string(t)}_for_unit_{equipment.name}"
+                            f"ID_flexible_order_Sell_at_{t.format('YYYY_MM_DD_HH_mm_ss')}_for_unit_{equipment.name}"
                         )
                         flexible_bid_output = build_intraday_order(
                             equipment,
@@ -655,7 +655,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                     q_max = pow_t - minimum_power
                     if q_max > parameters.allowed_round_off_error:
                         flexible_bid_name = (
-                            f"ID_flexible_order_Buy_at_{get_date_to_clean_string(t)}_for_unit_{equipment.name}"
+                            f"ID_flexible_order_Buy_at_{t.format('YYYY_MM_DD_HH_mm_ss')}_for_unit_{equipment.name}"
                         )
                         flexible_bid_output = build_intraday_order(
                             equipment,

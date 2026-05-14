@@ -14,7 +14,7 @@ from atlas.modules.intraday_orders.input_objects.storage import StorageIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
+from atlas.modules.intraday_orders.utils import build_intraday_order
 
 
 def compute_initial_prices(
@@ -136,7 +136,7 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
                 add_order_coupling_to_output = False
 
                 if previous_quantity - equipment.minimum_power.get_value(t) > parameters.allowed_round_off_error:
-                    order_name = f"ID_Buy_{get_date_to_clean_string(parameters.temporal.execution_date)}_{equipment.name}_{get_date_to_clean_string(t)}"
+                    order_name = f"ID_Buy_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}_{equipment.name}_{t.format('YYYY_MM_DD_HH_mm_ss')}"
                     order = build_intraday_order(
                         equipment,
                         order_name,
@@ -154,7 +154,7 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
                     buy_submitted_volume.sum_value_at(t, previous_quantity - equipment.minimum_power.get_value(t))
 
                 if equipment.maximum_power.get_value(t) - previous_quantity > parameters.allowed_round_off_error:
-                    order_name = f"ID_Sell_{get_date_to_clean_string(parameters.temporal.execution_date)}_{equipment.name}_{get_date_to_clean_string(t)}"
+                    order_name = f"ID_Sell_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}_{equipment.name}_{t.format('YYYY_MM_DD_HH_mm_ss')}"
                     order = build_intraday_order(
                         equipment,
                         order_name,
@@ -196,6 +196,6 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
 
                 # Creation of the order with the relevant parameters
                 if q_order > parameters.allowed_round_off_error:
-                    order_name = f"ID_{get_date_to_clean_string(parameters.temporal.execution_date)}_{equipment.name}_{get_date_to_clean_string(t)}"
+                    order_name = f"ID_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}_{equipment.name}_{t.format('YYYY_MM_DD_HH_mm_ss')}"
                     order = build_intraday_order(equipment, order_name, price, 0.0, q_order, order_type, t, parameters)
                     dataset.add_order(order)

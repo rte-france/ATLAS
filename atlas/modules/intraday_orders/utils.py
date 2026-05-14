@@ -13,15 +13,6 @@ from atlas.modules.intraday_orders.models.order import IntraDayOrder
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 
 
-def get_date_to_clean_string(date: DateTime):
-    """
-    Converts a datetime object to a string without special characters
-    """
-    string = str(date)
-    string = string.replace("/", "_").replace(":", "_").replace(" ", "_")
-    return string
-
-
 def build_intraday_order(
     equipment: Equipment,
     bid_name: str,
