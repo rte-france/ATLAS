@@ -11,6 +11,7 @@ import atlas.config as cfg
 from atlas import OrderCoupling, Timeseries
 from atlas.enums import CouplingType, OrderType, ThermalStrategy
 from atlas.modules.intraday_orders.input_objects.thermal import ThermalIDO
+from atlas.modules.intraday_orders.models.order import IntraDayOrder
 from atlas.modules.intraday_orders.models.thermal_order_window import ThermalOrderWindow
 from atlas.modules.intraday_orders.models.window_type import WindowType
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
@@ -385,8 +386,8 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                     )
                     continue
 
-                # Create en empty list of couplings to store the couplings between the time steps
-                time_step_couplings: list[OrderCoupling] = []
+                # Collect inflexible bids to build timestep couplings after the loop
+                inflexible_bids: list[tuple[DateTime, IntraDayOrder]] = []
 
                 # Calculate the quantity of power over which to distribute the start-up cost
                 q = 0.0
@@ -522,75 +523,44 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                         )
                         dataset.add_order(bid_output)
 
+                        inflexible_bids.append((t, bid_output))
+
                         # The inflexible order is coupled with the flexible part if it exists
                         if q_max_flexible > parameters.allowed_round_off_error:
-                            coupling = OrderCoupling(
-                                name=f"{coupling_type_flexible_inflexible}_ID_{equipment.name}_{get_date_to_clean_string(t)}_{window.window_type.value}_{get_date_to_clean_string(parameters.temporal.execution_date)}",
-                                coupling_type=coupling_type_flexible_inflexible,
+                            dataset.add_order_coupling(
+                                OrderCoupling(
+                                    name=f"{coupling_type_flexible_inflexible}_ID_{equipment.name}_{get_date_to_clean_string(t)}_{window.window_type.value}_{get_date_to_clean_string(parameters.temporal.execution_date)}",
+                                    coupling_type=coupling_type_flexible_inflexible,
+                                    orders=[bid_output, bid_flexible],
+                                )
                             )
-                            # The inflexible part is the parent, the flexible part is the child
-                            coupling.orders.append(bid_output)
-                            coupling.orders.append(bid_flexible)
-                            dataset.add_order_coupling(coupling)
-
-                        # Store the first order as it is used outside the loop for the last coupling in some cases
-                        if i == 0:
-                            initial_bid = bid_output
-
-                        # --- Create the couplings between the different time steps and fill them
-
-                        # Couplings are created only when there is at least two time steps
-                        if number_of_indexes > 1 and coupling_time_step != "none":
-                            e = len(time_step_couplings)
-
-                            if e == 0:  # first time step
-                                coupling = OrderCoupling(
-                                    name=f"PAR_CHIL_ID_{equipment.name}_{get_date_to_clean_string(t)}_{window.window_type.value}_{get_date_to_clean_string(parameters.temporal.execution_date)}",
-                                    coupling_type=CouplingType.PARENT_CHILDREN,
-                                )
-                                time_step_couplings.append(coupling)
-                                time_step_couplings[0].orders.append(bid_output)
-
-                            # 'middle' of the frame: we pair order i as the children of the
-                            # previous coupling and parent of the current coupling
-                            elif e < number_of_indexes - 1:
-                                coupling = OrderCoupling(
-                                    name=f"PAR_CHIL_ID_{equipment.name}_{get_date_to_clean_string(t)}_{window.window_type.value}_{get_date_to_clean_string(parameters.temporal.execution_date)}",
-                                    coupling_type=CouplingType.PARENT_CHILDREN,
-                                )
-                                coupling.orders.append(bid_output)
-                                time_step_couplings.append(coupling)
-                                # Children of previous order
-                                time_step_couplings[e - 1].orders.append(bid_output)
-                                # Parent
-                                time_step_couplings[e].orders.append(bid_output)
-
-                            # This order is only the child of the (n-1)th order
-                            elif e == number_of_indexes - 1 and coupling_time_step == "partial":
-                                # Children of previous order
-                                time_step_couplings[e - 1].orders.append(bid_output)
-
-                            # This order is the child of the (n-1)th order and the parent of the first one
-                            elif e == number_of_indexes - 1 and coupling_time_step == "all":
-                                # Children of previous order
-                                time_step_couplings[e - 1].orders.append(bid_output)
-                                coupling = OrderCoupling(
-                                    name=f"PAR_CHIL_ID_{equipment.name}_{get_date_to_clean_string(t)}_{window.window_type.value}_{get_date_to_clean_string(parameters.temporal.execution_date)}",
-                                    coupling_type=CouplingType.PARENT_CHILDREN,
-                                )
-                                time_step_couplings.append(coupling)
-                                # Parent of initial order
-                                time_step_couplings[e].orders.append(bid_output)
-                                # Child
-                                time_step_couplings[e].orders.append(initial_bid)
-
-                        for order_coupling in time_step_couplings:
-                            dataset.add_order_coupling(order_coupling)
 
                     # Sanity check
                     elif window.window_type not in [WindowType.MODULATION_UP, WindowType.MODULATION_DOWN]:
                         cfg.logger.warning(
                             f"Unrecognised name of sequence : {window.window_type.value}, for unit {equipment.name} between {window.first_date()} and {window.last_date()}"
+                        )
+
+                # Create PARENT_CHILDREN chain couplings across timesteps now that all inflexible bids are known
+                if number_of_indexes > 1 and coupling_time_step != "none" and len(inflexible_bids) > 1:
+                    for k in range(len(inflexible_bids) - 1):
+                        ts, bid = inflexible_bids[k]
+                        _, next_bid = inflexible_bids[k + 1]
+                        dataset.add_order_coupling(
+                            OrderCoupling(
+                                name=f"PAR_CHIL_ID_{equipment.name}_{get_date_to_clean_string(ts)}_{window.window_type.value}_{get_date_to_clean_string(parameters.temporal.execution_date)}",
+                                coupling_type=CouplingType.PARENT_CHILDREN,
+                                orders=[bid, next_bid],
+                            )
+                        )
+                    if coupling_time_step == "all":
+                        ts, bid = inflexible_bids[-1]
+                        dataset.add_order_coupling(
+                            OrderCoupling(
+                                name=f"PAR_CHIL_ID_{equipment.name}_{get_date_to_clean_string(ts)}_{window.window_type.value}_{get_date_to_clean_string(parameters.temporal.execution_date)}",
+                                coupling_type=CouplingType.PARENT_CHILDREN,
+                                orders=[bid, inflexible_bids[0][1]],
+                            )
                         )
 
         elif equipment.strategy == ThermalStrategy.PEAK:
@@ -654,14 +624,13 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                         dataset.add_order(flexible_bid_output)
                         sell_submitted_volume.sum_value_at(t, q_max)
 
-                        link_flexible_inflexible = OrderCoupling(
-                            name=f"PARENT_CHILDREN_ID_inflexible_flexible_orders_Sell_at_{get_date_to_clean_string(t)}_for_unit_{equipment.name}",
-                            coupling_type=CouplingType.PARENT_CHILDREN,
+                        dataset.add_order_coupling(
+                            OrderCoupling(
+                                name=f"PARENT_CHILDREN_ID_inflexible_flexible_orders_Sell_at_{get_date_to_clean_string(t)}_for_unit_{equipment.name}",
+                                coupling_type=CouplingType.PARENT_CHILDREN,
+                                orders=[inflexible_bid_output, flexible_bid_output],
+                            )
                         )
-
-                        # Add both orders
-                        link_flexible_inflexible.orders.append(inflexible_bid_output)  # add the parent
-                        link_flexible_inflexible.orders.append(flexible_bid_output)  # add the child
                 else:
                     q_max = maximum_power - pow_t
 
