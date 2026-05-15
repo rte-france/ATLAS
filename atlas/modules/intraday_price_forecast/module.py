@@ -1,6 +1,5 @@
 from typing import cast
 
-import polars as pl
 from loguru import logger
 from pendulum import DateTime
 
