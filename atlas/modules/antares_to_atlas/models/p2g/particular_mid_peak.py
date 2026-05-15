@@ -36,7 +36,7 @@ def convert_pcomp_mid_units(
         study=study,
         parameters=parameters,
         atlas_dataset=atlas_dataset,
-        suffix="Gas_pcomp_mid",
+        suffix="gas_pcomp_mid",
         properties=parameters.thermal.pcomp_mid,
     )
 
@@ -62,7 +62,7 @@ def convert_pcomp_peak_units(
         study=study,
         parameters=parameters,
         atlas_dataset=atlas_dataset,
-        suffix="Gas_pcomp_peak",
+        suffix="gas_pcomp_peak",
         properties=parameters.thermal.pcomp_peak,
     )
 
@@ -133,7 +133,7 @@ def _create_pcomp_equipment(
 
     scenario = (
         study.get_output(parameters.output_name)
-        .get_thermal_ts_numbers(area_name, thermal.name)
+        .get_thermal_ts_numbers(area_name, thermal.id)
         .get(parameters.scenario)
     )
     if scenario is None:
@@ -159,7 +159,7 @@ def _create_pcomp_equipment(
     )
 
     equipment = Thermal(
-        name=thermal.name,
+        name=thermal.id,
         node=atlas_dataset.get("node", area_name),
         portfolio=get_portfolio(atlas_dataset, parameters, area_name),
         maximum_power=maximum_power_ts,

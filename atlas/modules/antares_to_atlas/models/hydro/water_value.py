@@ -52,7 +52,7 @@ def compute_water_values(
         ):
             continue
 
-        mapping_mc_ts = study_output.get_hydro_ts_numbers(area.name)
+        mapping_mc_ts = study_output.get_hydro_ts_numbers(area.id)
         inflows_dictionary = build_inflows_for_area(area, parameters, mapping_mc_ts)
 
         if not inflows_dictionary:
@@ -181,7 +181,7 @@ def _run_bellman_iteration(
                 int(scenario),
                 frequency=Frequency.HOURLY,
                 data_type=MCIndAreasDataType.VALUES,
-                area=area.name,
+                area=area.id,
             )[(parameters.output.marginal_price_column, "Euro")],
             dtype=float,
         )

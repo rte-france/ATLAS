@@ -29,7 +29,9 @@ def add_nuclear_modulation(
     """
     logger.info("Adding nuclear modulation to FR nuclear units")
 
-    if not hasattr(atlas_dataset, "thermal") or not atlas_dataset.thermal:
+    fr_thermals = study.get_areas()["fr"].get_thermals()
+
+    if not atlas_dataset.thermal:
         logger.debug("No thermal equipment found, skipping nuclear modulation")
         return atlas_dataset
 
@@ -40,14 +42,11 @@ def add_nuclear_modulation(
     units_to_remove: list[str] = []
 
     for equipment in atlas_dataset.thermal:
-        if "fr_" not in equipment.name.lower():
-            continue
-
-        if "nuclear" not in equipment.name.lower():
+        if fr_thermals.get(equipment.name) is None or fr_thermals[equipment.name].properties.group != "nuclear":
             continue
 
         # Remove Nuclear_peak units
-        if "nuclear_peak" in equipment.name.lower():
+        if "peak" in equipment.name:
             units_to_remove.append(equipment.name)
             logger.debug(f"Marking {equipment.name} for removal (Nuclear_peak)")
             continue

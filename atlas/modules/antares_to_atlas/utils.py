@@ -93,11 +93,11 @@ def get_maximum_power(
     try:
         scenario = (
             study.get_output(parameters.output_name)
-            .get_thermal_ts_numbers(area.name, thermal.name)
+            .get_thermal_ts_numbers(area.id, thermal.id)
             .get(parameters.scenario, None)
         )
         if scenario is None:
-            raise ValueError(f"Scenario {parameters.scenario} not found for thermal {thermal.name} in area {area.name}")
+            raise ValueError(f"Scenario {parameters.scenario} not found for thermal {thermal.id} in area {area.id}")
         maximum_power_ts = Timeseries.from_values(
             start_date=parameters.start_date,
             frequency="1h",

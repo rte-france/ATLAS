@@ -17,14 +17,12 @@ from atlas.modules.antares_to_atlas.utils import get_co2_factor, get_maximum_pow
 from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.objects.equipment.thermal import Thermal
 
-# Mapping from name keyword to canonical technology name (for CO2 / config lookup)
+# Mapping from id keyword to canonical technology name (for CO2 / config lookup)
 _MIXED_FUEL_TECH_MAP = {
-    "Coal": "Coal",
     "coal": "Coal",
-    "Lignite": "Lignite",
-    "CCGT": "CCGT",
-    "OCGT": "OCGT",
-    "Oil": "Oil",
+    "lignite": "Lignite",
+    "ccgt": "CCGT",
+    "ocgt": "OCGT",
     "oil": "Oil",
 }
 
@@ -64,7 +62,7 @@ def convert_mixed_fuel_units(
                 continue
 
             # Waste sub-technologies -> OtherNonDispatchable
-            if parameters.thermal.waste_identifier in thermal.name:
+            if parameters.thermal.waste_identifier in thermal.id:
                 _process_waste_unit(
                     area=area,
                     thermal=thermal,
@@ -108,7 +106,7 @@ def _process_waste_unit(
     """
     scenario = (
         study.get_output(parameters.output_name)
-        .get_thermal_ts_numbers(area.name, thermal.name)
+        .get_thermal_ts_numbers(area.id, thermal.id)
         .get(parameters.scenario, None)
     )
     if scenario is None:
@@ -125,7 +123,7 @@ def _process_waste_unit(
     if prod_ts.abs().max() == 0:
         return
 
-    waste_name = f"{area.id}_Waste"
+    waste_name = f"{area.id}_waste"
 
     existing_waste = next((u for u in new_waste_units if u.name == waste_name), None)
 
@@ -179,7 +177,7 @@ def _process_classic_mixed_fuel(
         return None
 
     equipment = Thermal(
-        name=thermal.name,
+        name=thermal.id,
         node=atlas_dataset.get("node", area.id),
         portfolio=get_portfolio(atlas_dataset, parameters, area.id),
         has_daily_energy_constraint=False,
@@ -222,6 +220,6 @@ def _process_classic_mixed_fuel(
 def _detect_mixed_fuel_technology(thermal: ThermalCluster) -> str | None:
     """Detect the canonical technology name from a Mixed_fuel cluster name."""
     for keyword, techno in _MIXED_FUEL_TECH_MAP.items():
-        if keyword in thermal.name:
+        if keyword in thermal.id:
             return techno
     return None

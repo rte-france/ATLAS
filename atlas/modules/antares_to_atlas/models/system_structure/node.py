@@ -54,14 +54,14 @@ def convert_system_structure(
             continue
 
         area = areas[area_name]
-        logger.debug(f"Processing area: {area.name}")
+        logger.debug(f"Processing area: {area.id}")
 
         # Create Control Block
         ctrl_block = ControlBlock(name=area_name)
 
         try:
             marginal_price = study_output.get_mc_ind_area(
-                parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.name
+                parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.id
             )[(parameters.output.marginal_price_column, "Euro")]
         except Exception as e:
             logger.warning(

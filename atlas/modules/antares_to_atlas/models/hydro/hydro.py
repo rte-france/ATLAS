@@ -37,7 +37,7 @@ def convert_hydro_units(
             continue
 
         area = areas[area_name]
-        mapping_mc_ts = study_output.get_hydro_ts_numbers(area.name)
+        mapping_mc_ts = study_output.get_hydro_ts_numbers(area.id)
         if parameters.scenario not in mapping_mc_ts:
             continue
         scenario = mapping_mc_ts[parameters.scenario]
@@ -139,7 +139,7 @@ def _create_hydraulic_equipment(
         parameters.start_date,
         frequency="1h",
         values=study_output.get_mc_ind_area(
-            mc_year=scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.name
+            mc_year=scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.id
         )[(parameters.output.ror_column, "MWh")],
     ).groupby("1d", agg="sum")
 

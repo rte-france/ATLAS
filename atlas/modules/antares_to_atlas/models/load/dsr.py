@@ -47,7 +47,7 @@ def convert_dsr_fr_units(
 
         scenario = (
             study.get_output(parameters.output_name)
-            .get_thermal_ts_numbers(area.name, cluster.name)
+            .get_thermal_ts_numbers(area.id, cluster.id)
             .get(parameters.scenario, None)
         )
         if scenario is None:
