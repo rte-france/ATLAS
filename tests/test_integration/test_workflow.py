@@ -5,7 +5,7 @@ import pytest
 from atlas.orchestrator.workflow.workflow import Workflow
 from atlas.timing import timer
 
-WORKFLOW_CONFIG = Path("tests/dataset/parameters/workflow.yml")
+WORKFLOW_CONFIG = Path("tests/dataset/parameters/day_ahead/workflow.yml")
 
 
 @pytest.mark.skipif(
