@@ -5,19 +5,19 @@ This file is part of the ATLAS project.
 
 from typing import TYPE_CHECKING, cast
 
-import numpy as np
+import polars as pl
 from antares.craft import Frequency, MCIndLinksDataType
 from antares.craft.model.st_storage import STStorage, STStorageGroup
 from antares.craft.model.study import Study
 from loguru import logger
-from pendulum import duration
+from pendulum import DateTime, duration
 
 from atlas.enums import StorageType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.models.hydro.inflows import _load_inflows_from_csv, _match_inflows_to_scenarios
-from atlas.modules.antares_to_atlas.models.storage._helpers import get_minimum_soc
+from atlas.modules.antares_to_atlas.models.storage._helpers import get_minimum_soc, get_power_bounds
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.modules.antares_to_atlas.utils import get_binding_constraint_for_phs, get_portfolio
 from atlas.objects.equipment.hydro import Hydro
@@ -38,8 +38,7 @@ def convert_phs_open_units(
     - A closed PHS Storage equipment (the symmetric pump/turbine part)
     - An open part added to the corresponding hydro equipment (power, energy, inflows)
 
-    The split is derived from the per-timestep difference between withdrawal and injection
-    nominal capacity timeseries.
+    The split ratio per timestep is: closed_ratio = max(0, withdrawal - injection) / withdrawal.
     """
     logger.info("Converting open-loop PHS units")
 
@@ -85,9 +84,18 @@ def _create_open_phs(
 ) -> Storage | None:
     """Create open-loop PHS Storage and update the corresponding hydro equipment.
 
-    The open STS capacity is split into:
-    - Closed part (symmetric injection/withdrawal) → PHS Storage equipment
-    - Open part (excess withdrawal over injection) → added to hydro MaximumPower and MaximumEnergy
+    Capacity split per timestep:
+      closed_delta = max(0, withdrawal - injection)   → goes to hydro MaximumPower
+      closed_ratio = closed_delta / withdrawal         → fraction of reservoir going to hydro
+      phs MaximumPower  = min(injection, withdrawal)
+      phs MaximumEnergy = round(reservoir * (1 - closed_ratio))
+      hydro MaximumEnergy += round(reservoir * closed_ratio)
+
+    Missing vs legacy (antares-craft Output has no STS actual-power API):
+      - phs.power  (= negative_phs + positive_phs * (1 - closed_ratio))
+      - hydro.power (= positive_phs * closed_ratio)
+      - hydro MinimumDailyEnergy / MaximumDailyEnergy PHS contribution
+        (= daily_sum(positive_phs * closed_ratio) * coeff, added on top of ROR base)
     """
     props = storage.properties
 
@@ -96,69 +104,51 @@ def _create_open_phs(
         return None
 
     mapping_mc_ts = study.get_output(parameters.output_name).get_st_storage_inflows_numbers(area.id, storage.id)
-    scenario = mapping_mc_ts.get(parameters.scenario)
+    scenario_ts = mapping_mc_ts.get(parameters.scenario)
 
-    # Injection and withdrawal power arrays for the selected scenario
-    if scenario is not None:
-        try:
-            inj_arr = (
-                np.asarray(storage.get_pmax_injection()[scenario - 1], dtype=float)
-                * props.injection_nominal_capacity
-            )
-            wdr_arr = (
-                np.asarray(storage.get_pmax_withdrawal()[scenario - 1], dtype=float)
-                * props.withdrawal_nominal_capacity
-            )
-        except Exception as e:
-            logger.warning(f"Cannot get pmax timeseries for {storage.id}: {e}, using nominal capacity")
-            inj_arr = np.full(8760, props.injection_nominal_capacity)
-            wdr_arr = np.full(8760, props.withdrawal_nominal_capacity)
-    else:
-        logger.warning(f"Scenario {parameters.scenario} not in mapping for {storage.id}, using nominal capacity")
-        inj_arr = np.full(8760, float(props.injection_nominal_capacity))
-        wdr_arr = np.full(8760, float(props.withdrawal_nominal_capacity))
+    inj_ts, wdr_ts = get_power_bounds(storage=storage, scenario=scenario_ts, parameters=parameters)
 
-    # closed_delta = excess withdrawal that goes to hydro (open part)
-    closed_delta_arr = np.maximum(0.0, wdr_arr - inj_arr)
-    # closed_ratio = fraction of withdrawal capacity that is "open" (goes to hydro)
-    closed_ratio_arr = np.where(wdr_arr > 0.0, closed_delta_arr / wdr_arr, 0.0)
+    closed_delta_ts = (wdr_ts - inj_ts).clip(lower_bound=0.0)
 
-    # PHS MaximumPower = symmetric part (min of injection and withdrawal)
-    max_power_arr = np.minimum(inj_arr, wdr_arr)
+    # closed_ratio = closed_delta / withdrawal  (0 where withdrawal == 0)
+    closed_ratio_ts = _safe_divide(closed_delta_ts, wdr_ts, parameters.start_date)
 
-    minimum_soc_ts = get_minimum_soc(storage=storage, scenario=scenario, parameters=parameters)
+    # PHS MaximumPower = min(injection, withdrawal) per timestep
+    max_power_ts = _elementwise_min(inj_ts, wdr_ts, parameters.start_date)
+
+    # Energy split (rounded as in the legacy)
+    additional_energy_ts = (closed_ratio_ts * props.reservoir_capacity).round()
+    phs_max_energy_ts = ((closed_ratio_ts * -1.0 + 1.0) * props.reservoir_capacity).round()
+
+    minimum_soc_ts = get_minimum_soc(storage=storage, scenario=scenario_ts, parameters=parameters)
 
     # --- Update hydro equipment with the open part ---
     hydro = cast(Hydro, atlas_dataset.get("hydro", f"{area.id}_hydro"))
     if hydro is not None:
-        delta_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=closed_delta_arr)
-        hydro.maximum_power = hydro.maximum_power + delta_ts if hydro.maximum_power is not None else delta_ts
-
-        additional_energy_arr = np.round(props.reservoir_capacity * closed_ratio_arr)
-        additional_energy_ts = Timeseries.from_values(
-            parameters.start_date, frequency="1h", values=additional_energy_arr
+        hydro.maximum_power = (
+            hydro.maximum_power + closed_delta_ts if hydro.maximum_power is not None else closed_delta_ts
         )
         hydro.maximum_energy = (
             hydro.maximum_energy + additional_energy_ts if hydro.maximum_energy is not None else additional_energy_ts
         )
-
         _update_hydro_inflows_from_phs_csv(area.id, storage, hydro, mapping_mc_ts, parameters)
     else:
         logger.debug(f"No hydro '{area.id}_hydro' found; open part of PHS will not be added to hydro.")
-        additional_energy_arr = np.zeros_like(closed_ratio_arr)
-
-    phs_max_energy_arr = np.round(props.reservoir_capacity - additional_energy_arr)
+        phs_max_energy_ts = Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=props.reservoir_capacity,
+        )
 
     phs = Storage(
         name=f"{area.id}_phs_open",
         node=atlas_dataset.get("node", area.id),
         portfolio=get_portfolio(atlas_dataset, parameters, area.id),
         storage_type=StorageType.PUMPED_HYDRAULIC_STORAGE,
-        maximum_power=Timeseries.from_values(parameters.start_date, frequency="1h", values=max_power_arr),
-        minimum_power=Timeseries.from_values(parameters.start_date, frequency="1h", values=-inj_arr),
-        maximum_energy=Timeseries.from_values(
-            parameters.start_date, frequency="1h", values=phs_max_energy_arr.tolist()
-        ),
+        maximum_power=max_power_ts,
+        minimum_power=inj_ts * -1.0,
+        maximum_energy=phs_max_energy_ts,
         minimum_state_of_charge=minimum_soc_ts,
         charge_efficiency=props.efficiency,
         discharge_efficiency=1.0,
@@ -170,6 +160,26 @@ def _create_open_phs(
     return phs
 
 
+def _safe_divide(numerator: Timeseries, denominator: Timeseries, start_date: DateTime) -> Timeseries:
+    """Element-wise division, returning 0 where denominator is zero."""
+    result = (
+        pl.DataFrame({"n": numerator.dataframe["value"], "d": denominator.dataframe["value"]})
+        .select(pl.when(pl.col("d") > 0.0).then(pl.col("n") / pl.col("d")).otherwise(0.0))
+        .to_series()
+    )
+    return Timeseries.from_values(start_date, frequency="1h", values=result)
+
+
+def _elementwise_min(ts_a: Timeseries, ts_b: Timeseries, start_date: DateTime) -> Timeseries:
+    """Element-wise minimum of two Timeseries."""
+    result = (
+        pl.DataFrame({"a": ts_a.dataframe["value"], "b": ts_b.dataframe["value"]})
+        .select(pl.min_horizontal("a", "b"))
+        .to_series()
+    )
+    return Timeseries.from_values(start_date, frequency="1h", values=result)
+
+
 def _update_hydro_inflows_from_phs_csv(
     area_id: str,
     storage: STStorage,
@@ -179,10 +189,9 @@ def _update_hydro_inflows_from_phs_csv(
 ) -> None:
     """Add PHS inflow profiles (from {area_id}_phs.csv) to the hydro equipment inflows.
 
-    Matches each water-value scenario to the closest CSV profile by total energy,
-    using the STS natural inflows as the reference modulation series.
-    Only the first matched scenario is added to hydro.inflows (same convention as
-    add_inflows_from_csv for regular hydro).
+    For each water-value scenario, selects the CSV inflow profile whose total energy is
+    closest to the STS natural inflows sum for that scenario, then scales and adds it to
+    hydro.inflows (first scenario only, consistent with add_inflows_from_csv convention).
     """
     if parameters.hydro.path_inflows is None:
         logger.debug(f"path_inflows not configured, skipping PHS inflows for {area_id}")
@@ -258,24 +267,20 @@ def convert_phs_open_fr(
 
     charge_efficiency, discharge_efficiency = get_binding_constraint_for_phs(study, "fr")
 
-    turb_cap_df = link.get_capacity_indirect()[0]
-
-    maximum_power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=turb_cap_df)
-    minimum_power_ts = Timeseries.from_values(
-        parameters.start_date, frequency="1h", values=turb_cap_df * -1.0
-    )
+    turb_cap_series = link.get_capacity_indirect()[0]
+    maximum_power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=turb_cap_series)
+    minimum_power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=turb_cap_series * -1.0)
 
     try:
         transit_series = study.get_output(parameters.output_name).get_mc_ind_link(
-            parameters.scenario,
-            frequency=Frequency.HOURLY,
-            data_type=MCIndLinksDataType.VALUES,
-            area_from=link.area_from_id,
-            area_to=link.area_to_id,
-        )[("FLOW LIN.", "MWh")]
-        power_ts = Timeseries.from_values(
-            parameters.start_date, frequency="1h", values=transit_series * -1.0
-        )
+                parameters.scenario,
+                frequency=Frequency.HOURLY,
+                data_type=MCIndLinksDataType.VALUES,
+                area_from=link.area_from_id,
+                area_to=link.area_to_id,
+            )[("FLOW LIN.", "MWh")]
+
+        power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=transit_series * -1.0)
         power_fm = ForecastingMatrix().add(power_ts, parameters.execution_date)
     except Exception as e:
         logger.warning(f"Could not get power transit for FR open PHS: {e}")
