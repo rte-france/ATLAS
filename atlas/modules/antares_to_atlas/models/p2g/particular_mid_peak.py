@@ -132,9 +132,7 @@ def _create_pcomp_equipment(
     """Create a new Thermal equipment for a pcomp cluster."""
 
     scenario = (
-        study.get_output(parameters.output_name)
-        .get_thermal_ts_numbers(area_name, thermal.id)
-        .get(parameters.scenario)
+        study.get_output(parameters.output_name).get_thermal_ts_numbers(area_name, thermal.id).get(parameters.scenario)
     )
     if scenario is None:
         logger.warning(f"No scenario found for {thermal.name} in area {area_name}, skipping")

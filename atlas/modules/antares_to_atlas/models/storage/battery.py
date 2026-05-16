@@ -11,6 +11,7 @@ from pendulum import duration
 from atlas.enums import StorageType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
+from atlas.modules.antares_to_atlas.models.storage._helpers import get_minimum_soc, get_power_bounds
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.modules.antares_to_atlas.utils import get_portfolio
 from atlas.objects.equipment.storage import Storage
@@ -92,13 +93,13 @@ def _create_battery(
         .get(parameters.scenario, None)
     )
 
-    maximum_injection_power_ts, maximum_withdrawal_power_ts = _get_power_bounds(
+    maximum_injection_power_ts, maximum_withdrawal_power_ts = get_power_bounds(
         storage=storage,
         scenario=scenario,
         parameters=parameters,
     )
 
-    minimum_soc_ts = _get_minimum_soc(
+    minimum_soc_ts = get_minimum_soc(
         storage=storage,
         scenario=scenario,
         parameters=parameters,
@@ -123,80 +124,4 @@ def _create_battery(
         discharge_efficiency=1.0,
         storage_initial_level=parameters.storage.battery_initial_level,
         transition_duration=duration(hours=0),
-    )
-
-
-def _get_power_bounds(
-    storage: STStorage,
-    scenario: int | None,
-    parameters: AntaresToAtlasParameters,
-) -> tuple[Timeseries, Timeseries]:
-    """Return (maximum_injection_power_ts, maximum_withdrawal_power_ts).
-
-    Uses scenario-specific pmax timeseries scaled by nominal capacity when available,
-    falls back to constant nominal capacities.
-    """
-    props = storage.properties
-
-    if scenario is not None:
-        try:
-            inj_col = storage.get_pmax_injection()[scenario - 1]
-            wdr_col = storage.get_pmax_withdrawal()[scenario - 1]
-            return (
-                Timeseries.from_values(
-                    start_date=parameters.start_date,
-                    frequency="1h",
-                    values=(inj_col * props.injection_nominal_capacity),
-                ),
-                Timeseries.from_values(
-                    start_date=parameters.start_date,
-                    frequency="1h",
-                    values=(wdr_col * props.withdrawal_nominal_capacity),
-                ),
-            )
-        except Exception as e:
-            logger.warning(f"Could not get pmax timeseries for {storage.id}: {e}, falling back to nominal capacity")
-
-    return (
-        Timeseries.from_index(
-            start_date=parameters.start_date,
-            frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
-            default_value=props.injection_nominal_capacity,
-        ),
-        Timeseries.from_index(
-            start_date=parameters.start_date,
-            frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
-            default_value=props.withdrawal_nominal_capacity,
-        ),
-    )
-
-
-def _get_minimum_soc(
-    storage: STStorage,
-    scenario: int | None,
-    parameters: AntaresToAtlasParameters,
-) -> Timeseries:
-    """Return minimum state of charge timeseries from the lower rule curve.
-
-    Falls back to a constant zero timeseries if the scenario is unavailable or
-    the matrix cannot be read.
-    """
-    if scenario is not None:
-        try:
-            lower_curve_col = storage.get_lower_rule_curve()[scenario - 1]
-            return Timeseries.from_values(
-                start_date=parameters.start_date,
-                frequency="1h",
-                values=lower_curve_col.tolist(),
-            )
-        except Exception as e:
-            logger.warning(f"Could not get lower rule curve for {storage.id}: {e}, defaulting to 0")
-
-    return Timeseries.from_index(
-        start_date=parameters.start_date,
-        frequency="1h",
-        end_date=parameters.start_date + duration(years=1),
-        default_value=0.0,
     )
