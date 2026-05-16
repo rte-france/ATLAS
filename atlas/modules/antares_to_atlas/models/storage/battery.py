@@ -3,20 +3,19 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from antares.craft import Frequency, MCIndAreasDataType
-from antares.craft.model.area import Area
-from antares.craft.model.link import Link
+from antares.craft.model.st_storage import STStorage, STStorageGroup
 from antares.craft.model.study import Study
 from loguru import logger
 from pendulum import duration
 
 from atlas.enums import StorageType
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-from atlas.modules.antares_to_atlas.utils import get_portfolio, get_weight_for_cluster
+from atlas.modules.antares_to_atlas.utils import get_portfolio
 from atlas.objects.equipment.storage import Storage
+
+_SKIPPED_GROUPS = {STStorageGroup.PSP_OPEN.value, STStorageGroup.PSP_CLOSED.value, STStorageGroup.PONDAGE.value}
 
 
 def convert_battery_units(
@@ -24,212 +23,180 @@ def convert_battery_units(
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
 ) -> AtlasDataset:
-    """Convert Battery technologies from Antares to Atlas Storage equipment.
+    """Convert short-term storage battery units from Antares to Atlas.
 
-    Batteries are modeled as Storage equipment with two variants:
-    - Normal batteries (linked to z_batteries virtual node)
-    - PCOMP batteries (linked to z_batteries_pcomp virtual node)
+    Processes all st_storage units that are not PSP_OPEN, PSP_CLOSED, or PONDAGE,
+    as those are handled by dedicated PHS converters.
 
-    When both exist for the same node, they are merged into a single battery.
+    :param study: Antares study object.
+    :param parameters: Conversion parameters.
+    :param atlas_dataset: Atlas dataset to populate.
+    :return: Updated atlas dataset.
     """
-    logger.info("Converting Battery units")
+    logger.info("Converting battery units")
 
     areas = study.get_areas()
-    links = study.get_links()
-    batteries: list[Storage] = []
+    battery_list: list[Storage] = []
 
-    link = links.get(parameters.storage.battery_normal_link, None)
-    link_pcomp = links.get(parameters.storage.battery_pcomp_link, None)
+    for area_name in parameters.market_areas:
+        if area_name not in areas:
+            continue
 
-    normal_battery = None
-    pcomp_battery = None
-    normal_area_id: str | None = None
-    pcomp_area_id: str | None = None
+        area = areas[area_name]
 
-    if link is not None:
-        normal_area_id = link.area_to_id
-        if normal_area_id in parameters.market_areas and normal_area_id in areas:
-            prefix = parameters.storage.battery_normal_link.removeprefix("z_")
-            normal_battery = _convert_battery(
-                areas[normal_area_id], study, parameters, atlas_dataset, link, prefix=prefix
+        for storage in area.get_st_storages().values():
+            if storage.properties.group in _SKIPPED_GROUPS:
+                continue
+
+            battery = _create_battery(
+                storage=storage,
+                area_id=area.id,
+                study=study,
+                parameters=parameters,
+                atlas_dataset=atlas_dataset,
             )
+            if battery is not None:
+                battery_list.append(battery)
+                logger.debug(f"Created battery unit {storage.id} in area {area.id}")
 
-    if link_pcomp is not None:
-        pcomp_area_id = link_pcomp.area_to_id
-        if pcomp_area_id in parameters.market_areas and pcomp_area_id in areas:
-            prefix = parameters.storage.battery_pcomp_link.removeprefix("z_")
-            pcomp_battery = _convert_battery(
-                areas[pcomp_area_id], study, parameters, atlas_dataset, link_pcomp, prefix=prefix
-            )
-
-    if normal_battery and pcomp_battery:
-        if normal_area_id != pcomp_area_id:
-            raise AssertionError(
-                f"Cannot merge batteries from different areas: normal={normal_area_id!r} vs pcomp={pcomp_area_id!r}"
-            )
-        logger.debug(f"Merging normal and pcomp batteries for area {normal_area_id}")
-        _merge_batteries(normal_battery, pcomp_battery, parameters)
-        batteries.append(normal_battery)
-    elif normal_battery:
-        batteries.append(normal_battery)
-    elif pcomp_battery:
-        batteries.append(pcomp_battery)
-
-    atlas_dataset.storage.add(batteries)
-
+    atlas_dataset.storage.add(battery_list)
+    logger.info(f"Converted {len(battery_list)} battery units")
     return atlas_dataset
 
 
-def _convert_battery(
-    area: Area,
+def _create_battery(
+    storage: STStorage,
+    area_id: str,
     study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
-    link: Link,
-    prefix: str,
 ) -> Storage | None:
-    """Convert a battery unit for the given prefix ('batteries' or 'batteries_pcomp')."""
-    binding_constraints = study.get_binding_constraints()
-    binding_constraint = binding_constraints.get(f"{prefix}_{area.id}", None)
+    """Create a Storage equipment from an Antares st_storage unit.
+
+    :param storage: Antares st_storage object.
+    :param area_id: Area identifier.
+    :param study: Antares study object.
+    :param parameters: Conversion parameters.
+    :param atlas_dataset: Atlas dataset for node/portfolio lookup.
+    :return: Storage equipment, or None if it should be skipped.
+    """
+    props = storage.properties
+
+    if props.reservoir_capacity == 0.0:
+        logger.debug(f"Skipping battery {storage.id} in {area_id}: zero reservoir capacity")
+        return None
 
     scenario = (
         study.get_output(parameters.output_name)
-        .get_thermal_ts_numbers(area.id, f"{prefix}_{area.id}")
+        .get_st_storage_inflows_numbers(area_id, storage.id)
         .get(parameters.scenario, None)
     )
 
-    if scenario is None:
-        logger.warning(f"No scenario found for {prefix}_{area.id}, skipping battery conversion for area {area.id}")
-        return None
-
-    if not binding_constraint:
-        return None
-
-    thermals = area.get_thermals()
-    inj_thermal_name = f"{prefix}_inj"
-    inj_thermal = thermals.get(inj_thermal_name, None)
-
-    if not inj_thermal:
-        return None
-
-    maximum_power_df = inj_thermal.get_series_matrix()[scenario - 1]
-
-    # TODO get the columns corresponding to CalculatedPower (column key not yet known).
-    # Until the column is identified, we fall back to a None timeseries handled below.
-    power_discharge_ts: Timeseries | None = None
-    power_discharge_max = 0.0
-    try:
-        power_discharge_df = study.get_output(parameters.output_name).get_mc_ind_area(
-            parameters.scenario, Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.id
-        )[()]
-        power_discharge_max = float(power_discharge_df.abs().max().max())
-        power_discharge_ts = Timeseries.from_values(
-            start_date=parameters.start_date, frequency="1h", values=power_discharge_df
-        )
-    except (KeyError, TypeError) as e:
-        logger.debug(f"Could not get CalculatedPower for area {area.id}: {e}. Falling back to default.")
-
-    if maximum_power_df.abs().max().max() == 0 and power_discharge_max == 0:
-        return None
-
-    maximum_power_ts = Timeseries.from_values(start_date=parameters.start_date, frequency="1h", values=maximum_power_df)
-
-    stock_thermal = thermals.get(f"z_{prefix}_{prefix}_{area.id}_1", None)
-    if stock_thermal is None:
-        logger.warning(f"Stock thermal z_{prefix}_{prefix}_{area.id}_1 not found, skipping battery conversion")
-        return None
-    maximum_energy_df = stock_thermal.get_series_matrix()[scenario - 1]
-    maximum_energy_ts = Timeseries.from_values(
-        start_date=parameters.start_date, frequency="1h", values=maximum_energy_df
+    maximum_injection_power_ts, maximum_withdrawal_power_ts = _get_power_bounds(
+        storage=storage,
+        scenario=scenario,
+        parameters=parameters,
     )
 
-    weight = get_weight_for_cluster(study, area.id, inj_thermal_name)
-    charge_efficiency = weight if weight is not None else 1.0
-    discharge_efficiency = 1.0 / weight if weight is not None else 1.0
-
-    power_charge_df = link.get_capacity_direct()[scenario - 1]
-    power_charge_ts = Timeseries.from_values(
-        start_date=parameters.start_date, frequency="1h", values=power_charge_df * -1.0
+    minimum_soc_ts = _get_minimum_soc(
+        storage=storage,
+        scenario=scenario,
+        parameters=parameters,
     )
 
-    if power_discharge_ts is None:
-        power_discharge_ts = Timeseries.from_index(
+    return Storage(
+        name=storage.id,
+        node=atlas_dataset.get("node", area_id),
+        portfolio=get_portfolio(atlas_dataset, parameters, area_id),
+        storage_type=StorageType.BATTERY,
+        # In Antares: injection = power from grid to storage (charge), withdrawal = power from storage to grid (discharge)
+        minimum_power=-maximum_injection_power_ts,
+        maximum_power=maximum_withdrawal_power_ts,
+        maximum_energy=Timeseries.from_index(
             start_date=parameters.start_date,
             frequency="1h",
             end_date=parameters.start_date + duration(years=1),
-            default_value=0.0,
-        )
+            default_value=props.reservoir_capacity,
+        ),
+        minimum_state_of_charge=minimum_soc_ts,
+        charge_efficiency=props.efficiency,
+        discharge_efficiency=1.0,
+        storage_initial_level=parameters.storage.battery_initial_level,
+        transition_duration=duration(hours=0),
+    )
 
-    power_ts = power_discharge_ts + power_charge_ts
 
-    minimum_power_value = float(power_charge_df.abs().max().max())
-    minimum_power_ts = Timeseries.from_index(
+def _get_power_bounds(
+    storage: STStorage,
+    scenario: int | None,
+    parameters: AntaresToAtlasParameters,
+) -> tuple[Timeseries, Timeseries]:
+    """Return (maximum_injection_power_ts, maximum_withdrawal_power_ts).
+
+    Uses scenario-specific pmax timeseries scaled by nominal capacity when available,
+    falls back to constant nominal capacities.
+    """
+    props = storage.properties
+
+    if scenario is not None:
+        try:
+            inj_col = storage.get_pmax_injection()[scenario - 1]
+            wdr_col = storage.get_pmax_withdrawal()[scenario - 1]
+            return (
+                Timeseries.from_values(
+                    start_date=parameters.start_date,
+                    frequency="1h",
+                    values=(inj_col * props.injection_nominal_capacity),
+                ),
+                Timeseries.from_values(
+                    start_date=parameters.start_date,
+                    frequency="1h",
+                    values=(wdr_col * props.withdrawal_nominal_capacity),
+                ),
+            )
+        except Exception as e:
+            logger.warning(f"Could not get pmax timeseries for {storage.id}: {e}, falling back to nominal capacity")
+
+    return (
+        Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=props.injection_nominal_capacity,
+        ),
+        Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=props.withdrawal_nominal_capacity,
+        ),
+    )
+
+
+def _get_minimum_soc(
+    storage: STStorage,
+    scenario: int | None,
+    parameters: AntaresToAtlasParameters,
+) -> Timeseries:
+    """Return minimum state of charge timeseries from the lower rule curve.
+
+    Falls back to a constant zero timeseries if the scenario is unavailable or
+    the matrix cannot be read.
+    """
+    if scenario is not None:
+        try:
+            lower_curve_col = storage.get_lower_rule_curve()[scenario - 1]
+            return Timeseries.from_values(
+                start_date=parameters.start_date,
+                frequency="1h",
+                values=lower_curve_col.tolist(),
+            )
+        except Exception as e:
+            logger.warning(f"Could not get lower rule curve for {storage.id}: {e}, defaulting to 0")
+
+    return Timeseries.from_index(
         start_date=parameters.start_date,
         frequency="1h",
         end_date=parameters.start_date + duration(years=1),
-        default_value=-minimum_power_value,
+        default_value=0.0,
     )
-
-    # "batteries" → "battery", "batteries_pcomp" → "battery_pcomp"
-    name_suffix = prefix.replace("batteries", "battery")
-    label = "normal" if prefix == "batteries" else "PCOMP"
-
-    battery = Storage(
-        name=f"{area.id}_{name_suffix}",
-        node=atlas_dataset.get("node", area.id),
-        portfolio=get_portfolio(atlas_dataset, parameters, area.id),
-        storage_type=StorageType.BATTERY,
-        maximum_power=maximum_power_ts,
-        minimum_power=minimum_power_ts,
-        maximum_energy=maximum_energy_ts,
-        minimum_state_of_charge=Timeseries.from_index(
-            start_date=parameters.start_date,
-            frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
-            default_value=0.0,
-        ),
-        charge_efficiency=charge_efficiency,
-        discharge_efficiency=discharge_efficiency,
-        storage_initial_level=parameters.storage.battery_initial_level,
-        unit_count=1,
-        power=ForecastingMatrix().add(power_ts, parameters.execution_date, inplace=False),
-    )
-
-    logger.debug(f"Created {label} battery for area: {area.id}")
-    return battery
-
-
-def _merge_batteries(normal_battery: Storage, pcomp_battery: Storage, parameters: AntaresToAtlasParameters) -> None:
-    """Merge normal and PCOMP batteries into a single battery.
-
-    Merges capacities and calculates weighted average efficiencies.
-    """
-    if normal_battery.maximum_power is None or pcomp_battery.maximum_power is None or normal_battery.power is None:
-        logger.warning("Cannot merge batteries: missing capacity data")
-        return
-
-    # Capture weights before mutation (bug: maximum_power is updated in-place below)
-    normal_max = normal_battery.maximum_power.first_value()
-    pcomp_max = pcomp_battery.maximum_power.first_value()
-    total_max = normal_max + pcomp_max
-
-    normal_battery.maximum_power += pcomp_battery.maximum_power
-    normal_battery.minimum_power += pcomp_battery.minimum_power
-    normal_battery.maximum_energy += pcomp_battery.maximum_energy
-
-    if total_max > 0:
-        normal_battery.discharge_efficiency = (
-            normal_battery.discharge_efficiency * normal_max + pcomp_battery.discharge_efficiency * pcomp_max
-        ) / total_max
-
-        normal_battery.charge_efficiency = (
-            normal_battery.charge_efficiency * normal_max + pcomp_battery.charge_efficiency * pcomp_max
-        ) / total_max
-
-    # Merge power ForecastingMatrix by extracting and summing the underlying timeseries
-    if isinstance(normal_battery.power, ForecastingMatrix) and isinstance(pcomp_battery.power, ForecastingMatrix):
-        exec_key = parameters.execution_date.format(normal_battery.power.date_format)
-        if exec_key in normal_battery.power.indexes and exec_key in pcomp_battery.power.indexes:
-            normal_ts = normal_battery.power[exec_key]
-            pcomp_ts = pcomp_battery.power[exec_key]
-            normal_battery.power.replace(parameters.execution_date, normal_ts + pcomp_ts)

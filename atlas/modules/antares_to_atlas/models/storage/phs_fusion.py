@@ -39,16 +39,10 @@ def merge_open_and_closed_phs(
     logger.debug(f"Open PHS list: {open_phs_list}")
     logger.debug(f"Closed PHS list: {closed_phs_list}")
 
-    if not hasattr(atlas_dataset, "storage") or not atlas_dataset.storage:
-        logger.warning("No storage equipment found in atlas_dataset")
-        return atlas_dataset
-
     for node_name in open_phs_list:
         if node_name in closed_phs_list:
-            # Both open and closed PHS exist - merge them
             _merge_phs_for_node(atlas_dataset, node_name, parameters)
         else:
-            # Only open PHS exists - rename it
             _rename_open_phs_to_standard(atlas_dataset, node_name)
             closed_phs_list.append(node_name)
 
@@ -65,21 +59,15 @@ def _merge_phs_for_node(atlas_dataset: AtlasDataset, node_name: str, parameters:
     closed_name = f"{node_name}_phs"
     open_name = f"{node_name}_phs_open"
 
-    # Find the equipment in the storage list
-    closed_phs = None
-    open_phs = None
-
-    for storage in atlas_dataset.storage:
-        if storage.name == closed_name:
-            closed_phs = storage
-        elif storage.name == open_name:
-            open_phs = storage
-
-    if not closed_phs:
+    try:
+        closed_phs = atlas_dataset.storage.get(closed_name)
+    except KeyError:
         logger.warning(f"Closed PHS {closed_name} not found for merging")
         return
 
-    if not open_phs:
+    try:
+        open_phs = atlas_dataset.storage.get(open_name)
+    except KeyError:
         logger.warning(f"Open PHS {open_name} not found for merging")
         return
 
@@ -122,10 +110,13 @@ def _rename_open_phs_to_standard(atlas_dataset: AtlasDataset, node_name: str) ->
     open_name = f"{node_name}_phs_open"
     new_name = f"{node_name}_phs"
 
-    for storage in atlas_dataset.storage:
-        if storage.name == open_name:
-            storage.name = new_name
-            logger.debug(f"Renamed {open_name} to {new_name}")
-            return
+    try:
+        storage = atlas_dataset.storage.get(open_name)
+    except KeyError:
+        logger.warning(f"Open PHS {open_name} not found for renaming")
+        return
 
-    logger.warning(f"Open PHS {open_name} not found for renaming")
+    atlas_dataset.storage.remove(open_name)
+    storage.name = new_name
+    atlas_dataset.storage.add(storage)
+    logger.debug(f"Renamed {open_name} to {new_name}")
