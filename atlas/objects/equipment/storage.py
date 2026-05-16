@@ -5,7 +5,7 @@ This file is part of the ATLAS project.
 """
 
 from pydantic import Field, field_validator
-from pydantic_extra_types.pendulum_dt import Duration
+from pendulum import Duration
 
 from atlas.enums import StorageType
 from atlas.math.abstract_timeseries import AbstractTimeseries
