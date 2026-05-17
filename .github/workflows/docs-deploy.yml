@@ -44,8 +44,8 @@ jobs:
       - name: Deploy development docs
         if: github.ref == 'refs/heads/develop'
         run: |
-          uv run mike deploy --push --update-aliases dev latest
-          uv run mike set-default --push latest
+          uv run mike deploy --config-file zensical.toml --push --update-aliases dev latest
+          uv run mike set-default --config-file zensical.toml --push latest
 
       # Deploy versioned docs for tags (only from main branch)
       - name: Deploy versioned docs
@@ -65,8 +65,8 @@ jobs:
           echo "Deploying documentation for version: $VERSION"
 
           # Deploy version and set as latest if it's the highest version
-          uv run mike deploy --push --update-aliases $VERSION latest
-          uv run mike set-default --push latest
+          uv run mike deploy --config-file zensical.toml --push --update-aliases $VERSION latest
+          uv run mike set-default --config-file zensical.toml --push latest
 
   # Separate job for PR previews (optional)
   preview-docs:
@@ -90,4 +90,4 @@ jobs:
         run: uv sync --group docs --no-dev
 
       - name: Build docs (validation only)
-        run: uv run zensical build
+        run: uv run zensical build --config-file zensical.toml
