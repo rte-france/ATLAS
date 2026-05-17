@@ -234,9 +234,6 @@ pygments_lang_class = true
 
 [project.markdown_extensions.pymdownx.inlinehilite]
 
-[project.markdown_extensions.pymdownx.snippets]
-auto_append = ["includes/abbreviations.md"]
-
 [project.markdown_extensions.pymdownx.keys]
 [project.markdown_extensions.pymdownx.caret]
 [project.markdown_extensions.pymdownx.mark]
