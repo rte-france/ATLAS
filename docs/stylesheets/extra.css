@@ -1,0 +1,184 @@
+/* ── Fonts ────────────────────────────────────────────────────────────────── */
+
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&display=swap");
+
+/* ── Colour palette ───────────────────────────────────────────────────────── */
+
+/* Light mode: deep navy primary, electric blue accent. */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #1b3d70;
+  --md-primary-fg-color--light: #4a72a8;
+  --md-primary-fg-color--dark: #0f2549;
+  --md-accent-fg-color: #0088cc;
+  --md-accent-fg-color--transparent: rgba(0, 136, 204, 0.1);
+  --md-accent-bg-color: #fff;
+  --md-accent-bg-color--light: rgba(255, 255, 255, 0.7);
+  --md-default-bg-color: #f7f9fc;
+  --md-default-bg-color--light: #f7f9fc;
+  --md-default-bg-color--lighter: #edf1f8;
+  --md-default-bg-color--lightest: #e0e8f3;
+  --md-code-bg-color: #e8edf5;
+  --md-typeset-a-color: #0088cc;
+}
+
+/* Dark mode: brighter blues on deep navy background. */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #4a8fd4;
+  --md-primary-fg-color--light: #7ab3e8;
+  --md-primary-fg-color--dark: #2b6cb0;
+  --md-accent-fg-color: #00b4f5;
+  --md-accent-fg-color--transparent: rgba(0, 180, 245, 0.1);
+  --md-accent-bg-color: #fff;
+  --md-accent-bg-color--light: rgba(255, 255, 255, 0.7);
+  --md-default-bg-color: #090e1a;
+  --md-default-bg-color--light: #090e1a;
+  --md-default-bg-color--lighter: #101828;
+  --md-default-bg-color--lightest: #1a2540;
+  --md-code-bg-color: #101828;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+.md-header {
+  background-color: var(--md-default-bg-color);
+}
+
+/* ── Navbar title ─────────────────────────────────────────────────────────── */
+
+.md-header__title,
+.md-header__title .md-header__topic {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+/* ── Links ────────────────────────────────────────────────────────────────── */
+
+.md-typeset a {
+  text-decoration: none;
+}
+
+/* ── Tables ───────────────────────────────────────────────────────────────── */
+
+.md-typeset table:not([class]) {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.md-typeset table:not([class]) th,
+.md-typeset table:not([class]) td {
+  border: 1px solid var(--md-default-bg-color--lightest);
+  padding: 8px 12px;
+}
+
+.md-typeset table:not([class]) tr:nth-child(even) {
+  background-color: var(--md-default-bg-color--lighter);
+}
+
+/* ── Admonitions — theme overrides ───────────────────────────────────────── */
+
+.md-typeset .admonition.danger,
+.md-typeset details.danger,
+.md-typeset .admonition.error,
+.md-typeset details.error,
+.md-typeset .admonition.bug,
+.md-typeset details.bug {
+  background-color: rgba(220, 53, 69, 0.08);
+}
+
+/* Custom admonition: references — accent blue. */
+:root {
+  --md-admonition-icon--references: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M2 6h4m-4 4h4m-4 4h4m-4 4h4"/><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9.5 8h5m-5 4H16m-6.5 4H14"/></svg>');
+}
+
+.md-typeset .admonition.references,
+.md-typeset details.references {
+  background-color: rgba(0, 136, 204, 0.08);
+  border-color: #0088cc;
+}
+
+.md-typeset .references > .admonition-title::before,
+.md-typeset .references > summary::before {
+  background-color: #0088cc;
+  -webkit-mask-image: var(--md-admonition-icon--references);
+          mask-image: var(--md-admonition-icon--references);
+}
+
+.md-typeset .references > .admonition-title::after,
+.md-typeset .references > summary::after {
+  color: #0088cc;
+}
+
+/* ── Accessibility ────────────────────────────────────────────────────────── */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Home page hero ───────────────────────────────────────────────────────── */
+
+.hero-banner {
+  text-align: center;
+  margin-top: -1.5rem;
+  padding: 1rem 1rem 3rem;
+}
+
+.md-typeset .hero-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(3rem, 12vw, 6rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  margin: 0 auto 0.4rem;
+}
+
+[data-md-color-scheme="default"] .hero-title {
+  color: #1b3d70;
+}
+
+[data-md-color-scheme="slate"] .hero-title {
+  color: #e8f0fc;
+}
+
+/* First letter accent in the hero title. */
+.atlas-accent {
+  color: var(--md-accent-fg-color);
+}
+
+.md-typeset .hero-tagline {
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: var(--md-default-fg-color--light);
+  margin: 0 auto 0.5rem;
+  max-width: 40rem;
+}
+
+.md-typeset .hero-subtitle {
+  font-size: 0.95rem;
+  color: var(--md-default-fg-color--light);
+  margin: 0 auto 1.5rem;
+  max-width: 36rem;
+}
+
+.hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.hero-badges img {
+  height: 1.4rem;
+  display: inline-block;
+  vertical-align: middle;
+}
