@@ -273,12 +273,12 @@ def convert_phs_open_fr(
 
     try:
         transit_series = study.get_output(parameters.output_name).get_mc_ind_link(
-                parameters.scenario,
-                frequency=Frequency.HOURLY,
-                data_type=MCIndLinksDataType.VALUES,
-                area_from=link.area_from_id,
-                area_to=link.area_to_id,
-            )[("FLOW LIN.", "MWh")]
+            parameters.scenario,
+            frequency=Frequency.HOURLY,
+            data_type=MCIndLinksDataType.VALUES,
+            area_from=link.area_from_id,
+            area_to=link.area_to_id,
+        )[("FLOW LIN.", "MWh")]
 
         power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=transit_series * -1.0)
         power_fm = ForecastingMatrix().add(power_ts, parameters.execution_date)

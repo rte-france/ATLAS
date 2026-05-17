@@ -1,5 +1,3 @@
-# coding: utf-8
-
 import os
 
 import API
@@ -7,9 +5,7 @@ import functions
 
 
 # Function creating a PumpedHydraulicStorage Equipment based on an open loop PHS in the Antares input marker
-def creation_phs_open(
-    antares_input_marker, atlas_output_marker, hydro_reservoirs, inflows_dictionary, p
-):
+def creation_phs_open(antares_input_marker, atlas_output_marker, hydro_reservoirs, inflows_dictionary, p):
     # Define a list storing all open_phs equipemnts created
     open_phs_list = []
 
@@ -24,30 +20,20 @@ def creation_phs_open(
                 continue
 
             # We create the corresponding object in the ATLAS marker
-            msg = "Creating phs equipment {} in Node {}".format(
-                instance_name, node_name
-            )
+            msg = f"Creating phs equipment {instance_name} in Node {node_name}"
             API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
             atlas_output_marker.Equipment.Storage.CreateInstance(instance_name)
 
-            open_phs = atlas_output_marker.Equipment.Storage.GetInstanceByName(
-                instance_name
-            )
+            open_phs = atlas_output_marker.Equipment.Storage.GetInstanceByName(instance_name)
 
             if p.consumption_production_separation:
-                portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                    "generator_{}".format(node_name)
-                )
+                portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(f"generator_{node_name}")
             else:
-                portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                    "portfolio_{}".format(node_name)
-                )
+                portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{node_name}")
 
             # general properties of a storage equipment
-            open_phs.Node = atlas_output_marker.Network.Node.GetInstanceByName(
-                node_name
-            )
+            open_phs.Node = atlas_output_marker.Network.Node.GetInstanceByName(node_name)
             open_phs.Portfolio = portfolio
             open_phs.StorageType = "PumpedHydraulicStorage"
             open_phs.DischargeEfficiency = 1
@@ -60,9 +46,7 @@ def creation_phs_open(
             # Maximum injection power
             try:
                 sc = sts.STSSelectedScenario[p.scenario - 1]
-                maximum_injection_power_ts = (
-                    sts.PMaxInjection[sc - 1] * sts.InjectionNominalCapacity
-                )
+                maximum_injection_power_ts = sts.PMaxInjection[sc - 1] * sts.InjectionNominalCapacity
             except:
                 maximum_injection_power_ts = API.TimeSeries.NewTimeSeries(
                     "MaximumInjectionPower",
@@ -74,14 +58,14 @@ def creation_phs_open(
                     "MWh",
                 )
 
-            open_phs.MinimumPower = -maximum_injection_power_ts  # In Antares, "Injection Power" corresponds to the energy from the power system to the storage
+            open_phs.MinimumPower = (
+                -maximum_injection_power_ts
+            )  # In Antares, "Injection Power" corresponds to the energy from the power system to the storage
 
             # Maximum withdrawal power
             try:
                 sc = sts.STSSelectedScenario[p.scenario - 1]
-                maximum_withdrawal_power_ts = (
-                    sts.PMaxWithdrawal[sc - 1] * sts.WithdrawalNominalCapacity
-                )
+                maximum_withdrawal_power_ts = sts.PMaxWithdrawal[sc - 1] * sts.WithdrawalNominalCapacity
             except:
                 maximum_withdrawal_power_ts = API.TimeSeries.NewTimeSeries(
                     "MaximumWithdrawalPower",
@@ -96,37 +80,23 @@ def creation_phs_open(
             ts_open_phs_power = sts.WithdrawalPower.GetTimeSeriesByName(
                 str(sc)
             ) - sts.InjectionPower.GetTimeSeriesByName(str(sc))
-            open_phs.Power.AddTimeSeries(
-                p.start_date.AddMinutes(-10), ts_open_phs_power
-            )
+            open_phs.Power.AddTimeSeries(p.start_date.AddMinutes(-10), ts_open_phs_power)
 
             # In ATLAS, the open_phs is divided into two compenents:
             # - A closed phs that will later be merged with the other closed phs of the corresponding node
             # - The open part is integrated into the hydro equipment of the node by increasing its MaximumEnergy, MaximumPower and Inflow
 
             # difference added to the hydro power of the node
-            hydro_equipment = atlas_output_marker.Equipment.Hydraulic.GetInstanceByName(
-                "{}_hydro".format(node_name)
-            )
+            hydro_equipment = atlas_output_marker.Equipment.Hydraulic.GetInstanceByName(f"{node_name}_hydro")
             if not hydro_equipment:
                 # If the hydro power does not exists, we create one to append to inflows of the open phs
-                hydro_equipment = (
-                    atlas_output_marker.Equipment.Hydraulic.CreateInstance(
-                        "{}_hydro".format(node_name)
-                    )
-                )
-                print(
-                    "Creating  hydro equipment {} to put the open PHS in it".format(
-                        hydro_equipment.Name
-                    )
-                )
+                hydro_equipment = atlas_output_marker.Equipment.Hydraulic.CreateInstance(f"{node_name}_hydro")
+                print(f"Creating  hydro equipment {hydro_equipment.Name} to put the open PHS in it")
 
                 # Inflows are empty
                 available_scenarios = [
                     ts.Name
-                    for ts in antares_input_marker.Node.GetInstanceByName(
-                        node_name
-                    ).CalculatedMarginalPrice.TimeSeries
+                    for ts in antares_input_marker.Node.GetInstanceByName(node_name).CalculatedMarginalPrice.TimeSeries
                 ]
                 if p.water_value_scenarios == "All":
                     scenarios = available_scenarios
@@ -139,26 +109,18 @@ def creation_phs_open(
                     maximum_withdrawal_power_ts.Index,
                     0.0,
                 )
-                inflows_dictionary[node_name] = {
-                    scenario: empty_ts for scenario in scenarios
-                }
+                inflows_dictionary[node_name] = dict.fromkeys(scenarios, empty_ts)
 
                 if p.consumption_production_separation:
-                    hydro_equipment.Portfolio = (
-                        atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                            "generator_{}".format(node_name)
-                        )
+                    hydro_equipment.Portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
+                        f"generator_{node_name}"
                     )
                 else:
-                    hydro_equipment.Portfolio = (
-                        atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                            "portfolio_{}".format(node_name)
-                        )
+                    hydro_equipment.Portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
+                        f"portfolio_{node_name}"
                     )
 
-                hydro_equipment.Node = (
-                    atlas_output_marker.Network.Node.GetInstanceByName(node_name)
-                )
+                hydro_equipment.Node = atlas_output_marker.Network.Node.GetInstanceByName(node_name)
                 hydro_equipment.EnergyTargetFrequency = "Daily"
                 hydro_equipment.InflowFrequency = "Daily"
                 hydro_equipment.MaximumPower = API.TimeSeries.NewTimeSeries(
@@ -187,9 +149,7 @@ def creation_phs_open(
                     0.0,
                     "MW",
                 )
-                hydro_equipment.Power.AddTimeSeries(
-                    p.start_date.AddMinutes(-10), empty_ts_hydro
-                )
+                hydro_equipment.Power.AddTimeSeries(p.start_date.AddMinutes(-10), empty_ts_hydro)
 
                 hydro_equipment.MaximumEnergy = API.TimeSeries.NewTimeSeries(
                     "",
@@ -198,12 +158,8 @@ def creation_phs_open(
                     maximum_withdrawal_power_ts.Index,
                     0.0,
                 )
-                curve_index = API.DatetimeIndex.NewIndex(
-                    p.start_date, p.start_date.AddYears(1), p.inflows_time_step
-                )
-                hydro_equipment.Inflows = API.TimeSeries.NewTimeSeries(
-                    "", API.TimeSeries.Constant, "", curve_index, 0
-                )
+                curve_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1), p.inflows_time_step)
+                hydro_equipment.Inflows = API.TimeSeries.NewTimeSeries("", API.TimeSeries.Constant, "", curve_index, 0)
                 hydro_equipment.MinimumEnergy = API.TimeSeries.NewTimeSeries(
                     "MinimumEnergy",
                     API.TimeSeries.Constant,
@@ -214,9 +170,7 @@ def creation_phs_open(
                     "MWh",
                 )
 
-                one_year_days_index = API.DatetimeIndex.NewIndex(
-                    p.start_date, p.start_date.AddYears(1), "1d"
-                )
+                one_year_days_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1), "1d")
 
                 hydro_equipment.HasDailyEnergyConstraint = False
                 hydro_equipment.MinimumDailyEnergy = API.TimeSeries.NewTimeSeries(
@@ -259,8 +213,7 @@ def creation_phs_open(
                     time,
                     max(
                         0,
-                        maximum_withdrawal_power_ts.GetValue(time)
-                        - maximum_injection_power_ts.GetValue(time),
+                        maximum_withdrawal_power_ts.GetValue(time) - maximum_injection_power_ts.GetValue(time),
                     ),
                 )
 
@@ -269,8 +222,7 @@ def creation_phs_open(
                 else:
                     total_closed_ratio.SetValue(
                         time,
-                        total_closed_delta.GetValue(time)
-                        / maximum_withdrawal_power_ts.GetValue(time),
+                        total_closed_delta.GetValue(time) / maximum_withdrawal_power_ts.GetValue(time),
                     )
 
             # Using these informations, update the following properties in both the open_phs and hydro equipments:
@@ -281,9 +233,7 @@ def creation_phs_open(
             # MaximumPower of open_phs
             # FC: correction of the min method (does not work for TS)
             # open_phs.MaximumPower = min(maximum_injection_power_ts, maximum_withdrawal_power_ts)
-            open_phs.MaximumPower = API.TimeSeries.NewTimeSeries(
-                maximum_injection_power_ts
-            )
+            open_phs.MaximumPower = API.TimeSeries.NewTimeSeries(maximum_injection_power_ts)
             for time in maximum_withdrawal_power_ts.Index:
                 open_phs.MaximumPower.SetValue(
                     time,
@@ -304,14 +254,10 @@ def creation_phs_open(
             for time in positive_phs_power.Index:
                 if positive_phs_power.GetValue(time) < 0:
                     positive_phs_power.SetValue(time, 0)
-            ts_open_phs_power = negative_phs_power + positive_phs_power * (
-                1 - total_closed_ratio
-            )
+            ts_open_phs_power = negative_phs_power + positive_phs_power * (1 - total_closed_ratio)
 
             open_phs.Power.DeleteTimeSeries(p.start_date.AddMinutes(-10))
-            open_phs.Power.AddTimeSeries(
-                p.start_date.AddMinutes(-10), ts_open_phs_power
-            )
+            open_phs.Power.AddTimeSeries(p.start_date.AddMinutes(-10), ts_open_phs_power)
 
             # Minimum state of charge
             try:
@@ -338,20 +284,14 @@ def creation_phs_open(
             hydro_equipment.MaximumPower += total_closed_delta
 
             if p.start_date.AddMinutes(-10) in hydro_equipment.Power.Index:
-                ts_power_hydro = hydro_equipment.Power.GetTimeseries(
-                    p.start_date.AddMinutes(-10)
-                )
+                ts_power_hydro = hydro_equipment.Power.GetTimeseries(p.start_date.AddMinutes(-10))
                 ts_power_hydro += positive_phs_power * total_closed_ratio
                 hydro_equipment.Power.DeleteTimeSeries(p.start_date.AddMinutes(-10))
-                hydro_equipment.Power.AddTimeSeries(
-                    p.start_date.AddMinutes(-10), ts_power_hydro
-                )
+                hydro_equipment.Power.AddTimeSeries(p.start_date.AddMinutes(-10), ts_power_hydro)
 
             else:
                 ts_power_hydro = positive_phs_power * total_closed_ratio
-                hydro_equipment.Power.AddTimeSeries(
-                    p.start_date.AddMinutes(-10), ts_power_hydro
-                )
+                hydro_equipment.Power.AddTimeSeries(p.start_date.AddMinutes(-10), ts_power_hydro)
 
             # Increase the MaximumEnergy of the corresponding hydro equipment
             open_loop_capacity = API.TimeSeries.NewTimeSeries(
@@ -374,34 +314,28 @@ def creation_phs_open(
             hydro_equipment.MaximumEnergy += hydro_equipment_additional_energy.Round()
 
             # Deduce the MaximumEnergy of the PHS component from the previous part
-            open_phs.MaximumEnergy = (
-                open_loop_capacity - hydro_equipment_additional_energy
-            ).Round()
+            open_phs.MaximumEnergy = (open_loop_capacity - hydro_equipment_additional_energy).Round()
 
             # --- Update inflows contained in inflows_dictionary according to those in the STS equipment
             # An accurate PHS inflow profile is used, taken from the inflow csvs
             available_scenarios = [
                 ts.Name
-                for ts in antares_input_marker.Node.GetInstanceByName(
-                    node_name
-                ).CalculatedMarginalPrice.TimeSeries
+                for ts in antares_input_marker.Node.GetInstanceByName(node_name).CalculatedMarginalPrice.TimeSeries
             ]
             if p.water_value_scenarios == "All":
                 scenarios = available_scenarios
             else:
                 scenarios = p.water_value_scenarios.split(sep=";")
 
-            curve_index = API.DatetimeIndex.NewIndex(
-                p.start_date, p.start_date.AddYears(1), p.inflows_time_step
-            )
+            curve_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1), p.inflows_time_step)
 
             # First, read the inflow csv corresponding to the current node,
             # and store all values in TimeSeries within a dictionary
-            path2 = "{}_phs.csv".format(node_name)
+            path2 = f"{node_name}_phs.csv"
             csv_path = os.path.join(p.path_inflows, path2)
 
             if os.path.isfile(csv_path):
-                f = open(csv_path, "r")
+                f = open(csv_path)
                 lines_list = f.readlines()
                 f.close()
 
@@ -426,20 +360,14 @@ def creation_phs_open(
                     local_date = curve_index[line_index]
 
                     for inflow_index, inflow in enumerate(splitted_line):
-                        inflows_csv_timeseries[inflow_index].SetValue(
-                            local_date, float(inflow) * 1000
-                        )
+                        inflows_csv_timeseries[inflow_index].SetValue(local_date, float(inflow) * 1000)
 
             # Raise a warning if there are more wv scenarios than inflow scenarios
             if len(inflows_csv_timeseries.keys()) < len(scenarios):
                 API.IO.Trace.Log(
-                    "WARNING: There are {} water values scenarios, and "
-                    " only {} inflow scenarios for node {}. "
-                    "Results may be invalid. ".format(
-                        str(len(scenarios)),
-                        str(len(inflows_csv_timeseries.keys())),
-                        node_name,
-                    ),
+                    f"WARNING: There are {str(len(scenarios))} water values scenarios, and "
+                    f" only {str(len(inflows_csv_timeseries.keys()))} inflow scenarios for node {node_name}. "
+                    "Results may be invalid. ",
                     API.IO.LogTypeWarn,
                 )
 
@@ -447,9 +375,7 @@ def creation_phs_open(
             for scenario_index, scenario in enumerate(scenarios):
                 local_hydro_sc = sts.STSSelectedScenario[int(scenario) - 1]
 
-                local_modulation_sum = sts.Inflows.GetTimeSeriesByName(
-                    str(local_hydro_sc)
-                ).Sum()
+                local_modulation_sum = sts.Inflows.GetTimeSeriesByName(str(local_hydro_sc)).Sum()
 
                 closest_inflow_scenario = 0
                 smallest_energy_gap = local_modulation_sum
@@ -459,18 +385,9 @@ def creation_phs_open(
                     if inflow_scenario in used_inflow_scenarios:
                         continue
 
-                    if (
-                        abs(
-                            inflows_csv_timeseries[inflow_scenario].Sum()
-                            - local_modulation_sum
-                        )
-                        < smallest_energy_gap
-                    ):
+                    if abs(inflows_csv_timeseries[inflow_scenario].Sum() - local_modulation_sum) < smallest_energy_gap:
                         closest_inflow_scenario = inflow_scenario
-                        smallest_energy_gap = abs(
-                            inflows_csv_timeseries[inflow_scenario].Sum()
-                            - local_modulation_sum
-                        )
+                        smallest_energy_gap = abs(inflows_csv_timeseries[inflow_scenario].Sum() - local_modulation_sum)
 
                 used_inflow_scenarios.append(closest_inflow_scenario)
 
@@ -490,10 +407,7 @@ def creation_phs_open(
                     inflow_to_add = (
                         inflows_csv_timeseries[closest_inflow_scenario]
                         * conversion_coefficient
-                        * (
-                            local_modulation_sum
-                            / inflows_csv_timeseries[closest_inflow_scenario].Sum()
-                        )
+                        * (local_modulation_sum / inflows_csv_timeseries[closest_inflow_scenario].Sum())
                     ).Round()
 
                 inflows_dictionary[node_name][scenario] += inflow_to_add
@@ -502,21 +416,15 @@ def creation_phs_open(
                     hydro_equipment.Inflows += inflow_to_add
 
             # Output power of the whole STS equipment
-            power_timeseries = (
-                sts.WithdrawalPower[p.scenario - 1] - sts.InjectionPower[p.scenario - 1]
-            )
+            power_timeseries = sts.WithdrawalPower[p.scenario - 1] - sts.InjectionPower[p.scenario - 1]
 
             # We arbitrarily choose that any positive power flow (from the equipment to the grid) is added to the hydro equipment output power
             # using the ratio calculated before
             # QB: we should only account for positive flow and scale it down
-            power_to_add_to_hydro = (
-                (power_timeseries.Abs() + power_timeseries) / 2 * total_closed_ratio
-            )
+            power_to_add_to_hydro = (power_timeseries.Abs() + power_timeseries) / 2 * total_closed_ratio
             power_to_add_to_hydro = power_to_add_to_hydro.Round()
 
-            one_year_days_index = API.DatetimeIndex.NewIndex(
-                p.start_date, p.start_date.AddYears(1), "1d"
-            )
+            one_year_days_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1), "1d")
             power_to_add_to_hydro.ChangeIndex(one_year_days_index)
             one_day_max_energy = API.TimeSeries.NewTimeSeries(
                 "OneDayMaxEnergy",
@@ -534,15 +442,9 @@ def creation_phs_open(
             )
 
             for time in one_year_days_index:
-                one_day_energy = power_to_add_to_hydro.Slice(
-                    time, time.AddDays(1).AddHours(-1)
-                )
-                one_day_max_energy.SetValue(
-                    time, one_day_energy.Sum() * p.hydro_max_energy_coeff
-                )
-                one_day_min_energy.SetValue(
-                    time, one_day_energy.Sum() * p.hydro_min_energy_coeff
-                )
+                one_day_energy = power_to_add_to_hydro.Slice(time, time.AddDays(1).AddHours(-1))
+                one_day_max_energy.SetValue(time, one_day_energy.Sum() * p.hydro_max_energy_coeff)
+                one_day_min_energy.SetValue(time, one_day_energy.Sum() * p.hydro_min_energy_coeff)
 
             hydro_equipment.MaximumDailyEnergy += one_day_max_energy
             hydro_equipment.MinimumDailyEnergy += one_day_min_energy
@@ -553,9 +455,7 @@ def creation_phs_open(
 
 
 # Function creating a PumpedHydraulicStorage Equipment based on an open loop PHS in the Antares input marker, specific to the FR node
-def creation_phs_open_fr(
-    antares_input_marker, atlas_output_marker, hydro_reservoirs, open_phs_list, p
-):
+def creation_phs_open_fr(antares_input_marker, atlas_output_marker, hydro_reservoirs, open_phs_list, p):
 
     link = antares_input_marker.Link.GetInstanceByName("fr_x_open_turb")
 
@@ -563,26 +463,20 @@ def creation_phs_open_fr(
     node_name = "fr"
 
     # we create the node phs
-    msg = "Creating phs equipment in Node {}".format(node_name)
+    msg = f"Creating phs equipment in Node {node_name}"
     API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
-    instance_name = "{}_phs_open".format(node_name)
+    instance_name = f"{node_name}_phs_open"
     atlas_output_marker.Equipment.Storage.CreateInstance(instance_name)
 
     open_phs = atlas_output_marker.Equipment.Storage.GetInstanceByName(instance_name)
 
-    binding_constraint = functions.find_binding_constraint_phs(
-        antares_input_marker, link
-    )
+    binding_constraint = functions.find_binding_constraint_phs(antares_input_marker, link)
 
     if p.consumption_production_separation:
-        portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-            "generator_{}".format(node_name)
-        )
+        portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(f"generator_{node_name}")
     else:
-        portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-            "portfolio_{}".format(node_name)
-        )
+        portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{node_name}")
 
     # general properties of a storage equipment
     open_phs.Node = atlas_output_marker.Network.Node.GetInstanceByName(node_name)
