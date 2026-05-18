@@ -4,7 +4,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from datetime import datetime
 from typing import cast
 
 from pendulum import DateTime
@@ -20,7 +19,7 @@ from atlas.modules.portfolio_optimisation.input_objects.load import LoadPO
 from atlas.modules.portfolio_optimisation.input_objects.other_non_dispatchable import OtherNonDispatchablePO
 from atlas.modules.portfolio_optimisation.input_objects.solar import SolarPO
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
-from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
+from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.input_objects.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.objects.equipment.equipment import Equipment
@@ -54,7 +53,7 @@ def is_excluded_technology(excluded_technologies: list[str], equipment: Equipmen
     """
     Check if equipment technology is excluded.
 
-    Supports both friendly names (e.g., 'thermal', 'storage', 'wind') and technical class names (e.g., 'ThermalPO').
+    Supported values: 'thermal', 'storage', 'wind', 'solar', 'hydro', 'load', 'other_non_dispatchable', 'all'.
 
     :param excluded_technologies: List of technologies to exclude
     :type excluded_technologies: list[str]
@@ -261,101 +260,74 @@ def _apply_power_constraints(
     """
     Apply power constraints based on equipment type.
 
+
     :param equipment: Equipment instance
     :type equipment: EquipmentPO
-    :param new_power: New power timeseries
+    :param new_power: New power timeseries (modified in place)
     :type new_power: Timeseries
     :param parameters: Optimization parameters
     :type parameters: PortfolioOptimisationParameters
-    :return: None
-    :rtype: None
     """
-
-    max_power_forecast = None
+    max_power_forecast: Timeseries | None = None
     if isinstance(equipment, LoadPO | WindPO | SolarPO | OtherNonDispatchablePO):
         max_power_forecast = equipment.maximum_power_forecast.get_forecast(
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
         )
 
-    for time, power_value in new_power.iter_rows():
-        max_power = _get_max_power(equipment, time, max_power_forecast)
-        if power_value > max_power:
-            new_power.set_value(time, max_power)
-            power_value = max_power
+    max_power = _build_max_power_bound(equipment, new_power, max_power_forecast)
+    new_power.clip(upper_bound=max_power)
 
-        if isinstance(equipment, ThermalPO | HydroPO | WindPO | SolarPO):
-            if power_value < 0:
-                new_power.set_value(time, 0)
-                power_value = 0
+    if isinstance(equipment, ThermalPO | HydroPO | WindPO | SolarPO):
+        new_power.clip(lower_bound=0.0)
 
-        if not isinstance(equipment, ThermalPO):
-            min_power = _get_min_power(equipment, time, max_power_forecast, max_power)
-            if power_value < min_power:
-                new_power.set_value(time, min_power)
+    if isinstance(equipment, OtherNonDispatchablePO):
+        new_power.clip(lower_bound=max_power)
+    elif not isinstance(equipment, ThermalPO):
+        min_power = _build_min_power_bound(equipment, new_power, max_power_forecast)
+        new_power.clip(lower_bound=min_power)
 
 
-def _get_max_power(
-    equipment: EquipmentPO, time: DateTime | datetime, max_power_forecast: AbstractTimeseries | None
-) -> float:
-    """
-    Get maximum power limit for equipment at given time.
-
-    :param equipment: Equipment instance
-    :type equipment: EquipmentPO
-    :param time: Current time
-    :type time: DateTime
-    :param max_power_forecast: Maximum power forecast timeseries
-    :type max_power_forecast: AbstractTimeseries | None
-    :return: Maximum power limit
-    :rtype: float
-    """
+def _build_max_power_bound(
+    equipment: EquipmentPO, new_power: Timeseries, max_power_forecast: AbstractTimeseries | None
+) -> Timeseries:
+    """Per-row maximum-power bound aligned on `new_power`'s time index."""
     if isinstance(equipment, LoadPO):
-        return 0
-    elif isinstance(equipment, WindPO | SolarPO | OtherNonDispatchablePO):
+        return _zero_bound(new_power)
+    if isinstance(equipment, WindPO | SolarPO | OtherNonDispatchablePO):
         if max_power_forecast is None:
-            return 0
-        return max_power_forecast.get_value(time)
-    else:
-        if equipment.maximum_power and time in equipment.maximum_power:
-            return equipment.maximum_power.get_value(time)
-        return 0
+            return _zero_bound(new_power)
+        return cast(Timeseries, max_power_forecast.reindex(new_power, default=0.0, inplace=False))
+    if equipment.maximum_power:
+        return cast(Timeseries, equipment.maximum_power.reindex(new_power, default=0.0, inplace=False))
+    return _zero_bound(new_power)
 
 
-def _get_min_power(
-    equipment: EquipmentPO,
-    time: DateTime | datetime,
-    max_power_forecast: AbstractTimeseries | None,
-    max_power: float,
-) -> float:
-    """
-    Get minimum power limit for equipment at given time.
+def _build_min_power_bound(
+    equipment: EquipmentPO, new_power: Timeseries, max_power_forecast: AbstractTimeseries | None
+) -> Timeseries:
+    """Per-row minimum-power bound aligned on `new_power`'s time index.
 
-    :param equipment: Equipment instance
-    :type equipment: EquipmentPO
-    :param time: Current time
-    :type time: DateTime
-    :param max_power_forecast: Maximum power forecast timeseries
-    :type max_power_forecast: AbstractTimeseries | None
-    :param max_power: Maximum power value
-    :type max_power: float
-    :return: Minimum power limit
-    :rtype: float
+    Note: the OtherNonDispatchablePO branch (min equals the per-row max) is handled
+    directly in :func:`_apply_power_constraints` and not produced here.
     """
     if isinstance(equipment, LoadPO):
         if max_power_forecast is None:
-            return 0
-        return max_power_forecast.get_value(time)
-    elif isinstance(equipment, WindPO | SolarPO):
+            return _zero_bound(new_power)
+        return cast(Timeseries, max_power_forecast.reindex(new_power, default=0.0, inplace=False))
+    if isinstance(equipment, WindPO | SolarPO):
         if max_power_forecast is None:
-            return 0
-        curtailment_ratio = equipment.maximum_curtailment_ratio.get_value(time)
-        return max_power_forecast.get_value(time) * (1 - curtailment_ratio)
-    elif isinstance(equipment, StoragePO | HydroPO):
-        return equipment.minimum_power.get_value(time)
-    elif isinstance(equipment, OtherNonDispatchablePO):
-        return max_power
-    else:
-        return 0
+            return _zero_bound(new_power)
+        forecast = max_power_forecast.reindex(new_power, default=0.0, inplace=False)
+        curtailment = equipment.maximum_curtailment_ratio.reindex(new_power, default=0.0, inplace=False)
+        return cast(Timeseries, forecast - forecast * curtailment)
+    if isinstance(equipment, StoragePO | HydroPO):
+        return cast(Timeseries, equipment.minimum_power.reindex(new_power, default=0.0, inplace=False))
+    return _zero_bound(new_power)
+
+
+def _zero_bound(reference: Timeseries) -> Timeseries:
+    """Build a zero-valued Timeseries aligned on `reference`'s time index."""
+    return Timeseries.from_timeseries(reference, default_value=0.0)
 
 
 def _get_energy_bounds(obj: HydroPO | StoragePO, time: DateTime):
@@ -491,7 +463,7 @@ def _calculate_new_energy_value(
     :rtype: float
     """
     power_value = new_power.get_value(time)
-    time_factor_hours = parameters.temporal.timestep.in_hours()
+    time_factor_hours = parameters.temporal.timestep.total_hours()
 
     if isinstance(equipment, StoragePO):
         if equipment.storage_type == StorageType.ELECTRIC_VEHICLE:
@@ -531,10 +503,10 @@ def _apply_energy_bounds(
     timestep_hours = parameters.temporal.timestep.total_hours()
 
     if energy_value > max_energy:
-        correction = (max_energy - energy_value) * timestep_hours
+        correction = (max_energy - energy_value) / timestep_hours
         return max_energy, correction
     elif energy_value < min_energy:
-        correction = (min_energy - energy_value) * timestep_hours
+        correction = (min_energy - energy_value) / timestep_hours
         return min_energy, correction
     else:
         return energy_value, 0.0

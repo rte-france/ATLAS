@@ -93,17 +93,18 @@ def test_get_metadata_from_file(tmp_path):
         "numerical": {"column": "value", "nulls": 0, "min": 1.0, "max": 2.0},
     }
 
+
 def test_deep_update():
-    a = {'t': {'a': 0, 'b': 2}}
-    x = {'t': {'a': -1, 'b': 2, 'c': -3}}
-    y = {'t': {'a': 1, 'c': 3}}
+    a = {"t": {"a": 0, "b": 2}}
+    x = {"t": {"a": -1, "b": 2, "c": -3}}
+    y = {"t": {"a": 1, "c": 3}}
 
     deep_update(a, x, False)
-    assert a == {'t': {'a': 0, 'b': 2, 'c': -3}}
-    assert x == {'t': {'a': -1, 'b': 2, 'c': -3}}
-    assert y == {'t': {'a': 1, 'c': 3}}
+    assert a == {"t": {"a": 0, "b": 2, "c": -3}}
+    assert x == {"t": {"a": -1, "b": 2, "c": -3}}
+    assert y == {"t": {"a": 1, "c": 3}}
 
     deep_update(a, y, True)
-    assert a == {'t': {'a': 1, 'b': 2, 'c': 3}}
-    assert x == {'t': {'a': -1, 'b': 2, 'c': -3}}
-    assert y == {'t': {'a': 1, 'c': 3}}
+    assert a == {"t": {"a": 1, "b": 2, "c": 3}}
+    assert x == {"t": {"a": -1, "b": 2, "c": -3}}
+    assert y == {"t": {"a": 1, "c": 3}}

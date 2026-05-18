@@ -287,6 +287,7 @@ class TestWorkflowRepresentation:
         assert "Workflow 'test_workflow'" in result
         assert "1 step" in result
 
+
 class TestWorkflowContextParameters:
     @staticmethod
     def create_config(tmp_path, context: str, module_parameters: str | None = None) -> Path:
@@ -307,9 +308,7 @@ class TestWorkflowContextParameters:
 
         config = tmp_path / "workflow.yaml"
         config.write_text(
-            "name: test_workflow\n"
-            + context +
-            f"dataset_path: {dataset_dir}\n"
+            "name: test_workflow\n" + context + f"dataset_path: {dataset_dir}\n"
             f"steps:\n"
             f"  - module: MarketClearing\n"
             f"    parameters_path: {params_file}\n"
@@ -332,10 +331,10 @@ class TestWorkflowContextParameters:
         )
         config = TestWorkflowContextParameters.create_config(tmp_path, context)
         workflow = Workflow.from_file(config)
-        assert workflow.parameters.context.default["foo"] == 'default_value'
-        assert workflow.parameters.context.default["list_foo"] == {'foo1': 1, 'foo2': 2}
-        assert workflow.parameters.context.forced["foo"] == 'forced_value'
-        assert workflow.parameters.context.forced["list_foo"] == {'foo2': 20, 'foo4': 40}
+        assert workflow.parameters.context.default["foo"] == "default_value"
+        assert workflow.parameters.context.default["list_foo"] == {"foo1": 1, "foo2": 2}
+        assert workflow.parameters.context.forced["foo"] == "forced_value"
+        assert workflow.parameters.context.forced["list_foo"] == {"foo2": 20, "foo4": 40}
 
     def test_context_parameters_with_additional_context(self, tmp_path):
         context_file = (
@@ -349,17 +348,25 @@ class TestWorkflowContextParameters:
         )
 
         overriding_context = ContextParameters()
-        overriding_context.default = {"foo": "default_value_overriding", "override_exclusive": "default_value_override_exclusive"}
-        overriding_context.forced = {"foo": "forced_value_overriding", "override_exclusive": "forced_value_override_exclusive"}
+        overriding_context.default = {
+            "foo": "default_value_overriding",
+            "override_exclusive": "default_value_override_exclusive",
+        }
+        overriding_context.forced = {
+            "foo": "forced_value_overriding",
+            "override_exclusive": "forced_value_override_exclusive",
+        }
 
-        workflow = Workflow.from_file(TestWorkflowContextParameters.create_config(tmp_path, context_file), overriding_context)
+        workflow = Workflow.from_file(
+            TestWorkflowContextParameters.create_config(tmp_path, context_file), overriding_context
+        )
         print(workflow.parameters.context)
-        assert workflow.parameters.context.default["foo"] == 'default_value_overriding'
-        assert workflow.parameters.context.forced["foo"] == 'forced_value_overriding'
-        assert workflow.parameters.context.default["override_exclusive"] == 'default_value_override_exclusive'
-        assert workflow.parameters.context.forced["override_exclusive"] == 'forced_value_override_exclusive'
-        assert workflow.parameters.context.default["file_exclusive"] == 'default_value_file_exclusive'
-        assert workflow.parameters.context.forced["file_exclusive"] == 'forced_value_file_exclusive'
+        assert workflow.parameters.context.default["foo"] == "default_value_overriding"
+        assert workflow.parameters.context.forced["foo"] == "forced_value_overriding"
+        assert workflow.parameters.context.default["override_exclusive"] == "default_value_override_exclusive"
+        assert workflow.parameters.context.forced["override_exclusive"] == "forced_value_override_exclusive"
+        assert workflow.parameters.context.default["file_exclusive"] == "default_value_file_exclusive"
+        assert workflow.parameters.context.forced["file_exclusive"] == "forced_value_file_exclusive"
 
     def test_default_context_on_empty_parameter(self, tmp_path):
         context = (
@@ -370,11 +377,13 @@ class TestWorkflowContextParameters:
             "      end_date: '2028-09-28 00:00:00'\n"
             "      execution_date: '2028-09-26 12:00:00'\n"
         )
-        workflow = Workflow.from_file(TestWorkflowContextParameters.create_config(tmp_path, context, module_parameters=""))
+        workflow = Workflow.from_file(
+            TestWorkflowContextParameters.create_config(tmp_path, context, module_parameters="")
+        )
 
-        assert workflow.jobs[0].parameters.temporal.start_date == build_datetime('2028-09-27 00:00:00')
-        assert workflow.jobs[0].parameters.temporal.end_date == build_datetime('2028-09-28 00:00:00')
-        assert workflow.jobs[0].parameters.temporal.execution_date == build_datetime('2028-09-26 12:00:00')
+        assert workflow.jobs[0].parameters.temporal.start_date == build_datetime("2028-09-27 00:00:00")
+        assert workflow.jobs[0].parameters.temporal.end_date == build_datetime("2028-09-28 00:00:00")
+        assert workflow.jobs[0].parameters.temporal.execution_date == build_datetime("2028-09-26 12:00:00")
 
     def test_forced_context_on_empty_parameter(self, tmp_path):
         context = (
@@ -385,11 +394,13 @@ class TestWorkflowContextParameters:
             "      end_date: '2028-09-28 00:00:00'\n"
             "      execution_date: '2028-09-26 12:00:00'\n"
         )
-        workflow = Workflow.from_file(TestWorkflowContextParameters.create_config(tmp_path, context, module_parameters=""))
+        workflow = Workflow.from_file(
+            TestWorkflowContextParameters.create_config(tmp_path, context, module_parameters="")
+        )
 
-        assert workflow.jobs[0].parameters.temporal.start_date == build_datetime('2028-09-27 00:00:00')
-        assert workflow.jobs[0].parameters.temporal.end_date == build_datetime('2028-09-28 00:00:00')
-        assert workflow.jobs[0].parameters.temporal.execution_date == build_datetime('2028-09-26 12:00:00')
+        assert workflow.jobs[0].parameters.temporal.start_date == build_datetime("2028-09-27 00:00:00")
+        assert workflow.jobs[0].parameters.temporal.end_date == build_datetime("2028-09-28 00:00:00")
+        assert workflow.jobs[0].parameters.temporal.execution_date == build_datetime("2028-09-26 12:00:00")
 
     def test_default_context_on_partial_parameter(self, tmp_path):
         context = (
@@ -399,16 +410,12 @@ class TestWorkflowContextParameters:
             "      start_date: 'wrong-date'\n"
             "      execution_date: '2028-09-26 12:00:00'\n"
         )
-        module_parameters =(
-            "temporal:\n"
-            "  start_date: '2028-09-27 00:00:00'\n"
-            "  end_date: '2028-09-28 00:00:00'\n"
-        )
+        module_parameters = "temporal:\n  start_date: '2028-09-27 00:00:00'\n  end_date: '2028-09-28 00:00:00'\n"
         workflow = Workflow.from_file(TestWorkflowContextParameters.create_config(tmp_path, context, module_parameters))
 
-        assert workflow.jobs[0].parameters.temporal.start_date == build_datetime('2028-09-27 00:00:00')
-        assert workflow.jobs[0].parameters.temporal.end_date == build_datetime('2028-09-28 00:00:00')
-        assert workflow.jobs[0].parameters.temporal.execution_date == build_datetime('2028-09-26 12:00:00')
+        assert workflow.jobs[0].parameters.temporal.start_date == build_datetime("2028-09-27 00:00:00")
+        assert workflow.jobs[0].parameters.temporal.end_date == build_datetime("2028-09-28 00:00:00")
+        assert workflow.jobs[0].parameters.temporal.execution_date == build_datetime("2028-09-26 12:00:00")
 
     def test_forced_context_on_partial_parameter(self, tmp_path):
         context = (
@@ -418,16 +425,12 @@ class TestWorkflowContextParameters:
             "      start_date: '2028-09-27 00:00:00'\n"
             "      execution_date: '2028-09-26 12:00:00'\n"
         )
-        module_parameters = (
-            "temporal:\n"
-            "  start_date: 'wrong-date'\n"
-            "  end_date: '2028-09-28 00:00:00'\n"
-        )
+        module_parameters = "temporal:\n  start_date: 'wrong-date'\n  end_date: '2028-09-28 00:00:00'\n"
         workflow = Workflow.from_file(TestWorkflowContextParameters.create_config(tmp_path, context, module_parameters))
 
-        assert workflow.jobs[0].parameters.temporal.start_date == build_datetime('2028-09-27 00:00:00')
-        assert workflow.jobs[0].parameters.temporal.end_date == build_datetime('2028-09-28 00:00:00')
-        assert workflow.jobs[0].parameters.temporal.execution_date == build_datetime('2028-09-26 12:00:00')
+        assert workflow.jobs[0].parameters.temporal.start_date == build_datetime("2028-09-27 00:00:00")
+        assert workflow.jobs[0].parameters.temporal.end_date == build_datetime("2028-09-28 00:00:00")
+        assert workflow.jobs[0].parameters.temporal.execution_date == build_datetime("2028-09-26 12:00:00")
 
     def test_context_forced_override_default(self, tmp_path):
         context = (
@@ -441,16 +444,12 @@ class TestWorkflowContextParameters:
             "      start_date: '2028-09-27 00:00:00'\n"
             "      end_date: '2028-09-28 00:00:00'\n"
         )
-        module_parameters = (
-            "temporal:\n"
-            "  start_date: 'wrong-date'\n"
-            "  end_date: 'wrong-date'\n"
-        )
+        module_parameters = "temporal:\n  start_date: 'wrong-date'\n  end_date: 'wrong-date'\n"
         workflow = Workflow.from_file(TestWorkflowContextParameters.create_config(tmp_path, context, module_parameters))
 
-        assert workflow.jobs[0].parameters.temporal.start_date == build_datetime('2028-09-27 00:00:00')
-        assert workflow.jobs[0].parameters.temporal.end_date == build_datetime('2028-09-28 00:00:00')
-        assert workflow.jobs[0].parameters.temporal.execution_date == build_datetime('2028-09-26 12:00:00')
+        assert workflow.jobs[0].parameters.temporal.start_date == build_datetime("2028-09-27 00:00:00")
+        assert workflow.jobs[0].parameters.temporal.end_date == build_datetime("2028-09-28 00:00:00")
+        assert workflow.jobs[0].parameters.temporal.execution_date == build_datetime("2028-09-26 12:00:00")
 
     def test_error_on_incomplete_module_parameter(self, tmp_path):
         context = (
@@ -475,12 +474,7 @@ class TestWorkflowPathFromWorkflow:
         output_dir.mkdir()
 
         config = tmp_path / "workflow.yaml"
-        config.write_text(
-            "name: test_workflow\n"
-            "dataset_path: dataset\n"
-            "path_from_workflow: true\n"
-            "steps: []\n"
-        )
+        config.write_text("name: test_workflow\ndataset_path: dataset\npath_from_workflow: true\nsteps: []\n")
 
         workflow = Workflow.from_file(config)
 
@@ -502,12 +496,7 @@ class TestWorkflowPathFromWorkflow:
         output_dir.mkdir()
 
         config = tmp_path / "workflow.yaml"
-        config.write_text(
-            f"name: test_workflow\n"
-            f"dataset_path: {dataset_dir}\n"
-            f"path_from_workflow: false\n"
-            f"steps: []\n"
-        )
+        config.write_text(f"name: test_workflow\ndataset_path: {dataset_dir}\npath_from_workflow: false\nsteps: []\n")
 
         workflow = Workflow.from_file(config)
 

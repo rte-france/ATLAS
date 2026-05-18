@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 
 import math
 from collections.abc import Callable
-from datetime import datetime
 from typing import Literal
 
 from pendulum import DateTime
@@ -61,15 +60,12 @@ class ThermalOptimizationModel(OptimisationModel):
     UP_GRAD_AT_KEY = "UP_grad_at_"
     DOWN_GRAD_AT_KEY = "DOWN_grad_at_"
 
-    extended_start_date: DateTime
     q_lower: Timeseries
     q_upper: Timeseries
     reserves_up_procured: Timeseries
     reserves_down_procured: Timeseries
     feasible_automated_reserves_up_procured: Timeseries
     feasible_automated_reserves_down_procured: Timeseries
-    last_power: Timeseries
-    last_date: DateTime | None
     start_date_minus_one: DateTime
     time_frame_union_minus_one: list[DateTime]
     start_time_steps: range
@@ -109,7 +105,6 @@ class ThermalOptimizationModel(OptimisationModel):
         self.prices: Timeseries = prices
         self.price_type: str = price_type
         self.time_frame: list[DateTime] = []
-        self.previous_time_frame: list[DateTime] = []
         self.q = ModelVar(
             lambda t: self.get_variable(self.power_equip_at(t)),
             lambda t: self.add_continuous_variable(self.power_equip_at(t), 0, self.q_upper.get_value(t)),
@@ -328,27 +323,6 @@ class ThermalOptimizationModel(OptimisationModel):
         temporal = self.parameters.temporal
         end_date = temporal.end_date + self.thermal_unit.additional_hours - temporal.timestep
         self.time_frame = generate_datetimes(temporal.start_date, end_date, temporal.timestep)
-
-        T_traceback = int(max(self.T_on + self.T_start, self.T_off + self.T_stop)) + 1
-        for k in range(1, T_traceback + 1):
-            self.previous_time_frame.append(temporal.start_date - k * temporal.timestep)
-        self.extended_start_date = self.previous_time_frame[-1]
-
-        if self.thermal_unit.power:
-            self.last_power = self.thermal_unit.power.get_forecast(
-                temporal.execution_date,
-                self.extended_start_date,
-                temporal.start_date - temporal.timestep,
-                default_value=0.0,
-            )
-        else:
-            self.last_power = Timeseries.from_index(
-                self.extended_start_date,
-                temporal.timestep,
-                temporal.start_date - temporal.timestep,
-                0,
-            )
-        self.last_date = self.last_power.last_date()
 
     def _setup_bounds(self) -> None:
         self.q_lower = Timeseries.from_timeseries(self.thermal_unit.minimum_power)
@@ -586,48 +560,3 @@ class ThermalOptimizationModel(OptimisationModel):
         cfg.logger.debug(f"Objective function value: {self._objective}")
 
         return self._extract_results()
-
-    def add_daily_energy_constraint(self) -> None:
-        """
-        Add daily energy constraint to the optimization model.
-        This constraint limits the total energy output per day.
-        Should be called once after all combination constraints are added.
-
-        :return: None
-        """
-        if self.thermal_unit.has_daily_energy_constraint and self.thermal_unit.maximum_daily_energy is not None:
-            dt_days = self.parameters.temporal.timestep.total_days()
-
-            steps_by_day: dict[datetime, list] = {}
-            for t in self.time_frame:
-                key = datetime(t.year, t.month, t.day)
-                steps_by_day.setdefault(key, []).append(t)
-
-            for date, matching_steps in steps_by_day.items():
-                constraint_expr = sum(
-                    self.q.get_value(t) for t in matching_steps
-                ) <= self.thermal_unit.maximum_daily_energy.get_value(date) * dt_days * len(matching_steps)
-                self.add_constraint(constraint_expr, f"energy_limit_of_{self.thermal_unit.name}_at_{date}")
-
-    def is_day_zero(self) -> bool:
-        """
-        See if the program needs to be initialized as DayZero or not
-        :return: if the program needs to be initialized as DayZero or not
-        :rtype: bool
-        """
-        if len(self.last_power) == 0:
-            # Initialization of the program as DayZero and warn the user
-            cfg.logger.info("The program is initialized for the first time.")
-            day_zero = True  # Boolean to keep track of the status
-        elif self.last_date != self.parameters.temporal.start_date - self.parameters.temporal.timestep:
-            # last_date doesn't match start_date - time_step (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
-            cfg.logger.warning(
-                f"The last_date found in Power of equipement {self.thermal_unit.name} "
-                "does not match the start_date of the current program. \n "
-                "The program will be initialized as DayZero."
-            )
-            day_zero = True
-        else:
-            day_zero = False
-            # Setting up the initial conditions of the program
-        return day_zero
