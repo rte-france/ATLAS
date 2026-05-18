@@ -166,7 +166,7 @@ class TestOptimiseSinglePortfolio:
     def test_lp_export_when_enabled(self, mock_model_class, mock_parameters):
         """Test that LP files are exported when export_lp is True."""
         mock_parameters.solver.export_lp = True
-        mock_parameters.get_output_dir.return_value = Path("tmp")
+        mock_parameters._get_output_dir.return_value = Path("tmp")
 
         test_portfolio = Mock(spec=PortfolioPO)
         test_portfolio.name = "test_portfolio"
