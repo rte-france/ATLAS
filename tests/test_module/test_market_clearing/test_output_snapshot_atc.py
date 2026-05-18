@@ -16,8 +16,8 @@ import pytest
 
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
 
-SNAPSHOT_PATH = Path(__file__).parent / "output_snapshot" / "atc.json"
-SNAPSHOT_ID_PATH = Path(__file__).parent / "output_snapshot" / "atc_id.json"
+SNAPSHOT_PATH = Path(__file__).parent / "output_snapshot" / "atc_day_ahead.json"
+SNAPSHOT_ID_PATH = Path(__file__).parent / "output_snapshot" / "atc_intraday.json"
 SNAPSHOT_FIELDS = ("accepted_powers", "local_balances", "border_exchanges", "market_prices")
 NUMERICAL_TOLERANCE = 1e-6
 

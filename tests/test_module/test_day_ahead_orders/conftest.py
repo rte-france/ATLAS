@@ -17,8 +17,8 @@ from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
-DAY_AHEAD_INPUT_DIR = Path("tests/dataset/day_ahead_input")
-MARKET_CLEARING_INPUT_DIR = Path("tests/dataset/market_clearing_input")
+DAY_AHEAD_INPUT_DIR = Path("tests/dataset/day_ahead/day_ahead_input")
+MARKET_CLEARING_INPUT_DIR = Path("tests/dataset/day_ahead/market_clearing_input")
 
 STEPS_PARAMS_DICT = {
     "temporal": {
