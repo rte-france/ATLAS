@@ -22,6 +22,6 @@ solver:
   use_presolve: True
   timeout: "PT10S"
 log_level: "DEBUG"
-product: "DayAhead"
+market: "DayAhead"
 allowed_round_off_error: 1e-3
 execution_datetime_tolerance: 5
