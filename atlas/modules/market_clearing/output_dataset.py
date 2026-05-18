@@ -381,7 +381,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                 case Product.Intraday:
                     updated_values["total_id_flow"] = self.add_indexes(mc_market_border.total_id_flow, flow)
                     updated_values["id_flow"] = self.add_timeseries_to_forecast(mc_market_border.id_flow, flow)
-                    mc_market_border["id_shadow_price"] = self.add_timeseries_to_forecast(
+                    updated_values["id_shadow_price"] = self.add_timeseries_to_forecast(
                         mc_market_border.id_shadow_price, shadow_price
                     )
                 case Product.MFRRUpProcurement:
