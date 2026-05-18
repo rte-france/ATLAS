@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import OrderCoupling, Timeseries
+from atlas import Order, OrderCoupling, Timeseries
 from atlas.enums import ComplementDirection, CouplingType, OrderType, StorageType
 from atlas.modules.intraday_orders.input_objects.storage import StorageIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
@@ -127,13 +127,7 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
             ):
                 # By default, EVs are assumed to respect their DisplacementEnergy after the DA Clearing (not necessarily the PO)
                 # So the total energy bought / sold in ID should be equal to 0
-                order_coupling = OrderCoupling(
-                    name=f"Complement_for_unit_{equipment.name}_IJ",
-                    coupling_type=CouplingType.COMPLEMENT,
-                    complement_energy=0.0,
-                    complement_direction=ComplementDirection.EqualTo,
-                )
-                add_order_coupling_to_output = False
+                coupling_orders: list[Order] = []
 
                 if previous_quantity - equipment.minimum_power.get_value(t) > parameters.allowed_round_off_error:
                     order_name = f"ID_Buy_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}_{equipment.name}_{t.format('YYYY_MM_DD_HH_mm_ss')}"
@@ -148,9 +142,7 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
                         parameters,
                     )
                     dataset.add_order(order)
-                    order_coupling.orders.append(order)
-                    add_order_coupling_to_output = True
-
+                    coupling_orders.append(order)
                     buy_submitted_volume.sum_value_at(t, previous_quantity - equipment.minimum_power.get_value(t))
 
                 if equipment.maximum_power.get_value(t) - previous_quantity > parameters.allowed_round_off_error:
@@ -166,13 +158,19 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
                         parameters,
                     )
                     dataset.add_order(order)
-                    order_coupling.orders.append(order)
-                    add_order_coupling_to_output = True
-
+                    coupling_orders.append(order)
                     sell_submitted_volume.sum_value_at(t, equipment.maximum_power.get_value(t) - previous_quantity)
 
-                if add_order_coupling_to_output:
-                    dataset.add_order_coupling(order_coupling)
+                if coupling_orders:
+                    dataset.add_order_coupling(
+                        OrderCoupling(
+                            name=f"Complement_for_unit_{equipment.name}_IJ",
+                            coupling_type=CouplingType.COMPLEMENT,
+                            complement_energy=0.0,
+                            complement_direction=ComplementDirection.EqualTo,
+                            orders=coupling_orders,
+                        )
+                    )
 
             else:
                 if new_quantity > previous_quantity:

@@ -8,8 +8,8 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-
-from atlas import OrderCoupling
+from typing import Any
+from atlas import Order, OrderCoupling
 from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.enums import ThermalStrategy
 from atlas.modules.intraday_orders.input_objects.hydro import HydroIDO
@@ -19,7 +19,6 @@ from atlas.modules.intraday_orders.input_objects.solar import SolarIDO
 from atlas.modules.intraday_orders.input_objects.storage import StorageIDO
 from atlas.modules.intraday_orders.input_objects.thermal import ThermalIDO
 from atlas.modules.intraday_orders.input_objects.wind import WindIDO
-from atlas.modules.intraday_orders.models.order import IntraDayOrder
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.objects.equipment.hydro import Hydro
 from atlas.objects.equipment.load import Load
@@ -37,7 +36,7 @@ if TYPE_CHECKING:
 class IntradayOrdersOutputDataset(AbstractModuleOutput[IntradayOrdersParameters]):
     def __init__(self, input_dataset: IntradayOrdersInputDataset):
         self.change_sets = []
-        self.order: list[IntraDayOrder] = []
+        self.order: list[Order] = []
         self.order_coupling: list[OrderCoupling] = []
 
         self.load: list[LoadIDO] = input_dataset.load
@@ -48,7 +47,7 @@ class IntradayOrdersOutputDataset(AbstractModuleOutput[IntradayOrdersParameters]
         self.storage: list[StorageIDO] = input_dataset.storage
         self.other_non_dispatchable: list[OtherNonDispatchableIDO] = input_dataset.other_non_dispatchable
 
-    def add_order(self, order: IntraDayOrder) -> None:
+    def add_order(self, order: Order) -> None:
         self.order.append(order)
 
     def add_order_coupling(self, order_coupling: OrderCoupling) -> None:
@@ -84,7 +83,10 @@ class IntradayOrdersOutputDataset(AbstractModuleOutput[IntradayOrdersParameters]
             self.change_sets.append(UpdateObject(other_non_dispatchable_dict, OtherNonDispatchable))
 
         for thermal in self.thermal:
-            thermal_dict = {"name": thermal.name, "id_sell_submitted_volume": thermal.id_sell_submitted_volume}
+            thermal_dict: dict[str, Any] = {
+                "name": thermal.name,
+                "id_sell_submitted_volume": thermal.id_sell_submitted_volume,
+            }
             if thermal.strategy == ThermalStrategy.INTERMEDIATE:
                 thermal_dict["state_sequence"] = thermal.state_sequence
             self.change_sets.append(UpdateObject(thermal_dict, Thermal))

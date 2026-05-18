@@ -7,9 +7,8 @@ This file is part of the ATLAS project.
 
 from pendulum import DateTime
 
-from atlas import Equipment
+from atlas import Equipment, Order
 from atlas.enums import OrderType, Product
-from atlas.modules.intraday_orders.models.order import IntraDayOrder
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 
 
@@ -22,8 +21,8 @@ def build_intraday_order(
     order_type: OrderType,
     time: DateTime,
     parameters: IntradayOrdersParameters,
-) -> IntraDayOrder:
-    return IntraDayOrder(
+) -> Order:
+    return Order(
         name=bid_name,
         market_area=equipment.portfolio.market_area,
         portfolio=equipment.portfolio,
@@ -35,6 +34,6 @@ def build_intraday_order(
         order_type=order_type,
         is_agent_tso=False,
         execution_date=parameters.temporal.execution_date,
-        start_date=time,
-        end_date=time + parameters.temporal.timestep,
+        start_date=time,  # type: ignore[arg-type]
+        end_date=time + parameters.temporal.timestep,  # type: ignore[arg-type]
     )

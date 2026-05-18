@@ -8,10 +8,9 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import OrderCoupling, Timeseries
+from atlas import Order, OrderCoupling, Timeseries
 from atlas.enums import CouplingType, OrderType, ThermalStrategy
 from atlas.modules.intraday_orders.input_objects.thermal import ThermalIDO
-from atlas.modules.intraday_orders.models.order import IntraDayOrder
 from atlas.modules.intraday_orders.models.thermal_order_window import ThermalOrderWindow
 from atlas.modules.intraday_orders.models.window_type import WindowType
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
@@ -118,10 +117,10 @@ def extract_sequences_from_delta_planning(
 
     # Get the time steps for which there is a delta of program (defined as a non-zero state):
     # we create four list of indexes, to store the time indexes of each comparative code (-2,2,-1,1)
-    now_up_at_t = []
-    now_down_at_t = []
-    modulation_up_at_t = []
-    modulation_down_at_t = []
+    now_up_at_t: list[DateTime] = []
+    now_down_at_t: list[DateTime] = []
+    modulation_up_at_t: list[DateTime] = []
+    modulation_down_at_t: list[DateTime] = []
 
     # Sanity check if the time indexes in orders_time are separated by DeltaTime,
     # otherwise the function will not work properly
@@ -158,7 +157,7 @@ def extract_sequences_from_delta_planning(
                 # For each index in the list
                 for i in range(len(delta_at_t) - 1):
                     # If two consecutive time indexes are not separated by DeltaTime
-                    if not (delta_at_t[i + 1] - delta_at_t[i]).TotalMinutes == parameters.time_step:
+                    if not (delta_at_t[i + 1] - delta_at_t[i]).total_minutes() == parameters.temporal.timestep:
                         # The two are added in the intervals list
                         intervals.append(delta_at_t[i])
                         intervals.append(delta_at_t[i + 1])
@@ -387,7 +386,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                     continue
 
                 # Collect inflexible bids to build timestep couplings after the loop
-                inflexible_bids: list[tuple[DateTime, IntraDayOrder]] = []
+                inflexible_bids: list[tuple[DateTime, Order]] = []
 
                 # Calculate the quantity of power over which to distribute the start-up cost
                 q = 0.0
