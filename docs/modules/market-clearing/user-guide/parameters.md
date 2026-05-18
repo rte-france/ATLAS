@@ -125,8 +125,7 @@ market_price_penalty_alpha: 10
 market_price_penalty_beta: 20
 paradoxically_accepted_penalty_M: 1_000
 paradoxically_rejected_penalty_N: 10_000
-log_level: "DEBUG"
-product: "DayAhead"
+market: "DayAhead"
 allowed_round_off_error: 1e-3
 execution_datetime_tolerance: 5
 ```
