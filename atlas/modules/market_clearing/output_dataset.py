@@ -418,7 +418,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                     updated_values["fcr_activated"] = self.add_indexes(mc_market_border.fcr_activated, flow)
 
             # FC: Update ReferenceFlow, otherwise the flow can be out of bounds for future markets
-            updated_values["reference_flow"] = self.add_indexes(mc_market_border.reference_flow, flow)
+            updated_values["reference_flow"] = self.add_indexes_or_sum(mc_market_border.reference_flow, flow)
 
             # Remark : Flow markets are not yet taken into account.
             # Update the Market Border
