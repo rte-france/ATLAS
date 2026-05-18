@@ -14,11 +14,11 @@ from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 
-INPUT_DATASET_DIR = Path("tests/dataset/market_clearing_input")
-PARAMETERS_PATH = Path("tests/dataset/parameters/market_clearing.yml")
+INPUT_DATASET_DIR = Path("tests/dataset/day_ahead/market_clearing_input")
+PARAMETERS_PATH = Path("tests/dataset/parameters/day_ahead/market_clearing.yml")
 
-INPUT_DATASET_ID_DIR = Path("tests/dataset/id_market_clearing_input")
-PARAMETERS_ID_PATH = Path("tests/dataset/parameters/market_clearing_id.yml")
+INPUT_DATASET_ID_DIR = Path("tests/dataset/intraday/market_clearing_input")
+PARAMETERS_ID_PATH = Path("tests/dataset/parameters/intraday/market_clearing.yml")
 
 
 @pytest.fixture(scope="session")
