@@ -29,24 +29,26 @@ WORKFLOW_CONFIGS = [
 ]
 
 
-@pytest.mark.parametrize("workflow_config", WORKFLOW_CONFIGS)
-class TestWorkflowIntegration:
-    def test_workflow_all_steps_produce_output(self, workflow_config: Path):
-        with timer() as t:
-            workflow = Workflow.from_file(workflow_config)
-            workflow.execute()
-
-            assert workflow.get_output_dataset() is not None
-            for step in workflow.jobs:
-                assert step.output_dataset is not None, f"Step '{step.name}' did not produce output"
-            print(f"Workflow completed in {t()} seconds")
-
-    def test_workflow_cis_is_modified_after_execution(self, workflow_config: Path):
-        workflow = Workflow.from_file(workflow_config)
-        initial_cis = CurrentInputState.from_directory(
-            workflow.parameters.resolve_path(workflow.parameters.dataset_path)
-        )
+@pytest.fixture(scope="class", params=WORKFLOW_CONFIGS)
+def executed_workflow(request):
+    workflow_config = request.param
+    workflow = Workflow.from_file(workflow_config)
+    initial_cis = CurrentInputState.from_directory(workflow.parameters.resolve_path(workflow.parameters.dataset_path))
+    with timer() as t:
         final_cis = workflow.execute()
+        print(f"Workflow completed in {t()} seconds")
+    return workflow, initial_cis, final_cis
+
+
+class TestWorkflowIntegration:
+    def test_workflow_all_steps_produce_output(self, executed_workflow):
+        workflow, _, _ = executed_workflow
+        assert workflow.get_output_dataset() is not None
+        for step in workflow.jobs:
+            assert step.output_dataset is not None, f"Step '{step.name}' did not produce output"
+
+    def test_workflow_cis_is_modified_after_execution(self, executed_workflow):
+        _, initial_cis, final_cis = executed_workflow
         diff = final_cis.diff(initial_cis)
         assert any(len(changes) > 0 for model_diff in diff.values() for changes in model_diff.values()), (
             "CIS was not modified after workflow execution"
