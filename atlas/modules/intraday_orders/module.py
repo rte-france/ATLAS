@@ -61,7 +61,9 @@ class IntradayOrdersModule(
         ]
 
         for _name, formulator, equipments in formulators:
-            formulator.formulate(equipments, orders_timestamps, dataset, parameters)
+            result = formulator.formulate(equipments, orders_timestamps, parameters)
+            dataset.order.extend(result.orders)
+            dataset.order_coupling.extend(result.order_couplings)
 
         cfg.logger.info("Formulation of intraday orders successfully completed.")
         return dataset

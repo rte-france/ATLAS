@@ -7,8 +7,8 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
 from atlas import Order, OrderCoupling
 from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.enums import ThermalStrategy
@@ -46,12 +46,6 @@ class IntradayOrdersOutputDataset(AbstractModuleOutput[IntradayOrdersParameters]
         self.thermal: list[ThermalIDO] = input_dataset.thermal
         self.storage: list[StorageIDO] = input_dataset.storage
         self.other_non_dispatchable: list[OtherNonDispatchableIDO] = input_dataset.other_non_dispatchable
-
-    def add_order(self, order: Order) -> None:
-        self.order.append(order)
-
-    def add_order_coupling(self, order_coupling: OrderCoupling) -> None:
-        self.order_coupling.append(order_coupling)
 
     def build_change_sets(self):
         for order in self.order:

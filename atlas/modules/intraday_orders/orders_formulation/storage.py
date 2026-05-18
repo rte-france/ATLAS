@@ -12,7 +12,6 @@ from atlas import Order, OrderCoupling, Timeseries
 from atlas.enums import ComplementDirection, CouplingType, OrderType, StorageType
 from atlas.modules.intraday_orders.input_objects.storage import StorageIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
-from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.modules.intraday_orders.utils import build_intraday_order
 
@@ -100,9 +99,8 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
         orders_timestamps: list[DateTime],
         buy_submitted_volume: Timeseries,
         sell_submitted_volume: Timeseries,
-        dataset: IntradayOrdersOutputDataset,
         parameters: IntradayOrdersParameters,
-    ):
+    ) -> tuple[list[Order], list[OrderCoupling]]:
         final_sell_price, final_buy_price = compute_initial_prices(equipment, orders_timestamps, parameters)
 
         new_planning = equipment.id_po_for_orders.get_forecast(
@@ -112,6 +110,8 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
 
         cfg.logger.info(f"Formulating storage orders for unit {equipment.name}")
 
+        orders: list[Order] = []
+        couplings: list[OrderCoupling] = []
         daily_buy_quantity = 0.0
         daily_sell_quantity = 0.0
 
@@ -141,7 +141,7 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
                         t,
                         parameters,
                     )
-                    dataset.add_order(order)
+                    orders.append(order)
                     coupling_orders.append(order)
                     buy_submitted_volume.sum_value_at(t, previous_quantity - equipment.minimum_power.get_value(t))
 
@@ -157,12 +157,12 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
                         t,
                         parameters,
                     )
-                    dataset.add_order(order)
+                    orders.append(order)
                     coupling_orders.append(order)
                     sell_submitted_volume.sum_value_at(t, equipment.maximum_power.get_value(t) - previous_quantity)
 
                 if coupling_orders:
-                    dataset.add_order_coupling(
+                    couplings.append(
                         OrderCoupling(
                             name=f"Complement_for_unit_{equipment.name}_IJ",
                             coupling_type=CouplingType.COMPLEMENT,
@@ -196,4 +196,6 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
                 if q_order > parameters.allowed_round_off_error:
                     order_name = f"ID_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}_{equipment.name}_{t.format('YYYY_MM_DD_HH_mm_ss')}"
                     order = build_intraday_order(equipment, order_name, price, 0.0, q_order, order_type, t, parameters)
-                    dataset.add_order(order)
+                    orders.append(order)
+
+        return orders, couplings

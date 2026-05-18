@@ -9,12 +9,11 @@ from typing import TypeVar
 
 from pendulum import DateTime
 
-from atlas import Timeseries
+from atlas import Order, OrderCoupling, Timeseries
 from atlas.enums import OrderType
 from atlas.modules.intraday_orders.input_objects.solar import SolarIDO
 from atlas.modules.intraday_orders.input_objects.wind import WindIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
-from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.modules.intraday_orders.utils import build_intraday_order
 
@@ -31,10 +30,10 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
         orders_timestamps: list[DateTime],
         buy_submitted_volume: Timeseries,
         sell_submitted_volume: Timeseries,
-        dataset: IntradayOrdersOutputDataset,
         parameters: IntradayOrdersParameters,
-    ):
-        # Extract the forecasting matrix of the current actor
+    ) -> tuple[list[Order], list[OrderCoupling]]:
+        orders: list[Order] = []
+
         production_new_planing = equipment.maximum_power_forecast.get_forecast(
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
         )
@@ -46,18 +45,14 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
             1 - equipment.maximum_curtailment_ratio
         )
 
-        # Extract the sequence of variable costs that will be used to define the price.
         variable_costs = None
         if equipment.variable_cost is not None:
             variable_costs = equipment.variable_cost.filter(item=orders_timestamps, inplace=False)
 
-        # Extract the area price forecast
         price_forecast = equipment.portfolio.market_area.id_price_forecast.get_forecast(
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
         )
 
-        # Now we loop over the time stamps for which we want an offer to be made.
-        # We formulate as many offers as there are time stamps in orders_time.
         for t in orders_timestamps:
             buy_isp_forecast = price_forecast.get_value(t) * (1.0 + parameters.large_imbalance_penalty)
             production_value = production_forecast.get_value(t)
@@ -74,43 +69,24 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
                 t.format("YYYY_MM_DD_HH_mm_ss"),
             )
 
-            # Curtailment
             if abs(curtailment_value) >= parameters.allowed_round_off_error:
                 if curtailment_value < 0:
-                    # Previous engagements are lower than possible curtailment capacity, hence an offer at all cost
                     curtailment_bid_output = build_intraday_order(
-                        equipment,
-                        curtailment_bid_name,
-                        0.0,
-                        0.0,
-                        abs(curtailment_value),
-                        OrderType.Sell,
-                        t,
-                        parameters,
+                        equipment, curtailment_bid_name, 0.0, 0.0, abs(curtailment_value), OrderType.Sell, t, parameters
                     )
-                    dataset.add_order(curtailment_bid_output)
+                    orders.append(curtailment_bid_output)
                     sell_submitted_volume.sum_value_at(t, abs(curtailment_value))
-
                 else:
-                    # Previous engagements are non-limiting, and the unit offers available margin as curtailment
                     curtailment_bid_output = build_intraday_order(
-                        equipment,
-                        curtailment_bid_name,
-                        0.0,
-                        0.0,
-                        abs(curtailment_value),
-                        OrderType.Buy,
-                        t,
-                        parameters,
+                        equipment, curtailment_bid_name, 0.0, 0.0, abs(curtailment_value), OrderType.Buy, t, parameters
                     )
-                    dataset.add_order(curtailment_bid_output)
+                    orders.append(curtailment_bid_output)
                     buy_submitted_volume.sum_value_at(t, abs(curtailment_value))
 
             if abs(production_value) <= parameters.allowed_round_off_error:
                 continue
 
             if production_value > 0:
-                # Production is greater than previously cleared
                 bid_output = build_intraday_order(
                     equipment,
                     bid_name,
@@ -121,12 +97,10 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
                     t,
                     parameters,
                 )
-                dataset.add_order(bid_output)
+                orders.append(bid_output)
                 sell_submitted_volume.sum_value_at(t, abs(curtailment_value))
 
             if production_value < 0:
-                # Production is lower than previously cleared
-                # Unit buys back the sold surplus if market prices are lower than forecasted imbalance price
                 bid_output = build_intraday_order(
                     equipment,
                     bid_name,
@@ -137,5 +111,7 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
                     t,
                     parameters,
                 )
-                dataset.add_order(bid_output)
+                orders.append(bid_output)
                 sell_submitted_volume.sum_value_at(t, abs(curtailment_value))
+
+        return orders, []

@@ -14,7 +14,6 @@ from atlas.modules.intraday_orders.input_objects.thermal import ThermalIDO
 from atlas.modules.intraday_orders.models.thermal_order_window import ThermalOrderWindow
 from atlas.modules.intraday_orders.models.window_type import WindowType
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
-from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.modules.intraday_orders.utils import build_intraday_order
 
@@ -234,9 +233,11 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
         orders_timestamps: list[DateTime],
         buy_submitted_volume: Timeseries,
         sell_submitted_volume: Timeseries,
-        dataset: IntradayOrdersOutputDataset,
         parameters: IntradayOrdersParameters,
-    ):
+    ) -> tuple[list[Order], list[OrderCoupling]]:
+        orders: list[Order] = []
+        couplings: list[OrderCoupling] = []
+
         if equipment.strategy == ThermalStrategy.INTERMEDIATE or equipment.strategy == ThermalStrategy.BASE:
             delta_planning = compare_planning(equipment, orders_timestamps, parameters)
             list_of_delta_sequences = extract_sequences_from_delta_planning(
@@ -501,7 +502,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                             t,
                             parameters,
                         )
-                        dataset.add_order(bid_output)
+                        orders.append(bid_output)
 
                         # Store the flexible part to be coupled with the inflexible part
                         bid_flexible = bid_output
@@ -520,13 +521,13 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                             t,
                             parameters,
                         )
-                        dataset.add_order(bid_output)
+                        orders.append(bid_output)
 
                         inflexible_bids.append((t, bid_output))
 
                         # The inflexible order is coupled with the flexible part if it exists
                         if q_max_flexible > parameters.allowed_round_off_error:
-                            dataset.add_order_coupling(
+                            couplings.append(
                                 OrderCoupling(
                                     name=f"{coupling_type_flexible_inflexible}_ID_{equipment.name}_{t.format('YYYY_MM_DD_HH_mm_ss')}_{window.window_type.value}_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}",
                                     coupling_type=coupling_type_flexible_inflexible,
@@ -545,7 +546,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                     for k in range(len(inflexible_bids) - 1):
                         ts, bid = inflexible_bids[k]
                         _, next_bid = inflexible_bids[k + 1]
-                        dataset.add_order_coupling(
+                        couplings.append(
                             OrderCoupling(
                                 name=f"PAR_CHIL_ID_{equipment.name}_{ts.format('YYYY_MM_DD_HH_mm_ss')}_{window.window_type.value}_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}",
                                 coupling_type=CouplingType.PARENT_CHILDREN,
@@ -554,7 +555,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                         )
                     if coupling_time_step == "all":
                         ts, bid = inflexible_bids[-1]
-                        dataset.add_order_coupling(
+                        couplings.append(
                             OrderCoupling(
                                 name=f"PAR_CHIL_ID_{equipment.name}_{ts.format('YYYY_MM_DD_HH_mm_ss')}_{window.window_type.value}_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}",
                                 coupling_type=CouplingType.PARENT_CHILDREN,
@@ -601,7 +602,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                         t,
                         parameters,
                     )
-                    dataset.add_order(inflexible_bid_output)
+                    orders.append(inflexible_bid_output)
 
                     sell_submitted_volume.sum_value_at(t, minimum_power)
 
@@ -620,10 +621,10 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                             t,
                             parameters,
                         )
-                        dataset.add_order(flexible_bid_output)
+                        orders.append(flexible_bid_output)
                         sell_submitted_volume.sum_value_at(t, q_max)
 
-                        dataset.add_order_coupling(
+                        couplings.append(
                             OrderCoupling(
                                 name=f"PARENT_CHILDREN_ID_inflexible_flexible_orders_Sell_at_{t.format('YYYY_MM_DD_HH_mm_ss')}_for_unit_{equipment.name}",
                                 coupling_type=CouplingType.PARENT_CHILDREN,
@@ -647,7 +648,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                             t,
                             parameters,
                         )
-                        dataset.add_order(flexible_bid_output)
+                        orders.append(flexible_bid_output)
                         sell_submitted_volume.sum_value_at(t, q_max)
 
                 if pow_t != 0.0 and pow_t != minimum_power:
@@ -666,5 +667,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                             t,
                             parameters,
                         )
-                        dataset.add_order(flexible_bid_output)
+                        orders.append(flexible_bid_output)
                         buy_submitted_volume.sum_value_at(t, q_max)
+
+        return orders, couplings
