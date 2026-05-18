@@ -17,6 +17,7 @@ import pytest
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
 
 SNAPSHOT_PATH = Path(__file__).parent / "output_snapshot" / "atc.json"
+SNAPSHOT_ID_PATH = Path(__file__).parent / "output_snapshot" / "atc_id.json"
 SNAPSHOT_FIELDS = ("accepted_powers", "local_balances", "border_exchanges", "market_prices")
 NUMERICAL_TOLERANCE = 1e-6
 
@@ -31,13 +32,59 @@ def _dump_snapshot(output_dataset: MarketClearingOutputDataset) -> dict[str, lis
 
 
 @pytest.fixture(scope="module")
-def expected_snapshot(output_dataset: MarketClearingOutputDataset) -> dict[str, list]:
+def expected_snapshot() -> dict[str, list]:
     if not SNAPSHOT_PATH.exists():
         pytest.fail(f"Output snapshot missing: {SNAPSHOT_PATH}. Generate it once with MC_REGENERATE_REFS=1.")
     return json.loads(SNAPSHOT_PATH.read_text())
 
 
+@pytest.fixture(scope="module")
+def expected_snapshot_id() -> dict[str, list]:
+    if not SNAPSHOT_ID_PATH.exists():
+        pytest.fail(f"Output snapshot missing: {SNAPSHOT_ID_PATH}. Generate it once with MC_REGENERATE_REFS=1.")
+    return json.loads(SNAPSHOT_ID_PATH.read_text())
+
+
 class TestOutputSnapshotATC:
+    @pytest.mark.parametrize("field", SNAPSHOT_FIELDS)
+    def test_field_keys_match_snapshot(
+        self,
+        output_dataset: MarketClearingOutputDataset,
+        expected_snapshot: dict[str, list],
+        field: str,
+    ) -> None:
+        actual_keys = {tuple(entry[:-1]) for entry in _dump_snapshot(output_dataset)[field]}
+        expected_keys = {tuple(entry[:-1]) for entry in expected_snapshot[field]}
+
+        missing = expected_keys - actual_keys
+        extra = actual_keys - expected_keys
+        assert not missing, f"{field}: missing {len(missing)} keys, e.g. {list(missing)[:3]}"
+        assert not extra, f"{field}: unexpected {len(extra)} keys, e.g. {list(extra)[:3]}"
+
+    @pytest.mark.parametrize("field", SNAPSHOT_FIELDS)
+    def test_field_values_match_snapshot_within_tolerance(
+        self,
+        output_dataset: MarketClearingOutputDataset,
+        expected_snapshot: dict[str, list],
+        field: str,
+    ) -> None:
+        actual = {tuple(entry[:-1]): entry[-1] for entry in _dump_snapshot(output_dataset)[field]}
+        expected = {tuple(entry[:-1]): entry[-1] for entry in expected_snapshot[field]}
+
+        drifted = []
+        for key, expected_value in expected.items():
+            if key not in actual:
+                continue
+            actual_value = actual[key]
+            if abs(actual_value - expected_value) > NUMERICAL_TOLERANCE:
+                drifted.append((key, expected_value, actual_value))
+
+        assert not drifted, (
+            f"{field}: {len(drifted)} values drifted beyond tolerance {NUMERICAL_TOLERANCE}, e.g. {drifted[:3]}"
+        )
+
+
+class TestOutputSnapshotATCID:
     @pytest.mark.parametrize("field", SNAPSHOT_FIELDS)
     def test_field_keys_match_snapshot(
         self,
