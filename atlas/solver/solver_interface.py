@@ -55,6 +55,7 @@ class OptimisationModel:
         self._constraints_name: set[str] = set()
         self._objective: Any | None = None
         self._objective_direction: Literal["maximize", "minimize"] | None = None
+        self._objective_commit: bool = False
         self._solution_info: SolutionInfo | None = None
         self._options: SolverOptions = options if options is not None else SolverOptions()
 
@@ -306,7 +307,7 @@ class OptimisationModel:
         else:
             self._objective = self._objective + objective_expr
 
-        self._update_solver_objective()
+        self._objective_commit = True
 
     def set_objective(self, objective_expr: Any) -> None:
         """
@@ -360,6 +361,9 @@ class OptimisationModel:
         :return: Solution information
         :rtype: SolutionInfo
         """
+        if self._objective_commit:
+            self._update_solver_objective()
+            self._objective_commit = False
         self._apply_solver_options()
 
         with timer() as t:
@@ -448,6 +452,9 @@ class OptimisationModel:
         :param filename: Output filename
         :type filename: str
         """
+        if self._objective_commit:
+            self._update_solver_objective()
+            self._objective_commit = False
         logger.debug(f"Exporting model to '{filename}'")
 
         lp = self._solver.ExportModelAsLpFormat(False)
@@ -488,6 +495,7 @@ class OptimisationModel:
         self._solution_info = None
         self._objective = None
         self._objective_direction = None
+        self._objective_commit = False
         self._initialize_solver(self.solver_name)
 
     def deactivate_constraint(self, constraint_name: str) -> None:

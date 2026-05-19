@@ -213,26 +213,6 @@ class TestOptimisationModel:
         with pytest.raises(ValueError, match="Optimization direction must be set before setting objective"):
             model.set_objective(mock_expr)
 
-    def test_add_objective_first_call_maximize(self, model, mock_solver):
-        """Test first call to add_objective with maximize direction."""
-        mock_expr = MagicMock()
-        model.set_direction("maximize")
-        model.add_objective(mock_expr)
-
-        mock_solver.Maximize.assert_called_with(mock_expr)
-        assert model._objective is mock_expr
-        assert model._objective_direction == "maximize"
-
-    def test_add_objective_first_call_minimize(self, model, mock_solver):
-        """Test first call to add_objective with minimize direction."""
-        mock_expr = MagicMock()
-        model.set_direction("minimize")
-        model.add_objective(mock_expr)
-
-        mock_solver.Minimize.assert_called_with(mock_expr)
-        assert model._objective is mock_expr
-        assert model._objective_direction == "minimize"
-
     def test_add_objective_multiple_calls_same_direction(self, model, mock_solver):
         """Test multiple calls to add_objective."""
         mock_expr1 = MagicMock()
@@ -652,6 +632,60 @@ class TestOptimisationModel:
             model_no_name = OptimisationModel("SCIP")
             expected_no_name = "OptimisationModel(name=None,solver=SCIP)"
             assert repr(model_no_name) == expected_no_name
+
+    def test_objective_commit_flag_lifecycle(self, model, mock_solver):
+        """Flag starts False, set by add_objective, reset by solve and clear."""
+        assert model._objective_commit is False
+
+        model.set_direction("minimize")
+        model.add_objective(MagicMock())
+        assert model._objective_commit is True
+
+        model.solve()
+        assert model._objective_commit is False
+
+        model.add_objective(MagicMock())
+        assert model._objective_commit is True
+
+        model.clear()
+        assert model._objective_commit is False
+
+    def test_objective_commit_minimize_called_once_on_solve(self, model, mock_solver):
+        """N calls to add_objective produce exactly 1 Minimize on solve, not N."""
+        model.set_direction("minimize")
+        expr = MagicMock()
+        expr.__add__ = MagicMock(return_value=expr)
+
+        for _ in range(5):
+            model.add_objective(expr)
+
+        mock_solver.Minimize.assert_not_called()
+        model.solve()
+        assert mock_solver.Minimize.call_count == 1
+
+    def test_objective_commit_export_flushes_no_double_flush(self, model, mock_solver):
+        """export_model flushes once; subsequent solve does not flush again."""
+        model.set_direction("minimize")
+        model.add_objective(MagicMock())
+
+        with tempfile.NamedTemporaryFile(suffix=".lp", delete=False) as f:
+            tmp = f.name
+        try:
+            model.export_model(tmp)
+            assert mock_solver.Minimize.call_count == 1
+
+            model.solve()
+            assert mock_solver.Minimize.call_count == 1
+        finally:
+            os.unlink(tmp)
+
+    def test_objective_commit_set_objective_not_deferred(self, model, mock_solver):
+        """set_objective flushes immediately — flag stays False."""
+        model.set_direction("minimize")
+        model.set_objective(MagicMock())
+
+        assert model._objective_commit is False
+        mock_solver.Minimize.assert_called_once()
 
 
 class TestIntegrationScenarios:
