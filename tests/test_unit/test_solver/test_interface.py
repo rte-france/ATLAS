@@ -633,24 +633,24 @@ class TestOptimisationModel:
             expected_no_name = "OptimisationModel(name=None,solver=SCIP)"
             assert repr(model_no_name) == expected_no_name
 
-    def test_objective_commit_flag_lifecycle(self, model, mock_solver):
+    def test_objective_pending_flag_lifecycle(self, model, mock_solver):
         """Flag starts False, set by add_objective, reset by solve and clear."""
-        assert model._objective_commit is False
+        assert model._objective_pending is False
 
         model.set_direction("minimize")
         model.add_objective(MagicMock())
-        assert model._objective_commit is True
+        assert model._objective_pending is True
 
         model.solve()
-        assert model._objective_commit is False
+        assert model._objective_pending is False
 
         model.add_objective(MagicMock())
-        assert model._objective_commit is True
+        assert model._objective_pending is True
 
         model.clear()
-        assert model._objective_commit is False
+        assert model._objective_pending is False
 
-    def test_objective_commit_minimize_called_once_on_solve(self, model, mock_solver):
+    def test_objective_pending_minimize_called_once_on_solve(self, model, mock_solver):
         """N calls to add_objective produce exactly 1 Minimize on solve, not N."""
         model.set_direction("minimize")
         expr = MagicMock()
@@ -663,7 +663,7 @@ class TestOptimisationModel:
         model.solve()
         assert mock_solver.Minimize.call_count == 1
 
-    def test_objective_commit_export_flushes_no_double_flush(self, model, mock_solver):
+    def test_objective_pending_export_flushes_no_double_flush(self, model, mock_solver):
         """export_model flushes once; subsequent solve does not flush again."""
         model.set_direction("minimize")
         model.add_objective(MagicMock())
@@ -679,13 +679,29 @@ class TestOptimisationModel:
         finally:
             os.unlink(tmp)
 
-    def test_objective_commit_set_objective_not_deferred(self, model, mock_solver):
+    def test_objective_pending_set_objective_not_deferred(self, model, mock_solver):
         """set_objective flushes immediately — flag stays False."""
         model.set_direction("minimize")
         model.set_objective(MagicMock())
 
-        assert model._objective_commit is False
+        assert model._objective_pending is False
         mock_solver.Minimize.assert_called_once()
+
+    def test_objective_pending_set_objective_after_add_resets_flag(self, model, mock_solver):
+        """set_objective after add_objective resets the flag; solve does not double-flush."""
+        model.set_direction("minimize")
+        expr = MagicMock()
+        expr.__add__ = MagicMock(return_value=expr)
+
+        model.add_objective(expr)
+        assert model._objective_pending is True
+
+        model.set_objective(MagicMock())
+        assert model._objective_pending is False
+        assert mock_solver.Minimize.call_count == 1
+
+        model.solve()
+        assert mock_solver.Minimize.call_count == 1
 
 
 class TestIntegrationScenarios:
