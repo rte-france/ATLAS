@@ -3,6 +3,7 @@
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -29,8 +30,7 @@ class TestModuleRunRun:
     def test_returns_atlas_dataset(self):
         module = _make_module()
         mr = ModuleRun(module, _make_dataset(), {})
-        with patch("atlas.modules.module_run.CurrentInputState"), \
-             patch("atlas.modules.module_run.CISHandler"):
+        with patch("atlas.modules.module_run.CurrentInputState"), patch("atlas.modules.module_run.CISHandler"):
             result = mr.run()
         assert result is not None
 
@@ -44,8 +44,10 @@ class TestModuleRunRun:
         cis_data = MagicMock()
         cis_instance.get_data.return_value = cis_data
 
-        with patch("atlas.modules.module_run.CurrentInputState", return_value=cis_instance), \
-             patch("atlas.modules.module_run.CISHandler"):
+        with (
+            patch("atlas.modules.module_run.CurrentInputState", return_value=cis_instance),
+            patch("atlas.modules.module_run.CISHandler"),
+        ):
             module_run.run()
 
         module.run.assert_called_once_with(cis_data, params)
@@ -55,8 +57,10 @@ class TestModuleRunRun:
         dataset = _make_dataset()
         mr = ModuleRun(module, dataset, {})
 
-        with patch("atlas.modules.module_run.CurrentInputState") as mock_cis_cls, \
-             patch("atlas.modules.module_run.CISHandler"):
+        with (
+            patch("atlas.modules.module_run.CurrentInputState") as mock_cis_cls,
+            patch("atlas.modules.module_run.CISHandler"),
+        ):
             mr.run()
 
         mock_cis_cls.assert_called_once_with(dataset)
@@ -69,8 +73,10 @@ class TestModuleRunRun:
         cis_instance = MagicMock()
         cis_instance.get_data.return_value = MagicMock()
 
-        with patch("atlas.modules.module_run.CurrentInputState", return_value=cis_instance), \
-             patch("atlas.modules.module_run.CISHandler") as mock_handler:
+        with (
+            patch("atlas.modules.module_run.CurrentInputState", return_value=cis_instance),
+            patch("atlas.modules.module_run.CISHandler") as mock_handler,
+        ):
             mr.run()
 
         mock_handler.apply.assert_called_once_with(change_sets, cis_instance)
@@ -83,8 +89,10 @@ class TestModuleRunRun:
         final_data = MagicMock()
         cis_instance.get_data.side_effect = lambda copy=True: MagicMock() if copy else final_data
 
-        with patch("atlas.modules.module_run.CurrentInputState", return_value=cis_instance), \
-             patch("atlas.modules.module_run.CISHandler"):
+        with (
+            patch("atlas.modules.module_run.CurrentInputState", return_value=cis_instance),
+            patch("atlas.modules.module_run.CISHandler"),
+        ):
             result = mr.run()
 
         assert result is final_data
@@ -94,8 +102,7 @@ class TestModuleRunRun:
         module.run.side_effect = AssertionError("validation failed")
         mr = ModuleRun(module, _make_dataset(), {})
 
-        with patch("atlas.modules.module_run.CurrentInputState"), \
-             patch("atlas.modules.module_run.CISHandler"):
+        with patch("atlas.modules.module_run.CurrentInputState"), patch("atlas.modules.module_run.CISHandler"):
             with pytest.raises(AssertionError, match="validation failed"):
                 mr.run()
 
@@ -106,8 +113,10 @@ class TestModuleRunRun:
         cis_instance = MagicMock()
         cis_instance.get_data.return_value = MagicMock()
 
-        with patch("atlas.modules.module_run.CurrentInputState", return_value=cis_instance), \
-             patch("atlas.modules.module_run.CISHandler") as mock_handler:
+        with (
+            patch("atlas.modules.module_run.CurrentInputState", return_value=cis_instance),
+            patch("atlas.modules.module_run.CISHandler") as mock_handler,
+        ):
             mock_handler.apply.side_effect = RuntimeError("apply failed")
             with pytest.raises(RuntimeError, match="apply failed"):
                 mr.run()

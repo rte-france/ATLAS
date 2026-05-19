@@ -200,7 +200,9 @@ class TestOutputGeneratorToDirectory:
         assert "variable_cost" in df["attribute"].to_list()
         assert len(df) == 3
 
-    def test_to_directory_with_forecasting_matrix(self, temp_output_dir, simple_forecasting_matrix, test_node, test_portfolio):
+    def test_to_directory_with_forecasting_matrix(
+        self, temp_output_dir, simple_forecasting_matrix, test_node, test_portfolio
+    ):
         """Test exporting objects with ForecastingMatrix fields."""
 
         # Create equipment with forecasting matrix
@@ -232,7 +234,9 @@ class TestOutputGeneratorToDirectory:
         assert "attribute" in df.columns
         assert "power" in df["attribute"].to_list()
 
-    def test_to_directory_with_scenario_matrix(self, temp_output_dir, simple_scenario_matrix, test_node, test_portfolio):
+    def test_to_directory_with_scenario_matrix(
+        self, temp_output_dir, simple_scenario_matrix, test_node, test_portfolio
+    ):
         """Test exporting objects with ScenarioMatrix fields."""
 
         # Create equipment with scenario matrix
@@ -269,7 +273,13 @@ class TestOutputGeneratorToDirectory:
 
         # Create multiple equipment objects
         equipment1 = Equipment(name="equipment_1", node=test_node, portfolio=test_portfolio, co2_emission_factor=0.5)
-        equipment2 = Equipment(name="equipment_2", node=test_node, portfolio=test_portfolio, co2_emission_factor=0.8, variable_cost=simple_timeseries)
+        equipment2 = Equipment(
+            name="equipment_2",
+            node=test_node,
+            portfolio=test_portfolio,
+            co2_emission_factor=0.8,
+            variable_cost=simple_timeseries,
+        )
 
         dataset = {"equipment": [equipment1, equipment2]}
 
@@ -352,7 +362,9 @@ class TestOutputGeneratorToDirectory:
         """Test exporting timeseries with CSV file extension."""
         from atlas.objects.equipment.equipment import Equipment
 
-        equipment = Equipment(name="test_equipment", node=test_node, portfolio=test_portfolio, variable_cost=simple_timeseries)
+        equipment = Equipment(
+            name="test_equipment", node=test_node, portfolio=test_portfolio, variable_cost=simple_timeseries
+        )
 
         dataset = {"equipment": [equipment]}
 

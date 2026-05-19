@@ -53,7 +53,7 @@ class MarginalFixing:
                 self.update_accepted_power(market_area_name, time, spot_price)
         if self.parameters.solver.export_lp:
             with open(
-                self.parameters.get_output_dir() / "marginal_fixing_accepted_powers.json",
+                self.parameters.get_lp_dir() / "marginal_fixing_accepted_powers.json",
                 "w",
             ) as f:
                 json.dump([[ma, o, val] for (ma, o), val in self.retrieve_accepted_powers().items()], f)

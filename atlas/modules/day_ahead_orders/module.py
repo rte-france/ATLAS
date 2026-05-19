@@ -57,18 +57,18 @@ class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrde
         pass
 
     def execute(
-        self, parameters: DayAheadOrdersParameters, dataset: DayAheadOrdersInputDataset
+        self, parameters: DayAheadOrdersParameters, input_dataset: DayAheadOrdersInputDataset
     ) -> DayAheadOrdersOutput:
         """Executes the module's main logic."""
         cfg.logger.info("Initialization of the Day-Ahead Orders module...")
-        output_dataset = DayAheadOrdersOutput(dataset)
+        output_dataset = DayAheadOrdersOutput(input_dataset)
 
         orders_time = generate_datetimes(
             parameters.temporal.start_date, parameters.penultimate_date, parameters.temporal.timestep
         )
 
         if parameters.solver.export_lp:
-            output_path = parameters.get_output_dir() / "lp_export"
+            output_path = parameters.get_lp_dir()
             output_path.mkdir(parents=True, exist_ok=True)
 
         if len(orders_time) == 0:

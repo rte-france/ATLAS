@@ -18,7 +18,7 @@ from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationMod
 from atlas.solver.solver_helper import SolverHelper
 
 # Test data directories
-INPUT_DATASET_DIR = Path("tests/dataset/portfolio_optimisation_input")
+INPUT_DATASET_DIR = Path("tests/dataset/day_ahead/portfolio_optimisation_input")
 REFERENCE_LP_DIR = Path(__file__).parent / "lp_files" / "others"
 
 
