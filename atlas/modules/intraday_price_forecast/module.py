@@ -46,8 +46,8 @@ class IntradayPriceForecastModule(
         Execute the intraday price forecast computation for all market areas.
 
         The algorithm follows these steps for each market area:
-        1. Calculate price sensitivity ratio from high/low scenarios
-        2. Compute consumption differences between day-ahead and intraday forecasts
+        1. Calculate the ratio of price sensitivity of residual consumption from high/low scenarios
+        2. Compute residual consumption differences between day-ahead and intraday forecasts
         3. Apply the ratio to consumption differences to estimate price impact
         4. Add the impact to the baseline price (latest intraday or day-ahead)
         5. Apply price caps and store results
