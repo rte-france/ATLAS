@@ -1,0 +1,15 @@
+dataset_path: tests/dataset/intraday/id_orders_input
+path_from_workflow: false
+name: workflow
+export_output: false
+steps:
+  - module: IntradayPriceForecast
+    parameters_path: tests/dataset/parameters/intraday/intraday_price_forecast.yml
+  - module: PortfolioOptimisation
+    parameters_path: tests/dataset/parameters/intraday/intraday_po1.yml
+  - module: IntradayOrders
+    parameters_path: tests/dataset/parameters/intraday/intraday_orders.yml
+  - module: MarketClearing
+    parameters_path: tests/dataset/parameters/intraday/intraday_clearing.yml
+  - module: PortfolioOptimisation
+    parameters_path: tests/dataset/parameters/intraday/intraday_po2.yml

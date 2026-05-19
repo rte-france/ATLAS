@@ -543,6 +543,7 @@ def _resolve_list_object_reference(
     """List object reference resolution using pre-built indices."""
     object_list_string = object_dict[attribute]
     if not object_list_string:
+        object_dict[attribute] = []
         return
 
     object_type_key = cfg.INVERSE_MODEL_MAPPING_NAME[get_args(attribute_type)[0]]

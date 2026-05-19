@@ -18,7 +18,7 @@ from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.solver.solver_helper import SolverHelper
 
 # Test data directories
-DAY_AHEAD_INPUT_DIR = Path("tests/dataset/day_ahead_input")
+DAY_AHEAD_INPUT_DIR = Path("tests/dataset/day_ahead/day_ahead_input")
 REFERENCE_LP_DIR = Path(__file__).parent / "lp_files" / "others"
 
 
