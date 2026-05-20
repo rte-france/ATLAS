@@ -15,8 +15,8 @@ from atlas.modules.intraday_price_forecast.output_dataset import IntradayPriceFo
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
 from atlas.timing import generate_datetimes
 
-IDPF_INPUT_DIR = Path("data/atlas-dataset/id-price-forecast-input")
-IDPF_OUTPUT_REFERENCE_DIR = Path("data/atlas-dataset/id-portfolio-optimisation-1-input")
+IDPF_INPUT_DIR = Path("tests/dataset/intraday/intraday_price_forecast_input")
+IDPF_OUTPUT_REFERENCE_DIR = Path("tests/dataset/intraday/portfolio_optimisation_1_input")
 
 PARAMS_DICT = {
     "temporal": {
