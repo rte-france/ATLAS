@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic.functional_validators import model_validator
+from pydantic import model_validator
 
 from atlas.enums import LoadType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
