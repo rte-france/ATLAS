@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 from typing import TYPE_CHECKING, cast
 
 import polars as pl
-from antares.craft import Frequency, MCIndLinksDataType
+from antares.craft import Frequency, MCIndAreasDataType, MCIndLinksDataType
 from antares.craft.model.st_storage import STStorage, STStorageGroup
 from antares.craft.model.study import Study
 from loguru import logger
@@ -91,11 +91,10 @@ def _create_open_phs(
       phs MaximumEnergy = round(reservoir * (1 - closed_ratio))
       hydro MaximumEnergy += round(reservoir * closed_ratio)
 
-    Missing vs legacy (antares-craft Output has no STS actual-power API):
-      - phs.power  (= negative_phs + positive_phs * (1 - closed_ratio))
-      - hydro.power (= positive_phs * closed_ratio)
-      - hydro MinimumDailyEnergy / MaximumDailyEnergy PHS contribution
-        (= daily_sum(positive_phs * closed_ratio) * coeff, added on top of ROR base)
+    Actual power split (from simulation output):
+      phs.power  = min(0, actual) + max(0, actual) * (1 - closed_ratio)
+      hydro.power += max(0, actual) * closed_ratio
+      hydro daily energy bounds += daily_sum(hydro.power contribution) * coeff
     """
     props = storage.properties
 
@@ -122,8 +121,22 @@ def _create_open_phs(
 
     minimum_soc_ts = get_minimum_soc(storage=storage, scenario=scenario_ts, parameters=parameters)
 
+    # --- Actual power from simulation output ---
+    actual_power = _get_sts_actual_power(storage, area, study, parameters)
+    phs_power_fm: ForecastingMatrix | None = None
+
+    if actual_power is not None:
+        actual_inj_ts, actual_wdr_ts = actual_power
+        # positive = turbining, negative = pumping
+        raw_power_ts = actual_wdr_ts - actual_inj_ts
+        positive_power_ts = raw_power_ts.clip(lower_bound=0.0, inplace=False)
+        negative_power_ts = raw_power_ts.clip(upper_bound=0.0, inplace=False)
+        phs_power_ts = negative_power_ts + positive_power_ts * (closed_ratio_ts * -1.0 + 1.0)
+        phs_power_fm = ForecastingMatrix().add(phs_power_ts, parameters.execution_date)
+
     # --- Update hydro equipment with the open part ---
-    hydro = cast(Hydro, atlas_dataset.get("hydro", f"{area.id}_hydro"))
+    hydro = cast(Hydro | None, atlas_dataset.get("hydro", f"{area.id}_hydro"))
+
     if hydro is not None:
         hydro.maximum_power = (
             hydro.maximum_power + closed_delta_ts if hydro.maximum_power is not None else closed_delta_ts
@@ -132,6 +145,26 @@ def _create_open_phs(
             hydro.maximum_energy + additional_energy_ts if hydro.maximum_energy is not None else additional_energy_ts
         )
         _update_hydro_inflows_from_phs_csv(area.id, storage, hydro, mapping_mc_ts, parameters)
+
+        if actual_power is not None:
+            hydro_power_ts = positive_power_ts * closed_ratio_ts
+            if hydro.power is None:
+                hydro.power = ForecastingMatrix().add(hydro_power_ts, parameters.execution_date)
+            elif isinstance(hydro.power, ForecastingMatrix):
+                if parameters.execution_date in hydro.power:
+                    hydro.power.add(hydro.power[parameters.execution_date] + hydro_power_ts, parameters.execution_date)
+                else:
+                    hydro.power.add(hydro_power_ts, parameters.execution_date)
+
+            phs_daily_energy = hydro_power_ts.groupby("1d", agg="sum")
+            phs_min_daily = phs_daily_energy * parameters.hydro.min_energy_coeff
+            phs_max_daily = phs_daily_energy * parameters.hydro.max_energy_coeff
+            hydro.minimum_daily_energy = (
+                hydro.minimum_daily_energy + phs_min_daily if hydro.minimum_daily_energy is not None else phs_min_daily
+            )
+            hydro.maximum_daily_energy = (
+                hydro.maximum_daily_energy + phs_max_daily if hydro.maximum_daily_energy is not None else phs_max_daily
+            )
     else:
         logger.debug(f"No hydro '{area.id}_hydro' found; open part of PHS will not be added to hydro.")
         phs_max_energy_ts = Timeseries.from_index(
@@ -152,8 +185,9 @@ def _create_open_phs(
         minimum_state_of_charge=minimum_soc_ts,
         charge_efficiency=props.efficiency,
         discharge_efficiency=1.0,
-        storage_initial_level=parameters.storage.phs_initial_level,
+        storage_initial_level=storage.properties.initial_level,
         transition_duration=duration(hours=0),
+        power=phs_power_fm,
     )
 
     logger.debug(f"Created open PHS {storage.id} for area {area.id}")
@@ -178,6 +212,35 @@ def _elementwise_min(ts_a: Timeseries, ts_b: Timeseries, start_date: DateTime) -
         .to_series()
     )
     return Timeseries.from_values(start_date, frequency="1h", values=result)
+
+
+def _get_sts_actual_power(
+    storage: STStorage,
+    area: "Area",
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+) -> tuple[Timeseries, Timeseries] | None:
+    """Return (injection_ts, withdrawal_ts) from simulation output, or None if unavailable.
+
+    Columns in the details-STstorage output: "P-injection - MW" and "P-withdrawal - MW".
+    """
+    try:
+        df = study.get_output(parameters.output_name).get_mc_ind_area(
+            mc_year=parameters.scenario,
+            frequency=Frequency.HOURLY,
+            data_type=MCIndAreasDataType.DETAILS_ST_STORAGE,
+            area=area.id,
+        )
+        inj_ts = Timeseries.from_values(
+            parameters.start_date, frequency="1h", values=df[(storage.id, "P-injection - MW", "")]
+        )
+        wdr_ts = Timeseries.from_values(
+            parameters.start_date, frequency="1h", values=df[(storage.id, "P-withdrawal - MW", "")]
+        )
+        return inj_ts, wdr_ts
+    except Exception as e:
+        logger.warning(f"Could not get actual power for STS {storage.id} in {area.id}: {e}")
+        return None
 
 
 def _update_hydro_inflows_from_phs_csv(
@@ -255,6 +318,14 @@ def convert_phs_open_fr(
     if "fr" not in areas:
         return atlas_dataset
 
+    scenario = (
+        study.get_output(parameters.output_name)
+        .get_link_ts_numbers("fr", "fr_x_open_turb")
+        .get(parameters.scenario, None)
+    )
+    if scenario is None:
+        return atlas_dataset
+
     link = links.get("fr_x_open_turb", None)
     if not link:
         logger.debug("No open turb link 'fr_x_open_turb' found for FR")
@@ -267,7 +338,7 @@ def convert_phs_open_fr(
 
     charge_efficiency, discharge_efficiency = get_binding_constraint_for_phs(study, "fr")
 
-    turb_cap_series = link.get_capacity_indirect()[0]
+    turb_cap_series = link.get_capacity_indirect()[scenario - 1]
     maximum_power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=turb_cap_series)
     minimum_power_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=turb_cap_series * -1.0)
 
