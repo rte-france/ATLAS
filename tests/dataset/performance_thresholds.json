@@ -1,0 +1,4 @@
+{
+  "day_ahead": {"workflow_execution_max_seconds": 30},
+  "intraday": {"workflow_execution_max_seconds": 60}
+}
