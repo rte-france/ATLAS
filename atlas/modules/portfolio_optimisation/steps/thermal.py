@@ -13,15 +13,12 @@ from pendulum import Duration
 
 import atlas.config as cfg
 from atlas.common.optimal_dispatch.dispatch.thermal import ThermalDispatch
+from atlas.common.optimal_dispatch.reserves import ReserveFactory, ThermalReserveHandler
 from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.steps.base import AbstractOptimStep
-from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
-from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
 from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
-    from pendulum import DateTime
-
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
@@ -29,35 +26,29 @@ class ThermalStep(AbstractOptimStep[ThermalPO]):
     """
     Step class owning all optimisation logic for ThermalPO.
 
-    Composes :class:`ThermalDispatch` for physical variables and constraints;
-    handles reserves, fill-up, and objective terms directly.
+    Composes :class:`ThermalDispatch` for physical variables and constraints and
+    :class:`ThermalReserveFactory` for reserve variables and shared constraints;
+    handles the PO objective terms directly.
     """
+
+    _reserves: ThermalReserveHandler
 
     def __init__(self, equipment: ThermalPO):
         super().__init__(equipment)
         self._dispatch = ThermalDispatch(equipment)
+        self._reserves = ReserveFactory.for_thermal(equipment, self._dispatch)
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         self._dispatch.setup(model, parameters)
+        self._reserves.setup(model)
 
         eq = self.equipment
         for time in eq.optimisation_time_window:
             self._dispatch.add_variables(time)
-
-            minimum_power = eq.minimum_power.get_value(time)
-            maximum_power = eq.maximum_power.get_value(time)
-            maximum_automated = get_maximum_automated(eq)
-
-            add_reserve_variables(
-                model=model,
-                name=eq.name,
-                time=time,
-                min_power=minimum_power,
-                max_power=maximum_power,
-                maximum_automated=maximum_automated,
-                relaxed_reserves=True,
-                storage_equipment=False,
-                thermal_equipment=True,
+            self._reserves.add_variables(
+                time,
+                eq.maximum_power.get_value(time),
+                eq.minimum_power.get_value(time),
             )
 
     def add_constraints(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
@@ -68,8 +59,15 @@ class ThermalStep(AbstractOptimStep[ThermalPO]):
         for time in eq.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints combination {d.combination} for {eq.name}")
             d.add_constraints(model, time, parameters)
-            self._add_fill_up_constraints(model, time, parameters)
-            self._add_reserve_constraints(model, time, parameters)
+            self._reserves.add_fill_up_constraints(
+                time,
+                d.power_level_var.get_value(time),
+                eq.maximum_power.get_value(time),
+                eq.minimum_power.get_value(time),
+                parameters.allowed_round_off_error,
+            )
+            self._reserves.add_relaxed_reserve_constraint(time, eq.minimum_power.get_value(time))
+            self._reserves.add_capacity_constraints(time, eq.maximum_power.get_value(time))
 
             if time in eq.optimisation_time_window[:-2]:
                 d.add_dd_and_gradient_constraints(model, time, time - ts)
@@ -100,70 +98,6 @@ class ThermalStep(AbstractOptimStep[ThermalPO]):
                 model.add_objective(startup_cost * turned_on_var)
 
     # ── PO-specific constraints ───────────────────────────────────────────
-
-    def _add_fill_up_constraints(
-        self,
-        model: OptimisationModel,
-        time: DateTime,
-        parameters: PortfolioOptimisationParameters,
-    ) -> None:
-        n = self.equipment.name
-        eps = parameters.allowed_round_off_error
-        p = self._dispatch.power_level_var.get_value(time)
-        max_p = self.equipment.maximum_power.get_value(time)
-        min_p = self.equipment.minimum_power.get_value(time)
-        ru = model.get_variable(f"reserves_up_{n}_{time}")
-        rd = model.get_variable(f"reserves_down_{n}_{time}")
-        aru = model.get_variable(f"automated_reserves_up_{n}_{time}")
-        ard = model.get_variable(f"automated_reserves_down_{n}_{time}")
-        uru = model.get_variable(f"unprovided_reserves_up_{n}_{time}")
-        urd = model.get_variable(f"unprovided_reserves_down_{n}_{time}")
-        rr = model.get_variable(f"relaxed_reserves_{n}_{time}")
-
-        model.add_constraint(p + ru + aru + uru <= max_p + eps, f"up_fillup_1_{time}_{n}")
-        model.add_constraint(p + ru + aru + uru >= max_p - eps, f"up_fillup_2_{time}_{n}")
-        model.add_constraint(p - rd - ard - urd + rr <= min_p + eps, f"down_fillup_1_{time}_{n}")
-        model.add_constraint(p - rd - ard - urd + rr >= min_p - eps, f"down_fillup_2_{time}_{n}")
-
-    def _add_reserve_constraints(
-        self,
-        model: OptimisationModel,
-        time: DateTime,
-        parameters: PortfolioOptimisationParameters,
-    ) -> None:
-        n = self.equipment.name
-        d = self._dispatch
-        max_p = self.equipment.maximum_power.get_value(time)
-        min_p = self.equipment.minimum_power.get_value(time)
-        maximum_automated = get_maximum_automated(self.equipment)
-        off = d.off_var.get_value(time)
-        ru = model.get_variable(f"reserves_up_{n}_{time}")
-        rd = model.get_variable(f"reserves_down_{n}_{time}")
-        aru = model.get_variable(f"automated_reserves_up_{n}_{time}")
-        ard = model.get_variable(f"automated_reserves_down_{n}_{time}")
-        rr = model.get_variable(f"relaxed_reserves_{n}_{time}")
-
-        on_sum = d.on_up_var.get_value(time) + d.on_down_var.get_value(time)
-        if d._has_flat:
-            on_sum_flat = on_sum + d.on_flat_var.get_value(time)
-        else:
-            on_sum_flat = on_sum
-
-        model.add_constraint(rr <= min_p * (1 - on_sum_flat), f"relaxed_reserves_{time}_{n}")
-
-        unavail = off
-        if d._has_start:
-            unavail = unavail + d.on_start_var.get_value(time)
-        if d._has_stop:
-            unavail = unavail + d.stop_var.get_value(time)
-        model.add_constraint(aru <= maximum_automated * (1 - unavail), f"automated_reserves_up_max_{time}_{n}")
-        model.add_constraint(ard <= maximum_automated * (1 - unavail), f"automated_reserves_down_max_{time}_{n}")
-
-        res_unavail = unavail
-        if d._has_flat:
-            res_unavail = res_unavail + on_sum
-        model.add_constraint(ru <= max_p * (1 - res_unavail), f"reserves_up_max_{time}_{n}")
-        model.add_constraint(rd <= max_p * (1 - res_unavail), f"reserves_down_max_{time}_{n}")
 
     def _add_daily_energy_constraint(self, model: OptimisationModel, timestep: Duration) -> None:
         eq = self.equipment

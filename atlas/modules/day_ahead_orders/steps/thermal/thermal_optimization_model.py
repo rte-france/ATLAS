@@ -7,12 +7,13 @@ This file is part of the ATLAS project.
 
 from collections.abc import Callable
 from datetime import datetime
-from typing import Literal
 
 from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.common.optimal_dispatch.dispatch.thermal import ThermalDispatch
+from atlas.common.optimal_dispatch.reserves import ReserveFactory, ThermalReserveHandler
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
@@ -26,25 +27,16 @@ class ThermalOptimizationModel(OptimisationModel):
     Optimization program for a single thermal unit.
 
     Physical dispatch variables and constraints are delegated to :class:`ThermalDispatch`.
-    DA-specific logic (reserves, contracted differences, fill-up, objective) is handled here.
+    Reserve variables and shared constraints (fill-up, relaxed reserve, capacity) are
+    delegated to :class:`ThermalReserveHandler`.
+    DA-specific logic (contracted differences, objective) is handled here.
     """
-
-    RESERVES_UP_EQUIP_KEY = "reservesUp_equip_"
-    RESERVES_DOWN_EQUIP_KEY = "reservesDown_equip_"
-    UNPROVIDED_RESERVES_UP_KEY = "unprovidedReservesUp_equip_"
-    UNPROVIDED_RESERVES_DOWN_KEY = "unprovidedReservesDown_equip_"
-    RELAXED_RESERVES_KEY = "relaxedReserves_equip_"
-    AUTOMATED_RESERVES_UP_KEY = "automatedReservesUp_equip_"
-    AUTOMATED_RESERVES_DOWN_KEY = "automatedReservesDown_equip_"
-    CONTRACTED_DIFFERENCE_UP_KEY = "contractedDifferenceUp_equip_"
-    CONTRACTED_DIFFERENCE_DOWN_KEY = "contractedDifferenceDown_equip_"
-    AUTOMATED_CONTRACTED_DIFFERENCE_UP_KEY = "automatedContractedDifferenceUp_equip_"
-    AUTOMATED_CONTRACTED_DIFFERENCE_DOWN_KEY = "automatedContractedDifferenceDown_equip_"
 
     reserves_up_procured: Timeseries
     reserves_down_procured: Timeseries
     feasible_automated_reserves_up_procured: Timeseries
     feasible_automated_reserves_down_procured: Timeseries
+    _reserves: ThermalReserveHandler
 
     def __init__(
         self,
@@ -75,7 +67,6 @@ class ThermalOptimizationModel(OptimisationModel):
         self.thermal_unit: ThermalDAO = thermal_unit
         self.prices: Timeseries = prices
         self.price_type: str = price_type
-        self.maximum_automated: float = 0.0
         self.automated_unsupplied_reserves: float = 0.0
         self._dispatch = ThermalDispatch(thermal_unit)
 
@@ -84,45 +75,14 @@ class ThermalOptimizationModel(OptimisationModel):
         self.time_frame: list[DateTime] = generate_datetimes(temporal.start_date, end_date, temporal.timestep)
 
         self._setup_reserves()
+        self._reserves = ReserveFactory.for_thermal(thermal_unit, self._dispatch)
 
-    # ── DA-specific variable name helpers ────────────────────────────────────
+    def _cd(self, prefix: str, t: DateTime) -> str:
+        return f"{prefix}_{self.thermal_unit.name}_{t}"
 
-    def reserves_up_equip_at(self, t: DateTime) -> str:
-        return f"{self.RESERVES_UP_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
-
-    def reserves_down_equip_at(self, t: DateTime) -> str:
-        return f"{self.RESERVES_DOWN_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
-
-    def unprovided_reserves_up_at(self, t: DateTime) -> str:
-        return f"{self.UNPROVIDED_RESERVES_UP_KEY}{self.thermal_unit.name}_at_{t}"
-
-    def unprovided_reserves_down_at(self, t: DateTime) -> str:
-        return f"{self.UNPROVIDED_RESERVES_DOWN_KEY}{self.thermal_unit.name}_at_{t}"
-
-    def relaxed_reserves_at(self, t: DateTime) -> str:
-        return f"{self.RELAXED_RESERVES_KEY}{self.thermal_unit.name}_at_{t}"
-
-    def automated_reserves_up_at(self, t: DateTime) -> str:
-        return f"{self.AUTOMATED_RESERVES_UP_KEY}{self.thermal_unit.name}_at_{t}"
-
-    def automated_reserves_down_at(self, t: DateTime) -> str:
-        return f"{self.AUTOMATED_RESERVES_DOWN_KEY}{self.thermal_unit.name}_at_{t}"
-
-    def contracted_difference_up_at(self, t: DateTime) -> str:
-        return f"{self.CONTRACTED_DIFFERENCE_UP_KEY}{self.thermal_unit.name}_at_{t}"
-
-    def contracted_difference_down_at(self, t: DateTime) -> str:
-        return f"{self.CONTRACTED_DIFFERENCE_DOWN_KEY}{self.thermal_unit.name}_at_{t}"
-
-    def automated_contracted_difference_up_at(self, t: DateTime) -> str:
-        return f"{self.AUTOMATED_CONTRACTED_DIFFERENCE_UP_KEY}{self.thermal_unit.name}_at_{t}"
-
-    def automated_contracted_difference_down_at(self, t: DateTime) -> str:
-        return f"{self.AUTOMATED_CONTRACTED_DIFFERENCE_DOWN_KEY}{self.thermal_unit.name}_at_{t}"
-
-    # ── Setup ────────────────────────────────────────────────────────────────
-
-    def _load_reserve_forecast(self, attribute: object, end: DateTime) -> Timeseries:
+    def _load_reserve_forecast(
+        self, attribute: ForecastingMatrix | LazyForecastingMatrix | None, end: DateTime
+    ) -> Timeseries:
         default = Timeseries.from_index(
             self.parameters.temporal.start_date,
             self.parameters.temporal.timestep,
@@ -152,7 +112,6 @@ class ThermalOptimizationModel(OptimisationModel):
 
         maximum_afrr = unit.maximum_afrr if unit.maximum_afrr is not None else 0.0
         maximum_fcr = unit.maximum_fcr if unit.maximum_fcr is not None else 0.0
-        self.maximum_automated = maximum_afrr + maximum_fcr
 
         self.reserves_up_procured = mfrr_up + rr_up
         self.reserves_down_procured = mfrr_down + rr_down
@@ -180,22 +139,19 @@ class ThermalOptimizationModel(OptimisationModel):
 
     def add_variables(self) -> None:
         self._dispatch.setup(self, self.parameters)
+        self._reserves.setup(self)
 
         for t in self.time_frame:
             self._dispatch.add_variables(t)
             max_p = self.thermal_unit.maximum_power.get_value(t)
             min_p = self.thermal_unit.minimum_power.get_value(t)
-            self.add_continuous_variable(self.reserves_up_equip_at(t), 0, max_p)
-            self.add_continuous_variable(self.reserves_down_equip_at(t), 0, max_p)
-            self.add_continuous_variable(self.unprovided_reserves_up_at(t), 0, max_p)
-            self.add_continuous_variable(self.unprovided_reserves_down_at(t), 0, max_p)
-            self.add_continuous_variable(self.relaxed_reserves_at(t), 0, min_p)
-            self.add_continuous_variable(self.automated_reserves_up_at(t), 0, self.maximum_automated)
-            self.add_continuous_variable(self.automated_reserves_down_at(t), 0, self.maximum_automated)
-            self.add_continuous_variable(self.contracted_difference_up_at(t), 0, max_p)
-            self.add_continuous_variable(self.contracted_difference_down_at(t), 0, max_p)
-            self.add_continuous_variable(self.automated_contracted_difference_up_at(t), 0, max_p)
-            self.add_continuous_variable(self.automated_contracted_difference_down_at(t), 0, max_p)
+            self._reserves.add_variables(t, max_p, min_p)
+            self.add_continuous_variable(self._cd("contracted_difference_up", t), 0, max_p)
+            self.add_continuous_variable(self._cd("contracted_difference_down", t), 0, max_p)
+            self.add_continuous_variable(self._cd("automated_contracted_difference_up", t), 0, max_p)
+            self.add_continuous_variable(self._cd("automated_contracted_difference_down", t), 0, max_p)
+
+    # ── Objective function ───────────────────────────────────────────────────
 
     def build_objective(self) -> None:
         """Create the objective function for the thermal optimization."""
@@ -214,13 +170,13 @@ class ThermalOptimizationModel(OptimisationModel):
                     - self._dispatch.turned_on.get_value(t) * self.thermal_unit.startup_cost.get_value(t)
                     - manual_pen
                     * (
-                        self.get_variable(self.contracted_difference_up_at(t))
-                        + self.get_variable(self.contracted_difference_down_at(t))
+                        self.get_variable(self._cd("contracted_difference_up", t))
+                        + self.get_variable(self._cd("contracted_difference_down", t))
                     )
                     - auto_pen
                     * (
-                        self.get_variable(self.automated_contracted_difference_up_at(t))
-                        + self.get_variable(self.automated_contracted_difference_down_at(t))
+                        self.get_variable(self._cd("automated_contracted_difference_up", t))
+                        + self.get_variable(self._cd("automated_contracted_difference_down", t))
                     )
                     for t in self.time_frame
                 )
@@ -228,15 +184,23 @@ class ThermalOptimizationModel(OptimisationModel):
             ),
         )
 
+    # ── Constraints ──────────────────────────────────────────────────────────
+
     def build_constraints(self) -> None:
-        """Build all constraints: physical dispatch (via ThermalDispatch) and DA-specific."""
+        """Build all constraints: physical dispatch, shared reserves, and DA-specific."""
         ts = self.parameters.temporal.timestep
         for t in self.time_frame:
             self._dispatch.add_constraints(self, t, self.parameters)
             self._add_da_contracted_diff_constraints(t)
-            self._add_da_fill_up_constraints(t)
-            self._add_da_relaxed_reserve_constraint(t)
-            self._add_da_reserve_capacity_constraints(t)
+            self._reserves.add_fill_up_constraints(
+                t,
+                self._dispatch.power_level_var.get_value(t),
+                self.thermal_unit.maximum_power.get_value(t),
+                self.thermal_unit.minimum_power.get_value(t),
+                self.parameters.epsilon,
+            )
+            self._reserves.add_relaxed_reserve_constraint(t, self.thermal_unit.minimum_power.get_value(t))
+            self._reserves.add_capacity_constraints(t, self.thermal_unit.maximum_power.get_value(t))
 
         for t in self.time_frame:
             self._dispatch.add_dd_and_gradient_constraints(self, t, t - ts)
@@ -245,84 +209,23 @@ class ThermalOptimizationModel(OptimisationModel):
 
     def _add_da_contracted_diff_constraints(self, time: DateTime) -> None:
         self.add_constraint(
-            self.get_variable(self.contracted_difference_up_at(time))
-            >= self.reserves_up_procured.get_value(time) - self.get_variable(self.reserves_up_equip_at(time))
+            self.get_variable(self._cd("contracted_difference_up", time))
+            >= self.reserves_up_procured.get_value(time) - self.get_variable(self._reserves.var("reserves_up", time))
         )
         self.add_constraint(
-            self.get_variable(self.contracted_difference_down_at(time))
-            >= self.reserves_down_procured.get_value(time) - self.get_variable(self.reserves_down_equip_at(time))
+            self.get_variable(self._cd("contracted_difference_down", time))
+            >= self.reserves_down_procured.get_value(time)
+            - self.get_variable(self._reserves.var("reserves_down", time))
         )
         self.add_constraint(
-            self.get_variable(self.automated_contracted_difference_up_at(time))
+            self.get_variable(self._cd("automated_contracted_difference_up", time))
             >= self.feasible_automated_reserves_up_procured.get_value(time)
-            - self.get_variable(self.automated_reserves_up_at(time))
+            - self.get_variable(self._reserves.var("automated_reserves_up", time))
         )
         self.add_constraint(
-            self.get_variable(self.automated_contracted_difference_down_at(time))
+            self.get_variable(self._cd("automated_contracted_difference_down", time))
             >= self.feasible_automated_reserves_down_procured.get_value(time)
-            - self.get_variable(self.automated_reserves_down_at(time))
-        )
-
-    def _add_da_fill_up_constraints(self, time: DateTime) -> None:
-        eps = self.parameters.epsilon
-        q = self._dispatch.power_level_var.get_value(time)
-        max_p = self.thermal_unit.maximum_power.get_value(time)
-        min_p = self.thermal_unit.minimum_power.get_value(time)
-
-        up_sum = (
-            q
-            + self.get_variable(self.reserves_up_equip_at(time))
-            + self.get_variable(self.automated_reserves_up_at(time))
-            + self.get_variable(self.unprovided_reserves_up_at(time))
-        )
-        self.add_constraint(up_sum <= max_p + eps)
-        self.add_constraint(up_sum >= max_p - eps)
-
-        down_sum = (
-            q
-            - self.get_variable(self.reserves_down_equip_at(time))
-            - self.get_variable(self.automated_reserves_down_at(time))
-            - self.get_variable(self.unprovided_reserves_down_at(time))
-            + self.get_variable(self.relaxed_reserves_at(time))
-        )
-        self.add_constraint(down_sum <= min_p + eps)
-        self.add_constraint(down_sum >= min_p - eps)
-
-    def _add_da_relaxed_reserve_constraint(self, time: DateTime) -> None:
-        d = self._dispatch
-        online_sum = d.on_up_var.get_value(time) + d.on_down_var.get_value(time)
-        if d._has_flat:
-            online_sum = online_sum + d.on_flat_var.get_value(time)
-        self.add_constraint(
-            self.get_variable(self.relaxed_reserves_at(time))
-            <= self.thermal_unit.minimum_power.get_value(time) * (1 - online_sum)
-        )
-
-    def _add_da_reserve_capacity_constraints(self, time: DateTime) -> None:
-        d = self._dispatch
-        unavailable = d.off_var.get_value(time)
-        if d._has_start:
-            unavailable = unavailable + d.on_start_var.get_value(time)
-        if d._has_stop:
-            unavailable = unavailable + d.stop_var.get_value(time)
-
-        self.add_constraint(
-            self.get_variable(self.automated_reserves_up_at(time)) <= self.maximum_automated * (1 - unavailable)
-        )
-        self.add_constraint(
-            self.get_variable(self.automated_reserves_down_at(time)) <= self.maximum_automated * (1 - unavailable)
-        )
-
-        res_unavailable = unavailable
-        if d._has_flat:
-            res_unavailable = res_unavailable + d.on_up_var.get_value(time) + d.on_down_var.get_value(time)
-
-        max_p = self.thermal_unit.maximum_power.get_value(time)
-        self.add_constraint(
-            self.get_variable(self.reserves_up_equip_at(time)) <= max_p * (1 - res_unavailable)
-        )
-        self.add_constraint(
-            self.get_variable(self.reserves_down_equip_at(time)) <= max_p * (1 - res_unavailable)
+            - self.get_variable(self._reserves.var("automated_reserves_down", time))
         )
 
     def _add_da_daily_energy_constraint(self) -> None:
@@ -350,9 +253,6 @@ class ThermalOptimizationModel(OptimisationModel):
             values=[getter(t) for t in self.time_frame],
         )
 
-
-
-
     def _extract_results(self) -> dict[str, Timeseries]:
         results: dict[str, Timeseries] = {}
 
@@ -365,16 +265,16 @@ class ThermalOptimizationModel(OptimisationModel):
 
         results["q"] = q_star
         results["contracted_difference_up"] = self._solution_ts(
-            lambda t: self.get_variable(self.contracted_difference_up_at(t)).solution_value()
+            lambda t: self.get_variable(self._cd("contracted_difference_up", t)).solution_value()
         )
         results["contracted_difference_down"] = self._solution_ts(
-            lambda t: self.get_variable(self.contracted_difference_down_at(t)).solution_value()
+            lambda t: self.get_variable(self._cd("contracted_difference_down", t)).solution_value()
         )
         results["automated_contracted_difference_up"] = self._solution_ts(
-            lambda t: self.get_variable(self.automated_contracted_difference_up_at(t)).solution_value()
+            lambda t: self.get_variable(self._cd("automated_contracted_difference_up", t)).solution_value()
         )
         results["automated_contracted_difference_down"] = self._solution_ts(
-            lambda t: self.get_variable(self.automated_contracted_difference_down_at(t)).solution_value()
+            lambda t: self.get_variable(self._cd("automated_contracted_difference_down", t)).solution_value()
         )
         results["ON_UP"] = self._solution_ts(lambda t: self._dispatch.on_up_var.get_model_var(t).solution_value())
         results["ON_DOWN"] = self._solution_ts(lambda t: self._dispatch.on_down_var.get_model_var(t).solution_value())
@@ -385,9 +285,7 @@ class ThermalOptimizationModel(OptimisationModel):
                 lambda t: self._dispatch.on_start_var.get_model_var(t).solution_value()
             )
         if self._dispatch._T_stop >= 1:
-            results["STOP"] = self._solution_ts(
-                lambda t: self._dispatch.stop_var.get_model_var(t).solution_value()
-            )
+            results["STOP"] = self._solution_ts(lambda t: self._dispatch.stop_var.get_model_var(t).solution_value())
         if self._dispatch._T_stable >= 1:
             results["ON_FLAT"] = self._solution_ts(
                 lambda t: self._dispatch.on_flat_var.get_model_var(t).solution_value()

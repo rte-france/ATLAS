@@ -167,9 +167,7 @@ class ThermalDispatch:
         self._add_minimum_time_constraints(model, time, parameters)
         self._add_power_bounds(model, time)
 
-    def add_dd_and_gradient_constraints(
-        self, model: OptimisationModel, time: DateTime, prev_time: DateTime
-    ) -> None:
+    def add_dd_and_gradient_constraints(self, model: OptimisationModel, time: DateTime, prev_time: DateTime) -> None:
         """
         Add DD auxiliary and gradient constraints for *time*.
 
@@ -620,15 +618,11 @@ class ThermalDispatch:
 
         self.up_grad_var.set_extended(
             t_minus_one,
-            power_diff
-            * self.on_up_var.get_value(t_minus_one)
-            * self.on_up_var.get_value(t_minus_two),
+            power_diff * self.on_up_var.get_value(t_minus_one) * self.on_up_var.get_value(t_minus_two),
         )
         self.down_grad_var.set_extended(
             t_minus_one,
-            power_diff
-            * self.on_down_var.get_value(t_minus_one)
-            * self.on_down_var.get_value(t_minus_two),
+            power_diff * self.on_down_var.get_value(t_minus_one) * self.on_down_var.get_value(t_minus_two),
         )
 
     # ── Day-zero helpers ──────────────────────────────────────────────────
@@ -693,9 +687,7 @@ class ThermalDispatch:
         model.add_constraint(stab <= flat, f"stable_evol_2_{time}_{n}")
         model.add_constraint(stab >= flat - flat_prev, f"stable_evol_3_{time}_{n}")
 
-    def _add_flat_down_stop(
-        self, model: OptimisationModel, time: DateTime, prev_time: DateTime, ts: Duration
-    ) -> None:
+    def _add_flat_down_stop(self, model: OptimisationModel, time: DateTime, prev_time: DateTime, ts: Duration) -> None:
         fds = self.flat_down_stop.get_value(time)
         stop = self.stop_var.get_value(time)
         on_down_prev = self.on_down_var.get_value(prev_time)
@@ -722,9 +714,7 @@ class ThermalDispatch:
         model.add_constraint(ed <= on_down, f"entered_down_evol_2_{time}_{n}")
         model.add_constraint(ed >= on_down - on_down_prev, f"entered_down_evol_3_{time}_{n}")
 
-    def _add_gradient_auxiliaries(
-        self, model: OptimisationModel, time: DateTime, prev_time: DateTime
-    ) -> None:
+    def _add_gradient_auxiliaries(self, model: OptimisationModel, time: DateTime, prev_time: DateTime) -> None:
         n = self._eq.name
         max_p = self._eq.maximum_power.get_value(time)
         min_p = -max_p
@@ -758,9 +748,7 @@ class ThermalDispatch:
         model.add_constraint(d <= aux_d - min_p * (1 - on_down), f"D_evol_3_{time}_{n}")
         model.add_constraint(d >= aux_d - max_p * (1 - on_down), f"D_evol_4_{time}_{n}")
 
-    def _add_down_to_stop_evol(
-        self, model: OptimisationModel, time: DateTime, prev_time: DateTime
-    ) -> None:
+    def _add_down_to_stop_evol(self, model: OptimisationModel, time: DateTime, prev_time: DateTime) -> None:
         n = self._eq.name
         dts = self.down_to_stop_grad.get_value(time)
         on_down = self.on_down_var.get_value(time)
@@ -832,9 +820,7 @@ class ThermalDispatch:
             model.add_constraint(stop_prev2 + on_down_prev <= 1, f"transition_constraint_{base + 1}_{prev_time}_{n}")
             model.add_constraint(stop_prev2 + on_up_prev <= 1, f"transition_constraint_{base + 2}_{prev_time}_{n}")
 
-    def _add_transition_constraints(
-        self, model: OptimisationModel, time: DateTime, prev_time: DateTime
-    ) -> None:
+    def _add_transition_constraints(self, model: OptimisationModel, time: DateTime, prev_time: DateTime) -> None:
         n = self._eq.name
         off = self.off_var.get_value(time)
         off_prev = self.off_var.get_value(prev_time)
@@ -1048,9 +1034,7 @@ class ThermalDispatch:
         model.add_constraint(p >= lb, f"lower_bound_{n}_{time}")
         model.add_constraint(p <= ub, f"upper_bound_{n}_{time}")
 
-    def _add_dd_constraints(
-        self, model: OptimisationModel, time: DateTime, prev_time: DateTime
-    ) -> None:
+    def _add_dd_constraints(self, model: OptimisationModel, time: DateTime, prev_time: DateTime) -> None:
         n = self._eq.name
         max_p = self._eq.maximum_power.get_value(time)
         min_p = -max_p
@@ -1062,9 +1046,7 @@ class ThermalDispatch:
         model.add_constraint(dd_prev <= d_prev - min_p * (1 - stop), f"DD_evol_3_{time}_{n}")
         model.add_constraint(dd_prev >= d_prev - max_p * (1 - stop), f"DD_evol_4_{time}_{n}")
 
-    def _add_gradient_constraints(
-        self, model: OptimisationModel, time: DateTime, prev_time: DateTime
-    ) -> None:
+    def _add_gradient_constraints(self, model: OptimisationModel, time: DateTime, prev_time: DateTime) -> None:
         n = self._eq.name
         delta_q = self._Delta_Q
         delta_q_unc = self._Delta_Q_unconstrained
