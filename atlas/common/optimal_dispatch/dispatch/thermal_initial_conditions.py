@@ -5,9 +5,9 @@ This file is part of the ATLAS project.
 """
 
 from __future__ import annotations
-from functools import cached_property
 
 from dataclasses import dataclass
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

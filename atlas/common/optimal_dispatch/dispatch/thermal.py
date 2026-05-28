@@ -5,15 +5,13 @@ This file is part of the ATLAS project.
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
-from plotly import data
-from atlas.abstract_class.parameters import AbstractModuleParameters
 
 import math
 from typing import TYPE_CHECKING
 
 from pendulum import DateTime, Duration
 
+from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.common.optimal_dispatch.dispatch.thermal_initial_conditions import ThermalInitialConditions
 from atlas.math.timeseries import Timeseries
 from atlas.solver.model_var import ModelVar
@@ -21,15 +19,6 @@ from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
     from atlas.common.optimal_dispatch.input_objects.thermal import ThermalDispatchInput
-
-@dataclass
-class _ThermalDispatchParameters:
-    """Minimal temporal parameter surface consumed by ThermalDispatch."""
-
-    timestep: Duration
-    start_date: DateTime
-    end_date: DateTime
-    execution_date: DateTime
 
 
 class ThermalDispatch:
@@ -170,7 +159,7 @@ class ThermalDispatch:
 
         self._add_mutual_exclusion(model, time)
 
-        if self._has_flat and time == parameters.temporal.start_date:  # type: ignore[attr-defined]
+        if self._has_flat and time == parameters.temporal.start_date:
             self._add_initial_boundary_constraints(model, time, prev_time, ts)
 
         self._add_transition_constraints(model, time, prev_time)
@@ -208,9 +197,9 @@ class ThermalDispatch:
 
     # ── Initialisation ────────────────────────────────────────────────────
 
-    def _compute_time_parameters(self, parameters: object) -> None:
+    def _compute_time_parameters(self, parameters: AbstractModuleParameters) -> None:
         eq = self._eq
-        temporal = parameters.temporal  # type: ignore[attr-defined]
+        temporal = parameters.temporal
         ts = temporal.timestep
 
         self._T_on = (
@@ -382,7 +371,7 @@ class ThermalDispatch:
 
     def _build_initial_conditions(self, parameters: AbstractModuleParameters) -> ThermalInitialConditions:
         eq = self._eq
-        temporal = parameters.temporal  # type: ignore[attr-defined]
+        temporal = parameters.temporal
         T_traceback = max(self._T_on + self._T_start, self._T_off + self._T_stop)
 
         initial_times: list[DateTime] = []
@@ -456,7 +445,7 @@ class ThermalDispatch:
         time: DateTime,
         power_ts: Timeseries,
     ) -> None:
-        ts = parameters.temporal.timestep  # type: ignore[attr-defined]
+        ts = parameters.temporal.timestep
         if time in power_ts:
             power_t = power_ts.get_value(time)
             self.power_level_var.set_extended(time, power_t)
@@ -552,7 +541,7 @@ class ThermalDispatch:
                 self.down_to_stop_grad.set_extended(time, 1)
 
     def _init_stable_times(self, parameters: AbstractModuleParameters, ic: ThermalInitialConditions) -> None:
-        ts = parameters.temporal.timestep  # type: ignore[attr-defined]
+        ts = parameters.temporal.timestep
         for time in ic.stable_initial_times:
             next_time = time + ts
             current_power = self.power_level_var.get_extended_value(time)
@@ -598,8 +587,8 @@ class ThermalDispatch:
                     self.entered_down_var.set_extended(time, 1)
 
     def _init_flat_down_stop(self, parameters: AbstractModuleParameters, ic: ThermalInitialConditions) -> None:
-        ts = parameters.temporal.timestep  # type: ignore[attr-defined]
-        start_date = parameters.temporal.start_date  # type: ignore[attr-defined]
+        ts = parameters.temporal.timestep
+        start_date = parameters.temporal.start_date
         for idx, time in enumerate(ic.stable_initial_times):
             if idx >= 2:
                 self._set_flat_down_stop(time, time - ts, time - 2 * ts)
@@ -621,7 +610,7 @@ class ThermalDispatch:
         )
 
     def _init_gradient_initial_conditions(self, parameters: AbstractModuleParameters) -> None:
-        temporal = parameters.temporal  # type: ignore[attr-defined]
+        temporal = parameters.temporal
         t_minus_one = temporal.start_date - temporal.timestep
         t_minus_two = temporal.start_date - 2 * temporal.timestep
 
@@ -936,7 +925,7 @@ class ThermalDispatch:
         self, model: OptimisationModel, time: DateTime, parameters: AbstractModuleParameters
     ) -> None:
         n = self._eq.name
-        ts = parameters.temporal.timestep  # type: ignore[attr-defined]
+        ts = parameters.temporal.timestep
         if self._has_stop:
             stop = self.stop_var.get_value(time)
             evict_stop = time - (self._T_stop - 1) * ts
@@ -954,8 +943,8 @@ class ThermalDispatch:
         self, model: OptimisationModel, time: DateTime, parameters: AbstractModuleParameters
     ) -> None:
         n = self._eq.name
-        ts = parameters.temporal.timestep  # type: ignore[attr-defined]
-        start_date = parameters.temporal.start_date  # type: ignore[attr-defined]
+        ts = parameters.temporal.timestep
+        start_date = parameters.temporal.start_date
         has_start_offset = self._T_start if self._has_start else 0
         has_stop_offset = self._T_stop if self._has_stop else 0
 
