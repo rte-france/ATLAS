@@ -9,19 +9,18 @@ from __future__ import annotations
 from pendulum import DateTime
 from pydantic import model_validator
 
+from atlas.common.optimal_dispatch.input_objects.thermal import ThermalDispatchInput
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.objects.equipment.thermal import Thermal
 from atlas.solver.model_var import ModelVar
 
 
-class ThermalPO(Thermal):
+class ThermalPO(ThermalDispatchInput):
     """
     Thermal power equipment data model for portfolio optimisation.
     """
 
     maximum_fcr: float
     maximum_afrr: float
-    maximum_power: AbstractTimeseries
     variable_cost: AbstractTimeseries
     maximum_gradient: float = 0.0
     has_daily_energy_constraint: bool = False
@@ -62,11 +61,7 @@ class ThermalPO(Thermal):
         """
         Validate that minimum_stable_power_duration is not greater than minimum_time_on.
         """
-        if (
-            self.minimum_stable_power_duration is not None
-            and self.minimum_time_on is not None
-            and self.minimum_stable_power_duration > self.minimum_time_on
-        ):
+        if self.minimum_stable_power_duration > self.minimum_time_on:
             raise ValueError(
                 f"minimum_stable_power_duration ({self.minimum_stable_power_duration.total_hours()}h) of equipment "
                 f"{self.name} cannot be greater than minimum_time_on ({self.minimum_time_on.total_hours()}h)"

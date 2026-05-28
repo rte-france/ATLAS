@@ -4,26 +4,18 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import DateTime, Duration
+from pendulum import DateTime
 
+from atlas.common.optimal_dispatch.input_objects.storage import StorageDispatchInput
 from atlas.enums import StorageType
-from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.objects.equipment.storage import Storage
 
 
-class StoragePO(Storage):
+class StoragePO(StorageDispatchInput):
     storage_type: StorageType
     maximum_fcr: float
     maximum_afrr: float
-    minimum_power: AbstractTimeseries
-    maximum_power: AbstractTimeseries
-    minimum_state_of_charge: AbstractTimeseries
-    discharge_efficiency: float
-    charge_efficiency: float
-    maximum_energy: AbstractTimeseries
-    additional_hours: Duration
 
     optimisation_time_window: list[DateTime] = []
     _cached_energy_forecast: Timeseries | None = None
