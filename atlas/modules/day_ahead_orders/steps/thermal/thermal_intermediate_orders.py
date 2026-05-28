@@ -19,7 +19,6 @@ from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.steps.thermal.constraint_builder import ThermalConstraintBuilder
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_optimization_model import ThermalOptimizationModel
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_unit_orders import ThermalUnitOrders
 from atlas.objects.equipment.thermal import Thermal
@@ -326,8 +325,9 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
             for price_type in price_types:
                 price = self._load_price_forecast(unit, price_type)
                 model = ThermalOptimizationModel(self.parameters, unit, price, price_type, solver_options)
+                model.add_variables()
                 model.create_objective_function("maximize")
-                ThermalConstraintBuilder(model).build()
+                model.build_constraints()
 
                 res = model.solve_thermal_optimization()
                 results[unit.name][price_type] = res

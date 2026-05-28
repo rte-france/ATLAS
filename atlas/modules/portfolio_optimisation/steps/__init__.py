@@ -31,7 +31,7 @@ def create_po_step(equipment):
     from atlas.modules.portfolio_optimisation.steps.other_non_dispatchable import OtherNonDispatchableStep
     from atlas.modules.portfolio_optimisation.steps.solar import SolarStep
     from atlas.modules.portfolio_optimisation.steps.storage import StoragePOStep
-    from atlas.modules.portfolio_optimisation.steps.thermal.thermal import ThermalStep
+    from atlas.modules.portfolio_optimisation.steps.thermal import ThermalStep
     from atlas.modules.portfolio_optimisation.steps.wind import WindStep
 
     if isinstance(equipment, ThermalPO):
