@@ -184,7 +184,7 @@ def _optimize_ev(
         solvers_options,
     )
     model.create_decision_variables(parameters.ev_nb_fragments)
-    model.create_objective_function(parameters.ev_nb_fragments, parameters.ev_smoothing_factor, "maximize")
+    model.build_objective(parameters.ev_nb_fragments, parameters.ev_smoothing_factor, "maximize")
     model.create_constraints(initial_stock)
 
     if parameters.solver.export_lp:
@@ -233,7 +233,7 @@ def _optimize_battery(
         solvers_options,
     )
     model.create_decision_variables(power_fragments)
-    model.create_objective_function(power_fragments, smoothing_factor, "maximize")
+    model.build_objective(power_fragments, smoothing_factor, "maximize")
     model.create_constraints(initial_stock, power_fragments)
 
     if parameters.solver.export_lp:

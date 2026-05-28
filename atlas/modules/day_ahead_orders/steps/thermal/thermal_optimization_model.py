@@ -197,16 +197,9 @@ class ThermalOptimizationModel(OptimisationModel):
             self.add_continuous_variable(self.automated_contracted_difference_up_at(t), 0, max_p)
             self.add_continuous_variable(self.automated_contracted_difference_down_at(t), 0, max_p)
 
-    # ── Objective function ───────────────────────────────────────────────────
-
-    def create_objective_function(self, direction: Literal["maximize", "minimize"] = "maximize") -> None:
-        """
-        Create the objective function for the thermal optimization.
-
-        :param direction: the direction of the objective function
-        :type direction: Literal["maximize", "minimize"]
-        """
-        self.set_direction(direction)
+    def build_objective(self) -> None:
+        """Create the objective function for the thermal optimization."""
+        self.set_direction("maximize")
 
         dt_h = self.parameters.temporal.timestep.total_hours()
         manual_pen = self.parameters.manual_unprocured_reserves_penalty * dt_h
@@ -234,8 +227,6 @@ class ThermalOptimizationModel(OptimisationModel):
                 - auto_pen * self.automated_unsupplied_reserves
             ),
         )
-
-    # ── Constraints ──────────────────────────────────────────────────────────
 
     def build_constraints(self) -> None:
         """Build all constraints: physical dispatch (via ThermalDispatch) and DA-specific."""
@@ -359,12 +350,8 @@ class ThermalOptimizationModel(OptimisationModel):
             values=[getter(t) for t in self.time_frame],
         )
 
-    def _export_lp_if_requested(self) -> None:
-        if self.parameters.solver.export_lp:
-            output_path = self.parameters.get_lp_dir()
-            output_path.mkdir(parents=True, exist_ok=True)
-            lp_file_path = output_path / f"{self.thermal_unit.name}_price_{self.price_type}.lp"
-            self.export_model(str(lp_file_path))
+
+
 
     def _extract_results(self) -> dict[str, Timeseries]:
         results: dict[str, Timeseries] = {}
@@ -408,8 +395,12 @@ class ThermalOptimizationModel(OptimisationModel):
 
         return results
 
-    def solve_thermal_optimization(self) -> dict[str, Timeseries]:
-        self._export_lp_if_requested()
+    def solve_optimisation(self) -> dict[str, Timeseries]:
+        if self.parameters.solver.export_lp:
+            output_path = self.parameters.get_lp_dir()
+            output_path.mkdir(parents=True, exist_ok=True)
+            lp_file_path = output_path / f"{self.thermal_unit.name}_price_{self.price_type}.lp"
+            self.export_model(str(lp_file_path))
 
         cfg.logger.info(f"Optimisation model '{self.name}' with price type '{self.price_type}'")
         self.solve()

@@ -115,7 +115,7 @@ class StorageModel(OptimisationModel):
                 self.add_continuous_variable(StorageModel.amount_sold_in_fragment_at_key(t, i), 0)
                 self.add_continuous_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i), 0)
 
-    def create_objective_function(
+    def build_objective(
         self, nb_fragments: int, smoothing_factor: float, direction: Literal["maximize", "minimize"] = "maximize"
     ) -> None:
         """
