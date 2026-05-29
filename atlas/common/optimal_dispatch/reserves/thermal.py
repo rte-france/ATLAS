@@ -77,13 +77,14 @@ class ThermalReserveHandler(ReserveHandler):
         urd = m.get_variable(self.var("unprovided_reserves_down", time))
         rr = m.get_variable(self.var("relaxed_reserves", time))
 
+        n = self._name
         up_sum = power_var + ru + aru + uru
-        m.add_constraint(up_sum <= max_power + epsilon)
-        m.add_constraint(up_sum >= max_power - epsilon)
+        m.add_constraint(up_sum <= max_power + epsilon, f"up_fillup_1_{time}_{n}")
+        m.add_constraint(up_sum >= max_power - epsilon, f"up_fillup_2_{time}_{n}")
 
         down_sum = power_var - rd - ard - urd + rr
-        m.add_constraint(down_sum <= min_power + epsilon)
-        m.add_constraint(down_sum >= min_power - epsilon)
+        m.add_constraint(down_sum <= min_power + epsilon, f"down_fillup_1_{time}_{n}")
+        m.add_constraint(down_sum >= min_power - epsilon, f"down_fillup_2_{time}_{n}")
 
     def add_relaxed_reserve_constraint(self, time: DateTime, min_power: float) -> None:
         """
@@ -102,7 +103,10 @@ class ThermalReserveHandler(ReserveHandler):
         online_sum = d.on_up_var.get_value(time) + d.on_down_var.get_value(time)
         if d._has_flat:
             online_sum = online_sum + d.on_flat_var.get_value(time)
-        m.add_constraint(m.get_variable(self.var("relaxed_reserves", time)) <= min_power * (1 - online_sum))
+        m.add_constraint(
+            m.get_variable(self.var("relaxed_reserves", time)) <= min_power * (1 - online_sum),
+            f"relaxed_reserves_{time}_{self._name}",
+        )
 
     def add_capacity_constraints(self, time: DateTime, max_power: float) -> None:
         """
@@ -125,10 +129,11 @@ class ThermalReserveHandler(ReserveHandler):
         if d._has_stop:
             unavailable = unavailable + d.stop_var.get_value(time)
 
+        n = self._name
         aru = m.get_variable(self.var("automated_reserves_up", time))
         ard = m.get_variable(self.var("automated_reserves_down", time))
-        m.add_constraint(aru <= self._maximum_automated * (1 - unavailable))
-        m.add_constraint(ard <= self._maximum_automated * (1 - unavailable))
+        m.add_constraint(aru <= self._maximum_automated * (1 - unavailable), f"automated_reserves_up_max_{time}_{n}")
+        m.add_constraint(ard <= self._maximum_automated * (1 - unavailable), f"automated_reserves_down_max_{time}_{n}")
 
         res_unavailable = unavailable
         if d._has_flat:
@@ -136,5 +141,5 @@ class ThermalReserveHandler(ReserveHandler):
 
         ru = m.get_variable(self.var("reserves_up", time))
         rd = m.get_variable(self.var("reserves_down", time))
-        m.add_constraint(ru <= max_power * (1 - res_unavailable))
-        m.add_constraint(rd <= max_power * (1 - res_unavailable))
+        m.add_constraint(ru <= max_power * (1 - res_unavailable), f"reserves_up_max_{time}_{n}")
+        m.add_constraint(rd <= max_power * (1 - res_unavailable), f"reserves_down_max_{time}_{n}")
