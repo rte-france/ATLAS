@@ -321,3 +321,116 @@ class TestStorageDispatchConstraints:
 
         assert f"relative_power_max_{t0}_{ev_equipment.name}" not in model.constraints
         assert f"relative_power_min_{t0}_{ev_equipment.name}" not in model.constraints
+
+
+class TestStorageDispatchFragments:
+    def test_setup_stores_nb_fragments(self, battery_equipment, model, parameters):
+        d = StorageDispatch(battery_equipment)
+        d.setup(model, parameters, nb_fragments=3)
+        assert d._nb_fragments == 3
+
+    def test_add_fragment_variables_creates_correct_names(self, battery_equipment, model, parameters, time_window):
+        d = StorageDispatch(battery_equipment)
+        d.setup(model, parameters, nb_fragments=3)
+        t = time_window[0]
+        n = battery_equipment.name
+
+        d.add_fragment_variables(t, max_power=100.0, min_power=-50.0)
+
+        for i in range(3):
+            assert f"{n}_power_level_sell_n_{i}_{t}" in model.variables
+            assert f"{n}_power_level_buy_n_{i}_{t}" in model.variables
+
+    def test_add_fragment_variables_sell_bounds(self, battery_equipment, model, parameters, time_window):
+        d = StorageDispatch(battery_equipment)
+        d.setup(model, parameters, nb_fragments=4)
+        t = time_window[0]
+        n = battery_equipment.name
+
+        d.add_fragment_variables(t, max_power=100.0, min_power=-60.0)
+
+        for i in range(4):
+            var = model.get_variable(f"{n}_power_level_sell_n_{i}_{t}")
+            assert var.lb() == pytest.approx(0.0)
+            assert var.ub() == pytest.approx(25.0)  # 100 / 4
+
+    def test_add_fragment_variables_buy_bounds(self, battery_equipment, model, parameters, time_window):
+        d = StorageDispatch(battery_equipment)
+        d.setup(model, parameters, nb_fragments=4)
+        t = time_window[0]
+        n = battery_equipment.name
+
+        d.add_fragment_variables(t, max_power=100.0, min_power=-60.0)
+
+        for i in range(4):
+            var = model.get_variable(f"{n}_power_level_buy_n_{i}_{t}")
+            assert var.lb() == pytest.approx(-15.0)  # -60 / 4
+            assert var.ub() == pytest.approx(0.0)
+
+    def test_add_fragment_variables_noop_when_zero(self, battery_equipment, model, parameters, time_window):
+        d = StorageDispatch(battery_equipment)
+        d.setup(model, parameters, nb_fragments=0)
+        t = time_window[0]
+        n = battery_equipment.name
+
+        d.add_fragment_variables(t, max_power=100.0, min_power=-50.0)
+
+        assert f"{n}_power_level_sell_n_0_{t}" not in model.variables
+        assert f"{n}_power_level_buy_n_0_{t}" not in model.variables
+
+    def test_add_fragment_sum_constraints(self, battery_equipment, model, parameters, time_window):
+        d = StorageDispatch(battery_equipment)
+        d.setup(model, parameters, nb_fragments=3)
+        for t in time_window:
+            d.add_variables(t)
+            d.add_fragment_variables(t, max_power=100.0, min_power=-50.0)
+
+        t0 = time_window[0]
+        n = battery_equipment.name
+        d.add_fragment_sum_constraints(
+            t0,
+            d.power_level_sell_var.get_value(t0),
+            d.power_level_buy_var.get_value(t0),
+        )
+
+        assert f"sell_fragment_sum_{t0}_{n}" in model.constraints
+        assert f"buy_fragment_sum_{t0}_{n}" in model.constraints
+
+    def test_add_fragment_sum_constraints_noop_when_zero(self, battery_equipment, model, parameters, time_window):
+        d = StorageDispatch(battery_equipment)
+        d.setup(model, parameters, nb_fragments=0)
+        for t in time_window:
+            d.add_variables(t)
+
+        t0 = time_window[0]
+        n = battery_equipment.name
+        d.add_fragment_sum_constraints(
+            t0,
+            d.power_level_sell_var.get_value(t0),
+            d.power_level_buy_var.get_value(t0),
+        )
+
+        assert f"sell_fragment_sum_{t0}_{n}" not in model.constraints
+        assert f"buy_fragment_sum_{t0}_{n}" not in model.constraints
+
+    def test_get_fragment_sell_var_returns_correct_variable(self, battery_equipment, model, parameters, time_window):
+        d = StorageDispatch(battery_equipment)
+        d.setup(model, parameters, nb_fragments=2)
+        t = time_window[0]
+        n = battery_equipment.name
+        d.add_fragment_variables(t, max_power=100.0, min_power=-50.0)
+
+        var = d.get_fragment_sell_var(t, 1)
+
+        assert var == model.get_variable(f"{n}_power_level_sell_n_1_{t}")
+
+    def test_get_fragment_buy_var_returns_correct_variable(self, battery_equipment, model, parameters, time_window):
+        d = StorageDispatch(battery_equipment)
+        d.setup(model, parameters, nb_fragments=2)
+        t = time_window[0]
+        n = battery_equipment.name
+        d.add_fragment_variables(t, max_power=100.0, min_power=-50.0)
+
+        var = d.get_fragment_buy_var(t, 1)
+
+        assert var == model.get_variable(f"{n}_power_level_buy_n_1_{t}")
