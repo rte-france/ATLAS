@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 import math
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from pendulum import DateTime, Duration
@@ -166,6 +167,34 @@ class ThermalDispatch:
         self._add_eviction_constraints(model, time, parameters)
         self._add_minimum_time_constraints(model, time, parameters)
         self._add_power_bounds(model, time)
+
+    def add_daily_energy_constraint(
+        self, model: OptimisationModel, time_window: list[DateTime], timestep: Duration
+    ) -> None:
+        """
+        Add the daily energy cap constraint for each day spanned by *time_window*.
+
+        No-op when :attr:`ThermalDispatchInput.has_daily_energy_constraint` is ``False``
+        or :attr:`ThermalDispatchInput.maximum_daily_energy` is ``None``.
+
+        :param model: The optimisation model
+        :param time_window: Ordered list of timesteps to consider
+        :type time_window: list[DateTime]
+        :param timestep: Duration of one timestep
+        :type timestep: Duration
+        """
+        if not self._eq.has_daily_energy_constraint or self._eq.maximum_daily_energy is None:
+            return
+        steps_by_day: dict[datetime, list] = {}
+        for t in time_window:
+            steps_by_day.setdefault(datetime(t.year, t.month, t.day), []).append(t)
+        n = self._eq.name
+        for day, steps in steps_by_day.items():
+            model.add_constraint(
+                sum(self.power_level_var.get_value(t) for t in steps)
+                <= self._eq.maximum_daily_energy.get_value(day) * timestep.total_days() * len(steps),
+                f"energy_limit_of_{n}_at_{day}",
+            )
 
     def add_dd_and_gradient_constraints(self, model: OptimisationModel, time: DateTime, prev_time: DateTime) -> None:
         """

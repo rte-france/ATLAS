@@ -8,9 +8,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import pendulum
-from pendulum import Duration
-
 import atlas.config as cfg
 from atlas.common.optimal_dispatch.dispatch.thermal import ThermalDispatch
 from atlas.common.optimal_dispatch.reserves import ReserveFactory, ThermalReserveHandler
@@ -72,7 +69,7 @@ class ThermalStep(AbstractOptimStep[ThermalPO]):
             if time in eq.optimisation_time_window[:-2]:
                 d.add_dd_and_gradient_constraints(model, time, time - ts)
 
-        self._add_daily_energy_constraint(model, ts)
+        self._dispatch.add_daily_energy_constraint(model, self.equipment.optimisation_time_window, ts)
 
     def add_objective(
         self,
@@ -98,19 +95,3 @@ class ThermalStep(AbstractOptimStep[ThermalPO]):
                 model.add_objective(startup_cost * turned_on_var)
 
     # ── PO-specific constraints ───────────────────────────────────────────
-
-    def _add_daily_energy_constraint(self, model: OptimisationModel, timestep: Duration) -> None:
-        eq = self.equipment
-        if eq.has_daily_energy_constraint:
-            days_in_optimes = sorted({pendulum.datetime(t.year, t.month, t.day) for t in eq.optimisation_time_window})
-            for idx, date in enumerate(days_in_optimes):
-                matching_steps = [
-                    t
-                    for t in eq.optimisation_time_window
-                    if (t.year == date.year and t.month == date.month and t.day == date.day)
-                ]
-                if matching_steps and eq.maximum_daily_energy is not None:
-                    constraint_expr = sum(
-                        self._dispatch.power_level_var.get_value(t) for t in matching_steps
-                    ) <= eq.maximum_daily_energy.get_value(date) * timestep.total_days() * len(matching_steps)
-                    model.add_constraint(constraint_expr, f"energy_limit_day_{idx}_{eq.name}")

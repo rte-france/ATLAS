@@ -6,7 +6,6 @@ This file is part of the ATLAS project.
 """
 
 from collections.abc import Callable
-from datetime import datetime
 
 from pendulum import DateTime
 
@@ -205,7 +204,7 @@ class ThermalOptimizationModel(OptimisationModel):
         for t in self.time_frame:
             self._dispatch.add_dd_and_gradient_constraints(self, t, t - ts)
 
-        self._add_da_daily_energy_constraint()
+        self._dispatch.add_daily_energy_constraint(self, self.time_frame, self.parameters.temporal.timestep)
 
     def _add_da_contracted_diff_constraints(self, time: DateTime) -> None:
         self.add_constraint(
@@ -227,22 +226,6 @@ class ThermalOptimizationModel(OptimisationModel):
             >= self.feasible_automated_reserves_down_procured.get_value(time)
             - self.get_variable(self._reserves.var("automated_reserves_down", time))
         )
-
-    def _add_da_daily_energy_constraint(self) -> None:
-        if not self.thermal_unit.has_daily_energy_constraint or self.thermal_unit.maximum_daily_energy is None:
-            return
-        steps_by_day: dict[datetime, list] = {}
-        for t in self.time_frame:
-            key = datetime(t.year, t.month, t.day)
-            steps_by_day.setdefault(key, []).append(t)
-        for day, steps in steps_by_day.items():
-            self.add_constraint(
-                sum(self._dispatch.power_level_var.get_value(t) for t in steps)
-                <= self.thermal_unit.maximum_daily_energy.get_value(day)
-                * self.parameters.temporal.timestep.total_days()
-                * len(steps),
-                f"energy_limit_of_{self.thermal_unit.name}_at_{day}",
-            )
 
     # ── Solution extraction ──────────────────────────────────────────────────
 

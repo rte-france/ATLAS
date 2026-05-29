@@ -249,4 +249,6 @@ class StorageDispatch:
         power_buy = self.power_level_buy_var.get_value(time)
 
         model.add_constraint(power_sell <= self.effective_max_sell(time) * is_sell, f"relative_power_max_{time}_{n}")
-        model.add_constraint(power_buy >= self.effective_min_buy(time) * (1 - is_sell), f"relative_power_min_{time}_{n}")
+        model.add_constraint(
+            power_buy >= self.effective_min_buy(time) * (1 - is_sell), f"relative_power_min_{time}_{n}"
+        )

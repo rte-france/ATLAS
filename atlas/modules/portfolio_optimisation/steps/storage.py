@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 import atlas.config as cfg
 from atlas.common.optimal_dispatch.dispatch.storage import StorageDispatch
 from atlas.common.optimal_dispatch.reserves import ReserveFactory, StorageReserveHandler
-from atlas.enums import StorageType
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
 from atlas.modules.portfolio_optimisation.steps.base import AbstractOptimStep
 from atlas.solver.solver_interface import OptimisationModel
@@ -67,12 +66,10 @@ class StoragePOStep(AbstractOptimStep[StoragePO]):
 
         for time in eq.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints for storage unit {eq.name} at time {time}")
-            prev_time = time - parameters.temporal.timestep
 
             max_power = eq.maximum_power.get_value(time)
             min_power = eq.minimum_power.get_value(time)
             max_energy = eq.maximum_energy.get_value(time)
-            max_energy_previous = eq.maximum_energy.get_value(prev_time)
             min_soc = eq.minimum_state_of_charge.get_value(time)
 
             self._dispatch.add_constraints(model, time, parameters)
@@ -97,12 +94,8 @@ class StoragePOStep(AbstractOptimStep[StoragePO]):
             if time not in parameters.target_times:
                 nb_fragment = parameters.storage_mapping[eq.storage_type]["nb_fragment"]
                 for n in range(nb_fragment):
-                    power_level_sell_n_var = model.get_variable(
-                        f"{eq.name}_power_level_sell_n_{n}_time_{time}"
-                    )
-                    power_level_buy_n_var = model.get_variable(
-                        f"{eq.name}_power_level_buy_n_{n}_time_{time}"
-                    )
+                    power_level_sell_n_var = model.get_variable(f"{eq.name}_power_level_sell_n_{n}_time_{time}")
+                    power_level_buy_n_var = model.get_variable(f"{eq.name}_power_level_buy_n_{n}_time_{time}")
                     model.add_constraint(
                         power_level_buy_n_var >= min_power / nb_fragment,
                         f"buy_bound_fragment_{n}_{time}_{eq.name}",
@@ -158,12 +151,8 @@ class StoragePOStep(AbstractOptimStep[StoragePO]):
                 nb_fragment = parameters.storage_mapping[eq.storage_type]["nb_fragment"]
 
                 for n in range(nb_fragment):
-                    power_level_sell_n_var = model.get_variable(
-                        f"{eq.name}_power_level_sell_n_{n}_time_{time}"
-                    )
-                    power_level_buy_n_var = model.get_variable(
-                        f"{eq.name}_power_level_buy_n_{n}_time_{time}"
-                    )
+                    power_level_sell_n_var = model.get_variable(f"{eq.name}_power_level_sell_n_{n}_time_{time}")
+                    power_level_buy_n_var = model.get_variable(f"{eq.name}_power_level_buy_n_{n}_time_{time}")
 
                     if nb_fragment == 1 and n == 0:
                         model.add_objective(-(power_level_sell_n_var + power_level_buy_n_var) * price_forecast)
