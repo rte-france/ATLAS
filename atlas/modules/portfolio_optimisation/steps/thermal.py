@@ -93,5 +93,3 @@ class ThermalStep(AbstractOptimStep[ThermalPO]):
                 startup_cost = eq.startup_cost.get_value(time)
                 turned_on_var = model.get_variable(f"t_on_{eq.name}_{time}")
                 model.add_objective(startup_cost * turned_on_var)
-
-    # ── PO-specific constraints ───────────────────────────────────────────

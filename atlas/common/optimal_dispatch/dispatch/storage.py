@@ -47,8 +47,6 @@ class StorageDispatch:
         self.is_sell_var: ModelVar = None  # type: ignore[assignment]
         self.stored_energy_var: ModelVar = None  # type: ignore[assignment]
 
-    # ── Public API ────────────────────────────────────────────────────────
-
     def setup(self, model: OptimisationModel, parameters: AbstractModuleParameters) -> None:
         """
         Compute initial stock and create ModelVar objects.
@@ -152,8 +150,6 @@ class StorageDispatch:
     def name(self) -> str:
         return self._eq.name
 
-    # ── Initialisation ────────────────────────────────────────────────────
-
     def _compute_initial_stock(self, parameters: AbstractModuleParameters) -> None:
         eq = self._eq
         temporal = parameters.temporal
@@ -200,8 +196,6 @@ class StorageDispatch:
                 eq.maximum_energy.get_value(time),
             ),
         )
-
-    # ── Constraints ───────────────────────────────────────────────────────
 
     def _add_storage_level_evolution(
         self, model: OptimisationModel, time: DateTime, parameters: AbstractModuleParameters
