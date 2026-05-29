@@ -9,10 +9,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from atlas.common.optimal_dispatch.reserves.storage import StorageReserveHandler
 from atlas.common.optimal_dispatch.reserves.thermal import ThermalReserveHandler
 
 if TYPE_CHECKING:
     from atlas.common.optimal_dispatch.dispatch.thermal import ThermalDispatch
+    from atlas.common.optimal_dispatch.input_objects.storage import StorageDispatchInput
     from atlas.common.optimal_dispatch.input_objects.thermal import ThermalDispatchInput
 
 
@@ -30,11 +32,11 @@ class ReserveFactory:
 
     :Example:
 
-        # Thermal (DAO or PO)
+        # Thermal
         self._reserves = ReserveFactory.for_thermal(thermal_unit, self._dispatch)
 
-        # Storage (future)
-        # self._reserves = ReserveFactory.for_storage(storage_unit, self._dispatch)
+        # Storage
+        self._reserves = ReserveFactory.for_storage(storage_unit)
     """
 
     @staticmethod
@@ -53,3 +55,18 @@ class ReserveFactory:
         """
         maximum_automated = (equipment.maximum_afrr or 0.0) + (equipment.maximum_fcr or 0.0)
         return ThermalReserveHandler(equipment.name, dispatch, maximum_automated)
+
+    @staticmethod
+    def for_storage(equipment: StorageDispatchInput) -> StorageReserveHandler:
+        """
+        Create a :class:`StorageReserveHandler` for *equipment*.
+
+        Computes ``maximum_automated`` from the equipment's AFRR and FCR capacities.
+
+        :param equipment: Storage equipment (DAO or PO input object)
+        :type equipment: StorageDispatchInput
+        :return: Configured storage reserve handler
+        :rtype: StorageReserveHandler
+        """
+        maximum_automated = (equipment.maximum_afrr or 0.0) + (equipment.maximum_fcr or 0.0)
+        return StorageReserveHandler(equipment.name, maximum_automated)

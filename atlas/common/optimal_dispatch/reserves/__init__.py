@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 
 from atlas.common.optimal_dispatch.reserves.factory import ReserveFactory
 from atlas.common.optimal_dispatch.reserves.handler import ReserveHandler
+from atlas.common.optimal_dispatch.reserves.storage import StorageReserveHandler
 from atlas.common.optimal_dispatch.reserves.thermal import ThermalReserveHandler
 
-__all__ = ["ReserveFactory", "ReserveHandler", "ThermalReserveHandler"]
+__all__ = ["ReserveFactory", "ReserveHandler", "StorageReserveHandler", "ThermalReserveHandler"]
