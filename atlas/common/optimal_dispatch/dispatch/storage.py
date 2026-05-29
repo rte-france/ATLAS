@@ -23,31 +23,36 @@ class StorageDispatch:
     """
     Physical dispatch component for a single storage unit.
 
-    Owns sell/buy power, binary sell/buy state, and stored energy variables,
-    plus the physical constraints (level evolution, sell/buy separation, cycle balance).
-    Does **not** handle fragments, reserves, or objective terms — those remain module-specific.
+    Owns sell/buy power, binary sell/buy state, stored energy variables, and optionally
+    fragment variables for piecewise-linear bid modelling.
+    Handles physical constraints (level evolution, sell/buy separation, cycle balance)
+    and fragment constraints (sum and bound). Does **not** handle reserves or objective terms.
 
     Typical usage::
 
         dispatch = StorageDispatch(equipment)
-        dispatch.setup(model, parameters)         # init vars + initial stock
+        dispatch.setup(model, parameters, nb_fragments=3)  # init vars + initial stock
         for time in time_window:
-            dispatch.add_variables(time)          # per-timestep decision variables
+            dispatch.add_variables(time)                   # per-timestep decision variables
+            dispatch.add_fragment_variables(time, max_p, min_p)
         for time in time_window:
             dispatch.add_constraints(model, time, parameters)
+            dispatch.add_fragment_sum_constraints(time, power_sell, power_buy)
         dispatch.add_cycle_balance_constraint(model, time_window)  # non-EV only
     """
 
     def __init__(self, equipment: StorageDispatchInput) -> None:
         self._eq = equipment
         self._initial_stock: float = 0.0
+        self._model: OptimisationModel = None  # type: ignore[assignment]
+        self._nb_fragments: int = 0
 
         self.power_level_sell_var: ModelVar = None  # type: ignore[assignment]
         self.power_level_buy_var: ModelVar = None  # type: ignore[assignment]
         self.is_sell_var: ModelVar = None  # type: ignore[assignment]
         self.stored_energy_var: ModelVar = None  # type: ignore[assignment]
 
-    def setup(self, model: OptimisationModel, parameters: AbstractModuleParameters) -> None:
+    def setup(self, model: OptimisationModel, parameters: AbstractModuleParameters, nb_fragments: int = 0) -> None:
         """
         Compute initial stock and create ModelVar objects.
 
@@ -56,7 +61,12 @@ class StorageDispatch:
         :param model: The optimisation model
         :param parameters: Module parameters — must expose ``temporal.timestep``,
             ``temporal.start_date``, ``temporal.execution_date``
+        :param nb_fragments: Number of power fragments for piecewise-linear bid modelling.
+            Pass 0 (default) when fragments are not used.
+        :type nb_fragments: int
         """
+        self._model = model
+        self._nb_fragments = nb_fragments
         self._compute_initial_stock(parameters)
         self._setup_state_variables(model)
 
@@ -71,6 +81,76 @@ class StorageDispatch:
         self.power_level_buy_var.set_model_var(time)
         self.is_sell_var.set_model_var(time)
         self.stored_energy_var.set_model_var(time)
+
+    def add_fragment_variables(self, time: DateTime, max_power: float, min_power: float) -> None:
+        """
+        Register fragment decision variables for *time* in the model.
+
+        Creates ``nb_fragments`` sell fragments (≥ 0) and buy fragments (≤ 0), each
+        bounded by ``max_power / nb_fragments`` and ``min_power / nb_fragments`` respectively.
+        No-op when ``nb_fragments`` is 0.
+
+        :param time: The timestep for which to create variables
+        :type time: DateTime
+        :param max_power: Maximum sell power at *time* (MW)
+        :type max_power: float
+        :param min_power: Minimum buy power at *time* (MW, negative)
+        :type min_power: float
+        """
+        if self._nb_fragments == 0:
+            return
+        nb = self._nb_fragments
+        for n in range(nb):
+            self._model.add_continuous_variable(self._sell_n_key(time, n), 0, max_power / nb)
+            self._model.add_continuous_variable(self._buy_n_key(time, n), min_power / nb, 0)
+
+    def add_fragment_sum_constraints(self, time: DateTime, power_sell, power_buy) -> None:
+        """
+        Add constraints linking aggregate sell/buy to the sum of their fragments.
+
+        ``power_sell == Σ sell_n[i]``  and  ``power_buy == Σ buy_n[i]``
+
+        No-op when ``nb_fragments`` is 0.
+
+        :param time: Current timestep
+        :type time: DateTime
+        :param power_sell: Aggregate sell variable at *time*
+        :param power_buy: Aggregate buy variable at *time*
+        """
+        if self._nb_fragments == 0:
+            return
+        nb = self._nb_fragments
+        n = self._eq.name
+        self._model.add_constraint(
+            power_sell == sum(self._model.get_variable(self._sell_n_key(time, i)) for i in range(nb)),
+            f"sell_fragment_sum_{time}_{n}",
+        )
+        self._model.add_constraint(
+            power_buy == sum(self._model.get_variable(self._buy_n_key(time, i)) for i in range(nb)),
+            f"buy_fragment_sum_{time}_{n}",
+        )
+
+    def get_fragment_sell_var(self, time: DateTime, n: int):
+        """
+        Return the *n*-th sell fragment variable at *time*.
+
+        :param time: The timestep
+        :type time: DateTime
+        :param n: Fragment index
+        :type n: int
+        """
+        return self._model.get_variable(self._sell_n_key(time, n))
+
+    def get_fragment_buy_var(self, time: DateTime, n: int):
+        """
+        Return the *n*-th buy fragment variable at *time*.
+
+        :param time: The timestep
+        :type time: DateTime
+        :param n: Fragment index
+        :type n: int
+        """
+        return self._model.get_variable(self._buy_n_key(time, n))
 
     def add_storage_level_evolution(
         self, model: OptimisationModel, time: DateTime, parameters: AbstractModuleParameters
@@ -199,6 +279,12 @@ class StorageDispatch:
     @property
     def name(self) -> str:
         return self._eq.name
+
+    def _sell_n_key(self, time: DateTime, n: int) -> str:
+        return f"{self._eq.name}_power_level_sell_n_{n}_{time}"
+
+    def _buy_n_key(self, time: DateTime, n: int) -> str:
+        return f"{self._eq.name}_power_level_buy_n_{n}_{time}"
 
     def _compute_initial_stock(self, parameters: AbstractModuleParameters) -> None:
         eq = self._eq

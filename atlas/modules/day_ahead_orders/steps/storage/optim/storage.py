@@ -64,23 +64,15 @@ class StorageModel(OptimisationModel):
             self.parameters.temporal.timestep,
         )
 
-    def power_level_sell_n_key(self, t: DateTime, i: int) -> str:
-        return f"{self.storage.name}_power_level_sell_n_{i}_{t}"
-
-    def power_level_buy_n_key(self, t: DateTime, i: int) -> str:
-        return f"{self.storage.name}_power_level_buy_n_{i}_{t}"
-
     def build_variables(self, nb_fragments: int) -> None:
         """Creation of decision variables."""
-        self._dispatch.setup(self, self.parameters)
+        self._dispatch.setup(self, self.parameters, nb_fragments)
 
         for t in self.time_frame:
             self._dispatch.add_variables(t)
             max_power = self.storage.maximum_power.get_value(t)
             min_power = self.storage.minimum_power.get_value(t)
-            for i in range(nb_fragments):
-                self.add_continuous_variable(self.power_level_sell_n_key(t, i), 0, max_power / nb_fragments)
-                self.add_continuous_variable(self.power_level_buy_n_key(t, i), min_power / nb_fragments, 0)
+            self._dispatch.add_fragment_variables(t, max_power, min_power)
 
     def build_objective(
         self, nb_fragments: int, smoothing_factor: float, direction: Literal["maximize", "minimize"] = "maximize"
@@ -102,8 +94,8 @@ class StorageModel(OptimisationModel):
                 objective_expr=sum(
                     self.price_forecast.get_value(t)
                     * (
-                        self.get_variable(self.power_level_sell_n_key(t, 0))
-                        + self.get_variable(self.power_level_buy_n_key(t, 0))  # buy_n <= 0, so this subtracts cost
+                        self._dispatch.get_fragment_sell_var(t, 0)
+                        + self._dispatch.get_fragment_buy_var(t, 0)  # buy_n <= 0, so this subtracts cost
                     )
                     * dt
                     for t in self.time_frame
@@ -115,11 +107,11 @@ class StorageModel(OptimisationModel):
                     sum(
                         self.price_forecast.get_value(t)
                         * (1 - i * smoothing_factor / (nb_fragments - 1))
-                        * self.get_variable(self.power_level_sell_n_key(t, i))
+                        * self._dispatch.get_fragment_sell_var(t, i)
                         * dt
                         + self.price_forecast.get_value(t)
                         * (1 + i * smoothing_factor / (nb_fragments - 1))
-                        * self.get_variable(self.power_level_buy_n_key(t, i))
+                        * self._dispatch.get_fragment_buy_var(t, i)
                         * dt
                         for i in range(nb_fragments)
                     )

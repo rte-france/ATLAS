@@ -44,21 +44,7 @@ class ElectricVehicleModel(StorageModel):
             power_buy = self._dispatch.power_level_buy_var.get_value(t)
             is_sell = self._dispatch.is_sell_var.get_value(t)
 
-            # Fragment sum constraints — PO convention: sell_n >= 0, buy_n <= 0, direct sums
-            self.add_constraint(
-                power_sell
-                == sum(
-                    self.get_variable(self.power_level_sell_n_key(t, i)) for i in range(self.parameters.ev_nb_fragments)
-                ),
-                f"Evaluation_of_quantity_sold_at_{t}",
-            )
-            self.add_constraint(
-                power_buy
-                == sum(
-                    self.get_variable(self.power_level_buy_n_key(t, i)) for i in range(self.parameters.ev_nb_fragments)
-                ),
-                f"Evaluation_of_quantity_purchased_at_{t}",
-            )
+            self._dispatch.add_fragment_sum_constraints(t, power_sell, power_buy)
 
             self._dispatch.add_storage_level_evolution(self, t, self.parameters)
 

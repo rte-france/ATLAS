@@ -36,11 +36,11 @@ class StoragePOStep(AbstractOptimStep[StoragePO]):
         self._reserves = ReserveFactory.for_storage(equipment)
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
-        self._dispatch.setup(model, parameters)
-        self._reserves.setup(model)
-
         eq = self.equipment
         nbr_fragment: int = parameters.storage_mapping[eq.storage_type]["nb_fragment"]
+
+        self._dispatch.setup(model, parameters, nbr_fragment)
+        self._reserves.setup(model)
 
         for time in eq.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for storage unit {eq.name} at time {time}")
@@ -49,14 +49,7 @@ class StoragePOStep(AbstractOptimStep[StoragePO]):
 
             self._dispatch.add_variables(time)
             self._reserves.add_variables(time, max_power, min_power)
-
-            for n in range(nbr_fragment):
-                model.add_continuous_variable(
-                    name=f"{eq.name}_power_level_sell_n_{n}_time_{time}", lower_bound=0, upper_bound=max_power
-                )
-                model.add_continuous_variable(
-                    name=f"{eq.name}_power_level_buy_n_{n}_time_{time}", lower_bound=min_power, upper_bound=0
-                )
+            self._dispatch.add_fragment_variables(time, max_power, min_power)
 
     def add_constraints(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
@@ -68,7 +61,6 @@ class StoragePOStep(AbstractOptimStep[StoragePO]):
             cfg.logger.debug(f"Adding constraints for storage unit {eq.name} at time {time}")
 
             max_power = eq.maximum_power.get_value(time)
-            min_power = eq.minimum_power.get_value(time)
             max_energy = eq.maximum_energy.get_value(time)
             min_soc = eq.minimum_state_of_charge.get_value(time)
 
@@ -92,36 +84,11 @@ class StoragePOStep(AbstractOptimStep[StoragePO]):
             )
 
             if time not in parameters.target_times:
-                nb_fragment = parameters.storage_mapping[eq.storage_type]["nb_fragment"]
-                for n in range(nb_fragment):
-                    power_level_sell_n_var = model.get_variable(f"{eq.name}_power_level_sell_n_{n}_time_{time}")
-                    power_level_buy_n_var = model.get_variable(f"{eq.name}_power_level_buy_n_{n}_time_{time}")
-                    model.add_constraint(
-                        power_level_buy_n_var >= min_power / nb_fragment,
-                        f"buy_bound_fragment_{n}_{time}_{eq.name}",
-                    )
-                    model.add_constraint(
-                        power_level_sell_n_var <= max_power / nb_fragment,
-                        f"sell_bound_fragment_{n}_{time}_{eq.name}",
-                    )
-
-                if nb_fragment > 0:
-                    model.add_constraint(
-                        self._dispatch.power_level_sell_var.get_value(time)
-                        == sum(
-                            model.get_variable(f"{eq.name}_power_level_sell_n_{n}_time_{time}")
-                            for n in range(nb_fragment)
-                        ),
-                        f"sell_fragment_sum_{time}_{eq.name}",
-                    )
-                    model.add_constraint(
-                        self._dispatch.power_level_buy_var.get_value(time)
-                        == sum(
-                            model.get_variable(f"{eq.name}_power_level_buy_n_{n}_time_{time}")
-                            for n in range(nb_fragment)
-                        ),
-                        f"buy_fragment_sum_{time}_{eq.name}",
-                    )
+                self._dispatch.add_fragment_sum_constraints(
+                    time,
+                    self._dispatch.power_level_sell_var.get_value(time),
+                    self._dispatch.power_level_buy_var.get_value(time),
+                )
 
         self._dispatch.add_cycle_balance_constraint(model, list(eq.optimisation_time_window))
 
@@ -151,13 +118,13 @@ class StoragePOStep(AbstractOptimStep[StoragePO]):
                 nb_fragment = parameters.storage_mapping[eq.storage_type]["nb_fragment"]
 
                 for n in range(nb_fragment):
-                    power_level_sell_n_var = model.get_variable(f"{eq.name}_power_level_sell_n_{n}_time_{time}")
-                    power_level_buy_n_var = model.get_variable(f"{eq.name}_power_level_buy_n_{n}_time_{time}")
+                    sell_n = self._dispatch.get_fragment_sell_var(time, n)
+                    buy_n = self._dispatch.get_fragment_buy_var(time, n)
 
                     if nb_fragment == 1 and n == 0:
-                        model.add_objective(-(power_level_sell_n_var + power_level_buy_n_var) * price_forecast)
+                        model.add_objective(-(sell_n + buy_n) * price_forecast)
                     else:
                         model.add_objective(
-                            -power_level_sell_n_var * price_forecast * (1 - n * smoothing_factor / (nb_fragment - 1))
-                            - power_level_buy_n_var * price_forecast * (1 + n * smoothing_factor / (nb_fragment - 1))
+                            -sell_n * price_forecast * (1 - n * smoothing_factor / (nb_fragment - 1))
+                            - buy_n * price_forecast * (1 + n * smoothing_factor / (nb_fragment - 1))
                         )

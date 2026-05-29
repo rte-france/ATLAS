@@ -143,3 +143,19 @@ Sur 48 h, 3 fragments : **480 contraintes supprimées** → −38 % de lignes. O
 ## Stockage PO
 
 Mêmes `StorageDispatch` et `StorageReserveHandler` qu'en DAO. Différences PO : ajout des variables de réserves (`StorageReserveHandler`) et remplacement de la contrainte de cycle balance par une contrainte de fill-up réserves.
+
+### Centralisation des fragments dans `StorageDispatch`
+
+La logique fragment (`power_level_sell_n`, `power_level_buy_n`) était dupliquée entre DAO et PO avec deux divergences :
+
+| | DAO (avant) | PO (avant) |
+|---|---|---|
+| Nommage | `{unit}_power_level_sell_n_{n}_{t}` | `{unit}_power_level_sell_n_{n}_time_{t}` |
+| Bornes à la création | `max_power / nb_fragments` | `max_power` (larges) |
+| Bornes serrées | dans la variable | via contraintes explicites `sell_bound_fragment_` / `buy_bound_fragment_` |
+
+Après centralisation dans `StorageDispatch.add_fragment_variables` :
+- Nommage unifié : format DAO (`_{n}_{t}`)
+- Bornes encodées directement dans la variable pour les deux modules
+
+**Contraintes supprimées en PO** : les `2 × nb_fragments` contraintes de bornes explicites par timestep non-target disparaissent. Pour `nb_fragments = 3` et 24 timesteps : **144 contraintes en moins par storage unit**. OR-Tools traite les bornes de variables en presolve sans les injecter dans la matrice de contraintes — résolution identique, LP plus petit.
