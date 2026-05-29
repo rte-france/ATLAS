@@ -34,126 +34,49 @@ class ElectricVehicleModel(StorageModel):
         """
         super().__init__(parameters, solver_name, name, storage, storage.additional_hours, solver_options)
 
-    def create_constraints(self, initial_stock: float | None) -> None:
-        """
-        Creation of constraints
-        :param initial_stock: initial stock
-        :type initial_stock: float | None
-        :return: None
-        """
+    def build_constraints(self) -> None:
+        """Creation of constraints."""
         for t in self.time_frame:
-            for i in range(self.parameters.ev_nb_fragments):
-                self.add_constraint(
-                    self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, i))
-                    * self.parameters.ev_nb_fragments
-                    <= self.storage.maximum_power.get_value(t),
-                    f"Respect_of_sale_power_fragment_{i}_limit_at_{t}",
-                )
-                self.add_constraint(
-                    self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i))
-                    * self.parameters.ev_nb_fragments
-                    <= abs(self.storage.minimum_power.get_value(t)),
-                    f"Respect_of_purchase_power_fragment_{i}_limit_at_{t}",
-                )
+            max_power = self.storage.maximum_power.get_value(t)
+            min_power = self.storage.minimum_power.get_value(t)
 
-            # Total bought/sold energy at each tome step is the sum of the fragments at time step
+            power_sell = self._dispatch.power_level_sell_var.get_value(t)
+            power_buy = self._dispatch.power_level_buy_var.get_value(t)
+            is_sell = self._dispatch.is_sell_var.get_value(t)
+
+            # Fragment sum constraints — PO convention: sell_n >= 0, buy_n <= 0, direct sums
             self.add_constraint(
-                self.get_variable(StorageModel.sold_at_key(t))
+                power_sell
                 == sum(
-                    self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, i))
-                    for i in range(self.parameters.ev_nb_fragments)
+                    self.get_variable(self.power_level_sell_n_key(t, i)) for i in range(self.parameters.ev_nb_fragments)
                 ),
                 f"Evaluation_of_quantity_sold_at_{t}",
             )
             self.add_constraint(
-                self.get_variable(StorageModel.purchased_at_key(t))
+                power_buy
                 == sum(
-                    self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i))
-                    for i in range(self.parameters.ev_nb_fragments)
+                    self.get_variable(self.power_level_buy_n_key(t, i)) for i in range(self.parameters.ev_nb_fragments)
                 ),
                 f"Evaluation_of_quantity_purchased_at_{t}",
             )
 
-            # StoredEnergy tracking constraint, evaluates the stock at each time step
-            if t == self.parameters.temporal.start_date:
-                self.add_constraint(
-                    self.get_variable(StorageModel.stored_energy_at_key(t))
-                    == (
-                        initial_stock
-                        * (
-                            self.storage.maximum_energy.get_value(t)
-                            / self.storage.maximum_energy.get_value(t - self.parameters.temporal.timestep)
-                        )
-                        + self.parameters.temporal.timestep.total_hours()
-                        * (
-                            self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
-                            - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
-                        )
-                        + (
-                            self.storage.displacement_energy.get_value(t)  # type: ignore [union-attr]
-                            - self.storage.displacement_energy.get_value(t - self.parameters.temporal.timestep)  # type: ignore [union-attr]
-                        )
-                    ),
-                    f"Stock_tracking_at_{t}",
-                )
-            else:
-                self.add_constraint(
-                    self.get_variable(StorageModel.stored_energy_at_key(t))
-                    == (
-                        self.get_variable(StorageModel.stored_energy_at_key(t - self.parameters.temporal.timestep))
-                        * (
-                            self.storage.maximum_energy.get_value(t)
-                            / self.storage.maximum_energy.get_value(t - self.parameters.temporal.timestep)
-                        )
-                        + self.parameters.temporal.timestep.total_hours()
-                        * (
-                            self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
-                            - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
-                        )
-                        + (
-                            self.storage.displacement_energy.get_value(t)  # type: ignore [union-attr]
-                            - self.storage.displacement_energy.get_value(t - self.parameters.temporal.timestep)  # type: ignore [union-attr]
-                        )
-                    ),
-                    f"Stock_tracking_at_{t}",
-                )
+            self._dispatch.add_storage_level_evolution(self, t, self.parameters)
 
-            # Respect of system states constraints (isSell and is_v2g)
+            # EV-specific sell/buy separation: V2G gates discharge
             self.add_constraint(
-                self.get_variable(StorageModel.sold_at_key(t))
-                <= self.storage.is_v2g
-                * self.get_variable(StorageModel.is_sell_at_key(t))
-                * self.storage.maximum_power.get_value(t),
+                power_sell <= self.storage.is_v2g * is_sell * max_power,
                 f"Respect_Pmax_sale_at_{t}",
             )
             self.add_constraint(
-                self.get_variable(StorageModel.purchased_at_key(t))
-                <= (1 - self.get_variable(StorageModel.is_sell_at_key(t)) * self.storage.is_v2g)
-                * abs(self.storage.minimum_power.get_value(t)),
+                -power_buy <= (1 - is_sell * self.storage.is_v2g) * abs(min_power),
                 f"Respect_Pmax_purchase_at_{t}",
             )
-            self.add_constraint(self.get_variable(StorageModel.sold_at_key(t)) >= 0, f"Respect_Pmin_sale_at_{t}")
-            self.add_constraint(
-                self.get_variable(StorageModel.purchased_at_key(t)) >= 0, f"Respect_Pmin_purchase_at_{t}"
-            )
 
-            # Respect of minimum and maximum storage level constraints
-            self.add_constraint(
-                self.get_variable(StorageModel.stored_energy_at_key(t))
-                >= self.storage.minimum_state_of_charge.get_value(t) * self.storage.maximum_energy.get_value(t),
-                f"Minimum_storage_level_constraint_at_{t}",
-            )
-            self.add_constraint(
-                self.get_variable(StorageModel.stored_energy_at_key(t)) <= self.storage.maximum_energy.get_value(t),
-                f"Maximum_storage_level_constraint_at_{t}",
-            )
-
-        # Constraint on Qa to compensate at least the delta of Displacement Energy over the entire optimization time frame
         assert self.storage.displacement_energy is not None, (
             f"displacement_energy is required for ElectricVehicle {self.storage.name}"
         )
         self.add_constraint(
-            sum(self.get_variable(StorageModel.purchased_at_key(t)) for t in self.time_frame)
+            sum(-self._dispatch.power_level_buy_var.get_value(t) for t in self.time_frame)
             * self.storage.charge_efficiency
             >= (
                 self.storage.displacement_energy.get_value(

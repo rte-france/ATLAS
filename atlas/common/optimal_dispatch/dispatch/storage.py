@@ -72,6 +72,56 @@ class StorageDispatch:
         self.is_sell_var.set_model_var(time)
         self.stored_energy_var.set_model_var(time)
 
+    def add_storage_level_evolution(
+        self, model: OptimisationModel, time: DateTime, parameters: AbstractModuleParameters
+    ) -> None:
+        """
+        Add only the storage level evolution constraint for *time*.
+
+        Use when you need the level-tracking constraint without sell/buy separation
+        (e.g. when the calling module adds its own separation logic).
+
+        :param model: The optimisation model
+        :param time: Current timestep
+        :type time: DateTime
+        :param parameters: Module parameters
+        """
+        eq = self._eq
+        n = eq.name
+        ts = parameters.temporal.timestep
+        prev_time = time - ts
+        dt_h = ts.total_hours()
+
+        max_energy = eq.maximum_energy.get_value(time)
+        max_energy_prev = eq.maximum_energy.get_value(prev_time)
+        energy_ratio = max_energy / max_energy_prev if max_energy_prev > 0 else 1.0
+
+        power_sell = self.power_level_sell_var.get_value(time)
+        power_buy = self.power_level_buy_var.get_value(time)
+        stored_energy = self.stored_energy_var.get_value(time)
+
+        displacement = int(eq.displacement_energy.get_value(time)) if eq.displacement_energy else 0
+        displacement_prev = int(eq.displacement_energy.get_value(prev_time)) if eq.displacement_energy else 0
+
+        # power_buy is negative (charging draws power from grid); energy added = -buy * efficiency
+        energy_delta = (
+            -power_buy * (eq.charge_efficiency or 1.0) * dt_h
+            - power_sell * dt_h / (eq.discharge_efficiency or 1.0)
+            + (displacement - displacement_prev)
+        )
+
+        if time == parameters.temporal.start_date:
+            model.add_constraint(
+                stored_energy == self._initial_stock * energy_ratio + energy_delta,
+                f"storage_level_evol_{time}_{n}",
+            )
+        else:
+            prev_stored_energy = self.stored_energy_var.get_value(prev_time)
+            model.add_constraint(
+                stored_energy == prev_stored_energy * energy_ratio + energy_delta,
+                f"storage_level_evol_{time}_{n}",
+            )
+
     def add_constraints(self, model: OptimisationModel, time: DateTime, parameters: AbstractModuleParameters) -> None:
         """
         Add all physical constraints for *time*.
@@ -84,7 +134,7 @@ class StorageDispatch:
         :type time: DateTime
         :param parameters: Module parameters
         """
-        self._add_storage_level_evolution(model, time, parameters)
+        self.add_storage_level_evolution(model, time, parameters)
         if self._eq.storage_type != StorageType.ELECTRIC_VEHICLE:
             self._add_sell_buy_separation(model, time)
 
@@ -196,45 +246,6 @@ class StorageDispatch:
                 eq.maximum_energy.get_value(time),
             ),
         )
-
-    def _add_storage_level_evolution(
-        self, model: OptimisationModel, time: DateTime, parameters: AbstractModuleParameters
-    ) -> None:
-        eq = self._eq
-        n = eq.name
-        ts = parameters.temporal.timestep
-        prev_time = time - ts
-        dt_h = ts.total_hours()
-
-        max_energy = eq.maximum_energy.get_value(time)
-        max_energy_prev = eq.maximum_energy.get_value(prev_time)
-        energy_ratio = max_energy / max_energy_prev if max_energy_prev > 0 else 1.0
-
-        power_sell = self.power_level_sell_var.get_value(time)
-        power_buy = self.power_level_buy_var.get_value(time)
-        stored_energy = self.stored_energy_var.get_value(time)
-
-        displacement = int(eq.displacement_energy.get_value(time)) if eq.displacement_energy else 0
-        displacement_prev = int(eq.displacement_energy.get_value(prev_time)) if eq.displacement_energy else 0
-
-        # power_buy is negative (charging draws power from grid); energy added = -buy * efficiency
-        energy_delta = (
-            -power_buy * (eq.charge_efficiency or 1.0) * dt_h
-            - power_sell * dt_h / (eq.discharge_efficiency or 1.0)
-            + (displacement - displacement_prev)
-        )
-
-        if time == parameters.temporal.start_date:
-            model.add_constraint(
-                stored_energy == self._initial_stock * energy_ratio + energy_delta,
-                f"storage_level_evol_{time}_{n}",
-            )
-        else:
-            prev_stored_energy = self.stored_energy_var.get_value(prev_time)
-            model.add_constraint(
-                stored_energy == prev_stored_energy * energy_ratio + energy_delta,
-                f"storage_level_evol_{time}_{n}",
-            )
 
     def _add_sell_buy_separation(self, model: OptimisationModel, time: DateTime) -> None:
         n = self._eq.name

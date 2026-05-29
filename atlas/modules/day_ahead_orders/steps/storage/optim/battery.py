@@ -29,111 +29,40 @@ class BatteryModel(StorageModel):
         :type name: str
         :param storage: storage object
         :type storage: StorageDAO
-        :param optimization_period: duration of the optimization
-        :type optimization_period: Duration
         :param solver_options: solver options
         :type solver_options: SolverOptions
         """
         super().__init__(parameters, solver_name, name, storage, storage.additional_hours, solver_options)
 
-    def create_constraints(self, initial_stock: float | None, power_fragments: int) -> None:
+    def build_constraints(self, power_fragments: int) -> None:
         """
         Creation of constraints
-        :param initial_stock: initial stock
-        :type initial_stock: float | None
         :param power_fragments: power fragments
         :type power_fragments: int
         :return: None
         """
         for t in self.time_frame:
-            for i in range(power_fragments):
-                self.add_constraint(
-                    self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, i)) * power_fragments
-                    <= self.storage.maximum_power.get_value(t),
-                    f"Respect_of_sale_power_fragment_{i}_limit_at_{t}",
-                )
-                self.add_constraint(
-                    self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i)) * power_fragments
-                    <= abs(self.storage.minimum_power.get_value(t)),
-                    f"Respect_of_purchase_power_fragment_{i}_limit_at_{t}",
-                )
+            max_power = self.storage.maximum_power.get_value(t)
+            min_power = self.storage.minimum_power.get_value(t)
 
-            # Total bought/sold energy at each time step is the sum of the fragments at time step
+            power_sell = self._dispatch.power_level_sell_var.get_value(t)
+            power_buy = self._dispatch.power_level_buy_var.get_value(t)
+            is_sell = self._dispatch.is_sell_var.get_value(t)
+
+            # Fragment sum constraints — PO convention: sell_n >= 0, buy_n <= 0, direct sums
             self.add_constraint(
-                self.get_variable(StorageModel.sold_at_key(t))
-                == sum(
-                    self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, i)) for i in range(power_fragments)
-                ),
+                power_sell == sum(self.get_variable(self.power_level_sell_n_key(t, i)) for i in range(power_fragments)),
                 f"Evaluation_of_quantity_sold_at_{t}",
             )
             self.add_constraint(
-                self.get_variable(StorageModel.purchased_at_key(t))
-                == sum(
-                    self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i))
-                    for i in range(power_fragments)
-                ),
+                power_buy == sum(self.get_variable(self.power_level_buy_n_key(t, i)) for i in range(power_fragments)),
                 f"Evaluation_of_quantity_purchased_at_{t}",
             )
 
-            # StoredEnergy tracking constraint, evaluates the stock at each time step
-            if t == self.parameters.temporal.start_date:
-                self.add_constraint(
-                    self.get_variable(StorageModel.stored_energy_at_key(t))
-                    == (
-                        initial_stock
-                        + self.parameters.temporal.timestep.total_hours()
-                        * (
-                            self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
-                            - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
-                        )
-                    ),
-                    f"Stock_tracking_at_{t + self.parameters.temporal.timestep}",
-                )
-            else:
-                self.add_constraint(
-                    self.get_variable(StorageModel.stored_energy_at_key(t))
-                    == self.get_variable(StorageModel.stored_energy_at_key(t - self.parameters.temporal.timestep))
-                    + self.parameters.temporal.timestep.total_hours()
-                    * (
-                        self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
-                        - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
-                    ),
-                    f"Stock_tracking_at_{t + self.parameters.temporal.timestep}",
-                )
+            self._dispatch.add_storage_level_evolution(self, t, self.parameters)
 
-            # Respect of system states constraints (isSell and isV2G)
-            self.add_constraint(
-                self.get_variable(StorageModel.sold_at_key(t))
-                <= self.get_variable(StorageModel.is_sell_at_key(t)) * self.storage.maximum_power.get_value(t),
-                f"Respect_Pmax_sale_at_{t}",
-            )
-            self.add_constraint(
-                self.get_variable(StorageModel.purchased_at_key(t))
-                <= (1 - self.get_variable(StorageModel.is_sell_at_key(t)))
-                * abs(self.storage.minimum_power.get_value(t)),
-                f"Respect_Pmax_purchase_at_{t}",
-            )
-            self.add_constraint(self.get_variable(StorageModel.sold_at_key(t)) >= 0, f"Respect_Pmin_sale_at_{t}")
-            self.add_constraint(
-                self.get_variable(StorageModel.purchased_at_key(t)) >= 0, f"Respect_Pmin_purchase_at_{t}"
-            )
+            # Sell/buy separation: no efficiency factor (legacy-equivalent behaviour)
+            self.add_constraint(power_sell <= is_sell * max_power, f"Respect_Pmax_sale_at_{t}")
+            self.add_constraint(-power_buy <= (1 - is_sell) * abs(min_power), f"Respect_Pmax_purchase_at_{t}")
 
-            # Respect of minimum and maximum storage levels constraints
-            self.add_constraint(
-                self.get_variable(StorageModel.stored_energy_at_key(t))
-                >= (self.storage.minimum_state_of_charge.get_value(t) * self.storage.maximum_energy.get_value(t)),
-                f"Minimum_storage_level_constraint_at_{t}",
-            )
-            self.add_constraint(
-                self.get_variable(StorageModel.stored_energy_at_key(t)) <= self.storage.maximum_energy.get_value(t),
-                f"Maximum_storage_level_constraint_at_{t}",
-            )
-
-        # Respect of the balance between sales and purchases
-        self.add_constraint(
-            sum(self.get_variable(StorageModel.purchased_at_key(t)) for t in self.time_frame)
-            * self.storage.charge_efficiency
-            == sum(self.get_variable(StorageModel.sold_at_key(t)) for t in self.time_frame)
-            / self.storage.discharge_efficiency,
-            "Respect_of_cycle_balance",
-        )
+        self._dispatch.add_cycle_balance_constraint(self, self.time_frame)

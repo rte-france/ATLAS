@@ -21,7 +21,6 @@ from atlas.modules.day_ahead_orders.input_objects.storage import StorageDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.steps.storage.optim.battery import BatteryModel
 from atlas.modules.day_ahead_orders.steps.storage.optim.electric_vehicle import ElectricVehicleModel
-from atlas.modules.day_ahead_orders.steps.storage.optim.storage import StorageModel
 from atlas.solver.models import SolverOptions
 
 
@@ -83,8 +82,6 @@ def optimize_single_storage(
 
         cfg.logger.debug(f"Optimizing storage equipment {str(storage.name)}")
 
-        initial_stock = _initiate_stock(storage, parameters)
-
         solver_options = SolverOptions(
             presolve=parameters.solver.use_presolve,
             duality_gap=parameters.solver.duality_gap,
@@ -92,9 +89,9 @@ def optimize_single_storage(
         )
 
         if storage.storage_type == StorageType.ELECTRIC_VEHICLE:
-            Qv, Qa = _optimize_ev(storage, initial_stock, solver_options, parameters)
+            Qv, Qa = _optimize_ev(storage, solver_options, parameters)
         else:
-            Qv, Qa = _optimize_battery(storage, initial_stock, solver_options, parameters)
+            Qv, Qa = _optimize_battery(storage, solver_options, parameters)
 
         buy_submitted_volumes = Timeseries.from_values(
             parameters.temporal.start_date, parameters.temporal.timestep, list(Qa.values())
@@ -143,35 +140,8 @@ def optimize_single_storage(
         return StorageOptimizationResult(storage_name=storage.name, success=False)
 
 
-def _initiate_stock(storage: StorageDAO, parameters: DayAheadOrdersParameters) -> float | None:
-    """
-    Initialize stock for storage unit. If stored_energy is available, use it to determine initial stock.
-    Otherwise, use storage_initial_level. The 'availability' of stored_energy is defined as follow:
-    - If stored_energy is completely empty, then it is not available.
-    - If stored_energy is not empty, but it does not contain data shortly before start_date (shortly being
-      arbitrarily defined as two days before start_date), then it is also not available.
-    """
-    if storage.stored_energy is None:
-        initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(parameters.temporal.start_date)
-    else:
-        energy_forecast = storage.stored_energy.get_forecast(
-            parameters.temporal.execution_date,
-            parameters.temporal.start_date.subtract(days=2),
-            parameters.temporal.start_date - parameters.temporal.timestep,
-            parameters.temporal.timestep,
-        )
-        if len(energy_forecast) == 0:
-            initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(
-                parameters.temporal.start_date
-            )
-        else:
-            initial_stock = energy_forecast.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
-    return initial_stock
-
-
 def _optimize_ev(
     storage: StorageDAO,
-    initial_stock: float | None,
     solvers_options: SolverOptions,
     parameters: DayAheadOrdersParameters,
 ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
@@ -183,9 +153,9 @@ def _optimize_ev(
         storage,
         solvers_options,
     )
-    model.create_decision_variables(parameters.ev_nb_fragments)
+    model.build_variables(parameters.ev_nb_fragments)
+    model.build_constraints()
     model.build_objective(parameters.ev_nb_fragments, parameters.ev_smoothing_factor, "maximize")
-    model.create_constraints(initial_stock)
 
     if parameters.solver.export_lp:
         output_path = parameters.get_lp_dir()
@@ -200,15 +170,14 @@ def _optimize_ev(
     for t in model.time_frame:
         if t >= parameters.temporal.end_date:
             break
-        Qvv[t] = round(model.get_variable(StorageModel.sold_at_key(t)).solution_value(), 2)
-        Qaa[t] = round(model.get_variable(StorageModel.purchased_at_key(t)).solution_value(), 2)
+        Qvv[t] = round(model._dispatch.power_level_sell_var.get_model_var(t).solution_value(), 2)
+        Qaa[t] = round(-model._dispatch.power_level_buy_var.get_model_var(t).solution_value(), 2)
 
     return Qvv, Qaa
 
 
 def _optimize_battery(
     storage: StorageDAO,
-    initial_stock: float | None,
     solvers_options: SolverOptions,
     parameters: DayAheadOrdersParameters,
 ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
@@ -232,9 +201,9 @@ def _optimize_battery(
         storage,
         solvers_options,
     )
-    model.create_decision_variables(power_fragments)
+    model.build_variables(power_fragments)
+    model.build_constraints(power_fragments)
     model.build_objective(power_fragments, smoothing_factor, "maximize")
-    model.create_constraints(initial_stock, power_fragments)
 
     if parameters.solver.export_lp:
         output_path = parameters.get_lp_dir()
@@ -249,8 +218,8 @@ def _optimize_battery(
     for t in model.time_frame:
         if t >= parameters.temporal.end_date:
             break
-        Qvv[t] = round(model.get_variable(StorageModel.sold_at_key(t)).solution_value(), 2)
-        Qaa[t] = round(model.get_variable(StorageModel.purchased_at_key(t)).solution_value(), 2)
+        Qvv[t] = round(model._dispatch.power_level_sell_var.get_model_var(t).solution_value(), 2)
+        Qaa[t] = round(-model._dispatch.power_level_buy_var.get_model_var(t).solution_value(), 2)
 
     return Qvv, Qaa
 

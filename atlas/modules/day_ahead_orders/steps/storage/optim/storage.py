@@ -9,6 +9,7 @@ from typing import Literal
 
 from pendulum import DateTime, Duration
 
+from atlas.common.optimal_dispatch.dispatch.storage import StorageDispatch
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.storage import StorageDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
@@ -18,13 +19,6 @@ from atlas.timing import generate_datetimes
 
 
 class StorageModel(OptimisationModel):
-    AMOUNT_SOLD_AT = "Amount_sold_at_"
-    AMOUNT_PURCHASED_AT = "Amount_purchased_at_"
-    IS_SELL_AT = "isSell_at_"
-    STORED_ENERGY_AT = "StoredEnergy_at_"
-    AMOUNT_SOLD_IN_FRAGMENT = "Amount_sold_in_fragment_"
-    AMOUNT_PURCHASED_IN_FRAGMENT = "Amount_purchased_in_fragment_"
-
     def __init__(
         self,
         parameters: DayAheadOrdersParameters,
@@ -52,8 +46,8 @@ class StorageModel(OptimisationModel):
         self.parameters: DayAheadOrdersParameters = parameters
         self.storage: StorageDAO = storage
         self.optimization_period: Duration = optimization_period
-        # Get the price forecast from the dataset: estimations are at ActionHour, over the optimization period
-        # The price forecast is relative to the equipment's market area
+        self._dispatch: StorageDispatch = StorageDispatch(storage)
+
         if self.storage.portfolio.market_area.price_forecast_medium is not None:
             self.price_forecast: Timeseries = self.storage.portfolio.market_area.price_forecast_medium.get_forecast(
                 self.parameters.temporal.execution_date,
@@ -63,57 +57,30 @@ class StorageModel(OptimisationModel):
             )
         else:
             raise AttributeError(f"{self.storage.portfolio.market_area.name} has no attribute 'price_forecast_medium'")
-        # Set-up the time frames
-        # Definition of the time_frame time frame: the time frame on which
-        # the optimization program will be solved.
-        # Remark: we define the time series until end_date - timestep because
-        # we want all time steps to lie in the [start_date, end_optimization_date] range.
+
         self.time_frame: list[DateTime] = generate_datetimes(
             self.parameters.temporal.start_date,
             self.parameters.temporal.end_date + self.optimization_period - self.parameters.temporal.timestep,
             self.parameters.temporal.timestep,
         )
 
-    @classmethod
-    def sold_at_key(cls, t: DateTime) -> str:
-        return f"{cls.AMOUNT_SOLD_AT}{t}"
+    def power_level_sell_n_key(self, t: DateTime, i: int) -> str:
+        return f"{self.storage.name}_power_level_sell_n_{i}_{t}"
 
-    @classmethod
-    def purchased_at_key(cls, t: DateTime) -> str:
-        return f"{cls.AMOUNT_PURCHASED_AT}{t}"
+    def power_level_buy_n_key(self, t: DateTime, i: int) -> str:
+        return f"{self.storage.name}_power_level_buy_n_{i}_{t}"
 
-    @classmethod
-    def is_sell_at_key(cls, t: DateTime) -> str:
-        return f"{cls.IS_SELL_AT}{t}"
-
-    @classmethod
-    def stored_energy_at_key(cls, t: DateTime) -> str:
-        return f"{cls.STORED_ENERGY_AT}{t}"
-
-    @classmethod
-    def amount_sold_in_fragment_at_key(cls, t: DateTime, i: int) -> str:
-        return f"{cls.AMOUNT_SOLD_IN_FRAGMENT}{i}_at_{t}"
-
-    @classmethod
-    def amount_purchased_in_fragment_at_key(cls, t: DateTime, i: int) -> str:
-        return f"{cls.AMOUNT_PURCHASED_IN_FRAGMENT}{i}_at_{t}"
-
-    def create_decision_variables(self, nb_fragments: int) -> None:
-        """Creation of decision variables"""
+    def build_variables(self, nb_fragments: int) -> None:
+        """Creation of decision variables."""
+        self._dispatch.setup(self, self.parameters)
 
         for t in self.time_frame:
-            # Total quantities bought and purchased in the market at each time step
-            self.add_continuous_variable(StorageModel.sold_at_key(t), 0)
-            self.add_continuous_variable(StorageModel.purchased_at_key(t), 0)
-            # Binary variable that represents the state of sale at each time step: 1 if selling, 0 if not
-            self.add_boolean_variable(StorageModel.is_sell_at_key(t))
-            # Energy stored in battery at each time step
-            # StoredEnergy[t] corresponds to the energy stord in battery at t + 1
-            self.add_continuous_variable(StorageModel.stored_energy_at_key(t), 0)
-            # Quantities bought and purchased in each fragment of power i at each time step
+            self._dispatch.add_variables(t)
+            max_power = self.storage.maximum_power.get_value(t)
+            min_power = self.storage.minimum_power.get_value(t)
             for i in range(nb_fragments):
-                self.add_continuous_variable(StorageModel.amount_sold_in_fragment_at_key(t, i), 0)
-                self.add_continuous_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i), 0)
+                self.add_continuous_variable(self.power_level_sell_n_key(t, i), 0, max_power / nb_fragments)
+                self.add_continuous_variable(self.power_level_buy_n_key(t, i), min_power / nb_fragments, 0)
 
     def build_objective(
         self, nb_fragments: int, smoothing_factor: float, direction: Literal["maximize", "minimize"] = "maximize"
@@ -128,18 +95,17 @@ class StorageModel(OptimisationModel):
         :type direction: Literal["maximize", "minimize"]
         :return: None
         """
-
-        # The objective function is the total profit over the optimisation period
         self.set_direction(direction)
+        dt = self.parameters.temporal.timestep.total_hours()
         if nb_fragments == 1:
             self.add_objective(
                 objective_expr=sum(
                     self.price_forecast.get_value(t)
-                    * self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, 0))
-                    * self.parameters.temporal.timestep.total_hours()
-                    - self.price_forecast.get_value(t)
-                    * self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, 0))
-                    * self.parameters.temporal.timestep.total_hours()
+                    * (
+                        self.get_variable(self.power_level_sell_n_key(t, 0))
+                        + self.get_variable(self.power_level_buy_n_key(t, 0))  # buy_n <= 0, so this subtracts cost
+                    )
+                    * dt
                     for t in self.time_frame
                 )
             )
@@ -149,12 +115,12 @@ class StorageModel(OptimisationModel):
                     sum(
                         self.price_forecast.get_value(t)
                         * (1 - i * smoothing_factor / (nb_fragments - 1))
-                        * self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, i))
-                        * self.parameters.temporal.timestep.total_hours()
-                        - self.price_forecast.get_value(t)
+                        * self.get_variable(self.power_level_sell_n_key(t, i))
+                        * dt
+                        + self.price_forecast.get_value(t)
                         * (1 + i * smoothing_factor / (nb_fragments - 1))
-                        * self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i))
-                        * self.parameters.temporal.timestep.total_hours()
+                        * self.get_variable(self.power_level_buy_n_key(t, i))
+                        * dt
                         for i in range(nb_fragments)
                     )
                     for t in self.time_frame
