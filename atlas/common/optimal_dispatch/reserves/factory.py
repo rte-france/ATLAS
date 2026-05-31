@@ -9,11 +9,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from atlas.common.optimal_dispatch.reserves.hydro import HydroReserveHandler
+from atlas.common.optimal_dispatch.reserves.renewable import RenewableReserveHandler
 from atlas.common.optimal_dispatch.reserves.storage import StorageReserveHandler
 from atlas.common.optimal_dispatch.reserves.thermal import ThermalReserveHandler
 
 if TYPE_CHECKING:
+    from atlas.common.optimal_dispatch.dispatch.hydro import HydroDispatch
     from atlas.common.optimal_dispatch.dispatch.thermal import ThermalDispatch
+    from atlas.common.optimal_dispatch.input_objects.hydro import HydroDispatchInput
+    from atlas.common.optimal_dispatch.input_objects.renewable import RenewableDispatchInput
     from atlas.common.optimal_dispatch.input_objects.storage import StorageDispatchInput
     from atlas.common.optimal_dispatch.input_objects.thermal import ThermalDispatchInput
 
@@ -55,6 +60,38 @@ class ReserveFactory:
         """
         maximum_automated = (equipment.maximum_afrr or 0.0) + (equipment.maximum_fcr or 0.0)
         return ThermalReserveHandler(equipment.name, dispatch, maximum_automated)
+
+    @staticmethod
+    def for_renewable(equipment: RenewableDispatchInput) -> RenewableReserveHandler:
+        """
+        Create a :class:`RenewableReserveHandler` for a wind or solar *equipment*.
+
+        Computes ``maximum_automated`` from the equipment's AFRR and FCR capacities.
+
+        :param equipment: Renewable equipment (any input object satisfying
+            :class:`~atlas.common.optimal_dispatch.input_objects.renewable.RenewableDispatchInput`)
+        :return: Configured renewable reserve handler
+        """
+        maximum_automated = (getattr(equipment, "maximum_afrr", None) or 0.0) + (
+            getattr(equipment, "maximum_fcr", None) or 0.0
+        )
+        return RenewableReserveHandler(equipment.name, maximum_automated)
+
+    @staticmethod
+    def for_hydro(equipment: HydroDispatchInput, dispatch: HydroDispatch) -> HydroReserveHandler:
+        """
+        Create a :class:`HydroReserveHandler` for *equipment*.
+
+        :param equipment: Hydro reservoir equipment. ``maximum_afrr`` and ``maximum_fcr``
+            are looked up via ``getattr`` so the dispatch input contract stays purely
+            physical — reserve-procurement fields are module-specific extensions.
+        :param dispatch: The hydro dispatch component — used to access ``stored_energy_var``
+            when adding storage-level reserve coupling constraints.
+        """
+        maximum_automated = (getattr(equipment, "maximum_afrr", None) or 0.0) + (
+            getattr(equipment, "maximum_fcr", None) or 0.0
+        )
+        return HydroReserveHandler(equipment.name, dispatch, maximum_automated)
 
     @staticmethod
     def for_storage(equipment: StorageDispatchInput) -> StorageReserveHandler:

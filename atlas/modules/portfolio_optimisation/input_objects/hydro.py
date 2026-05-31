@@ -8,22 +8,15 @@ from __future__ import annotations
 
 from pendulum import DateTime, Duration
 
+from atlas.common.optimal_dispatch.input_objects.hydro import HydroDispatchInput
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
-from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
-from atlas.objects.equipment.hydro import Hydro
 
 
-class HydroPO(Hydro):
-    maximum_energy: AbstractTimeseries
-    minimum_energy: AbstractTimeseries
+class HydroPO(HydroDispatchInput):
     maximum_fcr: float
     maximum_afrr: float
-    minimum_power: AbstractTimeseries
-    maximum_power: AbstractTimeseries
-    initial_level: AbstractTimeseries
     storage_marginal_value: AbstractScenarioMatrix
-    additional_hours: Duration
 
     optimisation_time_window: list[DateTime] = []
     _cached_energy_forecast: Timeseries | None = None
