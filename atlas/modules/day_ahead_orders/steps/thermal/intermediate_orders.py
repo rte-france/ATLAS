@@ -6,21 +6,19 @@ This file is part of the ATLAS project.
 """
 
 import itertools
-import math
 
 import polars as pl
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.enums import CouplingType
+from atlas.enums import CouplingType, ThermalDispatchState, ThermalOrderState
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.steps.thermal.optimisation_result import ThermalOptimisationResult
-from atlas.modules.day_ahead_orders.steps.thermal.thermal_dao_step import ThermalDAOStep
+from atlas.modules.day_ahead_orders.steps.thermal.thermal_dao_step import ThermalDAOStep, ThermalOptimisationResult
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_unit_orders import ThermalUnitOrders
 from atlas.objects.equipment.thermal import Thermal
 from atlas.solver.models import SolverOptions
@@ -116,7 +114,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         online_timeframes: list[tuple[Timeseries, str]] = []
         for case in cases:
-            states_sequence = self.determine_intermediate_load_states_sequence(unit, raw, case)
+            states_sequence = self.determine_intermediate_load_states_sequence(raw, case)
             list_of_online_timeframes = self.extract_online_sequences(states_sequence, case)
 
             for online_timeframe, case_name in list_of_online_timeframes:
@@ -151,9 +149,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         return orders, couplings
 
-    def get_unique_cases(
-        self, results: dict[str, ThermalOptimisationResult], thermal_unit: ThermalDAO
-    ) -> list[str]:
+    def get_unique_cases(self, results: dict[str, ThermalOptimisationResult], thermal_unit: ThermalDAO) -> list[str]:
         """
         Returns a list of unique cases for the associated thermal unit.
 
@@ -175,17 +171,11 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         scenarios_names = results.keys()
 
-        has_flat = (
-            min(thermal_unit.minimum_stable_power_duration.total_hours(), thermal_unit.minimum_time_on.total_hours())
-            >= 2
-        )
-
         collapsed_outcomes: list[tuple[Timeseries, str]] = []
         for case in scenarios_names:
             unit_res = results[case]
             is_on = unit_res.on_up + unit_res.on_down
-            if has_flat:
-                assert unit_res.on_flat is not None
+            if unit_res.on_flat is not None:
                 is_on += unit_res.on_flat
             collapsed_outcomes.append((is_on, case))
 
@@ -215,49 +205,35 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         return cases
 
     def determine_intermediate_load_states_sequence(
-        self, unit: ThermalDAO, res: dict[str, ThermalOptimisationResult], case: str
+        self, res: dict[str, ThermalOptimisationResult], case: str
     ) -> Timeseries:
         """
-        Computes the sequence of states on a single time frame for the intermediate load unit passed as input.
-        It computes the state sequence for a given case (i.e. price scenario)
+        Computes the sequence of states for the given price scenario.
 
-        The encoding of the states is the following:
-        - 0 if the unit is offline at t
-        - 1 if the unit is online at t
-        - 2 if the unit is in its start up phase at t
-        - 3 if the unit is in its shutdown phase at t
+        The encoding follows :class:`~atlas.enums.ThermalOrderState`:
+        0 = offline, 1 = online, 2 = startup ramp, 3 = shutdown ramp.
 
-        The sequence of states is computed over the timeFrame
+        The presence of ``start``, ``stop``, and ``on_flat`` in the result
+        determines which ramp phases are active — no unit parameters needed.
 
-        :param unit: the unit to be analyzed
-        :type unit: ThermalDAO
         :param res: LP results keyed by price type.
         :type res: dict[str, ThermalOptimisationResult]
-        :param case: a string corresponding to the name of the scenario
+        :param case: price scenario name
         :type case: str
-        :return: a timeSeries object encoding the states at each time t.
+        :return: State-encoded timeseries.
         :rtype: Timeseries
-
         """
-
-        T_start = int(math.floor(unit.startup_duration / self.parameters.temporal.timestep))
-        T_stop = int(math.floor(unit.shutdown_duration / self.parameters.temporal.timestep))
-        T_stable = int(math.ceil(unit.minimum_stable_power_duration / self.parameters.temporal.timestep))
-
         unit_res = res[case]
-        states_sequence = unit_res.off * 0.0 + unit_res.on_up + unit_res.on_down
+        states_sequence = unit_res.off * ThermalOrderState.OFF + unit_res.on_up + unit_res.on_down
 
-        if min(T_stable, int(unit.minimum_time_on.total_hours())) >= 2:
-            assert unit_res.on_flat is not None
+        if unit_res.on_flat is not None:
             states_sequence += unit_res.on_flat
 
-        if T_start > 0:
-            assert unit_res.start is not None
-            states_sequence += unit_res.start * 2.0
+        if unit_res.start is not None:
+            states_sequence += unit_res.start * ThermalOrderState.STARTUP
 
-        if T_stop > 0:
-            assert unit_res.stop is not None
-            states_sequence += unit_res.stop * 3.0
+        if unit_res.stop is not None:
+            states_sequence += unit_res.stop * ThermalOrderState.SHUTDOWN
 
         return states_sequence
 
@@ -321,24 +297,24 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         values = []
         for time in local_time_index:
             if res.on_up.get_value(time) == 1:
-                values.append(1)
+                values.append(ThermalDispatchState.ON_UP)
                 continue
             if res.on_down.get_value(time) == 1:
-                values.append(2)
+                values.append(ThermalDispatchState.ON_DOWN)
                 continue
             if res.off.get_value(time) == 1:
-                values.append(3)
+                values.append(ThermalDispatchState.OFF)
                 continue
             if res.start is not None and res.start.get_value(time) == 1:
-                values.append(4)
+                values.append(ThermalDispatchState.START)
                 continue
             if res.stop is not None and res.stop.get_value(time) == 1:
-                values.append(5)
+                values.append(ThermalDispatchState.STOP)
                 continue
             if res.on_flat is not None and res.on_flat.get_value(time) == 1:
-                values.append(6)
+                values.append(ThermalDispatchState.ON_FLAT)
                 continue
-            values.append(0)
+            values.append(ThermalDispatchState.UNKNOWN)
 
         return Timeseries(
             pl.DataFrame(

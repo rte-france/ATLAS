@@ -10,7 +10,7 @@ import math
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.enums import ThermalStrategy
+from atlas.enums import ThermalOrderState, ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
@@ -122,18 +122,18 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
         for t in extended_time_frame:
             if maximum_power is not None and t in maximum_power and maximum_power.get_value(t) > 0:
                 if t in states_sequence:
-                    states_sequence.set_value(t, 1)
+                    states_sequence.set_value(t, ThermalOrderState.ON)
                 else:
-                    states_sequence.add_index(t, 1)
+                    states_sequence.add_index(t, ThermalOrderState.ON)
 
         # See if there is only one startup or shutdown over the time frame. If it is not the case,
         # the program will be considered as inconsistent.
         startup_count, shutdown_count = 0, 0
         for t in extended_time_frame[1:]:
             t_prev = t - self.parameters.temporal.timestep
-            if states_sequence.get_value(t) - states_sequence.get_value(t_prev) == 1:
+            if states_sequence.get_value(t) - states_sequence.get_value(t_prev) == ThermalOrderState.ON:
                 startup_count += 1
-            elif states_sequence.get_value(t_prev) - states_sequence.get_value(t) == 1:
+            elif states_sequence.get_value(t_prev) - states_sequence.get_value(t) == ThermalOrderState.ON:
                 shutdown_count += 1
 
         # If there is more than one start up or one shutdown, the sequence is considered as inconsistent.
@@ -146,7 +146,7 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
             # Reconstruction of the start ups
             for t in extended_time_frame[1:]:
                 t_prev = t - self.parameters.temporal.timestep
-                if states_sequence.get_value(t) - states_sequence.get_value(t_prev) == 1:
+                if states_sequence.get_value(t) - states_sequence.get_value(t_prev) == ThermalOrderState.ON:
                     # Reconstruction of the start up phase which begins at t
                     started_at_t = t
                     # Determine the end of the start up phase
@@ -166,7 +166,7 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
             # Reconstruction of the shutdowns
             for t in extended_time_frame[1:]:
                 t_prev = t - self.parameters.temporal.timestep
-                if states_sequence.get_value(t_prev) - states_sequence.get_value(t) == 1:
+                if states_sequence.get_value(t_prev) - states_sequence.get_value(t) == ThermalOrderState.ON:
                     # Reconstruction of the shutdown phase which ends at t-1
                     end_of_shutdown = t
                     # Determine the beginning of the shutdown
@@ -209,14 +209,14 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
                 if startup_time_frame:
                     for t in startup_time_frame:
                         if t in states_sequence:
-                            states_sequence.set_value(t, 2)
+                            states_sequence.set_value(t, ThermalOrderState.STARTUP)
                         else:
-                            states_sequence.add_index(t, 2)
+                            states_sequence.add_index(t, ThermalOrderState.STARTUP)
                 if shutdown_time_frame:
                     for t in shutdown_time_frame:
                         if t in states_sequence:
-                            states_sequence.set_value(t, 3)
+                            states_sequence.set_value(t, ThermalOrderState.SHUTDOWN)
                         else:
-                            states_sequence.add_index(t, 3)
+                            states_sequence.add_index(t, ThermalOrderState.SHUTDOWN)
 
         return states_sequence, inconsistent

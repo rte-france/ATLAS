@@ -6,20 +6,152 @@ This file is part of the ATLAS project.
 """
 
 import math
+from dataclasses import dataclass
+from datetime import datetime
 from typing import cast
 
 import pendulum
-from pendulum import DateTime
+from pendulum import DateTime, Duration
 
 import atlas.config as cfg
-from atlas.enums import CouplingType, OrderType, Product
+from atlas.enums import ThermalOrderState
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.steps.thermal.order_factory import ThermalCouplingFactory, ThermalOrderFactory
 from atlas.timing import generate_datetimes
+
+
+@dataclass
+class ThermalTimeFrames:
+    """
+    Time frame partitions derived from a thermal unit's state sequence.
+
+    :param flexible: Timesteps where the unit is in stable ON state, used for flexible and reserve orders.
+    :param startup: Timesteps covering the startup ramp window (one step longer than the ramp, clipped to the sim window).
+    :param shutdown: Timesteps covering the shutdown ramp window (shifted back one step, null-power step excluded).
+    :param inflexible: All online timesteps, used for inflexible (Pmin) orders.
+    :param K_start: Number of STARTUP-state timesteps within the simulation window.
+    :param K_stop: Number of SHUTDOWN-state timesteps within the simulation window.
+    :param startup_ends_here: True when the startup ramp completes within the simulation window (STARTUP→ON transition visible).
+    :param shutdown_starts_here: True when the shutdown ramp begins within the simulation window (ON→SHUTDOWN transition visible).
+    """
+
+    flexible: list[DateTime]
+    startup: list[DateTime]
+    shutdown: list[DateTime]
+    inflexible: list[datetime]
+    K_start: int
+    K_stop: int
+    startup_ends_here: bool
+    shutdown_starts_here: bool
+
+
+def _compute_time_frames(
+    online_timeframe: Timeseries,
+    orders_time: list[DateTime],
+    step: Duration,
+) -> ThermalTimeFrames:
+    """
+    Partition the simulation window into flexible, startup, shutdown and inflexible time frames.
+
+    :param online_timeframe: State-encoded timeseries (:class:`~atlas.enums.ThermalOrderState` values).
+    :param orders_time: Ordered list of simulation timesteps.
+    :param step: Simulation timestep duration.
+    :return: Populated :class:`ThermalTimeFrames`.
+
+    Example::
+
+        tf = _compute_time_frames(online_ts, orders_time, step)
+        # tf.flexible  → stable ON timesteps
+        # tf.startup   → startup ramp window
+        # tf.shutdown  → shutdown ramp window
+        # tf.K_start   → ramp steps visible in window
+    """
+    online_values = online_timeframe.values
+    online_index = online_timeframe.index
+
+    # Detect startup completion (STARTUP→ON) and shutdown initiation (ON→SHUTDOWN)
+    startup_ends_here = False
+    shutdown_starts_here = False
+    _startup_to_on = ThermalOrderState.STARTUP - ThermalOrderState.ON
+    _on_to_shutdown = ThermalOrderState.SHUTDOWN - ThermalOrderState.ON
+    for a, b in zip(online_values[:-1], online_values[1:], strict=False):
+        if b - a == _on_to_shutdown:
+            shutdown_starts_here = True
+        if a - b == _startup_to_on:
+            startup_ends_here = True
+        if startup_ends_here and shutdown_starts_here:
+            break
+
+    # Count ramp timesteps and locate the first ramp timestep within the window
+    online_index_set = set(online_index)
+    orders_time_set = set(orders_time)
+    K_start = K_stop = 0
+    begin_startup: DateTime | None = None
+    begin_shutdown: DateTime | None = None
+    flexible: list[DateTime] = []
+
+    for t in orders_time:
+        if t not in online_index_set:
+            continue
+        v = online_timeframe.get_value(t)
+        if v == ThermalOrderState.ON:
+            flexible.append(t)
+        elif v == ThermalOrderState.STARTUP:
+            K_start += 1
+            if begin_startup is None:
+                begin_startup = t
+        elif v == ThermalOrderState.SHUTDOWN:
+            K_stop += 1
+            if begin_shutdown is None:
+                begin_shutdown = t
+
+    # Startup ramp window: one step longer than K_start, clipped to sim window
+    startup: list[DateTime] = []
+    startup_set: set[DateTime] = set()
+    if K_start > 0:
+        assert begin_startup is not None
+        startup = [
+            t for t in generate_datetimes(begin_startup, begin_startup + K_start * step, step) if t in orders_time_set
+        ]
+        startup_set = set(startup)
+
+    # Shutdown ramp window: shifted back one step (last stable Pmin step included), last null-power step excluded
+    shutdown: list[DateTime] = []
+    shutdown_set: set[DateTime] = set()
+    if K_stop > 0:
+        assert begin_shutdown is not None
+        shutdown = [
+            t
+            for t in generate_datetimes(begin_shutdown - step, begin_shutdown + (K_stop - 1) * step, step)
+            if t in orders_time_set
+        ]
+        shutdown_set = set(shutdown)
+
+    # Remove startup/shutdown overlaps from flexible (boundary Pmin steps belong to ramp windows)
+    if startup_set or shutdown_set:
+        flexible = [t for t in flexible if t not in startup_set and t not in shutdown_set]
+
+    # Corner case: unit online for exactly one step → singleton overlap → drop from shutdown
+    if K_start > 0 and K_stop > 0:
+        overlap = startup_set & shutdown_set
+        if len(overlap) == 1:
+            shutdown = [t for t in shutdown if t not in overlap]
+
+    return ThermalTimeFrames(
+        flexible=flexible,
+        startup=startup,
+        shutdown=shutdown,
+        inflexible=online_index,
+        K_start=K_start,
+        K_stop=K_stop,
+        startup_ends_here=startup_ends_here,
+        shutdown_starts_here=shutdown_starts_here,
+    )
 
 
 class ThermalUnitOrders:
@@ -66,20 +198,9 @@ class ThermalUnitOrders:
         # JL excludes an online sequence with an incomplete start-up ramp. For now, we will leave it as such.
         # Cache index/values once: each access on Timeseries rebuilds a Python list from polars.
         online_values = online_timeframe.values
-        offline = 0 in online_values
-
-        # If the unit is offline, no orders are formulated.
-        if offline:
-            """TODO : add the sequence to make message more explicit"""
+        if ThermalOrderState.OFF in online_values:
             cfg.logger.debug(f"Unit {unit.name} is offline. No orders have been formulated for this unit")
             return orders, couplings
-
-        online_index = online_timeframe.index
-
-        # If not offline, start the configuration of variables necessary for order formulation
-
-        # Configuration of variables for orders' formulation
-        ## Get the reserve procurements at the executionDate and collapse them into automated and manual reserves procurements
 
         start = self.parameters.temporal.start_date
         end = self.parameters.temporal.end_date
@@ -97,126 +218,32 @@ class ThermalUnitOrders:
         manual_reserves_up_procured = _get("mfrr_up_procured") + _get("rr_up_procured")
         manual_reserves_down_procured = _get("mfrr_down_procured") + _get("rr_down_procured")
 
-        ## Get the unit-specific parameters:
-        T_start = int(math.floor(unit.startup_duration / self.parameters.temporal.timestep))
-        T_stop = int(math.floor(unit.shutdown_duration / self.parameters.temporal.timestep))
+        T_start = int(math.floor(unit.startup_duration / step))
+        T_stop = int(math.floor(unit.shutdown_duration / step))
         q_min = unit.minimum_power.max()
 
-        ## See whether the unit will bid inflexible orders over the whole orders_time sequence:
         if isinstance(unit.minimum_power, LazyTimeseries):
             min_power = unit.minimum_power.collect()
         else:
             min_power = cast(Timeseries, unit.minimum_power)
         null_minimum_power = min_power.filter(self.orders_time, inplace=False).min() == 0
 
-        ## See whether there is a startup or not. Used to know if we need to amortise startup cost over the inflexible
-        # orders or not.
-        startup = 2 in online_values
+        has_startup = ThermalOrderState.STARTUP in online_values
 
-        ## See whether the ramps are complete or not.
-        # Single pass over consecutive value pairs to detect both transitions:
-        #   1 -> 3 (incomplete shutdown ramp start, diff +2; 0 is excluded by the offline check)
-        #   2 -> 1 (end of startup ramp, diff -1)
-        T_startSD_in_sim = False
-        T_endSU_in_sim = False
-        for a, b in zip(online_values[:-1], online_values[1:], strict=False):
-            if b - a == 2:
-                T_startSD_in_sim = True
-            if a - b == 1:
-                T_endSU_in_sim = True
-            if T_startSD_in_sim and T_endSU_in_sim:
-                break
-
-        ## Extract K_start, K_stop.
-        # K_start is the number of timesteps actually startup within the simulation timeframe (shorter than overall
-        # timeframe used for computing states sequences).
-        # K_start is the number of timesteps actually shutdown within the simulation timeframe (shorter than overall
-        # timeframe used for computing states sequences).
-
-        # Single pass over orders_time: collect K_start, K_stop, the time frames' starting points,
-        # and the flexible time frame (time indexes labelled with a 1).
-        online_index_set = set(online_index)
-        orders_time_set = set(self.orders_time)
-        K_start = K_stop = 0
-        begin_of_startTimeFrame: DateTime | None = None
-        begin_of_stopTimeFrame: DateTime | None = None
-        flexible_time_frame: list[DateTime] = []
-        for t in self.orders_time:
-            if t not in online_index_set:
-                continue
-            v = online_timeframe.get_value(t)
-            if v == 1:
-                flexible_time_frame.append(t)
-            elif v == 2:
-                K_start += 1
-                if begin_of_startTimeFrame is None:
-                    begin_of_startTimeFrame = t
-            elif v == 3:
-                K_stop += 1
-                if begin_of_stopTimeFrame is None:
-                    begin_of_stopTimeFrame = t
-
-        ## Definition of the time frames.
-        ### Ramping timeframes: by construction, the associated start_time_frame and stop_time_frame
-        # will be one time step longer than the usual start-up and shutdown periods.
-        # In corner cases on the border of the time frame, remove excess time indexes.
-        start_set: set[DateTime] = set()
-        stop_set: set[DateTime] = set()
-        if K_start > 0:
-            assert begin_of_startTimeFrame is not None
-            start_time_frame = generate_datetimes(
-                begin_of_startTimeFrame,
-                begin_of_startTimeFrame + K_start * step,
-                step,
-            )
-            start_time_frame = [t for t in start_time_frame if t in orders_time_set]
-            start_set = set(start_time_frame)
-        if K_stop > 0:  # Shift by one time step because the time frame encompasses the last time step in the ON state
-            # and remove one index because the last time step (null power) is formally excluded.
-            assert begin_of_stopTimeFrame is not None
-            stop_time_frame = generate_datetimes(
-                begin_of_stopTimeFrame - step,
-                begin_of_stopTimeFrame + (K_stop - 1) * step,
-                step,
-            )
-            stop_time_frame = [t for t in stop_time_frame if t in orders_time_set]
-            stop_set = set(stop_time_frame)
-
-        ### FlexibleTimeFrame : remove time steps that overlap with the ramping timeframes.
-        # The potential overlapping is due to the fact that, by convention, the start and stop timeFrames are one time
-        # step longer than the usual start-up and shutdown periods.
-        # In case of startup: the last startup timestep, at Pmin, is the first one of the stable state sequence (state = 1),
-        # to be removed from the flexible_time_frame.
-        # In case of shutdown: the first shutdown timestep, at Pmin, is the last one of the previous stable state sequence,
-        # to be removed from the flexible_time_frame.
-        if start_set or stop_set:
-            flexible_time_frame = [t for t in flexible_time_frame if t not in start_set and t not in stop_set]
-
-        # Deal with the corner case where the unit remains online for one time step: the overlap between
-        # start_time_frame and stop_time_frame is a singleton and by convention we drop it from the shutdown time frame.
-        if K_start > 0 and K_stop > 0:
-            overlapping_time_steps = start_set & stop_set
-            if len(overlapping_time_steps) == 1:
-                stop_time_frame = [t for t in stop_time_frame if t not in overlapping_time_steps]
-
-        ## Inflexible timeframe
-        inflexible_time_frame = online_index
+        tf = _compute_time_frames(online_timeframe, self.orders_time, step)
 
         q_max_ts = (
-            unit.maximum_power.filter(flexible_time_frame, inplace=False)
-            - unit.minimum_power.filter(flexible_time_frame, inplace=False)
-            - manual_reserves_down_procured.filter(flexible_time_frame, inplace=False)
-            - manual_reserves_up_procured.filter(flexible_time_frame, inplace=False)
-            - automated_reserves_down_procured.filter(flexible_time_frame, inplace=False)
-            - automated_reserves_up_procured.filter(flexible_time_frame, inplace=False)
+            unit.maximum_power.filter(tf.flexible, inplace=False)
+            - unit.minimum_power.filter(tf.flexible, inplace=False)
+            - manual_reserves_down_procured.filter(tf.flexible, inplace=False)
+            - manual_reserves_up_procured.filter(tf.flexible, inplace=False)
+            - automated_reserves_down_procured.filter(tf.flexible, inplace=False)
+            - automated_reserves_up_procured.filter(tf.flexible, inplace=False)
         )
 
         prop_pen = 1 - self.parameters.proportional_reserves_penalty
         auto_pen = self.parameters.automated_unprocured_reserves_penalty
         manual_unprocured_reserves_penalty = self.parameters.manual_unprocured_reserves_penalty
-
-        portfolio = unit.portfolio
-        market_area = portfolio.market_area if portfolio is not None else None
 
         # ------------------------------------------------------- #
         #                                                         #
@@ -225,27 +252,18 @@ class ThermalUnitOrders:
         # ------------------------------------------------------- #
         # Precompute filtered values aligned with flexible_time_frame to avoid per-step Timeseries.get_value calls.
         flex_qmax = q_max_ts.values
-        flex_vc = unit.variable_cost.filter(flexible_time_frame, inplace=False).values
-        flex_auto_dn = automated_reserves_down_procured.filter(flexible_time_frame, inplace=False).values
-        flex_man_dn = manual_reserves_down_procured.filter(flexible_time_frame, inplace=False).values
-        flex_auto_up = automated_reserves_up_procured.filter(flexible_time_frame, inplace=False).values
-        flex_man_up = manual_reserves_up_procured.filter(flexible_time_frame, inplace=False).values
+        flex_vc = unit.variable_cost.filter(tf.flexible, inplace=False).values
+        flex_auto_dn = automated_reserves_down_procured.filter(tf.flexible, inplace=False).values
+        flex_man_dn = manual_reserves_down_procured.filter(tf.flexible, inplace=False).values
+        flex_auto_up = automated_reserves_up_procured.filter(tf.flexible, inplace=False).values
+        flex_man_up = manual_reserves_up_procured.filter(tf.flexible, inplace=False).values
 
         for t, q_max, variable_cost, auto_dn, man_dn, auto_up, man_up in zip(
-            flexible_time_frame,
-            flex_qmax,
-            flex_vc,
-            flex_auto_dn,
-            flex_man_dn,
-            flex_auto_up,
-            flex_man_up,
-            strict=True,
+            tf.flexible, flex_qmax, flex_vc, flex_auto_dn, flex_man_dn, flex_auto_up, flex_man_up, strict=True
         ):
             formatted_t = t.format("DD_MM_YYYY_HH_mm_ss")
-            t_end = t + step
 
             # Part 1: flexible order
-            # We only formulate the order if its maximal power is positive
             if q_max <= 0.0:
                 cfg.logger.warning(
                     f"Negative or null amount of energy in the flexible order to be offered by unit {unit.name} at time {str(t)}. "
@@ -253,101 +271,76 @@ class ThermalUnitOrders:
                 )
             else:
                 orders.append(
-                    OrderDAO(
-                        name=f"flexible_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
-                        market_area=market_area,
-                        portfolio=portfolio,
-                        equipment=unit,
-                        qmax=q_max,
-                        qmin=0,
-                        price=variable_cost,
-                        product=Product.DayAhead,
-                        order_type=OrderType.Sell,
-                        is_agent_tso=False,
-                        execution_date=ed,
-                        start_date=t,  # type: ignore [arg-type]
-                        end_date=t_end,  # type: ignore [arg-type]
-                    )
+                    ThermalOrderFactory.flexible(unit, q_max, variable_cost, t, step, ed, formatted_t, scenario_suffix)
                 )
 
             # Part 2: reserve requirement orders
-            # Automated downward reserves requirements
             if auto_dn > 0.0:
                 orders.append(
-                    OrderDAO(
-                        name=f"automated_downward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
-                        market_area=market_area,
-                        portfolio=portfolio,
-                        equipment=unit,
-                        qmax=auto_dn,
-                        qmin=prop_pen * auto_dn,
-                        price=variable_cost - auto_pen,
-                        product=Product.DayAhead,
-                        order_type=OrderType.Sell,
-                        is_agent_tso=False,
-                        execution_date=ed,
-                        start_date=t,  # type: ignore [arg-type]
-                        end_date=t_end,  # type: ignore [arg-type]
+                    ThermalOrderFactory.reserve(
+                        unit,
+                        auto_dn,
+                        variable_cost,
+                        auto_pen,
+                        "downward",
+                        "automated",
+                        prop_pen,
+                        t,
+                        step,
+                        ed,
+                        formatted_t,
+                        scenario_suffix,
                     )
                 )
-
-            # Manual downward reserves requirements
             if man_dn > 0.0:
                 orders.append(
-                    OrderDAO(
-                        name=f"manual_downward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
-                        market_area=market_area,
-                        portfolio=portfolio,
-                        equipment=unit,
-                        qmax=man_dn,
-                        qmin=prop_pen * man_dn,
-                        price=variable_cost - manual_unprocured_reserves_penalty,
-                        product=Product.DayAhead,
-                        order_type=OrderType.Sell,
-                        is_agent_tso=False,
-                        execution_date=ed,
-                        start_date=t,  # type: ignore [arg-type]
-                        end_date=t_end,  # type: ignore [arg-type]
+                    ThermalOrderFactory.reserve(
+                        unit,
+                        man_dn,
+                        variable_cost,
+                        manual_unprocured_reserves_penalty,
+                        "downward",
+                        "manual",
+                        prop_pen,
+                        t,
+                        step,
+                        ed,
+                        formatted_t,
+                        scenario_suffix,
                     )
                 )
-
-            # Automated upward reserves requirements
             if auto_up > 0.0:
                 orders.append(
-                    OrderDAO(
-                        name=f"automated_upward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
-                        market_area=market_area,
-                        portfolio=portfolio,
-                        equipment=unit,
-                        qmax=auto_up,
-                        qmin=prop_pen * auto_up,
-                        price=variable_cost + auto_pen,
-                        product=Product.DayAhead,
-                        order_type=OrderType.Sell,
-                        is_agent_tso=False,
-                        execution_date=ed,
-                        start_date=t,  # type: ignore [arg-type]
-                        end_date=t_end,  # type: ignore [arg-type]
+                    ThermalOrderFactory.reserve(
+                        unit,
+                        auto_up,
+                        variable_cost,
+                        auto_pen,
+                        "upward",
+                        "automated",
+                        prop_pen,
+                        t,
+                        step,
+                        ed,
+                        formatted_t,
+                        scenario_suffix,
                     )
                 )
-
-            # Manual upward reserves requirements
             if man_up > 0.0:
                 orders.append(
-                    OrderDAO(
-                        name=f"manual_upward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
-                        market_area=market_area,
-                        portfolio=portfolio,
-                        equipment=unit,
-                        qmax=man_up,
-                        qmin=prop_pen * man_up,
-                        price=variable_cost + manual_unprocured_reserves_penalty,
-                        product=Product.DayAhead,
-                        order_type=OrderType.Sell,
-                        is_agent_tso=False,
-                        execution_date=ed,
-                        start_date=t,  # type: ignore [arg-type]
-                        end_date=t_end,  # type: ignore [arg-type]
+                    ThermalOrderFactory.reserve(
+                        unit,
+                        man_up,
+                        variable_cost,
+                        manual_unprocured_reserves_penalty,
+                        "upward",
+                        "manual",
+                        prop_pen,
+                        t,
+                        step,
+                        ed,
+                        formatted_t,
+                        scenario_suffix,
                     )
                 )
 
@@ -379,67 +372,32 @@ class ThermalUnitOrders:
             # Part 1: Startup orders
             # Does not create bids if there is not at least one stable state within the online sequence (prevents creating
             # unfinished startup ramps towards Pmin within the simulation timeframe for border case reasons.
-            if K_start > 0:
-                for t, i in zip(start_time_frame, range(K_start + 1), strict=False):
-                    # Compute the parameters of the order
-                    if T_endSU_in_sim:
-                        q_sell = round((T_start - K_start + i) * q_step_up)
-                    else:
-                        q_sell = round(i * q_step_up)
-
-                    bid_output = OrderDAO(
-                        name=f"startup_ramp_order_at_{t}_for_unit_{unit.name}{scenario_suffix}",
-                        market_area=market_area,
-                        portfolio=portfolio,
-                        equipment=unit,
-                        qmax=q_sell,
-                        qmin=q_sell,
-                        price=unit.variable_cost.get_value(t),
-                        product=Product.DayAhead,
-                        order_type=OrderType.Sell,
-                        is_agent_tso=False,
-                        execution_date=ed,
-                        start_date=t,  # type: ignore [arg-type]
-                        end_date=t + step,  # type: ignore [arg-type]
+            if tf.K_start > 0:
+                for t, i in zip(tf.startup, range(tf.K_start + 1), strict=False):
+                    q_sell = (
+                        round((T_start - tf.K_start + i) * q_step_up) if tf.startup_ends_here else round(i * q_step_up)
                     )
+                    bid_output = ThermalOrderFactory.startup_ramp(unit, q_sell, t, step, ed, scenario_suffix)
                     orders.append(bid_output)
-
                     inflexible_orders.append(bid_output)
                     Q += q_sell
 
             # Part 2: Shutdown orders
             # Does not create bids if there is not at least one stable state within the online sequence (prevents creating
             # shutdown ramps without the starting point at Pmin within the simulation timeframe for border case reasons.
-            if K_stop > 0:
-                for t, i in zip(stop_time_frame, range(K_stop + 1), strict=False):
-                    # Compute the quantities to be sold.
-                    if T_startSD_in_sim:
-                        q_sell = round((T_stop - i) * q_step_down)
-                    else:
-                        q_sell = round(q_min - (T_stop - K_stop + i) * q_step_down)
-
-                    bid_output = OrderDAO(
-                        name=f"shutdown_ramp_order_at_{t}_for_unit_{unit.name}{scenario_suffix}",
-                        market_area=market_area,
-                        portfolio=portfolio,
-                        equipment=unit,
-                        qmax=q_sell,
-                        qmin=q_sell,
-                        price=round(unit.variable_cost.get_value(t), 2),
-                        product=Product.DayAhead,
-                        order_type=OrderType.Sell,
-                        is_agent_tso=False,
-                        execution_date=ed,
-                        start_date=t,  # type: ignore [arg-type]
-                        end_date=t + step,  # type: ignore [arg-type]
+            if tf.K_stop > 0:
+                for t, i in zip(tf.shutdown, range(tf.K_stop + 1), strict=False):
+                    q_sell = (
+                        round((T_stop - i) * q_step_down)
+                        if tf.shutdown_starts_here
+                        else round(q_min - (T_stop - tf.K_stop + i) * q_step_down)
                     )
+                    bid_output = ThermalOrderFactory.shutdown_ramp(unit, q_sell, t, step, ed, scenario_suffix)
                     orders.append(bid_output)
-
                     inflexible_orders.append(bid_output)
                     Q += q_sell
 
             # Part 3: inflexible orders at Pmin
-            # TODO: should be inflexible_time_frame, but not working currently for format reasons
             # Build a name->order index once to look up flexible bids in O(1) instead of O(N) per check.
             orders_by_name: dict[str, OrderDAO] = {bid.name: bid for bid in orders}
             flexible_types = (
@@ -449,57 +407,32 @@ class ThermalUnitOrders:
                 "manual_downward_reserve_order",
                 "automated_downward_reserve_order",
             )
-            for t_raw in inflexible_time_frame:
+            for t_raw in tf.inflexible:
                 t = pendulum.instance(t_raw)
                 formatted_t = t.format("DD_MM_YYYY_HH_mm_ss")
                 min_p = unit.minimum_power.get_value(t)
                 variable_cost = unit.variable_cost.get_value(t)
-                name = (
-                    f"order_at_{formatted_t}_for_unit_{unit.name}_under_price_{case}"
-                    if case
-                    else f"order_at_{formatted_t}_for_unit_{unit.name}_under_price"
-                )
-                bid_output = OrderDAO(
-                    name=name,
-                    market_area=market_area,
-                    portfolio=portfolio,
-                    equipment=unit,
-                    qmax=min_p,
-                    qmin=min_p,
-                    price=round(variable_cost, 2),
-                    product=Product.DayAhead,
-                    order_type=OrderType.Sell,
-                    is_agent_tso=False,
-                    execution_date=ed,
-                    start_date=t,  # type: ignore [arg-type]
-                    end_date=t + step,  # type: ignore [arg-type]
-                )
+                bid_output = ThermalOrderFactory.inflexible(unit, min_p, variable_cost, t, step, ed, formatted_t, case)
                 orders.append(bid_output)
-
                 inflexible_orders.append(bid_output)
                 Q += min_p
 
-                # Check the existence of flexible bids to be linked by a parent-child coupling
+                # Link inflexible to each existing flexible child at the same timestep
                 config_bid_name = f"_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}"
                 for flex_type in flexible_types:
                     flexible_bid = orders_by_name.get(flex_type + config_bid_name)
                     if flexible_bid is not None:
-                        # Add parent-children link between the flexible and inflexible parts
                         couplings.append(
-                            OrderCouplingDAO(
-                                name=f"parent_children_inflexible_flexible_orders_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
-                                coupling_type=CouplingType.PARENT_CHILDREN,
-                                orders=[bid_output, flexible_bid],
+                            ThermalCouplingFactory.parent_children(
+                                bid_output, flexible_bid, unit.name, formatted_t, scenario_suffix
                             )
                         )
 
-            # Part 4: configure the identical_ratio link between all inflexible orders
-            date = pendulum.DateTime.instance(inflexible_time_frame[0])
+            # Part 4: identical_ratio link between all inflexible orders
+            date = pendulum.DateTime.instance(tf.inflexible[0])
             couplings.append(
-                OrderCouplingDAO(
-                    name=f"identical_ratio_inflexible_orders_for_unit_{unit.name}_starting_at_{date.format('DD_MM_YYYY_HH_mm_ss')}{scenario_suffix}",
-                    coupling_type=CouplingType.IDENTICAL_RATIO,
-                    orders=inflexible_orders,  # type: ignore [arg-type]
+                ThermalCouplingFactory.identical_ratio(
+                    inflexible_orders, unit.name, date.format("DD_MM_YYYY_HH_mm_ss"), scenario_suffix
                 )
             )
 
@@ -507,7 +440,7 @@ class ThermalUnitOrders:
             amortized_cost = round(unit.startup_cost.get_value(t) / Q, 2)
             for order in inflexible_orders:
                 # Add the spreading of start up cost only if the startup is complete within the sequence
-                if startup and T_endSU_in_sim:
+                if has_startup and tf.startup_ends_here:
                     order.price += amortized_cost
                 else:
                     order.price -= amortized_cost

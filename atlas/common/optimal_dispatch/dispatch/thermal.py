@@ -81,6 +81,31 @@ class ThermalDispatch:
 
     # ── Public API ────────────────────────────────────────────────────────
 
+    @property
+    def T_start(self) -> int:
+        """Number of startup-ramp timesteps (``floor(startup_duration / timestep)``)."""
+        return self._T_start
+
+    @property
+    def T_stop(self) -> int:
+        """Number of shutdown-ramp timesteps (``floor(shutdown_duration / timestep)``)."""
+        return self._T_stop
+
+    @property
+    def has_start(self) -> bool:
+        """True if the unit has a startup ramp phase (T_start >= 1)."""
+        return self._has_start
+
+    @property
+    def has_stop(self) -> bool:
+        """True if the unit has a shutdown ramp phase (T_stop >= 1)."""
+        return self._has_stop
+
+    @property
+    def has_flat(self) -> bool:
+        """True if the unit has a flat stable phase (T_stable >= 1)."""
+        return self._has_flat
+
     def setup(self, model: OptimisationModel, parameters: AbstractModuleParameters) -> None:
         """
         Compute time parameters, create ModelVar objects, and apply initial conditions.

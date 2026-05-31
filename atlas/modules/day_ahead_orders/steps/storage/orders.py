@@ -369,7 +369,9 @@ class StorageOrders:
                 self._parameters.temporal.start_date - self._parameters.temporal.timestep
             )
             complement_energy = min(daily_buy_volume, energy_requirement)
-            name = f"COMPLEMENT_DA_{storage.name}_{self._parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}"
+            name = (
+                f"COMPLEMENT_DA_{storage.name}_{self._parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}"
+            )
         else:
             complement_energy = buy_submitted_volumes.sum() - sell_submitted_volumes.sum()
             name = f"COMPLEMENT_DA_{storage.name}_{self._parameters.temporal.execution_date}"

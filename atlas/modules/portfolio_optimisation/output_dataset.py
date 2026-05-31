@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from atlas.abstract_class.dataset import AbstractModuleOutput
+from atlas.enums import ThermalDispatchState
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
@@ -138,17 +139,17 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                 power_values.append(power)
 
                 if optimisation_results.get_variable_value(f"on_up_{equipment.name}_{t}") == 1:
-                    state_sequence.append(1)
+                    state_sequence.append(ThermalDispatchState.ON_UP)
                 elif optimisation_results.get_variable_value(f"on_down_{equipment.name}_{t}") == 1:
-                    state_sequence.append(2)
+                    state_sequence.append(ThermalDispatchState.ON_DOWN)
                 elif optimisation_results.get_variable_value(f"off_{equipment.name}_{t}") == 1:
-                    state_sequence.append(3)
+                    state_sequence.append(ThermalDispatchState.OFF)
                 elif optimisation_results.get_variable_value(f"on_start_{equipment.name}_{t}") == 1:
-                    state_sequence.append(4)
+                    state_sequence.append(ThermalDispatchState.START)
                 elif optimisation_results.get_variable_value(f"stop_{equipment.name}_{t}") == 1:
-                    state_sequence.append(5)
+                    state_sequence.append(ThermalDispatchState.STOP)
                 elif optimisation_results.get_variable_value(f"on_flat_{equipment.name}_{t}") == 1:
-                    state_sequence.append(6)
+                    state_sequence.append(ThermalDispatchState.ON_FLAT)
 
         elif equipment_type == "hydro":
             fragment_categories = list(equipment.fragment_data.keys())  # type: ignore

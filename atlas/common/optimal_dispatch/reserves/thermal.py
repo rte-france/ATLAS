@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from pendulum import DateTime
 
 from atlas.common.optimal_dispatch.reserves.handler import ReserveHandler
+from atlas.math.timeseries import Timeseries
 
 if TYPE_CHECKING:
     from atlas.common.optimal_dispatch.dispatch.thermal import ThermalDispatch
@@ -26,11 +27,43 @@ class ThermalReserveHandler(ReserveHandler):
     state variables.
 
     Instantiate via :meth:`ReserveFactory.for_thermal`, not directly.
+    Call :meth:`setup_reserve_forecasts` before :meth:`add_constraints` to
+    bind the DA reserve forecast timeseries.
     """
 
     def __init__(self, name: str, dispatch: ThermalDispatch, maximum_automated: float) -> None:
         super().__init__(name, maximum_automated)
         self._dispatch = dispatch
+        self.reserves_up_procured: Timeseries
+        self.reserves_down_procured: Timeseries
+        self.feasible_automated_reserves_up_procured: Timeseries
+        self.feasible_automated_reserves_down_procured: Timeseries
+        self.automated_unsupplied_reserves: float = 0.0
+
+    def setup_reserve_forecasts(
+        self,
+        reserves_up: Timeseries,
+        reserves_down: Timeseries,
+        feasible_auto_up: Timeseries,
+        feasible_auto_down: Timeseries,
+        automated_unsupplied: float,
+    ) -> None:
+        """
+        Bind the pre-computed DA reserve forecast timeseries to this handler.
+
+        Must be called before any contracted-difference constraint method.
+
+        :param reserves_up: Manual reserve-up (mFRR + RR) procured timeseries
+        :param reserves_down: Manual reserve-down (mFRR + RR) procured timeseries
+        :param feasible_auto_up: Feasible automated reserve-up (clipped aFRR + FCR)
+        :param feasible_auto_down: Feasible automated reserve-down (clipped aFRR + FCR)
+        :param automated_unsupplied: Cumulated infeasible automated reserve volume (scalar)
+        """
+        self.reserves_up_procured = reserves_up
+        self.reserves_down_procured = reserves_down
+        self.feasible_automated_reserves_up_procured = feasible_auto_up
+        self.feasible_automated_reserves_down_procured = feasible_auto_down
+        self.automated_unsupplied_reserves = automated_unsupplied
 
     def add_variables(self, time: DateTime, max_power: float, min_power: float) -> None:
         m = self._require_model()
@@ -101,7 +134,7 @@ class ThermalReserveHandler(ReserveHandler):
         m = self._require_model()
         d = self._dispatch
         online_sum = d.on_up_var.get_value(time) + d.on_down_var.get_value(time)
-        if d._has_flat:
+        if d.has_flat:
             online_sum = online_sum + d.on_flat_var.get_value(time)
         m.add_constraint(
             m.get_variable(self.var("relaxed_reserves", time)) <= min_power * (1 - online_sum),
@@ -124,9 +157,9 @@ class ThermalReserveHandler(ReserveHandler):
         d = self._dispatch
 
         unavailable = d.off_var.get_value(time)
-        if d._has_start:
+        if d.has_start:
             unavailable = unavailable + d.on_start_var.get_value(time)
-        if d._has_stop:
+        if d.has_stop:
             unavailable = unavailable + d.stop_var.get_value(time)
 
         n = self._name
@@ -136,7 +169,7 @@ class ThermalReserveHandler(ReserveHandler):
         m.add_constraint(ard <= self._maximum_automated * (1 - unavailable), f"automated_reserves_down_max_{time}_{n}")
 
         res_unavailable = unavailable
-        if d._has_flat:
+        if d.has_flat:
             res_unavailable = res_unavailable + d.on_up_var.get_value(time) + d.on_down_var.get_value(time)
 
         ru = m.get_variable(self.var("reserves_up", time))
