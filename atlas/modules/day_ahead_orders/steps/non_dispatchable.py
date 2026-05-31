@@ -8,12 +8,13 @@ This file is part of the ATLAS project.
 import atlas.config as cfg
 from atlas.enums import OrderType, Product
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
-from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
+from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractBiddingStep
+from atlas.modules.day_ahead_orders.steps.result import BiddingResult
 
 
-class NonDispatchableStep(AbstractOrderStep):
-    def formulate(self) -> StepResult:
-        result = StepResult()
+class NonDispatchableBidding(AbstractBiddingStep):
+    def formulate(self) -> BiddingResult:
+        result = BiddingResult()
 
         for unit in self.dataset.other_non_dispatchable:
             if unit.maximum_power_forecast is None:

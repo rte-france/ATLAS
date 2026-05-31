@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING
 import atlas.config as cfg
 from atlas.common.optimal_dispatch.dispatch.storage import StorageDispatch
 from atlas.common.optimal_dispatch.reserves import ReserveFactory, StorageReserveHandler
+from atlas.common.optimal_dispatch.steps import AbstractOptimStep
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
-from atlas.modules.portfolio_optimisation.steps.base import AbstractOptimStep
 from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:

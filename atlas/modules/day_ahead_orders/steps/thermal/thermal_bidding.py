@@ -12,10 +12,16 @@ import atlas.config as cfg
 from atlas.enums import CouplingType, Product, ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
-from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
+from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractBiddingStep
+from atlas.modules.day_ahead_orders.steps.result import BiddingResult
+from atlas.modules.day_ahead_orders.steps.thermal.base_orders import ThermalBaseLoadOrders
+from atlas.modules.day_ahead_orders.steps.thermal.intermediate_orders import ThermalIntermediateLoadOrders
+from atlas.modules.day_ahead_orders.steps.thermal.optimisation_result import ThermalOptimisationResult
+from atlas.modules.day_ahead_orders.steps.thermal.peak_orders import ThermalPeakLoadOrders
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_worker import optimize_single_thermal_unit
-from atlas.objects.equipment.thermal import Thermal
 from atlas.objects.market.order import Order
+from atlas.timing import generate_datetimes
 
 
 class Coupling:
@@ -24,8 +30,8 @@ class Coupling:
         self.orders = orders
 
 
-class ThermalBiddingStep(AbstractOrderStep):
-    def formulate(self) -> StepResult:
+class ThermalBidding(AbstractBiddingStep):
+    def formulate(self) -> BiddingResult:
         if self.parameters.multiprocessing.enable:
             result = self._formulate_parallel()
         else:
@@ -37,54 +43,84 @@ class ThermalBiddingStep(AbstractOrderStep):
 
         return result
 
-    def _formulate_parallel(self) -> StepResult:
-        cfg.logger.info(f"Starting parallel thermal optimization for {len(self.dataset.thermal)} units")
-        result = StepResult()
+    def _build_orders_for_unit(
+        self,
+        thermal: ThermalDAO,
+        raw: dict[str, ThermalOptimisationResult] | None,
+        orders_time: list,
+    ) -> tuple[list, list]:
+        """Dispatch to the right strategy handler and return (orders, couplings)."""
+        if thermal.strategy == ThermalStrategy.BASE:
+            return ThermalBaseLoadOrders(orders_time, self.parameters).formulate(thermal)
+        if thermal.strategy == ThermalStrategy.INTERMEDIATE:
+            assert raw is not None, f"raw LP results required for INTERMEDIATE unit {thermal.name}"
+            return ThermalIntermediateLoadOrders(orders_time, self.parameters).build_orders(thermal, raw)
+        if thermal.strategy == ThermalStrategy.PEAK:
+            return ThermalPeakLoadOrders(orders_time, self.parameters).formulate(thermal)
+        cfg.logger.warning(f"Unknown thermal strategy {thermal.strategy} for unit {thermal.name}")
+        return [], []
 
+    def _formulate_parallel(self) -> BiddingResult:
+        cfg.logger.info(f"Starting parallel thermal optimization for {len(self.dataset.thermal)} units")
+        result = BiddingResult()
+        orders_time = generate_datetimes(
+            self.parameters.temporal.start_date,
+            self.parameters.penultimate_date,
+            self.parameters.temporal.timestep,
+        )
+
+        intermediate = [t for t in self.dataset.thermal if t.strategy == ThermalStrategy.INTERMEDIATE]
+        heuristic = [t for t in self.dataset.thermal if t.strategy != ThermalStrategy.INTERMEDIATE]
+
+        for thermal in heuristic:
+            orders, couplings = self._build_orders_for_unit(thermal, None, orders_time)
+            result.orders.extend(orders)
+            result.order_couplings.extend(couplings)
+            cfg.logger.info(f"Completed order formulation for thermal unit: {thermal.name} ({thermal.strategy.value})")
+
+        if not intermediate:
+            return result
+
+        thermal_by_name = {t.name: t for t in intermediate}
         with ProcessPoolExecutor(max_workers=self.parameters.multiprocessing.max_workers) as executor:
-            future_to_thermal = {
-                executor.submit(optimize_single_thermal_unit, thermal, self.orders_time, self.parameters): thermal.name
-                for thermal in self.dataset.thermal
+            future_to_name = {
+                executor.submit(optimize_single_thermal_unit, thermal, orders_time, self.parameters): thermal.name
+                for thermal in intermediate
             }
 
-            for future in as_completed(future_to_thermal):
-                thermal_name = future_to_thermal[future]
+            for future in as_completed(future_to_name):
+                thermal_name = future_to_name[future]
                 try:
-                    unit_result = future.result()
-
-                    if unit_result.success:
-                        result.orders.extend(unit_result.orders)
-                        result.order_couplings.extend(unit_result.order_couplings)
-                        cfg.logger.info(
-                            f"Completed order formulation for thermal unit: {thermal_name} ({unit_result.strategy.value})"
-                        )
-                    else:
-                        cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal_name}")
-
+                    raw = future.result()
+                    thermal = thermal_by_name[thermal_name]
+                    orders, couplings = self._build_orders_for_unit(thermal, raw, orders_time)
+                    result.orders.extend(orders)
+                    result.order_couplings.extend(couplings)
+                    cfg.logger.info(f"Completed order formulation for thermal unit: {thermal_name} ({ThermalStrategy.INTERMEDIATE.value})")
                 except Exception as e:
                     cfg.logger.error(f"Error processing thermal unit {thermal_name}: {e}")
 
         return result
 
-    def _formulate_sequential(self) -> StepResult:
+    def _formulate_sequential(self) -> BiddingResult:
         cfg.logger.info(f"Starting sequential thermal optimization for {len(self.dataset.thermal)} units")
-        result = StepResult()
+        result = BiddingResult()
+        orders_time = generate_datetimes(
+            self.parameters.temporal.start_date,
+            self.parameters.penultimate_date,
+            self.parameters.temporal.timestep,
+        )
 
         for thermal in self.dataset.thermal:
-            unit_result = optimize_single_thermal_unit(thermal, self.orders_time, self.parameters)
-
-            if unit_result.success:
-                result.orders.extend(unit_result.orders)
-                result.order_couplings.extend(unit_result.order_couplings)
-                cfg.logger.info(
-                    f"Completed order formulation for thermal unit: {thermal.name} ({unit_result.strategy.value})"
-                )
-            else:
-                cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal.name}")
+            raw = optimize_single_thermal_unit(thermal, orders_time, self.parameters)
+            orders, couplings = self._build_orders_for_unit(thermal, raw, orders_time)
+            result.orders.extend(orders)
+            result.order_couplings.extend(couplings)
+            cfg.logger.info(f"Completed order formulation for thermal unit: {thermal.name} ({thermal.strategy.value})")
 
         return result
 
-    def _compute_da_sell_submitted_volume(self, result: StepResult) -> None:
+    def _compute_da_sell_submitted_volume(self, result: BiddingResult) -> None:
         da_sell_submitted_volumes: dict[str, Timeseries] = {
             equipment.name: Timeseries.from_index(
                 self.parameters.temporal.start_date,
@@ -101,7 +137,7 @@ class ThermalBiddingStep(AbstractOrderStep):
         for order in result.orders:
             if (
                 order.product == Product.DayAhead
-                and isinstance(order.equipment, Thermal)
+                and isinstance(order.equipment, ThermalDAO)
                 and order.start_date in self.orders_time
             ):
                 if order.equipment.strategy == ThermalStrategy.PEAK or order.equipment.strategy == ThermalStrategy.BASE:

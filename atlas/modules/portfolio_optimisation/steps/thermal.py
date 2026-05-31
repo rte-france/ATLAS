@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING
 import atlas.config as cfg
 from atlas.common.optimal_dispatch.dispatch.thermal import ThermalDispatch
 from atlas.common.optimal_dispatch.reserves import ReserveFactory, ThermalReserveHandler
+from atlas.common.optimal_dispatch.steps import AbstractOptimStep
 from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
-from atlas.modules.portfolio_optimisation.steps.base import AbstractOptimStep
 from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:

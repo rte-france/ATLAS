@@ -14,13 +14,13 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep
-from atlas.modules.day_ahead_orders.steps.hydro import HydraulicStep
-from atlas.modules.day_ahead_orders.steps.load import LoadStep
-from atlas.modules.day_ahead_orders.steps.non_dispatchable import NonDispatchableStep
-from atlas.modules.day_ahead_orders.steps.renewables import WindPVStep
-from atlas.modules.day_ahead_orders.steps.storage.storage_step import StorageStep
-from atlas.modules.day_ahead_orders.steps.thermal.thermal_bidding_step import ThermalBiddingStep
+from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractBiddingStep
+from atlas.modules.day_ahead_orders.steps.hydro import HydraulicBidding
+from atlas.modules.day_ahead_orders.steps.load import LoadBidding
+from atlas.modules.day_ahead_orders.steps.non_dispatchable import NonDispatchableBidding
+from atlas.modules.day_ahead_orders.steps.renewables import WindPVBidding
+from atlas.modules.day_ahead_orders.steps.storage.bidding import StorageBidding
+from atlas.modules.day_ahead_orders.steps.thermal.thermal_bidding import ThermalBidding
 from atlas.timing import generate_datetimes
 
 
@@ -77,13 +77,13 @@ class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrde
 
         cfg.logger.info("Extraction completed, now starting the formulation of orders...")
 
-        steps: list[tuple[str, AbstractOrderStep]] = [
-            ("load", LoadStep(output_dataset, orders_time, parameters)),
-            ("non-dispatchable", NonDispatchableStep(output_dataset, orders_time, parameters)),
-            ("storage", StorageStep(output_dataset, orders_time, parameters)),
-            ("hydraulic", HydraulicStep(output_dataset, orders_time, parameters)),
-            ("wind/pv", WindPVStep(output_dataset, orders_time, parameters)),
-            ("thermic", ThermalBiddingStep(output_dataset, orders_time, parameters)),
+        steps: list[tuple[str, AbstractBiddingStep]] = [
+            ("load", LoadBidding(output_dataset, orders_time, parameters)),
+            ("non-dispatchable", NonDispatchableBidding(output_dataset, orders_time, parameters)),
+            ("storage", StorageBidding(output_dataset, orders_time, parameters)),
+            ("hydraulic", HydraulicBidding(output_dataset, orders_time, parameters)),
+            ("wind/pv", WindPVBidding(output_dataset, orders_time, parameters)),
+            ("thermic", ThermalBidding(output_dataset, orders_time, parameters)),
         ]
 
         for name, step in steps:

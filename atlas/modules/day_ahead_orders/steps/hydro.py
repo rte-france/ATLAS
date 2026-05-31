@@ -15,13 +15,14 @@ from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.hydro import HydroDAO
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
+from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractBiddingStep
+from atlas.modules.day_ahead_orders.steps.result import BiddingResult
 from atlas.timing import generate_datetimes
 
 
-class HydraulicStep(AbstractOrderStep):
-    def formulate(self) -> StepResult:
-        result = StepResult()
+class HydraulicBidding(AbstractBiddingStep):
+    def formulate(self) -> BiddingResult:
+        result = BiddingResult()
 
         hydraulic_units = [unit for unit in self.dataset.hydro if len(unit.storage_marginal_value.index) > 0]
         hydraulic_empty = [unit for unit in self.dataset.hydro if len(unit.storage_marginal_value.index) == 0]

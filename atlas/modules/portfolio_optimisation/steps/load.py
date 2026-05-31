@@ -9,9 +9,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import atlas.config as cfg
+from atlas.common.optimal_dispatch.steps import AbstractOptimStep
 from atlas.enums import LoadType
 from atlas.modules.portfolio_optimisation.input_objects.load import LoadPO
-from atlas.modules.portfolio_optimisation.steps.base import AbstractOptimStep
 from atlas.modules.portfolio_optimisation.utils.getters import get_variable_cost
 from atlas.solver.solver_interface import OptimisationModel
 

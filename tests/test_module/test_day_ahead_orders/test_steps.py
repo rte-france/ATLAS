@@ -10,13 +10,13 @@ import pytest
 from atlas.enums import CouplingType, ThermalStrategy
 from atlas.io_utils.container import Container
 from atlas.io_utils.utils import diff_business_model
-from atlas.modules.day_ahead_orders.steps.abstract_step import StepResult
-from atlas.modules.day_ahead_orders.steps.hydro import HydraulicStep
-from atlas.modules.day_ahead_orders.steps.load import LoadStep
-from atlas.modules.day_ahead_orders.steps.non_dispatchable import NonDispatchableStep
-from atlas.modules.day_ahead_orders.steps.renewables import WindPVStep
-from atlas.modules.day_ahead_orders.steps.thermal.thermal_base_orders import ThermalBaseLoadOrders
-from atlas.modules.day_ahead_orders.steps.thermal.thermal_peak_orders import ThermalPeakLoadOrders
+from atlas.modules.day_ahead_orders.steps.result import BiddingResult
+from atlas.modules.day_ahead_orders.steps.hydro import HydraulicBidding
+from atlas.modules.day_ahead_orders.steps.load import LoadBidding
+from atlas.modules.day_ahead_orders.steps.non_dispatchable import NonDispatchableBidding
+from atlas.modules.day_ahead_orders.steps.renewables import WindPVBidding
+from atlas.modules.day_ahead_orders.steps.thermal.base_orders import ThermalBaseLoadOrders
+from atlas.modules.day_ahead_orders.steps.thermal.peak_orders import ThermalPeakLoadOrders
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 from atlas.timing import generate_datetimes
@@ -39,7 +39,7 @@ def _meaningful_diff(obj, other) -> dict:
     return {k: v for k, v in diff_business_model(obj, other).items() if k != "name"}
 
 
-def _assert_orders_match(result: StepResult, expected: Container[Order], equipment_names: set[str]) -> None:
+def _assert_orders_match(result: BiddingResult, expected: Container[Order], equipment_names: set[str]) -> None:
     remaining = [o for o in result.orders if o.equipment.name in equipment_names]
 
     unmatched = []
@@ -86,10 +86,10 @@ def _assert_couplings_match(generated: list[OrderCoupling], expected: list[Order
 LOAD_EQUIPMENT = {"a_baseload", "a_power_to_gas_1", "b_baseload", "b_power_to_gas_1"}
 
 
-class TestLoadStep:
+class TestLoadBidding:
     @pytest.fixture(scope="class")
-    def result(self, steps_output_dataset, steps_parameters) -> StepResult:
-        return LoadStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+    def result(self, steps_output_dataset, steps_parameters) -> BiddingResult:
+        return LoadBidding(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
 
     def test_orders_match_expected(self, result, expected_orders):
         _assert_orders_match(result, expected_orders, LOAD_EQUIPMENT)
@@ -109,10 +109,10 @@ class TestLoadStep:
 NON_DISPATCHABLE_EQUIPMENT = {"a_other_non_dispatchable", "b_other_non_dispatchable"}
 
 
-class TestNonDispatchableStep:
+class TestNonDispatchableBidding:
     @pytest.fixture(scope="class")
-    def result(self, steps_output_dataset, steps_parameters) -> StepResult:
-        return NonDispatchableStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+    def result(self, steps_output_dataset, steps_parameters) -> BiddingResult:
+        return NonDispatchableBidding(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
 
     def test_orders_match_expected(self, result, expected_orders):
         _assert_orders_match(result, expected_orders, NON_DISPATCHABLE_EQUIPMENT)
@@ -132,10 +132,10 @@ class TestNonDispatchableStep:
 WIND_PV_EQUIPMENT = {"a_wind_1", "b_wind_1", "a_photovoltaic_1", "b_photovoltaic_1"}
 
 
-class TestWindPVStep:
+class TestWindPVBidding:
     @pytest.fixture(scope="class")
-    def result(self, steps_output_dataset, steps_parameters) -> StepResult:
-        return WindPVStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+    def result(self, steps_output_dataset, steps_parameters) -> BiddingResult:
+        return WindPVBidding(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
 
     def test_orders_match_expected(self, result, expected_orders):
         _assert_orders_match(result, expected_orders, WIND_PV_EQUIPMENT)
@@ -155,10 +155,10 @@ class TestWindPVStep:
 HYDRO_EQUIPMENT = {"a_hydraulic", "b_hydraulic"}
 
 
-class TestHydraulicStep:
+class TestHydraulicBidding:
     @pytest.fixture(scope="class")
-    def result(self, steps_output_dataset, steps_parameters) -> StepResult:
-        return HydraulicStep(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
+    def result(self, steps_output_dataset, steps_parameters) -> BiddingResult:
+        return HydraulicBidding(steps_output_dataset, _orders_time(steps_parameters), steps_parameters).formulate()
 
     def test_orders_match_expected(self, result, expected_orders):
         _assert_orders_match(result, expected_orders, HYDRO_EQUIPMENT)
@@ -182,9 +182,9 @@ THERMAL_PEAK_EQUIPMENT = {"a_thermal_peak_1", "b_thermal_peak_1"}
 
 class TestThermalBaseOrders:
     @pytest.fixture(scope="class")
-    def result(self, steps_output_dataset, steps_parameters) -> StepResult:
+    def result(self, steps_output_dataset, steps_parameters) -> BiddingResult:
         orders_time = _orders_time(steps_parameters)
-        r = StepResult()
+        r = BiddingResult()
         for unit in [t for t in steps_output_dataset.thermal if t.strategy == ThermalStrategy.BASE]:
             unit_orders, unit_couplings = ThermalBaseLoadOrders(orders_time, steps_parameters).formulate(unit)
             r.orders.extend(unit_orders)
@@ -205,9 +205,9 @@ class TestThermalBaseOrders:
 
 class TestThermalPeakOrders:
     @pytest.fixture(scope="class")
-    def result(self, steps_output_dataset, steps_parameters) -> StepResult:
+    def result(self, steps_output_dataset, steps_parameters) -> BiddingResult:
         orders_time = _orders_time(steps_parameters)
-        r = StepResult()
+        r = BiddingResult()
         for unit in [t for t in steps_output_dataset.thermal if t.strategy == ThermalStrategy.PEAK]:
             unit_orders, unit_couplings = ThermalPeakLoadOrders(orders_time, steps_parameters).formulate(unit)
             r.orders.extend(unit_orders)

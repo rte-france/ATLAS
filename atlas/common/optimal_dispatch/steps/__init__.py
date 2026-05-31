@@ -10,23 +10,23 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Generic, TypeVar
 
 if TYPE_CHECKING:
-    from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+    from atlas.abstract_class.parameters import AbstractModuleParameters
     from atlas.solver.solver_interface import OptimisationModel
 
 T = TypeVar("T")
 
 
 class AbstractOptimStep(ABC, Generic[T]):
-    def __init__(self, equipment: T):
+    def __init__(self, equipment: T) -> None:
         self.equipment = equipment
 
     @abstractmethod
-    def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters) -> None: ...
+    def add_variables(self, model: OptimisationModel, parameters: AbstractModuleParameters) -> None: ...
 
     @abstractmethod
-    def add_constraints(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters) -> None: ...
+    def add_constraints(self, model: OptimisationModel, parameters: AbstractModuleParameters) -> None: ...
 
     @abstractmethod
     def add_objective(
-        self, model: OptimisationModel, parameters: PortfolioOptimisationParameters, price_forecasts: dict | None = None
+        self, model: OptimisationModel, parameters: AbstractModuleParameters, price_forecasts: dict | None = None
     ) -> None: ...

@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from atlas.common.optimal_dispatch.steps import AbstractOptimStep
 from atlas.modules.portfolio_optimisation.input_objects.other_non_dispatchable import OtherNonDispatchablePO
-from atlas.modules.portfolio_optimisation.steps.base import AbstractOptimStep
 from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
