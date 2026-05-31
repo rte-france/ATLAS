@@ -83,9 +83,9 @@ def compute_da_sell_submitted_volume(
     thermal_units: list[ThermalDAO],
     orders_time: list[DateTime],
     parameters: DayAheadOrdersParameters,
-) -> None:
+) -> dict[str, Timeseries]:
     """
-    Compute and assign ``da_sell_submitted_volume`` on each thermal unit in-place.
+    Compute the per-unit Day-Ahead sell submitted volume time series.
 
     For BASE and PEAK units the submitted volume is the sum of accepted sell orders.
     For INTERMEDIATE units, mutually exclusive price scenarios are detected via EXCLUSION
@@ -96,9 +96,11 @@ def compute_da_sell_submitted_volume(
         internal EXCLUSION couplings are formulated for the same unit.
 
     :param result: Bidding result containing all orders and couplings.
-    :param thermal_units: Thermal units to update.
+    :param thermal_units: Thermal units to compute volumes for.
     :param orders_time: Reference timesteps for the DA market.
     :param parameters: Module parameters for temporal info.
+    :return: Mapping ``equipment.name -> da_sell_submitted_volume`` timeseries.
+        The caller is responsible for assigning each timeseries onto the equipment.
     """
     da_sell_submitted_volumes: dict[str, Timeseries] = {
         equipment.name: Timeseries.from_index(
@@ -205,23 +207,26 @@ def compute_da_sell_submitted_volume(
                     order.start_date, order.qmax if order.qmax is not None else 0
                 )
 
+    out: dict[str, Timeseries] = {}
     for equipment in thermal_units:
         if equipment.strategy == ThermalStrategy.INTERMEDIATE:
             cfg.logger.warning(
                 "Warning : da_sell_submitted_volumes might not yield the correct result if several internal EXCLUSION are formulated"
             )
 
-            da_sell_submitted_volume: Timeseries = da_sell_submitted_volumes[equipment.name]
-            programms: list[Timeseries] = list_of_mutually_exclusive_programms[equipment.name]
+            volume = da_sell_submitted_volumes[equipment.name]
+            programms = list_of_mutually_exclusive_programms[equipment.name]
 
             if programms:
                 for t in orders_time:
                     max_val = max((programm.get_value(t) for programm in programms), default=0)
-                    if t in da_sell_submitted_volume:
-                        da_sell_submitted_volume.set_value(t, max_val)
+                    if t in volume:
+                        volume.set_value(t, max_val)
                     else:
-                        da_sell_submitted_volume.add_index(t, max_val)
-            equipment.da_sell_submitted_volume = da_sell_submitted_volume
+                        volume.add_index(t, max_val)
+            out[equipment.name] = volume
 
         else:
-            equipment.da_sell_submitted_volume = da_sell_submitted_volumes[equipment.name]
+            out[equipment.name] = da_sell_submitted_volumes[equipment.name]
+
+    return out

@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
-class ThermalStep(AbstractOptimStep[ThermalPO]):
+class ThermalStep(AbstractOptimStep[ThermalPO, "PortfolioOptimisationParameters"]):
     """
     Step class owning all optimisation logic for ThermalPO.
 

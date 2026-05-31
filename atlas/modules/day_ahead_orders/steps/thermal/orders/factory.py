@@ -19,12 +19,38 @@ if TYPE_CHECKING:
     from atlas.objects.equipment.equipment import Equipment
 
 
+_TIME_FORMAT = "DD_MM_YYYY_HH_mm_ss"
+
+
+def _format_t(t: DateTime) -> str:
+    return t.format(_TIME_FORMAT)
+
+
+def _with_price_suffix(scenario_name: str | None) -> str:
+    """
+    Build the ``_with_price[...]`` order-name suffix used by base/intermediate strategies.
+
+    ``None`` returns ``""`` — used by the peak strategy, which has no price scenario.
+    """
+    if scenario_name is None:
+        return ""
+    if scenario_name == "":
+        return "_with_price"
+    return f"_with_price_{scenario_name}"
+
+
+def _under_price_suffix(case: str) -> str:
+    """Suffix variant used by inflexible Pmin orders: ``_under_price`` or ``_under_price_{case}``."""
+    return f"_under_price_{case}" if case else "_under_price"
+
+
 class ThermalOrderFactory:
     """
     Static factory for Day-Ahead thermal order creation.
 
-    Eliminates the repetitive ``OrderDAO(product=DayAhead, order_type=Sell, ...)`` boilerplate.
     All methods produce sell orders on the DayAhead product with ``is_agent_tso=False``.
+    Time formatting and scenario suffixes are derived internally from ``t`` and
+    ``scenario_name`` — callers no longer pass pre-formatted strings.
     """
 
     @staticmethod
@@ -64,11 +90,10 @@ class ThermalOrderFactory:
         t: DateTime,
         step: Duration,
         ed: DateTime,
-        formatted_t: str,
-        case_suffix: str,
+        scenario_name: str | None = None,
     ) -> OrderDAO:
         return ThermalOrderFactory._base(
-            name=f"flexible_order_at_{formatted_t}_for_unit_{unit.name}{case_suffix}",
+            name=f"flexible_order_at_{_format_t(t)}_for_unit_{unit.name}{_with_price_suffix(scenario_name)}",
             unit=unit,
             qmax=q_max,
             qmin=0,
@@ -90,17 +115,20 @@ class ThermalOrderFactory:
         t: DateTime,
         step: Duration,
         ed: DateTime,
-        formatted_t: str,
-        case_suffix: str,
+        scenario_name: str | None = None,
     ) -> OrderDAO:
         """
         :param direction: ``"upward"`` or ``"downward"``
         :param reserve_type: ``"automated"`` or ``"manual"``
         :param proportional_penalty: Fraction applied to qmin (``1 - proportional_reserves_penalty``)
+        :param scenario_name: ``None`` for peak (no suffix); ``""`` or ``"<case>"`` for base/intermediate.
         """
         sign = 1 if direction == "upward" else -1
         return ThermalOrderFactory._base(
-            name=f"{reserve_type}_{direction}_reserve_order_at_{formatted_t}_for_unit_{unit.name}{case_suffix}",
+            name=(
+                f"{reserve_type}_{direction}_reserve_order_at_{_format_t(t)}_for_unit_"
+                f"{unit.name}{_with_price_suffix(scenario_name)}"
+            ),
             unit=unit,
             qmax=quantity,
             qmin=proportional_penalty * quantity,
@@ -117,10 +145,11 @@ class ThermalOrderFactory:
         t: DateTime,
         step: Duration,
         ed: DateTime,
-        case_suffix: str,
+        scenario_name: str = "",
     ) -> OrderDAO:
+        """Startup ramp order. Only emitted by base/intermediate strategies."""
         return ThermalOrderFactory._base(
-            name=f"startup_ramp_order_at_{t}_for_unit_{unit.name}{case_suffix}",
+            name=f"startup_ramp_order_at_{t}_for_unit_{unit.name}{_with_price_suffix(scenario_name)}",
             unit=unit,
             qmax=q_sell,
             qmin=q_sell,
@@ -137,10 +166,11 @@ class ThermalOrderFactory:
         t: DateTime,
         step: Duration,
         ed: DateTime,
-        case_suffix: str,
+        scenario_name: str = "",
     ) -> OrderDAO:
+        """Shutdown ramp order. Only emitted by base/intermediate strategies."""
         return ThermalOrderFactory._base(
-            name=f"shutdown_ramp_order_at_{t}_for_unit_{unit.name}{case_suffix}",
+            name=f"shutdown_ramp_order_at_{t}_for_unit_{unit.name}{_with_price_suffix(scenario_name)}",
             unit=unit,
             qmax=q_sell,
             qmin=q_sell,
@@ -158,16 +188,11 @@ class ThermalOrderFactory:
         t: DateTime,
         step: Duration,
         ed: DateTime,
-        formatted_t: str,
-        case: str,
+        case: str = "",
     ) -> OrderDAO:
-        name = (
-            f"order_at_{formatted_t}_for_unit_{unit.name}_under_price_{case}"
-            if case
-            else f"order_at_{formatted_t}_for_unit_{unit.name}_under_price"
-        )
+        """Inflexible Pmin order for base/intermediate strategies. Suffix uses ``_under_price``."""
         return ThermalOrderFactory._base(
-            name=name,
+            name=f"order_at_{_format_t(t)}_for_unit_{unit.name}{_under_price_suffix(case)}",
             unit=unit,
             qmax=min_p,
             qmin=min_p,
@@ -185,10 +210,10 @@ class ThermalOrderFactory:
         t: DateTime,
         step: Duration,
         ed: DateTime,
-        formatted_t: str,
     ) -> OrderDAO:
+        """Inflexible Pmin order for peak strategy. No scenario suffix."""
         return ThermalOrderFactory._base(
-            name=f"inflexible_order_at_{formatted_t}_for_unit_{unit.name}",
+            name=f"inflexible_order_at_{_format_t(t)}_for_unit_{unit.name}",
             unit=unit,
             qmax=min_p,
             qmin=min_p,
@@ -207,11 +232,14 @@ class ThermalCouplingFactory:
         inflexible: OrderDAO,
         child: OrderDAO,
         unit_name: str,
-        formatted_t: str,
-        case_suffix: str,
+        t: DateTime,
+        scenario_name: str | None = None,
     ) -> OrderCouplingDAO:
         return OrderCouplingDAO(
-            name=f"parent_children_inflexible_flexible_orders_at_{formatted_t}_for_unit_{unit_name}{case_suffix}",
+            name=(
+                f"parent_children_inflexible_flexible_orders_at_{_format_t(t)}_for_unit_"
+                f"{unit_name}{_with_price_suffix(scenario_name)}"
+            ),
             coupling_type=CouplingType.PARENT_CHILDREN,
             orders=[inflexible, child],
         )
@@ -220,11 +248,14 @@ class ThermalCouplingFactory:
     def identical_ratio(
         inflexible_orders: list[OrderDAO],
         unit_name: str,
-        start_formatted_t: str,
-        case_suffix: str,
+        start_t: DateTime,
+        scenario_name: str = "",
     ) -> OrderCouplingDAO:
         return OrderCouplingDAO(
-            name=f"identical_ratio_inflexible_orders_for_unit_{unit_name}_starting_at_{start_formatted_t}{case_suffix}",
+            name=(
+                f"identical_ratio_inflexible_orders_for_unit_{unit_name}_starting_at_"
+                f"{_format_t(start_t)}{_with_price_suffix(scenario_name)}"
+            ),
             coupling_type=CouplingType.IDENTICAL_RATIO,
             orders=inflexible_orders,  # type: ignore[arg-type]
         )

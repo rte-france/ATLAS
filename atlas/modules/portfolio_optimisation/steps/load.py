@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
-class LoadStep(AbstractOptimStep[LoadPO]):
+class LoadStep(AbstractOptimStep[LoadPO, "PortfolioOptimisationParameters"]):
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
         for time in eq.optimisation_time_window:

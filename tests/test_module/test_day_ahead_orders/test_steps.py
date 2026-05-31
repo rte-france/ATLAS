@@ -15,8 +15,8 @@ from atlas.modules.day_ahead_orders.steps.hydro import HydraulicBidding
 from atlas.modules.day_ahead_orders.steps.load import LoadBidding
 from atlas.modules.day_ahead_orders.steps.non_dispatchable import NonDispatchableBidding
 from atlas.modules.day_ahead_orders.steps.renewables import WindPVBidding
-from atlas.modules.day_ahead_orders.steps.thermal.base_orders import ThermalBaseLoadOrders
-from atlas.modules.day_ahead_orders.steps.thermal.peak_orders import ThermalPeakLoadOrders
+from atlas.modules.day_ahead_orders.steps.thermal.strategies.base import ThermalBaseLoadOrders
+from atlas.modules.day_ahead_orders.steps.thermal.strategies.peak import ThermalPeakLoadOrders
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 from atlas.timing import generate_datetimes

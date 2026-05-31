@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
-class StoragePOStep(AbstractOptimStep[StoragePO]):
+class StoragePOStep(AbstractOptimStep[StoragePO, "PortfolioOptimisationParameters"]):
     """
     Step class owning all optimisation logic for StoragePO.
 

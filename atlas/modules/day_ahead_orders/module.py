@@ -20,7 +20,7 @@ from atlas.modules.day_ahead_orders.steps.load import LoadBidding
 from atlas.modules.day_ahead_orders.steps.non_dispatchable import NonDispatchableBidding
 from atlas.modules.day_ahead_orders.steps.renewables import WindPVBidding
 from atlas.modules.day_ahead_orders.steps.storage.bidding import StorageBidding
-from atlas.modules.day_ahead_orders.steps.thermal.thermal_bidding import ThermalBidding
+from atlas.modules.day_ahead_orders.steps.thermal.bidding import ThermalBidding
 from atlas.timing import generate_datetimes
 
 

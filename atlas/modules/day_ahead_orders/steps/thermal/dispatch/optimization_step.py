@@ -14,11 +14,11 @@ from atlas.common.optimal_dispatch.dispatch.thermal import ThermalDispatch
 from atlas.common.optimal_dispatch.reserves.factory import ReserveFactory
 from atlas.common.optimal_dispatch.reserves.thermal import ThermalReserveHandler
 from atlas.common.optimal_dispatch.steps import AbstractOptimStep
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.steps.result import EquipmentOptimisationResult
+from atlas.modules.day_ahead_orders.steps.thermal.orders.reserve_forecasts import load_forecast_or_zero
 from atlas.timing import generate_datetimes
 
 if TYPE_CHECKING:
@@ -62,7 +62,7 @@ class ThermalOptimisationResult(EquipmentOptimisationResult):
     on_flat: Timeseries | None = None
 
 
-class ThermalDAOStep(AbstractOptimStep[ThermalDAO]):
+class ThermalDAOStep(AbstractOptimStep[ThermalDAO, DayAheadOrdersParameters]):
     """
     LP optimization step for a single thermal unit in the Day-Ahead Orders context.
 
@@ -94,25 +94,6 @@ class ThermalDAOStep(AbstractOptimStep[ThermalDAO]):
     def _cd(self, prefix: str, t: DateTime) -> str:
         return f"{prefix}_{self.equipment.name}_{t}"
 
-    def _load_reserve_forecast(
-        self,
-        attribute: ForecastingMatrix | LazyForecastingMatrix | None,
-        end: DateTime,
-        parameters: DayAheadOrdersParameters,
-    ) -> Timeseries:
-        if attribute:
-            return attribute.get_forecast(  # type: ignore[union-attr]
-                parameters.temporal.execution_date,
-                parameters.temporal.start_date,
-                end,
-            )
-        return Timeseries.from_index(
-            parameters.temporal.start_date,
-            parameters.temporal.timestep,
-            end,
-            0,
-        )
-
     def _compute_reserve_forecasts(
         self, parameters: DayAheadOrdersParameters
     ) -> tuple[Timeseries, Timeseries, Timeseries, Timeseries, float]:
@@ -123,15 +104,18 @@ class ThermalDAOStep(AbstractOptimStep[ThermalDAO]):
         """
         unit = self.equipment
         end = unit.additional_hours + parameters.temporal.end_date
+        ed = parameters.temporal.execution_date
+        start = parameters.temporal.start_date
+        step = parameters.temporal.timestep
 
-        fcr_up = self._load_reserve_forecast(unit.fcr_up_procured, end, parameters)
-        fcr_down = self._load_reserve_forecast(unit.fcr_down_procured, end, parameters)
-        afrr_up = self._load_reserve_forecast(unit.afrr_up_procured, end, parameters)
-        afrr_down = self._load_reserve_forecast(unit.afrr_down_procured, end, parameters)
-        mfrr_up = self._load_reserve_forecast(unit.mfrr_up_procured, end, parameters)
-        mfrr_down = self._load_reserve_forecast(unit.mfrr_down_procured, end, parameters)
-        rr_up = self._load_reserve_forecast(unit.rr_up_procured, end, parameters)
-        rr_down = self._load_reserve_forecast(unit.rr_down_procured, end, parameters)
+        fcr_up = load_forecast_or_zero(unit.fcr_up_procured, ed, start, end, step)
+        fcr_down = load_forecast_or_zero(unit.fcr_down_procured, ed, start, end, step)
+        afrr_up = load_forecast_or_zero(unit.afrr_up_procured, ed, start, end, step)
+        afrr_down = load_forecast_or_zero(unit.afrr_down_procured, ed, start, end, step)
+        mfrr_up = load_forecast_or_zero(unit.mfrr_up_procured, ed, start, end, step)
+        mfrr_down = load_forecast_or_zero(unit.mfrr_down_procured, ed, start, end, step)
+        rr_up = load_forecast_or_zero(unit.rr_up_procured, ed, start, end, step)
+        rr_down = load_forecast_or_zero(unit.rr_down_procured, ed, start, end, step)
 
         maximum_afrr = unit.maximum_afrr if unit.maximum_afrr is not None else 0.0
         maximum_fcr = unit.maximum_fcr if unit.maximum_fcr is not None else 0.0
@@ -161,7 +145,7 @@ class ThermalDAOStep(AbstractOptimStep[ThermalDAO]):
         cfg.logger.debug(f"automated unsupplied reserves : {automated_unsupplied}")
         return reserves_up, reserves_down, feasible_auto_up, feasible_auto_down, automated_unsupplied
 
-    def add_variables(self, model: OptimisationModel, parameters: DayAheadOrdersParameters) -> None:  # type: ignore[override]
+    def add_variables(self, model: OptimisationModel, parameters: DayAheadOrdersParameters) -> None:
         self._model = model
         temporal = parameters.temporal
         end_date = temporal.end_date + self.equipment.additional_hours - temporal.timestep
@@ -181,7 +165,7 @@ class ThermalDAOStep(AbstractOptimStep[ThermalDAO]):
             model.add_continuous_variable(self._cd("automated_contracted_difference_up", t), 0, max_p)
             model.add_continuous_variable(self._cd("automated_contracted_difference_down", t), 0, max_p)
 
-    def add_constraints(self, model: OptimisationModel, parameters: DayAheadOrdersParameters) -> None:  # type: ignore[override]
+    def add_constraints(self, model: OptimisationModel, parameters: DayAheadOrdersParameters) -> None:
         ts = parameters.temporal.timestep
         for t in self._time_frame:
             self._dispatch.add_constraints(model, t, parameters)
@@ -201,7 +185,7 @@ class ThermalDAOStep(AbstractOptimStep[ThermalDAO]):
 
         self._dispatch.add_daily_energy_constraint(model, self._time_frame, parameters.temporal.timestep)
 
-    def add_objective(  # type: ignore[override]
+    def add_objective(
         self,
         model: OptimisationModel,
         parameters: DayAheadOrdersParameters,
