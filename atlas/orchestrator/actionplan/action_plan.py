@@ -16,6 +16,7 @@ from atlas import WorkflowParameters
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.orchestrator.actionplan.job import ActionPlanJob, ModuleTaskIterator, TaskIterator, WorkflowTaskIterator
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, Task
+from atlas.orchestrator.workflow.workflow import Workflow
 
 
 class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
@@ -44,18 +45,28 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
     def add_task(self, task: Task):
         root_output_dir = self.parameters.resolve_path(self.parameters.output_dir) / task.name
         if task.module is not None:
-            module_parameters = (
-                task.module.value()
-                .get_parameters_class()
-                .from_file(self.parameters.resolve_path(task.parameters_path), self.parameters.context)
-            )
-            self._push_iterator(ModuleTaskIterator(task, module_parameters, root_output_dir))
+            self._add_task_module(task, root_output_dir)
+        elif task.workflow is not None:
+            self._add_task_workflow(task, root_output_dir)
 
-        if task.workflow is not None:
+    def _add_task_module(self, task: Task, root_output_dir: Path) -> None:
+        module_parameters = (
+            task.module.value()
+            .get_parameters_class()
+            .from_file(self.parameters.resolve_path(task.module_parameters_path), self.parameters.context)
+        )
+        module_iterator = ModuleTaskIterator(task, module_parameters, root_output_dir)
+        self._push_iterator(module_iterator)
+
+    def _add_task_workflow(self, task: Task, root_output_dir: Path) -> None:
+        if isinstance(task.workflow, Path):
             workflow_parameters = WorkflowParameters.from_file(
-                self.parameters.resolve_path(task.parameters_path), self.parameters.context
+                self.parameters.resolve_path(task.workflow), self.parameters.context
             )
-            self._push_iterator(WorkflowTaskIterator(task, workflow_parameters, root_output_dir))
+        elif isinstance(task.workflow, Workflow):
+            workflow_parameters = task.workflow.parameters
+        workflow_iterator = WorkflowTaskIterator(task, workflow_parameters, root_output_dir)
+        self._push_iterator(workflow_iterator)
 
     def _push_iterator(self, iterator: TaskIterator):
         heapq.heappush(self._priority_queue, iterator)

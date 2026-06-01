@@ -40,16 +40,6 @@ class ActionPlanParameters(AbstractOrchestratorParameters):
     tasks: list[Task]
     hooks: list[Hook] = []
 
-    @model_validator(mode="after")
-    def task_with_workflow_can_be_built(self) -> ActionPlanParameters:
-        for task in self.tasks:
-            if task.workflow is not None and isinstance(task.workflow, Path):
-                try:
-                    workflow = Workflow.from_file(task.workflow, self.context)
-                except ValueError as e:
-                    raise ValueError(f"An exception occurred when building Workflow for task {task.name} using parameters {task.workflow} : {e}")
-                task.workflow = workflow
-        return self
 
 class Task(BaseModel):
     """Definition of a single task
