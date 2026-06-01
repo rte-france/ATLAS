@@ -67,7 +67,7 @@ class Task(BaseModel):
     name: str | None = None
     module: ModuleRegistry | None = None
     workflow: Workflow | Path | None = None
-    module_parameters_path: Path
+    module_parameters_path: Path | None = None
     priority: int
     from_: DateTime  # FIXME change name, "from" isn't available in python
     until: DateTime
@@ -115,7 +115,10 @@ class Task(BaseModel):
             if self.module is not None:
                 self.name = self.module.name
             if self.workflow is not None:
-                self.name = self.workflow.name
+                if isinstance(self.workflow, Path):
+                    self.name = self.workflow.name
+                elif isinstance(self.workflow, Workflow):
+                    self.name = self.workflow.parameters.name
         return self
 
     @model_validator(mode="after")

@@ -50,6 +50,8 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
             self._add_task_workflow(task, root_output_dir)
 
     def _add_task_module(self, task: Task, root_output_dir: Path) -> None:
+        if task.module is None:
+            raise ValueError("_add_task_module called without a module")
         module_parameters = (
             task.module.value()
             .get_parameters_class()
