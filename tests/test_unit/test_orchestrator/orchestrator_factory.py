@@ -83,6 +83,10 @@ class MockOutPutBuilder:
         self.mock_output = MagicMock()
         self.mock_output.change_sets = []
 
+    def with_change_sets(self, change_sets):
+        self.mock_output.change_sets = change_sets
+        return self
+
     def build(self):
         return copy.copy(self.mock_output)
 

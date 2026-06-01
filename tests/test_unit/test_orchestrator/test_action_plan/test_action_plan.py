@@ -240,7 +240,6 @@ class TestActionPlanAddTask:
         pass
 
 
-# FIXME - small change
 class TestActionPlanFromFile:
     def test_from_file_raises_if_tasks_reference_nonexistent_params(self, tmp_path):
         dataset_dir = tmp_path / "dataset"
@@ -253,7 +252,7 @@ class TestActionPlanFromFile:
             f"name: wf\n"
             f"dataset_path: {dataset_dir}\n"
             f"output_dataset_path: {output_dir}\n"
-            f"steps:\n" #FIXME
+            f"tasks:\n"
             f"  - module: PortfolioOptimisation\n"
             f"    parameters_path: /nonexistent/path/params.yaml\n"
         )
@@ -263,7 +262,6 @@ class TestActionPlanFromFile:
             ActionPlan.from_file(config)
 
 
-# FIXME quick to do - almost nothing to change
 class TestActionPlanRepresentation:
     def test_repr_representation(self, tmp_path):
         dataset_dir = tmp_path / "dataset"
@@ -285,7 +283,7 @@ class TestActionPlanRepresentation:
             f"name: test_action_plan\n"
             f"dataset_path: {dataset_dir}\n"
             f"output_dataset_path: {output_dir}\n"
-            f"tasks:\n" #FIXME
+            f"tasks:\n"
             f"  - module: MarketClearing\n"
             f"    parameters_path: {params_file}\n"
         )
@@ -293,6 +291,7 @@ class TestActionPlanRepresentation:
         action_plan = ActionPlan.from_file(config)
         result = repr(action_plan)
         assert "ActionPlan 'test_action_plan'" in result
+        assert "1 task" in result
         assert "1 step" in result
 
 
@@ -319,7 +318,7 @@ class TestActionPlanContextParameters:
         config.write_text(
             "name: test_action_plan\n" + context + f"dataset_path: {dataset_dir}\n"
             f"output_dataset_path: {output_dir}\n"
-            f"steps:\n" #FIXME
+            f"tasks:\n"
             f"  - module: MarketClearing\n"
             f"    parameters_path: {params_file}\n"
         )

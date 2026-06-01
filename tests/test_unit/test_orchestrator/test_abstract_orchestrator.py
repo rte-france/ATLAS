@@ -143,8 +143,7 @@ class TestOrchestratorExecute:
 
     def test_execute_applies_change_sets_after_each_step(self, tmp_path, orchestrator_builder):
         mock_change_set = MagicMock()
-        output = MockOutPutBuilder().build()
-        output.change_sets = [mock_change_set] # FIXME integrate in builder
+        output = MockOutPutBuilder().with_change_sets([mock_change_set]).build()
 
         job = MockJobBuilder().with_name("job").build()
         job._output_dataset = output
