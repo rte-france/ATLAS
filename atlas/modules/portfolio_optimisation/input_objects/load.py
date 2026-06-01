@@ -6,19 +6,13 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pendulum import DateTime, Duration
+from pendulum import DateTime
 
-from atlas.enums import LoadType
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.common.optimal_dispatch.input_objects.load import LoadDispatchInput
 from atlas.math.timeseries import Timeseries
-from atlas.objects.equipment.load import Load
 
 
-class LoadPO(Load):
-    load_type: LoadType
-    maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
-    additional_hours: Duration
-
+class LoadPO(LoadDispatchInput):
     optimisation_time_window: list[DateTime] = []
     _cached_forecast: Timeseries | None = None
 

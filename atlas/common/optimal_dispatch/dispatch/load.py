@@ -42,11 +42,12 @@ class LoadDispatch:
     def __init__(self, equipment: LoadDispatchInput) -> None:
         self._eq = equipment
         self._model: OptimisationModel = None  # type: ignore[assignment]
+        self._execution_date: DateTime = None  # type: ignore[assignment]
         self.power_level_var: ModelVar = None  # type: ignore[assignment]
 
     def setup(self, model: OptimisationModel, parameters: AbstractModuleParameters) -> None:
-        """Bind to a solver model and prepare the variable handle. Parameters are accepted for signature symmetry."""
-        del parameters
+        """Bind to a solver model and prepare the variable handle."""
+        self._execution_date = parameters.temporal.execution_date
         self._model = model
         n = self._eq.name
         self.power_level_var = ModelVar(
@@ -69,8 +70,18 @@ class LoadDispatch:
         model.add_constraint(power_level_var <= 0, f"power_min_{time}_{n}")
 
     def max_power(self, time: DateTime) -> float:
-        """Forecast-driven *lower* bound on power (negative for consumption), or 0 when no forecast."""
-        forecast = self._eq._cached_forecast
-        if forecast is None or time not in forecast:
-            return 0.0
-        return forecast.get_value(time)
+        """Forecast-driven *lower* bound on power (negative for consumption), or 0 when unavailable.
+
+        Uses the pre-fetched ``_cached_forecast`` when present; falls back to querying
+        ``maximum_power_forecast`` directly so the dispatch remains valid even when
+        ``prefetch_forecasts`` has not been called.
+        """
+        forecast = getattr(self._eq, "_cached_forecast", None)
+        if forecast is not None and time in forecast:
+            return forecast.get_value(time)
+        fm = self._eq.maximum_power_forecast
+        if fm is not None and self._execution_date in fm:
+            fallback = fm.get_forecast(self._execution_date, time, time)
+            if time in fallback:
+                return fallback.get_value(time)
+        return 0.0

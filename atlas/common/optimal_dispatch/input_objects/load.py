@@ -6,24 +6,22 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from pendulum import Duration
 
-if TYPE_CHECKING:
-    from atlas.math.timeseries import Timeseries
+from atlas.enums import LoadType
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.objects.equipment.load import Load
 
 
-@runtime_checkable
-class LoadDispatchInput(Protocol):
+class LoadDispatchInput(Load):
     """
-    Structural contract for load dispatch.
+    Physical contract for load dispatch — fields read by :class:`LoadDispatch`.
 
-    Load is a consumption-only unit — no reserves, no minimum power floor. The dispatch
-    needs only the equipment name and the cached maximum-power forecast (which is the
-    *negative-valued* lower bound on the load's power-level variable).
-
-    :param name: Equipment identifier.
-    :param _cached_forecast: Pre-fetched maximum-power forecast (signed: negative for consumption).
+    :param load_type: Load type (e.g. power-to-gas, standard).
+    :param maximum_power_forecast: Forecast of maximum consumption power.
+    :param additional_hours: Extra hours appended to the optimisation window.
     """
 
-    name: str
-    _cached_forecast: Timeseries | None
+    load_type: LoadType
+    maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
+    additional_hours: Duration
