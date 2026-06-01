@@ -13,7 +13,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pendulum import DateTime, Duration
 
-from test_unit.test_orchestrator.orchestrator_factory import MockTaskBuilder, ConcreteTaskIterator
+from test_unit.test_orchestrator.orchestrator_factory import MockTaskBuilder, ConcreteTaskIterator, MockModuleBuilder, \
+    OrchestratorConfigBuilder
 from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
@@ -47,10 +48,6 @@ class ActionPlanMockFactory:
         return MagicMock(return_value=mock_instance)
 
     @staticmethod
-    def make_mock_workflow(output):
-        pass  # FIXME
-
-    @staticmethod
     def make_mock_job(name="step", output=None):
         mock_instance = MagicMock()
         mock_instance.run.return_value = output
@@ -59,7 +56,6 @@ class ActionPlanMockFactory:
         mock_class = MagicMock(return_value=mock_instance)
         return ActionPlanJob(name, mock_class, {})
 
-    # FIXME create action_plan.yaml
     @staticmethod
     def make_minimal_parameters(tmp_path, tasks_yaml="", dataset_path=None, output_path=None):
         """Write a minimal action_plan YAML and return ActionPlanParameters."""
@@ -209,35 +205,124 @@ class TestActionPlanPushIterator:
             assert False, "tasks are concurrent outside [from, until] temporal limits"
 
 class TestActionPlanPopIterator:
-    def test_pop_single_module_iterator(self, tmp_path):
-        # FIXME test function : _pop_iterator with a Module Iterator
-        pass
+    def test_pop_single_job_iterator(self, tmp_path):
+        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
+        job = MockJobBuilder.with_name("job").build()
+        task = (MockTaskBuilder()
+                .with_from_until_frequency(
+                    from_=DateTime(2000, 1, 1),
+                    until=DateTime(2000, 1, 1),
+                    frequency=Duration(day=1))
+                .with_priority(1).build())
+        itr = ConcreteTaskIterator(task, job)
 
-    def test_pop_single_workflow_iterator(self, tmp_path):
-        # FIXME test function : _pop_iterator with a Workflow Iterator
-        pass
+        ap._push_iterator(itr)
+        assert len(ap._priority_queue) == 1
+
+        res = ap._pop_iterator()
+        assert len(ap._priority_queue) == 0
+        assert itr == res
+
+    def test_pop_multi_job_iterator(self, tmp_path):
+        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
+        job = MockJobBuilder.with_name("job").build()
+        task = (MockTaskBuilder()
+                .with_from_until_frequency(
+                    from_=DateTime(2000, 1, 1),
+                    until=DateTime(2000, 1, 7),
+                    frequency=Duration(day=1))
+                .with_priority(1).build())
+        itr = ConcreteTaskIterator(task, job)
+
+        ap._push_iterator(itr)
+        assert len(ap._priority_queue) == 1
+
+        res = ap._pop_iterator()
+        assert len(ap._priority_queue) == 0
+        assert itr == res
 
     def test_pop_multiple_iterator(self, tmp_path):
-        # FIXME test function : _pop_iterator with 3 iterator and respect order
-        pass
+        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
+        jobs = [MockJobBuilder.with_name("job1").build(),
+                MockJobBuilder.with_name("job2").build()]
+
+        common_task_info = (MockTaskBuilder()
+                .with_from_until_frequency(
+                    from_=DateTime(2000, 1, 1),
+                    until=DateTime(2000, 1, 1),
+                    frequency=Duration(day=1)))
+
+        task1 = common_task_info.with_priority(1).build()
+        task2 = common_task_info.with_priority(2).build()
+
+        itr1 = ConcreteTaskIterator(task1)
+        itr2 = ConcreteTaskIterator(task2)
+
+        ap._push_iterator(itr1, jobs[0])
+        ap._push_iterator(itr2, jobs[1])
+
+        assert len(ap._priority_queue) == 2
+        res = ap._pop_iterator()
+        assert len(ap._priority_queue) == 1
+        assert res == itr1
+        res = ap._pop_iterator()
+        assert len(ap._priority_queue) == 0
+        assert res == itr2
 
 
 class TestActionPlanAddTask:
     def test_add_task_module(self):
-        # FIXME test function : add_task with a task that contains a module, assert _priority_queue contains expected TaskIterator
-        pass
+        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
+        module = MockModuleBuilder().build()
+        task = (MockTaskBuilder().with_from_until_frequency(
+                from_=DateTime(2000, 1, 1),
+                until=DateTime(2000, 1, 1),
+                frequency=Duration(day=1)).with_module(module).with_priority(1).build())
+        ap.add_task(task)
+        assert len(ap._priority_queue) == 1
+        assert ap._priority_queue[0].task.module == module
 
     def test_add_task_workflow(self):
-        # FIXME test function : add_task with a task that contains a workflow, assert _priority_queue contains expected TaskIterator
-        pass
+        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
+        workflow = OrchestratorConfigBuilder().build_workflow(tmp_path)
+        task = MockTaskBuilder().with_from_until_frequency(
+            from_=DateTime(2000, 1, 1),
+            until=DateTime(2000, 1, 1),
+            frequency=Duration(day=1)).with_workflow(workflow).with_priority(1).build()
+        ap.add_task(task)
+        assert len(ap._priority_queue) == 1
+        assert ap._priority_queue[0].task.workflow == workflow
+
+    def test_add_task_workflow_with_path(self):
+        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
+        workflow = OrchestratorConfigBuilder().build_workflow(tmp_path)
+        task = MockTaskBuilder().with_from_until_frequency(
+                from_=DateTime(2000, 1, 1),
+                until=DateTime(2000, 1, 1),
+                frequency=Duration(day=1)).with_workflow(workflow).with_priority(1).build()
+        ap.add_task(task)
+        assert len(ap._priority_queue) == 1
+        assert ap._priority_queue[0].task.workflow == workflow
 
     def test_add_various_task(self):
-        # FIXME test function : add_task with 3 tasks, assert _priority_queue contains expected TaskIterator
-        pass
+        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
+        module = MockModuleBuilder().build()
+        workflow = OrchestratorConfigBuilder().build_workflow(tmp_path)
+        partial_task = MockTaskBuilder().with_from_until_frequency(
+                from_=DateTime(2000, 1, 1),
+                until=DateTime(2000, 1, 1),
+                frequency=Duration(day=1))
+        task1 = partial_task.with_workflow(workflow).with_priority(1).build()
+        ap.add_task(task1)
+        ap.add_task(partial_task.with_module(module).with_priority(2).build())
+        ap.add_task(partial_task.with_workflow(workflow).with_priority(3).build())
+        assert len(ap._priority_queue) == 3
+        assert task1 in ap._priority_queue
 
     def test_add_invalid_type_raises_type_error(self, tmp_path):
-        # FIXME push_iterator with bad type raise error
-        pass
+        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
+        with pytest.raises(RuntimeError):
+            ap.add_task("task")
 
 
 class TestActionPlanFromFile:

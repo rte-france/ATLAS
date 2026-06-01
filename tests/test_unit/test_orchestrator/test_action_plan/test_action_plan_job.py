@@ -13,8 +13,9 @@ from pendulum import DateTime, Duration
 from atlas import MarketClearingModule
 from atlas.orchestrator.actionplan.job import ActionPlanJob, ModuleTaskIterator, WorkflowTaskIterator
 from tests.test_unit.test_orchestrator.orchestrator_factory import MockModuleBuilder, MockModuleParametersBuilder, \
-    MockTaskBuilder, ConcreteTaskIterator, MockJobBuilder
-
+    MockTaskBuilder, ConcreteTaskIterator
+from atlas.orchestrator.workflow.workflow import Workflow
+from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, OrchestratorConfigBuilder
 
 class TestTaskIterator:
     @pytest.fixture
@@ -155,8 +156,28 @@ class TestModuleTaskIterator:
 
 
     def test_build_jobs_has_good_parameters(self, tmp_path):
-        # FIXME
-        pass
+        date = DateTime(2000, 1, 1)
+        off_set_start = Duration(hours=12)
+        off_set_end = Duration(hours=24)
+
+        module = MockModuleBuilder().build()
+        parameters = MockModuleParametersBuilder().build()
+        task = (MockTaskBuilder()
+                .with_from_until_frequency(
+                    from_=date,
+                    until=date + Duration(days=1),
+                    frequency=Duration(days=1))
+                .with_priority(1)
+                .with_module(module)
+                .with_parameters(parameters).build())
+        itr = ModuleTaskIterator(task, parameters, tmp_path)
+        job = itr.build_jobs()[0]
+        generated_parameters = job.parameters
+        assert generated_parameters.temporal.execution_date == date
+        assert generated_parameters.temporal.start_date == date + off_set_start
+        assert generated_parameters.temporal.end_date == date + off_set_end
+        assert generated_parameters.output.output_dir == tmp_path / date
+
 
     def test_raise_task_has_no_module(self):
         task = (MockTaskBuilder()
@@ -169,34 +190,133 @@ class TestModuleTaskIterator:
         with pytest.raises(TypeError):
             ModuleTaskIterator(task)
 
-    def test_iterator_len(self):
-        pass #FIXME
-        # #test __len__(self)
+    def test_iterator_len(self, tmp_path):
+        date = DateTime(2000, 1, 1)
+        module = MockModuleBuilder().build()
+        parameters = MockModuleParametersBuilder().build()
+        partial_task = MockTaskBuilder().with_priority(1).with_module(module).with_parameters(parameters)
+
+        task1 = partial_task.with_from_until_frequency(
+                    from_=date,
+                    until=date + Duration(days=1),
+                    frequency=Duration(days=1)).build()
+        itr = ModuleTaskIterator(task1, parameters, tmp_path)
+        assert itr.__len__() == 1
+
+        task2 = partial_task.with_from_until_frequency(
+                    from_=date,
+                    until=date + Duration(days=10),
+                    frequency=Duration(days=1)).build()
+        itr = ModuleTaskIterator(task2, parameters, tmp_path)
+        assert itr.__len__() == 10
+
+        task3 = partial_task.with_from_until_frequency(
+                    from_=date,
+                    until=date + Duration(days=10),
+                    frequency=Duration(days=7)).build()
+        itr = ModuleTaskIterator(task3, parameters, tmp_path)
+        assert itr.__len__() == 2
+
 
 
 class WorkflowTaskIterator:
-    def test_build_jobs_temporal_parameters(self):
-        # test abstract job have good temporal parameter
-        # test with one abstract job (workflow with 1 job)
-        # test with multiple abstract job (workflow with 3 jobs, and in the expected order)
-        pass #FIXME
+    def test_build_current_parameters(self, tmp_path):
+        date = DateTime(2000, 1, 1)
+        off_set_start = Duration(hours=12)
+        off_set_end = Duration(hours=24)
 
+        module_parameters = (MockModuleParametersBuilder()
+                             .with_execution_date(date + Duration(years=1))
+                             .with_start_date(date + Duration(years=2))
+                             .with_end_date(date + Duration(years=3))
+                             .build())
+        job = MockJobBuilder().with_module_parameters(module_parameters).build()
 
-    def test_raise_task_has_no_workflow(self):
+        conf = OrchestratorConfigBuilder().build_workflow(tmp_path)
+        wf = Workflow.__new__(Workflow)
+        wf.parameters = Workflow.from_file(conf)
+        wf._jobs = [job]
+
         task = (MockTaskBuilder()
                 .with_from_until_frequency(
-                    from_=DateTime(2000, 1, 1),
-                    until=DateTime(2000, 1, 3),
+                    from_=date,
+                    until=date + Duration(days=1),
                     frequency=Duration(days=1))
                 .with_priority(1)
-                .with_workflow(None).build())
-        with pytest.raises(TypeError):
-            WorkflowTaskIterator(task)
+                .with_workflow(wf).build())
+        itr = WorkflowTaskIterator(task, wf.parameters, tmp_path)
+        generated_parameters = itr._build_current_parameters()
+        assert generated_parameters.context.forced.temporal.execution_date == date
+        assert generated_parameters.context.forced.temporal.start_date == date + off_set_start
+        assert generated_parameters.context.forced.temporal.end_date == date + off_set_end
+        assert generated_parameters.context.forced.output.output_dir == tmp_path / date
 
-    def test_iterator_len(self):
-        pass #FIXME
-        # #test __len__(self)
 
+    def test_build_jobs_has_good_parameters(self, tmp_path):
+        date = DateTime(2000, 1, 1)
+        off_set_start = Duration(hours=12)
+        off_set_end = Duration(hours=24)
+
+        module_parameters = (MockModuleParametersBuilder()
+                             .with_execution_date(date + Duration(years=1))
+                             .with_start_date(date + Duration(years=2))
+                             .with_end_date(date + Duration(years=3))
+                             .build())
+
+        conf = OrchestratorConfigBuilder().build_workflow(tmp_path)
+        wf = Workflow.__new__(Workflow)
+        wf.parameters = Workflow.from_file(conf)
+        wf._jobs = [MockJobBuilder().with_module_parameters(module_parameters).build()]
+
+        task = (MockTaskBuilder()
+                .with_from_until_frequency(
+                    from_=date,
+                    until=date + Duration(days=1),
+                    frequency=Duration(days=1))
+                .with_priority(1)
+                .with_workflow(wf).build())
+        itr = WorkflowTaskIterator(task, wf.parameters, tmp_path)
+        generated_parameters = itr.build_jobs()[0].parameters
+        assert generated_parameters.temporal.execution_date == date
+        assert generated_parameters.temporal.start_date == date + off_set_start
+        assert generated_parameters.temporal.end_date == date + off_set_end
+        assert generated_parameters.output.output_dir == tmp_path / date
+
+    def test_iterator_len(self, tmp_path):
+        date = DateTime(2000, 1, 1)
+        module_parameters = (MockModuleParametersBuilder()
+                             .with_execution_date(date + Duration(years=1))
+                             .with_start_date(date + Duration(years=2))
+                             .with_end_date(date + Duration(years=3))
+                             .build())
+
+        conf = OrchestratorConfigBuilder().build_workflow(tmp_path)
+        wf = Workflow.__new__(Workflow)
+        wf.parameters = Workflow.from_file(conf)
+        wf._jobs = [MockJobBuilder().with_module_parameters(module_parameters).build()]
+
+        partial_task = MockTaskBuilder().with_priority(1).with_workflow(wf).with_parameters(wf.parameters)
+
+        task1 = partial_task.with_from_until_frequency(
+                    from_=date,
+                    until=date + Duration(days=1),
+                    frequency=Duration(days=1)).build()
+        itr = WorkflowTaskIterator(task1, wf.parameters, tmp_path)
+        assert itr.__len__() == 1
+
+        task2 = partial_task.with_from_until_frequency(
+                    from_=date,
+                    until=date + Duration(days=10),
+                    frequency=Duration(days=1)).build()
+        itr = WorkflowTaskIterator(task2, wf.parameters, tmp_path)
+        assert itr.__len__() == 10
+
+        task3 = partial_task.with_from_until_frequency(
+                    from_=date,
+                    until=date + Duration(days=10),
+                    frequency=Duration(days=7)).build()
+        itr = WorkflowTaskIterator(task3, wf.parameters, tmp_path)
+        assert itr.__len__() == 2
 
 class TestTestActionPlanJobRepresentation:
     @pytest.fixture

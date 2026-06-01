@@ -40,6 +40,9 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
         """
         return self.final_dataset
 
+    def use_context(self, context):
+        self.parameters.context.use(context)
+
     def execute(self) -> CurrentInputState:
         """
         Execute the orchestrator
