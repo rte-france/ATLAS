@@ -92,7 +92,7 @@ class ModuleTaskIterator(TaskIterator):
     def __init__(self, task: Task, parameters: AbstractModuleParameters, root_output_dir: Path):
         super().__init__(task)
         if task.module is None:
-            raise AttributeError("Task must have a module.")
+            raise AttributeError(f"Task {task.name} must have a module.")
 
         self.module: type[AbstractModule] = task.module.value
         self.parameters: AbstractModuleParameters = parameters
@@ -115,9 +115,12 @@ class ModuleTaskIterator(TaskIterator):
     def __eq__(self, other):
         return super.__eq__(other)
 
+
 class WorkflowTaskIterator(TaskIterator):
     def __init__(self, task: Task, parameters: WorkflowParameters, root_output_dir: Path):
         super().__init__(task)
+        if task.workflow is None:
+            raise AttributeError(f"Task {task.name} must have a workflow.")
         self.parameters: WorkflowParameters = parameters
         self.root_output_dir = root_output_dir
 

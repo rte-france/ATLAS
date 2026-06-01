@@ -41,9 +41,8 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         parameters._orchestrator_path = file_path.parent
         return cls(parameters=parameters)
 
-    def _add_task(self, task: Task):
+    def add_task(self, task: Task):
         root_output_dir = self.parameters.resolve_path(self.parameters.output_dir) / task.name
-
         if task.module is not None:
             module_parameters = (
                 task.module.value()
@@ -66,7 +65,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
     def _build_priority_queue(self) -> None:
         for task in self.parameters.tasks:
-            self._add_task(task)
+            self.add_task(task)
         for itr in self._priority_queue:
             self._jobs_count += len(itr)
 

@@ -147,7 +147,7 @@ class TestOrchestratorExecute:
         output.change_sets = [mock_change_set] # FIXME integrate in builder
 
         job = MockJobBuilder().with_name("job").build()
-        job._output_dataset = output # FIXME integrate in builder
+        job._output_dataset = output
         job.run = lambda ds: None  # run is a no-op; _output_dataset is pre-set
 
         orchestrator = orchestrator_builder(tmp_path, [job])

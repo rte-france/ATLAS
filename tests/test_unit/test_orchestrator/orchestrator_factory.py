@@ -237,21 +237,13 @@ class OrchestratorConfigBuilder:
 
         if self.output_dir is not None:
             self.output_dir.mkdir(exist_ok=True)
-            content = (
-                f"name: {self.name}\n"
-                f"dataset_path: {self.dataset_dir}\n"
-                f"output_dataset_path: {self.output_dir}\n"
-                f"{self.context}\n"
-                f"{self.misc}\n"
-            )
-        else: #FIXME improve code
-            content = (
-                f"name: {self.name}\n"
-                f"dataset_path: {self.dataset_dir}\n"
-                f"output_dataset_path: {self.output_dir}\n"
-                f"{self.context}\n"
-                f"{self.misc}\n"
-            )
+        content = (
+            f"name: {self.name}\n"
+            f"dataset_path: {self.dataset_dir}\n"
+            f"output_dataset_path: {self.output_dir}\n"
+            f"{self.context}\n"
+            f"{self.misc}\n"
+        )
         config.write_text(content)
         return config
 

@@ -76,8 +76,8 @@ class Task(BaseModel):
 
     name: str | None = None
     module: ModuleRegistry | None = None
-    workflow: Path | None = None #FIXME NB: we can't build the Workflow at this step since we lack the context that may contains missing parameters in workflow parameters, any idea?
-    parameters_path: Path
+    workflow: Workflow | Path | None = None
+    module_parameters_path: Path
     priority: int
     from_: DateTime  # FIXME change name, "from" isn't available in python
     until: DateTime
@@ -94,11 +94,10 @@ class Task(BaseModel):
 
     @field_validator("workflow", mode="before")
     @classmethod
-    def check_workflow_exist(cls, v: Any) -> Path | None:
+    def validate_workflow_exist(cls, v: Any) -> Workflow | None:
         if v is not None and isinstance(v, Path):
             if not v.exists():
                 raise ValueError(f"Workflow parameter file not found at {v}")
-            return v
         return v
 
     @field_validator(
@@ -112,7 +111,6 @@ class Task(BaseModel):
         """Convert various duration formats to Duration objects."""
         return convert_to_duration(v)
 
-
     @model_validator(mode="after")
     def default_name(self) -> Task:
         if self.name is None:
@@ -122,21 +120,18 @@ class Task(BaseModel):
                 self.name = self.workflow.name
         return self
 
-
     @model_validator(mode="after")
-    def module_or_workflow(self) -> Task:  # FIXME better function name? Can we overide validate()
+    def module_or_workflow(self) -> Task:
         if self.module is None and self.workflow is None:
             raise ValueError(
                 f"Task {self.name} doesn't contains either a module or a workflow, expected exactly one of them"
-            )  # FIXME More appropriate exception name?
+            )
         if self.module is not None and self.workflow is not None:
-            raise ValueError(
-                f"Task {self.name} contains both a module or a workflow, expected exactly one of them"
-            )  # FIXME More appropriate exception name?
+            raise ValueError(f"Task {self.name} contains both a module or a workflow, expected exactly one of them")
         return self
 
     @model_validator(mode="after")
-    def until_from_frequency(self) -> Task:  # FIXME Can we override validate()?
+    def until_from_frequency(self) -> Task:
         if self.until < self.from_:
             raise ValueError(
                 f"Task {self.name} must have an 'until' date before 'from' date {self.from_}, current value is {self.until}"

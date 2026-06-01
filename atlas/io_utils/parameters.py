@@ -146,9 +146,16 @@ class ContextParameters(BaseModel):
     forced: dict = Field(default_factory=lambda: {})
 
     def use(self, context: ContextParameters):
+        """
+        Override any value in this context that are also present in given context.
+        """
         deep_update(self.default, context.default, True)
         deep_update(self.forced, context.forced, True)
 
     def update(self, base: dict) -> None:
+        """
+        Add any default value in given context if not present in this context.
+        Override any forced value in this context that are also present in given context.
+        """
         deep_update(base, self.default, False)
         deep_update(base, self.forced, True)
