@@ -82,6 +82,14 @@ class Task(BaseModel):
             return ModuleRegistry(ModuleRegistry.get(v))
         return v
 
+    @field_validator("module_parameters_path", mode="before")
+    @classmethod
+    def validate_module_path_exist(cls, v: Any) -> Path | None:
+        if v is not None and isinstance(v, Path):
+            if not v.exists():
+                raise ValueError(f"Module parameters file not found at {v}")
+        return v
+
     @field_validator("workflow", mode="before")
     @classmethod
     def validate_workflow_exist(cls, v: Any) -> Workflow | None:
@@ -112,6 +120,12 @@ class Task(BaseModel):
 
     @model_validator(mode="after")
     def module_or_workflow(self) -> Task:
+        if self.module is not None and self.module_parameters_path is None:
+            raise ValueError(f"Task {self.name} have a module {self.module} but no parameter file")
+        if self.module is None and self.module_parameters_path is not None:
+            raise ValueError(
+                f"Task {self.name} do not have a module but has a module parameter file {self.module_parameters_path}"
+            )
         if self.module is None and self.workflow is None:
             raise ValueError(
                 f"Task {self.name} doesn't contains either a module or a workflow, expected exactly one of them"
