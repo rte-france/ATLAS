@@ -173,6 +173,6 @@ class TestOtherTechnologiesLPComparison:
 
         threshold = load_threshold_for_module("DayAheadOrdersTechno")
         if threshold is None:
-            pytest.skip("No performance threshold defined for DayAheadOrders")
+            pytest.skip("No performance threshold defined for DayAheadOrdersTechno")
 
         assert elapsed <= threshold, f"DayAheadOrders took {elapsed:.2f}s, expected <= {threshold}s"

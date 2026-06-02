@@ -135,6 +135,6 @@ class TestOtherTechnologiesLPComparison:
 
         threshold = load_threshold_for_module("PortfolioOptimisationTechno")
         if threshold is None:
-            pytest.skip("No performance threshold defined for PortfolioOptimisation")
+            pytest.skip("No performance threshold defined for PortfolioOptimisationTechno")
 
         assert elapsed <= threshold, f"PortfolioOptimisation took {elapsed:.2f}s, expected <= {threshold}s"

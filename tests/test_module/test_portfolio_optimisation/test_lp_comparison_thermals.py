@@ -24,7 +24,7 @@ THERMAL_COMBINATIONS_DIR = Path("tests/dataset/thermals-dataset")
 REFERENCE_LP_DIR = Path(__file__).parent / "lp_files" / "thermal"
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def base_parameters_dict():
     """Create base portfolio optimisation parameters dictionary for testing."""
     return {
@@ -49,7 +49,7 @@ def base_parameters_dict():
     }
 
 
-@pytest.fixture(params=[1, 2, 3, 4, 5, 6, 7, 8])
+@pytest.fixture(params=[1, 2, 3, 4, 5, 6, 7, 8], scope="class")
 def thermal_combination_number(request):
     """Parametrize test across all thermal combinations (1-8)."""
     combination_num = request.param
@@ -69,7 +69,7 @@ def thermal_combination_number(request):
 class TestThermalCombinationLPComparison:
     """Tests for comparing generated LP files against reference LP files."""
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def executed_po_module(self, thermal_combination_number, base_parameters_dict):
         _combination_num, combination_name, combination_dir, reference_lp = thermal_combination_number
 
@@ -147,7 +147,7 @@ class TestThermalCombinationLPComparison:
 
         threshold = load_threshold_for_module("PortfolioOptimisationThermal")
         if threshold is None:
-            pytest.skip("No performance threshold defined for PortfolioOptimisation")
+            pytest.skip("No performance threshold defined for PortfolioOptimisationThermal")
 
         assert elapsed <= threshold, (
             f"PortfolioOptimisation took {elapsed:.2f}s for {combination_name}, expected <= {threshold}s"
