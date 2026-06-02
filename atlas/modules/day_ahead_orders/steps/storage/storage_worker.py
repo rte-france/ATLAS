@@ -378,7 +378,7 @@ def _create_spot_order(
     """Create a single spot order."""
 
     return OrderDAO(
-        name=f"storage_order_type_{order_type}_at_{start_date.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{storage.name}",
+        name=f"storage_order_type_{order_type}_at_{start_date.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{storage.name}_exec_{parameters.temporal.execution_date.hour}",
         equipment=storage,
         portfolio=storage.portfolio,
         market_area=storage.portfolio.market_area,
