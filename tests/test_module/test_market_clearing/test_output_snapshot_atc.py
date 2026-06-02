@@ -49,11 +49,11 @@ class TestOutputSnapshotATC:
     @pytest.mark.parametrize("field", SNAPSHOT_FIELDS)
     def test_field_keys_match_snapshot(
         self,
-        output_dataset: MarketClearingOutputDataset,
+        output_dataset: tuple[MarketClearingOutputDataset, int],
         expected_snapshot: dict[str, list],
         field: str,
     ) -> None:
-        actual_keys = {tuple(entry[:-1]) for entry in _dump_snapshot(output_dataset)[field]}
+        actual_keys = {tuple(entry[:-1]) for entry in _dump_snapshot(output_dataset[0])[field]}
         expected_keys = {tuple(entry[:-1]) for entry in expected_snapshot[field]}
 
         missing = expected_keys - actual_keys
@@ -64,11 +64,11 @@ class TestOutputSnapshotATC:
     @pytest.mark.parametrize("field", SNAPSHOT_FIELDS)
     def test_field_values_match_snapshot_within_tolerance(
         self,
-        output_dataset: MarketClearingOutputDataset,
+        output_dataset: tuple[MarketClearingOutputDataset, int],
         expected_snapshot: dict[str, list],
         field: str,
     ) -> None:
-        actual = {tuple(entry[:-1]): entry[-1] for entry in _dump_snapshot(output_dataset)[field]}
+        actual = {tuple(entry[:-1]): entry[-1] for entry in _dump_snapshot(output_dataset[0])[field]}
         expected = {tuple(entry[:-1]): entry[-1] for entry in expected_snapshot[field]}
 
         drifted = []
@@ -88,11 +88,11 @@ class TestOutputSnapshotATCID:
     @pytest.mark.parametrize("field", SNAPSHOT_FIELDS)
     def test_field_keys_match_snapshot(
         self,
-        output_dataset: MarketClearingOutputDataset,
+        output_dataset: tuple[MarketClearingOutputDataset, int],
         expected_snapshot: dict[str, list],
         field: str,
     ) -> None:
-        actual_keys = {tuple(entry[:-1]) for entry in _dump_snapshot(output_dataset)[field]}
+        actual_keys = {tuple(entry[:-1]) for entry in _dump_snapshot(output_dataset[0])[field]}
         expected_keys = {tuple(entry[:-1]) for entry in expected_snapshot[field]}
 
         missing = expected_keys - actual_keys
@@ -103,11 +103,11 @@ class TestOutputSnapshotATCID:
     @pytest.mark.parametrize("field", SNAPSHOT_FIELDS)
     def test_field_values_match_snapshot_within_tolerance(
         self,
-        output_dataset: MarketClearingOutputDataset,
+        output_dataset: tuple[MarketClearingOutputDataset, int],
         expected_snapshot: dict[str, list],
         field: str,
     ) -> None:
-        actual = {tuple(entry[:-1]): entry[-1] for entry in _dump_snapshot(output_dataset)[field]}
+        actual = {tuple(entry[:-1]): entry[-1] for entry in _dump_snapshot(output_dataset[0])[field]}
         expected = {tuple(entry[:-1]): entry[-1] for entry in expected_snapshot[field]}
 
         drifted = []

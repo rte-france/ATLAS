@@ -1,4 +1,10 @@
 {
   "day_ahead": {"workflow_execution_max_seconds": 30},
-  "intraday": {"workflow_execution_max_seconds": 60}
+  "intraday": {"workflow_execution_max_seconds": 60},
+  "DayAheadOrdersThermal": {"execution_max_seconds": 5},
+  "DayAheadOrdersTechno": {"execution_max_seconds": 5},
+  "PortfolioOptimisationThermal": {"execution_max_seconds": 5},
+  "PortfolioOptimisationTechno": {"execution_max_seconds": 5},
+  "MarketClearing": {"execution_max_seconds": 5},
+  "MarketClearingId": {"execution_max_seconds": 5}
 }

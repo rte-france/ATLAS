@@ -11,11 +11,13 @@ pre-existing reference LP files to ensure the optimization model remains consist
 import tempfile
 from pathlib import Path
 
+import pendulum
 import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.solver.solver_helper import SolverHelper
+from tests.utils import load_threshold_for_module
 
 # Test data directories
 THERMAL_COMBINATIONS_DIR = Path("tests/dataset/thermals-dataset")
@@ -73,70 +75,74 @@ def thermal_combination_number(request):
     return combination_num, combination_name, combination_dir, reference_lp
 
 
-class TestThermalCombinationLPComparison:
-    """Tests for comparing generated LP files against reference LP files."""
+@pytest.fixture
+def executed_dao_module(thermal_combination_number, base_parameters_dict):
+    _combination_num, combination_name, combination_dir, reference_lp = thermal_combination_number
 
-    def test_generated_lp_matches_reference(self, thermal_combination_number, base_parameters_dict):
-        """Test that generated LP matches the reference LP for each thermal combination."""
-        _combination_num, combination_name, combination_dir, reference_lp = thermal_combination_number
+    with tempfile.TemporaryDirectory() as tmpdir:
+        params_dict = base_parameters_dict.copy()
+        params_dict["output"] = {"output_dir": tmpdir}
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            params_dict = base_parameters_dict.copy()
-            params_dict["output"] = {
-                "output_dir": tmpdir,
-            }
+        input_data = AtlasDataset.from_directory(combination_dir)
+        module = DayAheadOrdersModule()
 
-            input_data = AtlasDataset.from_directory(combination_dir)
+        start = pendulum.now()
+        module.run(input_data, params_dict)
+        elapsed = (pendulum.now() - start).total_seconds()
 
-            module = DayAheadOrdersModule()
+        lp_files = list((Path(tmpdir) / "lp_export").glob("*.lp"))
+        generated_lp = lp_files[0] if lp_files else None
 
-            module.run(input_data, params_dict)
+        generated_lp_data = SolverHelper.read_lp_ortools(str(generated_lp)) if generated_lp else None
+        reference_lp_data = SolverHelper.read_lp_ortools(str(reference_lp))
 
-            lp_files = list((Path(tmpdir) / "lp_export").glob("*.lp"))
-            assert len(lp_files) > 0, f"No LP files generated for {combination_name}"
+        yield combination_name, generated_lp_data, reference_lp_data, elapsed, len(lp_files)
 
-            generated_lp = lp_files[0]
 
-            try:
-                generated_lp_data = SolverHelper.read_lp_ortools(str(generated_lp))
-                reference_lp_data = SolverHelper.read_lp_ortools(str(reference_lp))
-            except Exception as e:
-                pytest.fail(f"Failed to read LP files: {e}")
+def test_generated_lp_matches_reference(executed_dao_module):
+    """Test that generated LP matches the reference LP for each thermal combination."""
+    combination_name, generated_lp_data, reference_lp_data, _, lp_count = executed_dao_module
 
-            with tempfile.TemporaryDirectory() as compare_dir:
-                comparison_result = SolverHelper.compare_lp_problems(
-                    reference_lp_data,
-                    generated_lp_data,
-                    output_dir=compare_dir,
-                    pb1_name="Reference",
-                    pb2_name="Generated",
-                    tolerance=1,
-                    normalize_names=True,
-                    keep_identical=False,
-                )
+    assert lp_count > 0, f"No LP files generated for {combination_name}"
 
-                assert comparison_result["objectives"]["identical_pct"] == 100.0, (
-                    f"Objectives mismatch for {combination_name}: "
-                    f"{comparison_result['objectives']['identical_pct']}% identical"
-                )
+    with tempfile.TemporaryDirectory() as compare_dir:
+        comparison_result = SolverHelper.compare_lp_problems(
+            reference_lp_data,
+            generated_lp_data,
+            output_dir=compare_dir,
+            pb1_name="Reference",
+            pb2_name="Generated",
+            tolerance=1,
+            normalize_names=True,
+            keep_identical=False,
+        )
 
-                assert comparison_result["variables"]["identical_pct"] == 100.0, (
-                    f"Variables mismatch for {combination_name}: "
-                    f"{comparison_result['variables']['identical_pct']}% identical"
-                )
+        assert comparison_result["objectives"]["identical_pct"] == 100.0, (
+            f"Objectives mismatch for {combination_name}: {comparison_result['objectives']['identical_pct']}% identical"
+        )
+        assert comparison_result["variables"]["identical_pct"] == 100.0, (
+            f"Variables mismatch for {combination_name}: {comparison_result['variables']['identical_pct']}% identical"
+        )
+        assert comparison_result["constraints"]["identical_pct"] == 100.0, (
+            f"Constraints mismatch for {combination_name}: "
+            f"{comparison_result['constraints']['identical_pct']}% identical"
+        )
+        for category in ["objectives", "variables", "constraints"]:
+            assert comparison_result[category]["modified"] == 0, f"Modified {category} found in {combination_name}"
+            assert comparison_result[category]["only_legacy"] == 0, (
+                f"{category.capitalize()} only in reference LP for {combination_name}"
+            )
+            assert comparison_result[category]["only_atlas"] == 0, (
+                f"{category.capitalize()} only in generated LP for {combination_name}"
+            )
 
-                assert comparison_result["constraints"]["identical_pct"] == 100.0, (
-                    f"Constraints mismatch for {combination_name}: "
-                    f"{comparison_result['constraints']['identical_pct']}% identical"
-                )
 
-                for category in ["objectives", "variables", "constraints"]:
-                    assert comparison_result[category]["modified"] == 0, (
-                        f"Modified {category} found in {combination_name}"
-                    )
-                    assert comparison_result[category]["only_legacy"] == 0, (
-                        f"{category.capitalize()} only in reference LP for {combination_name}"
-                    )
-                    assert comparison_result[category]["only_atlas"] == 0, (
-                        f"{category.capitalize()} only in generated LP for {combination_name}"
-                    )
+def test_execution_time_within_threshold(executed_dao_module):
+    """Test that module execution time is within the defined threshold."""
+    combination_name, _, _, elapsed, _ = executed_dao_module
+
+    threshold = load_threshold_for_module("DayAheadOrdersThermal")
+    if threshold is None:
+        pytest.skip("No performance threshold defined for DayAheadOrders")
+
+    assert elapsed <= threshold, f"DayAheadOrders took {elapsed:.2f}s for {combination_name}, expected <= {threshold}s"
