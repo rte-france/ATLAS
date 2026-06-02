@@ -73,7 +73,7 @@ def output_dataset(
 
 
 @pytest.fixture(scope="session")
-def generated_lp_dir(output_dataset: MarketClearingOutputDataset, lp_export_dir: Path) -> Path:
+def generated_lp_dir(output_dataset: tuple[MarketClearingOutputDataset, float], lp_export_dir: Path) -> Path:
     return lp_export_dir / "lp_export"
 
 
@@ -123,5 +123,5 @@ def output_dataset_id(
 
 
 @pytest.fixture(scope="session")
-def generated_lp_dir_id(output_dataset_id: tuple[MarketClearingOutputDataset, int], lp_export_id_dir: Path) -> Path:
+def generated_lp_dir_id(output_dataset_id: tuple[MarketClearingOutputDataset, float], lp_export_id_dir: Path) -> Path:
     return lp_export_id_dir / "lp_export"

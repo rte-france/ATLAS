@@ -26,7 +26,7 @@ class TestOutputShape:
     def test_one_local_balance_per_market_area_and_time(
         self,
         input_dataset: MarketClearingInputDataset,
-        output_dataset: tuple[MarketClearingOutputDataset, int],
+        output_dataset: tuple[MarketClearingOutputDataset, float],
     ) -> None:
         expected_keys = {
             (area_name, time_index)
@@ -38,7 +38,7 @@ class TestOutputShape:
     def test_one_market_price_per_market_area_and_time(
         self,
         input_dataset: MarketClearingInputDataset,
-        output_dataset: tuple[MarketClearingOutputDataset, int],
+        output_dataset: tuple[MarketClearingOutputDataset, float],
     ) -> None:
         expected_keys = {
             (area_name, time_index)
@@ -50,7 +50,7 @@ class TestOutputShape:
     def test_one_border_exchange_per_border_and_time(
         self,
         input_dataset: MarketClearingInputDataset,
-        output_dataset: tuple[MarketClearingOutputDataset, int],
+        output_dataset: tuple[MarketClearingOutputDataset, float],
     ) -> None:
         expected_keys = {
             (border_name, time_index)
@@ -62,7 +62,7 @@ class TestOutputShape:
     def test_accepted_powers_reference_known_orders(
         self,
         input_dataset: MarketClearingInputDataset,
-        output_dataset: tuple[MarketClearingOutputDataset, int],
+        output_dataset: tuple[MarketClearingOutputDataset, float],
     ) -> None:
         for area_name, order_name in output_dataset[0].accepted_powers:
             assert area_name in input_dataset.mc_market_areas
@@ -71,7 +71,7 @@ class TestOutputShape:
 
 
 class TestOutputValues:
-    def test_all_output_values_are_finite(self, output_dataset: tuple[MarketClearingOutputDataset, int]) -> None:
+    def test_all_output_values_are_finite(self, output_dataset: tuple[MarketClearingOutputDataset, float]) -> None:
         for value in output_dataset[0].local_balances.values():
             assert _is_finite(value)
         for value in output_dataset[0].market_prices.values():
@@ -84,7 +84,7 @@ class TestOutputValues:
     def test_border_exchanges_respect_capacity_bounds(
         self,
         input_dataset: MarketClearingInputDataset,
-        output_dataset: tuple[MarketClearingOutputDataset, int],
+        output_dataset: tuple[MarketClearingOutputDataset, float],
     ) -> None:
         tolerance = input_dataset.parameters.allowed_round_off_error
         for (border_name, time_index), exchange in output_dataset[0].border_exchanges.items():
@@ -96,7 +96,7 @@ class TestOutputValues:
     def test_market_prices_within_area_price_bounds(
         self,
         input_dataset: MarketClearingInputDataset,
-        output_dataset: tuple[MarketClearingOutputDataset, int],
+        output_dataset: tuple[MarketClearingOutputDataset, float],
     ) -> None:
         tolerance = input_dataset.parameters.allowed_round_off_error
         for (area_name, time_index), price in output_dataset[0].market_prices.items():
@@ -107,7 +107,7 @@ class TestOutputValues:
 
 
 class TestChangeSets:
-    def test_run_produces_non_empty_change_sets(self, output_dataset: tuple[MarketClearingOutputDataset, int]) -> None:
+    def test_run_produces_non_empty_change_sets(self, output_dataset: tuple[MarketClearingOutputDataset, float]) -> None:
         assert isinstance(output_dataset[0].change_sets, list)
         assert len(output_dataset[0].change_sets) > 0
 
