@@ -464,7 +464,7 @@ class Clearing(OptimisationModel):
             accepted_power = self.get_variable(
                 constants.accepted_power_variable_name(mc_order.market_area.name, order.name)
             )
-            mc_order = self.input_dataset.mc_orders[order.name]
+
             if mc_order.order_type == OrderType.Sell:
                 aggregated_accepted_power.append(-accepted_power)
             elif mc_order.order_type == OrderType.Buy:
