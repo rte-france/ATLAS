@@ -34,7 +34,7 @@ class NonDispatchableStep(AbstractOrderStep):
                 for t in self.orders_time:
                     result.orders.append(
                         OrderDAO(
-                            name=f"other_nd_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
+                            name=f"other_nd_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_exec_{self.parameters.temporal.execution_date.hour}",
                             market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                             portfolio=unit.portfolio,
                             equipment=unit,

@@ -40,7 +40,7 @@ class LoadStep(AbstractOrderStep):
                         if max_consumption_value > 0:
                             result.orders.append(
                                 OrderDAO(
-                                    name=f"load_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{load.name}",
+                                    name=f"load_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{load.name}_exec_{self.parameters.temporal.execution_date.hour}",
                                     market_area=load.portfolio.market_area,
                                     portfolio=load.portfolio,
                                     equipment=load,

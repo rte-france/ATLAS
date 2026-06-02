@@ -133,7 +133,7 @@ class ThermalPeakLoadOrders:
 
                 # Create the instance
                 inflexible_order = OrderDAO(
-                    name=f"inflexible_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
+                    name=f"inflexible_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_exec_{self.parameters.temporal.execution_date.hour}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
@@ -174,11 +174,11 @@ class ThermalPeakLoadOrders:
                     inflexible_order=inflexible_order,
                     t=t,
                     unit=unit,
-                    order_name=f"flexible_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
+                    order_name=f"flexible_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_exec_{self.parameters.temporal.execution_date.hour}",
                     q_max=q_max,
                     q_min=0,
                     price=unit.variable_cost.get_value(t),
-                    link_name=f"parent_children_inflexible_flexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
+                    link_name=f"parent_children_inflexible_flexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_exec_{self.parameters.temporal.execution_date.hour}",
                 )
                 orders.append(order)
                 if coupling is not None:
@@ -193,12 +193,12 @@ class ThermalPeakLoadOrders:
                     inflexible_order=inflexible_order,
                     t=t,
                     unit=unit,
-                    order_name=f"automated_downward_reserve_order_at_{t}_for_unit_{unit.name}",
+                    order_name=f"automated_downward_reserve_order_at_{t}_for_unit_{unit.name}_exec_{self.parameters.temporal.execution_date.hour}",
                     q_max=automated_reserves_down_procured.get_value(t),
                     q_min=(1 - self.parameters.proportional_reserves_penalty)
                     * automated_reserves_down_procured.get_value(t),
                     price=unit.variable_cost.get_value(t) - self.parameters.automated_unprocured_reserves_penalty,
-                    link_name=f"parent_children_automated_downward_reserve_inflexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
+                    link_name=f"parent_children_automated_downward_reserve_inflexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_exec_{self.parameters.temporal.execution_date.hour}",
                 )
                 orders.append(order)
                 if coupling is not None:
@@ -210,12 +210,12 @@ class ThermalPeakLoadOrders:
                     inflexible_order=inflexible_order,
                     t=t,
                     unit=unit,
-                    order_name=f"manual_downward_reserve_order_at_{t}_for_unit_{unit.name}",
+                    order_name=f"manual_downward_reserve_order_at_{t}_for_unit_{unit.name}_exec_{self.parameters.temporal.execution_date.hour}",
                     q_max=manual_reserves_down_procured.get_value(t),
                     q_min=(1 - self.parameters.proportional_reserves_penalty)
                     * manual_reserves_down_procured.get_value(t),
                     price=unit.variable_cost.get_value(t) - self.parameters.manual_unprocured_reserves_penalty,
-                    link_name=f"parent_children_manual_downward_reserve_inflexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
+                    link_name=f"parent_children_manual_downward_reserve_inflexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_exec_{self.parameters.temporal.execution_date.hour}",
                 )
                 orders.append(order)
                 if coupling is not None:
@@ -227,12 +227,12 @@ class ThermalPeakLoadOrders:
                     inflexible_order=inflexible_order,
                     t=t,
                     unit=unit,
-                    order_name=f"automated_upward_reserve_order_at_{t}_for_unit_{unit.name}",
+                    order_name=f"automated_upward_reserve_order_at_{t}_for_unit_{unit.name}_exec_{self.parameters.temporal.execution_date.hour}",
                     q_max=automated_reserves_up_procured.get_value(t),
                     q_min=(1 - self.parameters.proportional_reserves_penalty)
                     * automated_reserves_up_procured.get_value(t),
                     price=(unit.variable_cost.get_value(t) + self.parameters.automated_unprocured_reserves_penalty),
-                    link_name=f"parent_children_automated_upward_reserve_inflexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
+                    link_name=f"parent_children_automated_upward_reserve_inflexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_exec_{self.parameters.temporal.execution_date.hour}",
                 )
                 orders.append(order)
                 if coupling is not None:
@@ -244,12 +244,12 @@ class ThermalPeakLoadOrders:
                     inflexible_order=inflexible_order,
                     t=t,
                     unit=unit,
-                    order_name=f"manual_upward_reserve_order_at_{t}_for_unit_{unit.name}",
+                    order_name=f"manual_upward_reserve_order_at_{t}_for_unit_{unit.name}_exec_{self.parameters.temporal.execution_date.hour}",
                     q_max=manual_reserves_up_procured.get_value(t),
                     q_min=(1 - self.parameters.proportional_reserves_penalty)
                     * manual_reserves_up_procured.get_value(t),
                     price=unit.variable_cost.get_value(t) + self.parameters.manual_unprocured_reserves_penalty,
-                    link_name=f"parent_children_manual_upward_reserve_inflexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
+                    link_name=f"parent_children_manual_upward_reserve_inflexible_orders_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}_exec_{self.parameters.temporal.execution_date.hour}",
                 )
                 orders.append(order)
                 if coupling is not None:

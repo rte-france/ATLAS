@@ -33,9 +33,9 @@ class WindPVStep(AbstractOrderStep):
 
                 for t in self.orders_time:
                     if isinstance(equipment, WindDAO):
-                        bid_name = f"wind_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{equipment.name}"
+                        bid_name = f"wind_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{equipment.name}_exec_{self.parameters.temporal.execution_date.hour}"
                     else:
-                        bid_name = f"pv_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{equipment.name}"
+                        bid_name = f"pv_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{equipment.name}_exec_{self.parameters.temporal.execution_date.hour}"
 
                     max_production_value = production_forecast.get_value(t)
                     min_production_value = max_production_value * (1 - equipment.maximum_curtailment_ratio.get_value(t))

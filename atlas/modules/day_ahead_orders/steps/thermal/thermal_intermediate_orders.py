@@ -78,10 +78,10 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
             # time frames are mutually exclusive provided that the unit's minimum power is not null
             if unit.minimum_power.timeseries.filter(pl.col("time").is_in(self.orders_time))["value"].sum() > 0.0:
                 orders_names = [
-                    f"order_at_{ts.first_date()}_for_unit_{unit.name}_under_price_{case}"
+                    f"order_at_{ts.first_date()}_for_unit_{unit.name}_under_price_{case}_exec_{self.parameters.temporal.execution_date.hour}"
                     for (ts, case), _ in overlapping_blocks
                 ] + [
-                    f"order_at_{ts.first_date()}_for_unit_{unit.name}_under_price_{case}"
+                    f"order_at_{ts.first_date()}_for_unit_{unit.name}_under_price_{case}_exec_{self.parameters.temporal.execution_date.hour}"
                     for _, (ts, case) in overlapping_blocks
                 ]
                 orders_list = [order for order in orders if order.name in orders_names]

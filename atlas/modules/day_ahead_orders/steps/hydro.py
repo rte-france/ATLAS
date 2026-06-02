@@ -86,7 +86,7 @@ class HydraulicStep(AbstractOrderStep):
                 for k, v in volumes.items():
                     if v != 0:
                         bid_output = OrderDAO(
-                            name=f"hydraulic_order_fragment_{str(k)}_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{equipment.name}",
+                            name=f"hydraulic_order_fragment_{str(k)}_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{equipment.name}_exec_{self.parameters.temporal.execution_date.hour}",
                             market_area=equipment.portfolio.market_area,
                             portfolio=equipment.portfolio,
                             equipment=equipment,

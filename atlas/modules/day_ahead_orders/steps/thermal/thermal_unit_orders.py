@@ -388,7 +388,7 @@ class ThermalUnitOrders:
                         q_sell = round(i * q_step_up)
 
                     bid_output = OrderDAO(
-                        name=f"startup_ramp_order_at_{t}_for_unit_{unit.name}{scenario_suffix}",
+                        name=f"startup_ramp_order_at_{t}_for_unit_{unit.name}{scenario_suffix}_exec_{ed.hour}",
                         market_area=market_area,
                         portfolio=portfolio,
                         equipment=unit,
@@ -419,7 +419,7 @@ class ThermalUnitOrders:
                         q_sell = round(q_min - (T_stop - K_stop + i) * q_step_down)
 
                     bid_output = OrderDAO(
-                        name=f"shutdown_ramp_order_at_{t}_for_unit_{unit.name}{scenario_suffix}",
+                        name=f"shutdown_ramp_order_at_{t}_for_unit_{unit.name}{scenario_suffix}_exec_{ed.hour}",
                         market_area=market_area,
                         portfolio=portfolio,
                         equipment=unit,
@@ -455,9 +455,9 @@ class ThermalUnitOrders:
                 min_p = unit.minimum_power.get_value(t)
                 variable_cost = unit.variable_cost.get_value(t)
                 name = (
-                    f"order_at_{formatted_t}_for_unit_{unit.name}_under_price_{case}"
+                    f"order_at_{formatted_t}_for_unit_{unit.name}_under_price_{case}_exec_{ed.hour}"
                     if case
-                    else f"order_at_{formatted_t}_for_unit_{unit.name}_under_price"
+                    else f"order_at_{formatted_t}_for_unit_{unit.name}_under_price_exec_{ed.hour}"
                 )
                 bid_output = OrderDAO(
                     name=name,
@@ -480,14 +480,14 @@ class ThermalUnitOrders:
                 Q += min_p
 
                 # Check the existence of flexible bids to be linked by a parent-child coupling
-                config_bid_name = f"_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}"
+                config_bid_name = f"_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}_exec_{ed.hour}"
                 for flex_type in flexible_types:
                     flexible_bid = orders_by_name.get(flex_type + config_bid_name)
                     if flexible_bid is not None:
                         # Add parent-children link between the flexible and inflexible parts
                         couplings.append(
                             OrderCouplingDAO(
-                                name=f"parent_children_inflexible_flexible_orders_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
+                                name=f"parent_children_inflexible_flexible_orders_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}_exec_{ed.hour}",
                                 coupling_type=CouplingType.PARENT_CHILDREN,
                                 orders=[bid_output, flexible_bid],
                             )
@@ -497,7 +497,7 @@ class ThermalUnitOrders:
             date = pendulum.DateTime.instance(inflexible_time_frame[0])
             couplings.append(
                 OrderCouplingDAO(
-                    name=f"identical_ratio_inflexible_orders_for_unit_{unit.name}_starting_at_{date.format('DD_MM_YYYY_HH_mm_ss')}{scenario_suffix}",
+                    name=f"identical_ratio_inflexible_orders_for_unit_{unit.name}_starting_at_{date.format('DD_MM_YYYY_HH_mm_ss')}{scenario_suffix}_exec_{ed.hour}",
                     coupling_type=CouplingType.IDENTICAL_RATIO,
                     orders=inflexible_orders,  # type: ignore [arg-type]
                 )
