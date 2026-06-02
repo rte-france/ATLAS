@@ -27,12 +27,13 @@ from atlas.modules.antares_to_atlas.models.storage import (
     merge_open_and_closed_phs,
 )
 from atlas.modules.antares_to_atlas.models.thermal import add_nuclear_modulation, convert_mixed_fuel_units
-from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters, ConvertersTags
 
 
 class BatteryConverterBP23(Converter):
     name = "battery"
     description = "Battery Storage Conversion"
+    tags = [ConvertersTags.BATTERY]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_battery_units(study, parameters, atlas_dataset)
@@ -41,6 +42,7 @@ class BatteryConverterBP23(Converter):
 class ElectricVehicleConverterBP23(Converter):
     name = "electric_vehicle"
     description = "Electric Vehicle Conversion (standard)"
+    tags = [ConvertersTags.STORAGE]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_electric_vehicle_units(study, parameters, atlas_dataset)
@@ -50,6 +52,7 @@ class ElectricVehicleFRConverterBP23(Converter):
     name = "electric_vehicle_fr"
     description = "Electric Vehicle Conversion (France)"
     required_market_areas = ["fr"]
+    tags = [ConvertersTags.STORAGE]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_electric_vehicle_fr_units(study, parameters, atlas_dataset)
@@ -58,6 +61,7 @@ class ElectricVehicleFRConverterBP23(Converter):
 class PHSClosedConverterBP23(Converter):
     name = "phs_closed"
     description = "Closed-loop Pumped Hydro Storage Conversion"
+    tags = [ConvertersTags.STORAGE, ConvertersTags.HYDRO]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_phs_closed_units(study, parameters, atlas_dataset)
@@ -66,6 +70,7 @@ class PHSClosedConverterBP23(Converter):
 class PHSOpenConverterBP23(Converter):
     name = "phs_open"
     description = "Open-loop Pumped Hydro Storage Conversion (non-FR)"
+    tags = [ConvertersTags.STORAGE, ConvertersTags.HYDRO]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_phs_open_units(study, parameters, atlas_dataset)
@@ -75,6 +80,7 @@ class PHSOpenFRConverterBP23(Converter):
     name = "phs_open_fr"
     description = "Open-loop Pumped Hydro Storage Conversion (France)"
     required_market_areas = ["fr"]
+    tags = [ConvertersTags.STORAGE, ConvertersTags.HYDRO]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_phs_open_fr(study, parameters, atlas_dataset)
@@ -83,6 +89,7 @@ class PHSOpenFRConverterBP23(Converter):
 class PHSFusionConverterBP23(Converter):
     name = "phs_fusion"
     description = "Merge open and closed PHS equipment by node"
+    tags = [ConvertersTags.STORAGE, ConvertersTags.HYDRO]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         closed_list: list[str] = []
@@ -98,6 +105,7 @@ class PHSFusionConverterBP23(Converter):
 class MixedFuelConverterBP23(Converter):
     name = "mixed_fuel"
     description = "Mixed Fuel Conversion"
+    tags = [ConvertersTags.THERMAL]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_mixed_fuel_units(study, parameters, atlas_dataset)
@@ -106,6 +114,7 @@ class MixedFuelConverterBP23(Converter):
 class ParticularMidConverterBP23(Converter):
     name = "particular_mid_units"
     description = "Specific Gas Units Conversion (mid)"
+    tags = [ConvertersTags.THERMAL]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_pcomp_mid_units(study, parameters, atlas_dataset)
@@ -114,6 +123,7 @@ class ParticularMidConverterBP23(Converter):
 class ParticularPeakConverterBP23(Converter):
     name = "particular_peak_units"
     description = "Specific Gas Units Conversion (peak)"
+    tags = [ConvertersTags.THERMAL]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_pcomp_peak_units(study, parameters, atlas_dataset)
@@ -122,6 +132,7 @@ class ParticularPeakConverterBP23(Converter):
 class P2GConverterBP23(Converter):
     name = "p2g"
     description = "Power To Gas Conversion"
+    tags = [ConvertersTags.P2G]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_p2g_units(study, parameters, atlas_dataset)
@@ -130,6 +141,7 @@ class P2GConverterBP23(Converter):
 class MultiEnergyConverterBP23(Converter):
     name = "multi_energy"
     description = "Multi-Energy Variable Cost Update"
+    tags = [ConvertersTags.MULTI_ENERGY]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return update_variable_cost_for_gas_units(study, parameters, atlas_dataset)
@@ -138,6 +150,7 @@ class MultiEnergyConverterBP23(Converter):
 class DSRConverterBP23(Converter):
     name = "dsr"
     description = "Demand-Side Response Conversion (other countries)"
+    tags = [ConvertersTags.DEMAND]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_dsr_other_units(study, parameters, atlas_dataset)
@@ -147,6 +160,7 @@ class DSRFRConverterBP23(Converter):
     name = "dsr_fr"
     description = "Demand-Side Response Conversion (France)"
     required_market_areas = ["fr"]
+    tags = [ConvertersTags.DEMAND]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return convert_dsr_fr_units(study, parameters, atlas_dataset)
@@ -155,6 +169,7 @@ class DSRFRConverterBP23(Converter):
 class WaterValueConverterBP23(Converter):
     name = "water_value"
     description = "Water Value Computation"
+    tags = [ConvertersTags.HYDRO]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return compute_water_values(study, parameters, atlas_dataset)
@@ -163,6 +178,7 @@ class WaterValueConverterBP23(Converter):
 class InitialLevelConverterBP23(Converter):
     name = "initial_level"
     description = "Initial Storage Level Configuration"
+    tags = [ConvertersTags.STORAGE, ConvertersTags.HYDRO]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return compute_initial_levels(study, parameters, atlas_dataset)
@@ -172,6 +188,7 @@ class NuclearModulationConverterBP23(Converter):
     name = "nuclear_modulation"
     description = "Nuclear Modulation (France)"
     required_market_areas = ["fr"]
+    tags = [ConvertersTags.THERMAL]
 
     def convert(self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
         return add_nuclear_modulation(study, parameters, atlas_dataset)

@@ -12,7 +12,7 @@ from antares.craft.model.study import Study
 from loguru import logger
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters, ConvertersTags
 
 
 class Converter(ABC):
@@ -26,6 +26,7 @@ class Converter(ABC):
     Converters can be configured with:
     - supported_versions: List of supported Antares versions (empty means all)
     - required_market_areas: Market areas that must be present for this converter to run
+    - tags: Category labels used for tag-based filtering (e.g. ``["renewable"]``, ``["hydro", "storage"]``)
     """
 
     name: ClassVar[str]
@@ -34,6 +35,7 @@ class Converter(ABC):
     # Class-level configuration
     supported_versions: list[str] = []  # Empty means all versions
     required_market_areas: list[str] = []  # Empty means no requirement
+    tags: list[ConvertersTags] = []  # Category labels for tag-based filtering
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -75,8 +77,15 @@ class Converter(ABC):
             if self.name not in parameters.conversion_steps:
                 return False
 
+        # Check tag filters (only_tags / skip_tags)
+        if parameters.only_tags and not any(tag in parameters.only_tags for tag in self.tags):
+            return False
+        if parameters.skip_tags and any(tag in parameters.skip_tags for tag in self.tags):
+            return False
+
         # Check required market areas
-        if self.required_market_areas:
+        # When market_areas="all", every area is implicitly present
+        if self.required_market_areas and parameters.market_areas != "all":
             missing_areas = set(self.required_market_areas) - set(parameters.market_areas)
             if missing_areas:
                 logger.debug(f"Skipping {self.name}: required market areas {missing_areas} not present")

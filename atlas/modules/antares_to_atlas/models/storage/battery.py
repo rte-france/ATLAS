@@ -128,7 +128,7 @@ def _create_battery(
         minimum_state_of_charge=minimum_soc_ts,
         charge_efficiency=props.efficiency,
         discharge_efficiency=1.0,
-        storage_initial_level=parameters.storage.battery_initial_level,
+        storage_initial_level=parameters.storage.get_battery_initial_level(area_id),
         transition_duration=duration(hours=0),
         additional_hours=duration(days=2),
         is_v2g=False,

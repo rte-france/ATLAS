@@ -5,9 +5,11 @@ This file is part of the ATLAS project.
 Parameters for Antares to Atlas conversion module.
 """
 
+from enum import Enum
 from pathlib import Path
 from typing import Literal
 
+import yaml
 from pendulum import Duration, duration
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
@@ -16,6 +18,23 @@ from typing_extensions import Self
 from atlas.enums import ThermalStrategy
 from atlas.io_utils.parameters import Parameters
 from atlas.validators import convert_to_duration
+
+
+class HypothesisEnum(Enum):
+    BP23 = "BP23"
+
+
+class ConvertersTags(Enum):
+    LOAD = "load"
+    MULTI_ENERGY = "multi_energy"
+    RENEWABLE = "renewable"
+    STORAGE = "storage"
+    HYDRO = "hydro"
+    THERMAL = "thermal"
+    DEMAND = "demand"
+    P2G = "p2g"
+    BATTERY = "battery"
+    SYSTEM = "system"
 
 
 class ThermalTechnologyConfig(BaseModel):
@@ -192,15 +211,33 @@ class DsrParameters(BaseModel):
 
 
 class StorageParameters(BaseModel):
-    battery_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="Battery initial level")
-    ev_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="EV initial level")
-    phs_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="PHS initial level")
+    battery_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="Battery initial level (default)")
+    battery_initial_level_by_area: dict[str, float] = Field(
+        default_factory=dict, description="Per-area battery initial level overrides"
+    )
+    ev_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="EV initial level (default)")
+    ev_initial_level_by_area: dict[str, float] = Field(
+        default_factory=dict, description="Per-area EV initial level overrides"
+    )
+    phs_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="PHS initial level (default)")
+    phs_initial_level_by_area: dict[str, float] = Field(
+        default_factory=dict, description="Per-area PHS initial level overrides"
+    )
     battery_normal_link: str = Field(
         default="z_batteries", description="Antares link name for normal batteries virtual node"
     )
     battery_pcomp_link: str = Field(
         default="z_batteries_pcomp", description="Antares link name for PCOMP batteries virtual node"
     )
+
+    def get_battery_initial_level(self, area: str) -> float:
+        return self.battery_initial_level_by_area.get(area, self.battery_initial_level)
+
+    def get_ev_initial_level(self, area: str) -> float:
+        return self.ev_initial_level_by_area.get(area, self.ev_initial_level)
+
+    def get_phs_initial_level(self, area: str) -> float:
+        return self.phs_initial_level_by_area.get(area, self.phs_initial_level)
 
 
 class ResParameters(BaseModel):
@@ -322,6 +359,10 @@ class HydroParameters(BaseModel):
 
     # Per-node data
     reservoirs: dict[str, HydroReservoirConfig] = Field(default_factory=_default_reservoirs)
+    reservoirs_file: Path | None = Field(
+        default=None,
+        description="YAML file with per-area reservoir overrides (merged on top of built-in defaults)",
+    )
     fragments: dict[str, HydroFragmentConfig] = Field(default_factory=_default_fragments)
 
     def get_reservoir(self, node: str) -> HydroReservoirConfig | None:
@@ -343,6 +384,15 @@ class HydroParameters(BaseModel):
             p = Path(self.path_inflows)
             if not p.exists() or not p.is_dir():
                 raise ValueError(f"path_inflows: Directory not found at {self.path_inflows}")
+        if self.reservoirs_file is not None:
+            if not self.reservoirs_file.exists():
+                raise ValueError(f"reservoirs_file: File not found at {self.reservoirs_file}")
+            with open(self.reservoirs_file) as f:
+                data = yaml.safe_load(f)
+            if not isinstance(data, dict):
+                raise ValueError("reservoirs_file must contain a YAML mapping of area -> reservoir config")
+            for area, values in data.items():
+                self.reservoirs[area] = HydroReservoirConfig.model_validate(values)
         return self
 
 
@@ -356,11 +406,17 @@ class AntaresToAtlasParameters(Parameters):
     # Version and hypothesis
     start_date: DateTime
     execution_date: DateTime
-    hypothesis: str | None = Field(None, description="Hypothesis identifier (e.g., 'BP23', 'BP24')")
+    hypothesis: HypothesisEnum | None = Field(None, description="Hypothesis identifier (e.g., 'BP23', 'BP24')")
     output_name: str
 
     # Data selection
-    market_areas: list[str] = Field(description="List of market areas to convert")
+    market_areas: list[str] | Literal["all"] = Field(
+        description="Market areas to convert — explicit list or 'all' to include every area in the study"
+    )
+    excluded_market_areas: list[str] = Field(
+        default_factory=list,
+        description="Areas to exclude when market_areas='all'",
+    )
     scenario: int = Field(
         1,
         description=" Name of the Monte-Carlo scenario. This number must match the name of the MC year that should be converted from Antares",
@@ -388,24 +444,24 @@ class AntaresToAtlasParameters(Parameters):
     consumption_production_separation: bool = Field(
         default=False, description="Separate consumption and production portfolios"
     )
-    use_multi_energy: bool = Field(default=False, description="Enable multi-energy modeling")
 
     # Conversion control
     conversion_steps: list[str] = Field(default_factory=list, description="Specific steps to execute (empty = all)")
+    skip_tags: list[ConvertersTags] = Field(
+        default_factory=list,
+        description="Skip converters whose tags intersect this list (e.g. ['storage', 'hydro'])",
+    )
+    only_tags: list[ConvertersTags] = Field(
+        default_factory=list,
+        description="Only run converters whose tags intersect this list (empty = no restriction)",
+    )
 
-    @field_validator("hypothesis")
+    @field_validator("market_areas", mode="before")
     @classmethod
-    def uppercase_hypothesis(cls, v: str | None) -> str | None:
-        """Convert hypothesis to uppercase."""
-        if v is not None:
-            return v.upper()
-        return v
-
-    @field_validator("market_areas")
-    @classmethod
-    def validate_market_areas(cls, v: list[str]) -> list[str]:
-        """Validate that market areas list is not empty."""
-        if not v:
+    def validate_market_areas(cls, v: object) -> object:
+        if v == "all":
+            return "all"
+        if isinstance(v, list) and not v:
             raise ValueError("market_areas cannot be empty")
         return v
 

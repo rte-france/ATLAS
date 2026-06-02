@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from antares.craft import read_study_local
+from antares.craft.model.study import Study
 from loguru import logger
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
@@ -124,8 +125,9 @@ class AntaresToAtlas:
         for converter in standard_converters:
             registry.register(converter)
 
-        if self.parameters.hypothesis == "BP23":
-            self._register_bp23_converters(registry)
+        if self.parameters.hypothesis is not None:
+            if self.parameters.hypothesis == "BP23":
+                self._register_bp23_converters(registry)
 
         return registry
 
@@ -157,6 +159,25 @@ class AntaresToAtlas:
         for converter in bp23_converters:
             registry.register(converter)
 
+    def _resolve_parameters(self, study: Study) -> AntaresToAtlasParameters:
+        """Resolve dynamic parameter values that require the loaded study.
+
+        Expands ``market_areas='all'`` to the full list of areas from the study,
+        minus any areas listed in ``excluded_market_areas``.
+
+        :param study: Loaded Antares study
+        :type study: Study
+        :return: Parameters with concrete market_areas list
+        :rtype: AntaresToAtlasParameters
+        """
+        if self.parameters.market_areas != "all":
+            return self.parameters
+
+        excluded = set(self.parameters.excluded_market_areas)
+        resolved = [area for area in study.get_areas() if area not in excluded]
+        logger.info(f"Resolved market_areas='all' to {len(resolved)} areas: {resolved}")
+        return self.parameters.model_copy(update={"market_areas": resolved})
+
     def convert(self, study_path: str | Path) -> AtlasDataset:
         """Execute the conversion process.
 
@@ -172,7 +193,8 @@ class AntaresToAtlas:
         study = read_study_local(study_path)
         logger.info(f"Study loaded: {study.name}")
 
-        results = self.registry.execute_all(study, self.parameters, AtlasDataset())
+        parameters = self._resolve_parameters(study)
+        results = self.registry.execute_all(study, parameters, AtlasDataset())
 
         logger.info("Conversion completed successfully")
 

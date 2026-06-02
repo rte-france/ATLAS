@@ -228,7 +228,7 @@ def _convert_standard_evs(
             ),
             charge_efficiency=charge_efficiency,
             discharge_efficiency=discharge_efficiency,
-            storage_initial_level=parameters.storage.ev_initial_level,
+            storage_initial_level=parameters.storage.get_ev_initial_level(area_name),
             displacement_energy=displacement_energy_ts,
         )
         ev_units.append(ev)
@@ -384,7 +384,7 @@ def _convert_france_evs(
         ),
         charge_efficiency=charge_efficiency,
         discharge_efficiency=discharge_efficiency,
-        storage_initial_level=parameters.storage.ev_initial_level,
+        storage_initial_level=parameters.storage.get_ev_initial_level("fr"),
         displacement_energy=night_disp_ts,
     )
     ev_units.append(night_ev)
@@ -416,7 +416,7 @@ def _convert_france_evs(
         ),
         charge_efficiency=charge_efficiency,
         discharge_efficiency=discharge_efficiency,
-        storage_initial_level=parameters.storage.ev_initial_level,
+        storage_initial_level=parameters.storage.get_ev_initial_level("fr"),
         displacement_energy=regular_disp_ts,
     )
     ev_units.append(regular_ev)
