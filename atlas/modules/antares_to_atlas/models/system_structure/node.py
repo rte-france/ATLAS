@@ -8,7 +8,6 @@ Node, MarketArea, Portfolio and ControlBlock conversion.
 from antares.craft import Frequency, MCIndAreasDataType
 from antares.craft.model.study import Study
 from loguru import logger
-from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
@@ -57,7 +56,7 @@ def convert_system_structure(
         logger.debug(f"Processing area: {area.id}")
 
         # Create Control Block
-        ctrl_block = ControlBlock(name=area_name)
+        ctrl_block = ControlBlock(name=area_name, volume_uncertainty=False)
 
         try:
             marginal_price = study_output.get_mc_ind_area(
@@ -82,14 +81,14 @@ def convert_system_structure(
             ),
             minimum_price=Timeseries.from_index(
                 parameters.start_date,
-                frequency="1h",
-                end_date=parameters.start_date + duration(years=1),
+                frequency="1y",
+                end_date=parameters.start_date.add(years=1),
                 default_value=parameters.minimum_price,
             ),
             maximum_price=Timeseries.from_index(
                 parameters.start_date,
-                frequency="1h",
-                end_date=parameters.start_date + duration(years=1),
+                frequency="1y",
+                end_date=parameters.start_date.add(years=1),
                 default_value=parameters.maximum_price,
             ),
         )

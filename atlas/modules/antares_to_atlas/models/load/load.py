@@ -9,6 +9,8 @@ from loguru import logger
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.modules.antares_to_atlas.utils import get_portfolio
+import pendulum
+from atlas.enums import LoadType
 from atlas.objects.equipment.load import Load
 
 
@@ -29,9 +31,18 @@ def convert_load_units(study: Study, parameters: AntaresToAtlasParameters, atlas
 
         if scenario:
             load = Load(
-                name=f"{area_name}_load",
+                name=f"{area_name}_l",
                 node=atlas_dataset.get("node", area_name),
                 portfolio=get_portfolio(atlas_dataset, parameters, area_name, role="supplier"),
+                load_type=LoadType.BASE_LOAD,
+                co2_emission_factor=0.0,
+                has_daily_energy_constraint=False,
+                maximum_afrr=0.0,
+                maximum_fcr=0.0,
+                maximum_gradient=0.0,
+                setup_delay=0.0,
+                unit_count=0,
+                additional_hours=pendulum.duration(),
             )
             logger.debug(f"Created load unit : {load.name}")
             loads.append(load)
