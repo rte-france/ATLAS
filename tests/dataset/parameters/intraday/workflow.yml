@@ -6,10 +6,10 @@ steps:
   - module: IntradayPriceForecast
     parameters_path: tests/dataset/parameters/intraday/intraday_price_forecast.yml
   - module: PortfolioOptimisation
-    parameters_path: tests/dataset/parameters/intraday/intraday_po1.yml
+    parameters_path: tests/dataset/parameters/intraday/portfolio_optimisation_1.yml
   - module: IntradayOrders
     parameters_path: tests/dataset/parameters/intraday/intraday_orders.yml
   - module: MarketClearing
     parameters_path: tests/dataset/parameters/intraday/intraday_clearing.yml
   - module: PortfolioOptimisation
-    parameters_path: tests/dataset/parameters/intraday/intraday_po2.yml
+    parameters_path: tests/dataset/parameters/intraday/portfolio_optimisation_2.yml
