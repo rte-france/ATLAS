@@ -151,23 +151,6 @@ class ThermalParameters(BaseModel):
         return getattr(self, key, None)
 
 
-class Co2EmissionFactors(BaseModel):
-    nuclear: float = Field(default=0.0, description="Nuclear CO2 emission factor (tCO2/MWh)")
-    lignite: float = Field(default=0.0, description="Lignite CO2 emission factor (tCO2/MWh)")
-    hard_coal: float = Field(default=0.0, description="Hard coal CO2 emission factor (tCO2/MWh)")
-    gas: float = Field(default=0.0, description="Gas CO2 emission factor (tCO2/MWh)")
-    oil: float = Field(default=0.0, description="Oil CO2 emission factor (tCO2/MWh)")
-    mixed_fuel: float = Field(default=0.0, description="Mixed fuel CO2 emission factor (tCO2/MWh)")
-    other_1: float = Field(default=0.0, description="Other 1 CO2 emission factor (tCO2/MWh)")
-    other_2: float = Field(default=0.0, description="Other 2 CO2 emission factor (tCO2/MWh)")
-    other_3: float = Field(default=0.0, description="Other 3 CO2 emission factor (tCO2/MWh)")
-    other_4: float = Field(default=0.0, description="Other 4 CO2 emission factor (tCO2/MWh)")
-
-    def get(self, group: str) -> float | None:
-        key = group.lower().replace(" ", "_")
-        return getattr(self, key, None)
-
-
 class DsrTypeConfig(BaseModel):
     name: str
     bc_name: str | None = None
@@ -398,9 +381,6 @@ class AntaresToAtlasParameters(Parameters):
     )
     baseline_displacement_energy: Path | None = Field(default=None, description="Baseline displacement energy file")
     disp_energy_node_parameters: Path | None = Field(default=None, description="Displacement energy node parameters")
-    co2_emission_factors: Co2EmissionFactors = Field(
-        default_factory=Co2EmissionFactors, description="Per-technology CO2 emission factors (tCO2/MWh)"
-    )
     dsr: DsrParameters = Field(default_factory=DsrParameters, description="DSR unit configurations")
     output: OutputParameters = Field(default_factory=OutputParameters, description="MC output column names")
 

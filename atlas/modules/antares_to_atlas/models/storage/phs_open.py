@@ -102,7 +102,10 @@ def _create_open_phs(
         logger.debug(f"Skipping open PHS {storage.id} in {area.id}: zero reservoir capacity")
         return None
 
-    mapping_mc_ts = study.get_output(parameters.output_name).get_st_storage_inflows_numbers(area.id, storage.id)
+    try:
+        mapping_mc_ts = study.get_output(parameters.output_name).get_st_storage_inflows_numbers(area.id, storage.id)
+    except Exception:
+        mapping_mc_ts = {}
     scenario_ts = mapping_mc_ts.get(parameters.scenario)
 
     inj_ts, wdr_ts = get_power_bounds(storage=storage, scenario=scenario_ts, parameters=parameters)
@@ -125,7 +128,7 @@ def _create_open_phs(
     actual_power = _get_sts_actual_power(storage, area, study, parameters)
     phs_power_fm: ForecastingMatrix | None = None
 
-    if actual_power is not None:
+    if actual_power is not None and scenario_ts is not None:
         actual_inj_ts, actual_wdr_ts = actual_power
         # positive = turbining, negative = pumping
         raw_power_ts = actual_wdr_ts - actual_inj_ts
@@ -137,7 +140,7 @@ def _create_open_phs(
     # --- Update hydro equipment with the open part ---
     hydro = cast(Hydro | None, atlas_dataset.get("hydro", f"{area.id}_hydro"))
 
-    if hydro is not None:
+    if hydro is not None and scenario_ts is not None:
         hydro.maximum_power = (
             hydro.maximum_power + closed_delta_ts if hydro.maximum_power is not None else closed_delta_ts
         )
@@ -146,7 +149,7 @@ def _create_open_phs(
         )
         _update_hydro_inflows_from_phs_csv(area.id, storage, hydro, mapping_mc_ts, parameters)
 
-        if actual_power is not None:
+        if actual_power is not None and scenario_ts is not None:
             hydro_power_ts = positive_power_ts * closed_ratio_ts
             if hydro.power is None:
                 hydro.power = ForecastingMatrix().add(hydro_power_ts, parameters.execution_date)
@@ -167,10 +170,12 @@ def _create_open_phs(
             )
     else:
         logger.debug(f"No hydro '{area.id}_hydro' found; open part of PHS will not be added to hydro.")
+        _end_date = parameters.start_date + duration(years=1)
+        _days_in_year = (_end_date - parameters.start_date).days
         phs_max_energy_ts = Timeseries.from_index(
             start_date=parameters.start_date,
-            frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
+            frequency=f"{_days_in_year}d",
+            end_date=_end_date,
             default_value=props.reservoir_capacity,
         )
 
@@ -318,11 +323,14 @@ def convert_phs_open_fr(
     if "fr" not in areas:
         return atlas_dataset
 
-    scenario = (
-        study.get_output(parameters.output_name)
-        .get_link_ts_numbers("fr", "fr_x_open_turb")
-        .get(parameters.scenario, None)
-    )
+    try:
+        scenario = (
+            study.get_output(parameters.output_name)
+            .get_link_ts_numbers("fr", "fr_x_open_turb")
+            .get(parameters.scenario, None)
+        )
+    except Exception:
+        scenario = None
     if scenario is None:
         return atlas_dataset
 
@@ -357,6 +365,9 @@ def convert_phs_open_fr(
         logger.warning(f"Could not get power transit for FR open PHS: {e}")
         power_fm = None
 
+    end_date = parameters.start_date + duration(years=1)
+    days_in_year = (end_date - parameters.start_date).days
+
     phs = Storage(
         name="fr_phs_open",
         node=atlas_dataset.get("node", "fr"),
@@ -366,14 +377,14 @@ def convert_phs_open_fr(
         minimum_power=minimum_power_ts,
         maximum_energy=Timeseries.from_index(
             start_date=parameters.start_date,
-            frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
+            frequency=f"{days_in_year}d",
+            end_date=end_date,
             default_value=float(fr_reservoir.open_loop_capacity),
         ),
         minimum_state_of_charge=Timeseries.from_index(
             start_date=parameters.start_date,
-            frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
+            frequency=f"{days_in_year}d",
+            end_date=end_date,
             default_value=0.0,
         ),
         charge_efficiency=charge_efficiency,

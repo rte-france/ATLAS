@@ -13,7 +13,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-from atlas.modules.antares_to_atlas.utils import get_co2_factor, get_maximum_power, get_portfolio, get_variable_cost
+from atlas.modules.antares_to_atlas.utils import get_maximum_power, get_portfolio, get_variable_cost
 from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.objects.equipment.thermal import Thermal
 
@@ -196,7 +196,7 @@ def _process_classic_mixed_fuel(
             end_date=parameters.start_date + duration(years=1),
             default_value=thermal.properties.startup_cost,
         ),
-        co2_emission_factor=get_co2_factor(thermal, techno, parameters),
+        co2_emission_factor=thermal.properties.co2,
         outage_mean_duration=duration(hours=thermal.get_prepro_data_matrix()[0].mean()),  # FODuration
         scheduled_shutdown_mean_duration=duration(hours=thermal.get_prepro_data_matrix()[1].mean()),  # PODuration
         outage_probability=thermal.get_prepro_data_matrix()[2].mean(),  # FORate

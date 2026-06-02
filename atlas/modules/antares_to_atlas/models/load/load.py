@@ -3,14 +3,14 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+import pendulum
 from antares.craft.model.study import Study
 from loguru import logger
 
+from atlas.enums import LoadType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.modules.antares_to_atlas.utils import get_portfolio
-import pendulum
-from atlas.enums import LoadType
 from atlas.objects.equipment.load import Load
 
 

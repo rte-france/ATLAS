@@ -42,17 +42,19 @@ def get_power_bounds(
         except Exception as e:
             logger.warning(f"Could not get pmax timeseries for {storage.id}: {e}, falling back to nominal capacity")
 
+    end_date = parameters.start_date + duration(years=1)
+    days_in_year = (end_date - parameters.start_date).days
     return (
         Timeseries.from_index(
             start_date=parameters.start_date,
-            frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
+            frequency=f"{days_in_year}d",
+            end_date=end_date,
             default_value=props.injection_nominal_capacity,
         ),
         Timeseries.from_index(
             start_date=parameters.start_date,
-            frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
+            frequency=f"{days_in_year}d",
+            end_date=end_date,
             default_value=props.withdrawal_nominal_capacity,
         ),
     )
@@ -79,9 +81,11 @@ def get_minimum_soc(
         except Exception as e:
             logger.warning(f"Could not get lower rule curve for {storage.id}: {e}, defaulting to 0")
 
+    end_date = parameters.start_date + duration(years=1)
+    days_in_year = (end_date - parameters.start_date).days
     return Timeseries.from_index(
         start_date=parameters.start_date,
-        frequency="1h",
-        end_date=parameters.start_date + duration(years=1),
+        frequency=f"{days_in_year}d",
+        end_date=end_date,
         default_value=0.0,
     )

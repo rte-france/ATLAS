@@ -94,7 +94,6 @@ def convert_system_structure(
         )
         market_areas.append(market_area)
 
-        # Create Node
         node = Node(
             name=area_name,
             control_block=ctrl_block,
@@ -102,7 +101,6 @@ def convert_system_structure(
         )
         nodes.append(node)
 
-        # Create Portfolio(s)
         if parameters.consumption_production_separation:
             logger.debug(f"  Creating separate producer/consumer portfolios for {area_name}")
 

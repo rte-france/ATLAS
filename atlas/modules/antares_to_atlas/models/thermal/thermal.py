@@ -13,7 +13,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.container import Container
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-from atlas.modules.antares_to_atlas.utils import get_co2_factor, get_maximum_power, get_portfolio, get_variable_cost
+from atlas.modules.antares_to_atlas.utils import get_maximum_power, get_portfolio, get_variable_cost
 from atlas.objects.equipment.thermal import Thermal
 
 
@@ -85,6 +85,9 @@ def _convert_single_thermal(
         logger.warning(f"No thermal config for group '{thermal_group}', skipping {thermal_name}")
         return None
 
+    end_date = parameters.start_date + duration(years=1)
+    days_in_year = (end_date - parameters.start_date).days
+
     equipment = Thermal(
         name=thermal_name,
         node=atlas_dataset.get("node", area.id),
@@ -93,19 +96,22 @@ def _convert_single_thermal(
         maximum_power=maximum_power_ts,
         minimum_power=Timeseries.from_index(
             start_date=parameters.start_date,
-            frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
+            frequency=f"{days_in_year}d",
+            end_date=end_date,
             default_value=thermal.properties.min_stable_power,
         ),
         installed_capacity=installed_capacity,
         variable_cost=get_variable_cost(thermal, parameters),
         startup_cost=Timeseries.from_index(
             start_date=parameters.start_date,
-            frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
+            frequency=f"{days_in_year}d",
+            end_date=end_date,
             default_value=thermal.properties.startup_cost,
         ),
-        co2_emission_factor=get_co2_factor(thermal, thermal_group, parameters),
+        additional_hours=duration(hours=12),
+        maximum_afrr=0.0,
+        maximum_fcr=0.0,
+        co2_emission_factor=thermal.properties.co2,
         outage_mean_duration=duration(hours=thermal.get_prepro_data_matrix()[0].mean()),  # FODuration
         scheduled_shutdown_mean_duration=duration(hours=thermal.get_prepro_data_matrix()[1].mean()),  # PODuration
         outage_probability=thermal.get_prepro_data_matrix()[2].mean(),  # FORate

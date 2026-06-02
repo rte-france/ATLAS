@@ -181,7 +181,9 @@ def antares_run(
     study_path: Path = typer.Argument(help="Path to the Antares study directory"),
     parameters_file: Path = typer.Option(..., "--parameters", "-p", help="Parameters YAML file"),
     output: Path = typer.Option(..., "--output", "-o", help="Directory to write the converted AtlasDataset"),
-    fmt: str = typer.Option("parquet", "--format", "-f", help=f"Output format: {', '.join(_VALID_FORMATS)}"),
+    fmt: Literal["csv", "parquet", "pickle"] = typer.Option(
+        "parquet", "--format", "-f", help=f"Output timeseries and matrices format: {', '.join(_VALID_FORMATS)}"
+    ),
 ) -> None:
     """Convert an Antares study to Atlas dataset format.
 
@@ -222,8 +224,8 @@ def antares_run(
     try:
         dataset.to_directory(
             output,
-            timeseries_file_extension=cast(Literal["csv", "parquet", "pickle"], fmt),
-            matrix_file_extension=cast(Literal["csv", "parquet", "pickle"], fmt),
+            timeseries_file_extension=fmt,
+            matrix_file_extension=fmt,
         )
         rprint(f"[bold green]✓[/bold green] Dataset written to: {output}")
     except Exception as e:

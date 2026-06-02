@@ -146,26 +146,6 @@ def get_variable_cost(thermal: ThermalCluster, parameters: AntaresToAtlasParamet
         )
 
 
-def get_co2_factor(
-    thermal: ThermalCluster,
-    thermal_group: str,
-    parameters: AntaresToAtlasParameters,
-) -> float | None:
-    """Get CO2 emission factor.
-
-    Uses antares CO2 field if non-zero, otherwise looks up by group from
-    parameters.co2_emission_factors.
-    """
-    co2_value = thermal.properties.co2
-    if co2_value != 0.0:
-        return co2_value
-
-    factor = parameters.co2_emission_factors.get(thermal_group)
-    if factor is None:
-        logger.warning(f"Thermal {thermal.name}: group '{thermal_group}' has no CO2 factor configured.")
-    return factor
-
-
 def get_marginal_price(
     study: Study,
     node_name: str,

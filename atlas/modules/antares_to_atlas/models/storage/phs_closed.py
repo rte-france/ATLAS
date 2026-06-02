@@ -82,11 +82,14 @@ def _create_closed_phs(
         logger.debug(f"Skipping closed PHS {storage.id} in {area_id}: zero reservoir capacity")
         return None
 
-    scenario = (
-        study.get_output(parameters.output_name)
-        .get_st_storage_inflows_numbers(area_id, storage.id)
-        .get(parameters.scenario, None)
-    )
+    try:
+        scenario = (
+            study.get_output(parameters.output_name)
+            .get_st_storage_inflows_numbers(area_id, storage.id)
+            .get(parameters.scenario, None)
+        )
+    except Exception:
+        scenario = None
 
     maximum_injection_power_ts, maximum_withdrawal_power_ts = get_power_bounds(
         storage=storage, scenario=scenario, parameters=parameters
@@ -95,16 +98,15 @@ def _create_closed_phs(
     minimum_soc_ts = get_minimum_soc(storage=storage, scenario=scenario, parameters=parameters)
 
     return Storage(
-        name=f"{area_id}_phs",
+        name=storage.id,
         node=atlas_dataset.get("node", area_id),
         portfolio=get_portfolio(atlas_dataset, parameters, area_id),
         storage_type=StorageType.PUMPED_HYDRAULIC_STORAGE,
-        # In Antares: injection = power from grid to storage (charge), withdrawal = power from storage to grid (discharge)
-        minimum_power=-maximum_injection_power_ts,
+        minimum_power=maximum_injection_power_ts * (-1),
         maximum_power=maximum_withdrawal_power_ts,
         maximum_energy=Timeseries.from_index(
             start_date=parameters.start_date,
-            frequency="1h",
+            frequency="1d",
             end_date=parameters.start_date + duration(years=1),
             default_value=props.reservoir_capacity,
         ),
@@ -113,4 +115,13 @@ def _create_closed_phs(
         discharge_efficiency=1.0,
         storage_initial_level=parameters.storage.phs_initial_level,
         transition_duration=duration(hours=0),
+        additional_hours=duration(days=6),
+        is_v2g=False,
+        co2_emission_factor=0.0,
+        has_daily_energy_constraint=False,
+        maximum_afrr=0.0,
+        maximum_fcr=0.0,
+        maximum_gradient=0.0,
+        setup_delay=0.0,
+        unit_count=0,
     )

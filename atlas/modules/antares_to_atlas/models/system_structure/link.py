@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 from antares.craft.model.study import Study
 from loguru import logger
 
+from atlas.enums import CouplingType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
@@ -36,11 +37,14 @@ def convert_links(study: Study, parameters: AntaresToAtlasParameters, atlas_data
 
         market_borders.append(
             MarketBorder(
-                name=link_name,
+                name=link_name.replace(" / ", "_"),
                 uphill_market_area=node_1,
                 downhill_market_area=node_2,
                 uphill_control_block=ctrl_block_1,
                 downhill_control_block=ctrl_block_2,
+                coupling_type=CouplingType.ATC,
+                loss_factor=0.0,
+                time_resolution=0.0,
                 maximum_flow=Timeseries.from_values(
                     parameters.start_date, frequency="1h", values=link.get_capacity_direct()[0].to_list()
                 ),

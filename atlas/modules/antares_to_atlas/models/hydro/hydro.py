@@ -88,25 +88,25 @@ def _create_hydraulic_equipment(
         maximum_power=maximum_power_ts,
         minimum_power=Timeseries.from_index(
             start_date=parameters.start_date,
-            frequency="1h",
+            frequency="1d",
             end_date=parameters.start_date + duration(years=1),
             default_value=0.0,
         ),
         maximum_energy=Timeseries.from_index(
             start_date=parameters.start_date,
-            frequency="1h",
+            frequency="1d",
             end_date=parameters.start_date + duration(years=1),
             default_value=area.hydro.properties.reservoir_capacity,
         ),
         minimum_energy=Timeseries.from_index(
             start_date=parameters.start_date,
-            frequency="1h",
+            frequency="1d",
             end_date=parameters.start_date + duration(years=1),
             default_value=0.0,
         ),
         energy_target_frequency=InflowFrequency.Daily,
         inflow_frequency=InflowFrequency.Daily,
-        has_daily_energy_constraint=True,
+        has_daily_energy_constraint=False,
         minimum_daily_energy=Timeseries.from_index(
             start_date=parameters.start_date,
             frequency="1d",
@@ -121,6 +121,13 @@ def _create_hydraulic_equipment(
         ),
         fragment_prices=fragment.prices,
         fragment_volumes=fragment.volumes,
+        co2_emission_factor=0.0,
+        maximum_afrr=0.0,
+        maximum_fcr=0.0,
+        maximum_gradient=0.0,
+        setup_delay=0.0,
+        unit_count=0,
+        additional_hours=duration(hours=12),
     )
 
     if (parameters.hydro.use_heuristic or area.hydro.properties.reservoir) and parameters.hydro.use_water_value:

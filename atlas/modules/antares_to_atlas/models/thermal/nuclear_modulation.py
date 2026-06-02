@@ -42,7 +42,9 @@ def add_nuclear_modulation(
     units_to_remove: list[str] = []
 
     for equipment in atlas_dataset.thermal:
-        if fr_thermals.get(equipment.name) is None or fr_thermals[equipment.name].properties.group != "nuclear":
+        thermal_id = equipment.name.removeprefix("fr_")
+        thermal = fr_thermals.get(thermal_id)
+        if thermal is None or thermal.properties.group != "nuclear":
             continue
 
         # Remove Nuclear_peak units

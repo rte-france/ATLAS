@@ -56,7 +56,7 @@ def _merge_phs_for_node(atlas_dataset: AtlasDataset, node_name: str, parameters:
     Finds both PHS equipment, adds their capacities together,
     and removes the open PHS.
     """
-    closed_name = f"{node_name}_phs"
+    closed_name = f"{node_name}_step_closed"
     open_name = f"{node_name}_phs_open"
 
     try:
@@ -108,7 +108,7 @@ def _rename_open_phs_to_standard(atlas_dataset: AtlasDataset, node_name: str) ->
     Changes {node}_phs_open to {node}_phs.
     """
     open_name = f"{node_name}_phs_open"
-    new_name = f"{node_name}_phs"
+    new_name = f"{node_name}_step_closed"
 
     try:
         storage = atlas_dataset.storage.get(open_name)

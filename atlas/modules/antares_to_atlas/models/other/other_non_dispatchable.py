@@ -3,9 +3,9 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from antares.craft import Frequency, MCIndAreasDataType
 from antares.craft.model.study import Study
 from loguru import logger
+from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
@@ -48,26 +48,34 @@ def convert_other_non_dispatchable_units(
                         maximum_power_forecast=ForecastingMatrix().add(
                             ror_ts, parameters.execution_date, inplace=False
                         ),
+                        co2_emission_factor=0.0,
+                        has_daily_energy_constraint=False,
+                        maximum_afrr=0.0,
+                        maximum_fcr=0.0,
+                        maximum_gradient=0.0,
+                        setup_delay=0.0,
+                        unit_count=0,
+                        additional_hours=duration(),
                     )
                 )
 
-            prod = Timeseries.from_values(
-                start_date=parameters.start_date,
-                frequency="1h",
-                values=study_output.get_mc_ind_area(
-                    parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area_name
-                )[(parameters.output.misc_ndg_column, "MWh")],
-            )
+            # prod = Timeseries.from_values(
+            #     start_date=parameters.start_date,
+            #     frequency="1h",
+            #     values=study_output.get_mc_ind_area(
+            #         parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area_name
+            #     )[(parameters.output.misc_ndg_column, "MWh")],
+            # )
 
-            if prod.abs().max() > 0:
-                non_disp_units.append(
-                    OtherNonDispatchable(
-                        name=f"{area_name}_misc_ndg",
-                        portfolio=get_portfolio(atlas_dataset, parameters, area_name),
-                        node=atlas_dataset.get("node", area_name),
-                        maximum_power_forecast=ForecastingMatrix().add(prod, parameters.execution_date, inplace=False),
-                    )
-                )
+            # if prod.abs().max() > 0:
+            #     non_disp_units.append(
+            #         OtherNonDispatchable(
+            #             name=f"{area_name}_misc_ndg",
+            #             portfolio=get_portfolio(atlas_dataset, parameters, area_name),
+            #             node=atlas_dataset.get("node", area_name),
+            #             maximum_power_forecast=ForecastingMatrix().add(prod, parameters.execution_date, inplace=False),
+            #         )
+            #     )
 
     atlas_dataset.other_non_dispatchable.add(non_disp_units)
 

@@ -15,16 +15,26 @@ from atlas.objects.equipment.solar import Solar
 
 
 def _build_solar(area_name: str, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset, **kwargs) -> Solar:
+    end_date = parameters.start_date + duration(years=1)
+    days_in_year = (end_date - parameters.start_date).days
     return Solar(
         name=f"{area_name}_pv",
         node=atlas_dataset.get("node", area_name),
         portfolio=get_portfolio(atlas_dataset, parameters, area_name),
         maximum_curtailment_ratio=Timeseries.from_index(
             start_date=parameters.start_date,
-            frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
+            frequency=f"{days_in_year}d",
+            end_date=end_date,
             default_value=parameters.renewables.pv_max_curtailment_ratio,
         ),
+        co2_emission_factor=0.0,
+        has_daily_energy_constraint=False,
+        maximum_afrr=0.0,
+        maximum_fcr=0.0,
+        maximum_gradient=0.0,
+        setup_delay=0.0,
+        unit_count=0,
+        additional_hours=duration(),
         **kwargs,
     )
 
@@ -56,17 +66,19 @@ def convert_solar_units(
                     continue
                 if not cluster_res.properties.enabled:
                     continue
-                if not scenario or area.get_solar_matrix()[scenario - 1].abs().max().item() == 0:
+                if cluster_res.get_timeseries().abs().max().max() == 0:
                     continue
 
+                _end = parameters.start_date + duration(years=1)
+                _days = (_end - parameters.start_date).days
                 new_solar = _build_solar(
                     area_name,
                     parameters,
                     atlas_dataset,
                     curtailment_cost=Timeseries.from_index(
                         start_date=parameters.start_date,
-                        frequency="1h",
-                        end_date=parameters.start_date + duration(years=1),
+                        frequency=f"{_days}d",
+                        end_date=_end,
                         default_value=parameters.renewables.pv_curtailment_cost,
                     ),
                     installed_capacity=cluster_res.properties.nominal_capacity,
