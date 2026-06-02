@@ -49,7 +49,7 @@ class TestOutputSnapshotATC:
     @pytest.mark.parametrize("field", SNAPSHOT_FIELDS)
     def test_field_keys_match_snapshot(
         self,
-        output_dataset: tuple[MarketClearingOutputDataset, int],
+        output_dataset: tuple[MarketClearingOutputDataset, float],
         expected_snapshot: dict[str, list],
         field: str,
     ) -> None:
@@ -64,7 +64,7 @@ class TestOutputSnapshotATC:
     @pytest.mark.parametrize("field", SNAPSHOT_FIELDS)
     def test_field_values_match_snapshot_within_tolerance(
         self,
-        output_dataset: tuple[MarketClearingOutputDataset, int],
+        output_dataset: tuple[MarketClearingOutputDataset, float],
         expected_snapshot: dict[str, list],
         field: str,
     ) -> None:
@@ -88,12 +88,12 @@ class TestOutputSnapshotATCID:
     @pytest.mark.parametrize("field", SNAPSHOT_FIELDS)
     def test_field_keys_match_snapshot(
         self,
-        output_dataset: tuple[MarketClearingOutputDataset, int],
-        expected_snapshot: dict[str, list],
+        output_dataset_id: tuple[MarketClearingOutputDataset, float],
+        expected_snapshot_id: dict[str, list],
         field: str,
     ) -> None:
-        actual_keys = {tuple(entry[:-1]) for entry in _dump_snapshot(output_dataset[0])[field]}
-        expected_keys = {tuple(entry[:-1]) for entry in expected_snapshot[field]}
+        actual_keys = {tuple(entry[:-1]) for entry in _dump_snapshot(output_dataset_id[0])[field]}
+        expected_keys = {tuple(entry[:-1]) for entry in expected_snapshot_id[field]}
 
         missing = expected_keys - actual_keys
         extra = actual_keys - expected_keys
@@ -103,12 +103,12 @@ class TestOutputSnapshotATCID:
     @pytest.mark.parametrize("field", SNAPSHOT_FIELDS)
     def test_field_values_match_snapshot_within_tolerance(
         self,
-        output_dataset: tuple[MarketClearingOutputDataset, int],
-        expected_snapshot: dict[str, list],
+        output_dataset_id: tuple[MarketClearingOutputDataset, float],
+        expected_snapshot_id: dict[str, list],
         field: str,
     ) -> None:
-        actual = {tuple(entry[:-1]): entry[-1] for entry in _dump_snapshot(output_dataset[0])[field]}
-        expected = {tuple(entry[:-1]): entry[-1] for entry in expected_snapshot[field]}
+        actual = {tuple(entry[:-1]): entry[-1] for entry in _dump_snapshot(output_dataset_id[0])[field]}
+        expected = {tuple(entry[:-1]): entry[-1] for entry in expected_snapshot_id[field]}
 
         drifted = []
         for key, expected_value in expected.items():
