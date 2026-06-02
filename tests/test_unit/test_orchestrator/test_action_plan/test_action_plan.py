@@ -13,9 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pendulum import DateTime, Duration
 
-from test_unit.test_orchestrator.orchestrator_factory import MockTaskBuilder, ConcreteTaskIterator, MockModuleBuilder, \
-    OrchestratorConfigBuilder
-from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder
+from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, MockTaskBuilder, ConcreteTaskIterator, MockModuleBuilder, OrchestratorConfigBuilder
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import ContextParameters

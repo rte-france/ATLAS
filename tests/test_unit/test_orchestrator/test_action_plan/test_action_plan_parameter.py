@@ -9,10 +9,11 @@ from pathlib import Path
 
 import pendulum
 import pytest
-from pendulum import Duration, DateTime
+from pendulum import Duration
+from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.orchestrator.workflow.workflow import Workflow
-from atlas.orchestrator.actionplan.parameters import Task, ActionPlanParameters, DataQualityWarning
+from atlas.orchestrator.actionplan.parameters import Task, DataQualityWarning
 from atlas.orchestrator.module_registry import ModuleRegistry
 from tests.test_unit.test_orchestrator.orchestrator_factory import OrchestratorConfigBuilder
 
@@ -31,19 +32,19 @@ class TestTask:
     def build_task(
             name: str | None = None,
             module: ModuleRegistry | None = None,
-            workflow: str | None = None,
-            parameters_path: Path | None = None,
+            workflow: Workflow | Path | None = None,
+            module_parameters_path: Path | None = None,
             priority: int = 1,
-            from_: DateTime = None,
-            until: DateTime = None,
-            frequency: Duration = None,
-            offset_start_date: Duration = None,
-            offset_end_date: Duration = None):
+            from_: DateTime | None = None,
+            until: DateTime | None = None,
+            frequency: Duration | None = None,
+            offset_start_date: Duration | None = None,
+            offset_end_date: Duration | None = None):
         return Task(
             name=name,
             module=module,
             workflow=workflow,
-            parameters_path=parameters_path,
+            module_parameters_path=module_parameters_path,
             priority=priority,
             from_=from_ or DateTime(2026, 1, 1),
             until=until or DateTime(2026, 1, 1),
@@ -53,50 +54,50 @@ class TestTask:
         )
 
     def test_coerces_string_module(self, tmp_path, params_file):
-        task = TestTask.build_task(module="PortfolioOptimisation", parameters_path=params_file)
+        task = TestTask.build_task(module="PortfolioOptimisation", module_parameters_path=params_file)
         assert task.module == ModuleRegistry.PortfolioOptimisation
 
     def test_default_name_is_module_name(self, tmp_path, params_file):
-        task = TestTask.build_task(module="PortfolioOptimisation", parameters_path=params_file)
+        task = TestTask.build_task(module="PortfolioOptimisation", module_parameters_path=params_file)
         assert task.name == "PortfolioOptimisation"
 
     def test_custom_name_is_preserved(self, tmp_path, params_file):
-        task = TestTask.build_task(name="task_name_test", module="PortfolioOptimisation", parameters_path=params_file)
+        task = TestTask.build_task(name="task_name_test", module="PortfolioOptimisation", module_parameters_path=params_file)
         assert task.name == "task_name_test"
 
     def test_invalid_module_raises(self, tmp_path, params_file):
         with pytest.raises(Exception):
-            TestTask.build_task(module="DoesNotExist", parameters_path=params_file)
+            TestTask.build_task(module="DoesNotExist", module_parameters_path=params_file)
 
     def test_invalid_workflow_raise(self, params_file):
         with pytest.raises(Exception):
-            TestTask.build_task(workflow="DoesNotExist", parameters_path=params_file)
+            TestTask.build_task(workflow="DoesNotExist", module_parameters_path=params_file)
 
     def test_no_module_nor_workflow_raise(self, params_file):
         with pytest.raises(Exception):
-            TestTask.build_task(module=None, workflow=None, parameters_path=params_file)
+            TestTask.build_task(module=None, workflow=None, module_parameters_path=params_file)
 
     def test_both_module_and_workflow_raise(self, params_file, empty_workflow):
         with pytest.raises(Exception):
-            TestTask.build_task(module="PortfolioOptimisation", workflow=empty_workflow, parameters_path=params_file)
+            TestTask.build_task(module="PortfolioOptimisation", workflow=empty_workflow, module_parameters_path=params_file)
 
     def test_parameters_path_is_path_object_module(self, tmp_path, params_file, empty_workflow):
-        task = TestTask.build_task(module="PortfolioOptimisation", parameters_path=str(params_file))
+        task = TestTask.build_task(module="PortfolioOptimisation", module_parameters_path=str(params_file))
         assert isinstance(task.parameters_path, Path)
 
     def test_parameters_path_is_path_object_workflow(self, tmp_path, params_file, empty_workflow):
-        task = TestTask.build_task(workflow=empty_workflow, parameters_path=str(params_file))
+        task = TestTask.build_task(workflow=empty_workflow, module_parameters_path=str(params_file))
         assert isinstance(task.parameters_path, Path)
 
     def test_datetime_are_preserved(self, params_file, empty_workflow):
         from_ = pendulum.DateTime(year=1, month=1, day=1)
         until = pendulum.DateTime(year=1, month=1, day=2)
 
-        task = TestTask.build_task(from_=from_, until=until, parameters_path=params_file, module="PortfolioOptimisation")
+        task = TestTask.build_task(from_=from_, until=until, module_parameters_path=params_file, module="PortfolioOptimisation")
         assert task.from_ == from_
         assert task.until == until
 
-        task = TestTask.build_task(from_=from_, until=until, parameters_path=params_file, workflow=empty_workflow)
+        task = TestTask.build_task(from_=from_, until=until, module_parameters_path=params_file, workflow=empty_workflow)
         assert task.from_ == from_
         assert task.until == until
 
@@ -120,14 +121,14 @@ class TestTask:
             TestTask.build_task(
                 from_=DateTime(2000, 1, 2),
                 until=DateTime(2000, 1, 1),
-                parameters_path=params_file,
+                module_parameters_path=params_file,
                 module="PortfolioOptimisation")
 
         with pytest.raises(Exception):
             TestTask.build_task(
                 from_=DateTime(2000, 1, 2),
                 until=DateTime(2000, 1, 1),
-                parameters_path=params_file,
+                module_parameters_path=params_file,
                 workflow=empty_workflow)
 
     def test_warning_frequency_dont_reach_until(self, params_file, empty_workflow):
@@ -136,7 +137,7 @@ class TestTask:
                 frequency=pendulum.Duration(days=3),
                 from_=DateTime(2000, 1, 1),
                 until=DateTime(2000, 1, 12),
-                parameters_path=params_file,
+                module_parameters_path=params_file,
                 module="PortfolioOptimisation")
 
         with pytest.warns(DataQualityWarning):
@@ -144,5 +145,5 @@ class TestTask:
                 frequency=pendulum.Duration(days=3),
                 from_=DateTime(2000, 1, 1),
                 until=DateTime(2000, 1, 12),
-                parameters_path=params_file,
+                module_parameters_path=params_file,
                 workflow=empty_workflow)

@@ -219,7 +219,7 @@ class TestModuleTaskIterator:
 
 
 
-class WorkflowTaskIterator:
+class TestWorkflowTaskIterator:
     def test_build_current_parameters(self, tmp_path):
         date = DateTime(2000, 1, 1)
         off_set_start = Duration(hours=12)
