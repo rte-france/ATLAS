@@ -223,12 +223,6 @@ class StorageParameters(BaseModel):
     phs_initial_level_by_area: dict[str, float] = Field(
         default_factory=dict, description="Per-area PHS initial level overrides"
     )
-    battery_normal_link: str = Field(
-        default="z_batteries", description="Antares link name for normal batteries virtual node"
-    )
-    battery_pcomp_link: str = Field(
-        default="z_batteries_pcomp", description="Antares link name for PCOMP batteries virtual node"
-    )
 
     def get_battery_initial_level(self, area: str) -> float:
         return self.battery_initial_level_by_area.get(area, self.battery_initial_level)
@@ -245,16 +239,12 @@ class ResParameters(BaseModel):
     pv_max_curtailment_ratio: float = Field(default=1.0, ge=0.0, le=1.0, description="Max solar curtailment ratio")
     wind_curtailment_cost: float = Field(default=0.01, description="Wind curtailment cost (€/MWh)")
     pv_curtailment_cost: float = Field(default=0.01, description="Solar curtailment cost (€/MWh)")
-    wind_onshore_group: str = Field(
-        default="wind onshore", description="Antares renewable group name for wind onshore clusters"
-    )
     wind_offshore_suffix: str = Field(
         default="_wind_offshore", description="Suffix appended to area name to find offshore wind cluster"
     )
     wind_offshore_excluded_areas: list[str] = Field(
         default=["dekf", "dkkf"], description="Areas excluded from offshore wind capacity merging"
     )
-    solar_pv_group: str = Field(default="solar pv", description="Antares renewable group name for solar PV clusters")
     solar_thermo_suffix: str = Field(
         default="_solar_thermo", description="Suffix appended to area name to find solar thermal cluster"
     )

@@ -62,7 +62,7 @@ def convert_solar_units(
             )
             renewables = area.get_renewables()
             for cluster_res in renewables.values():
-                if cluster_res.properties.group != parameters.renewables.solar_pv_group:
+                if cluster_res.properties.group != "solar pv":
                     continue
                 if not cluster_res.properties.enabled:
                     continue

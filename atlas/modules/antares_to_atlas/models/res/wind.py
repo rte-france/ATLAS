@@ -62,7 +62,7 @@ def convert_wind_units(
             )
             renewables = area.get_renewables()
             for cluster_res in renewables.values():
-                if cluster_res.properties.group != parameters.renewables.wind_onshore_group:
+                if cluster_res.properties.group != "wind onshore":
                     continue
                 if not cluster_res.properties.enabled:
                     continue
