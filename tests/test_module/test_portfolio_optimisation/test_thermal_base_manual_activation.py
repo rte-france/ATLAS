@@ -132,9 +132,7 @@ class TestIntradayThermalBaseManualActivation:
             pytest.skip(f"Reference dataset not found: {ID_REFERENCE_DATASET}")
 
         for thermal, params in id_thermal_base_results:
-            _compare_with_reference(
-                thermal, params, ID_REFERENCE_DATASET, "id_po_for_orders", "2028-09-26 22:00:00"
-            )
+            _compare_with_reference(thermal, params, ID_REFERENCE_DATASET, "id_po_for_orders", "2028-09-26 22:00:00")
 
 
 # ── Day-Ahead tests ───────────────────────────────────────────────────────────
@@ -158,9 +156,7 @@ class TestDayAheadThermalBaseManualActivation:
         """Each thermal Base unit must have power set after manual activation."""
         assert da_thermal_base_results, "No thermal Base units found in manual activation results"
         for thermal, _ in da_thermal_base_results:
-            assert thermal.power is not None, (
-                f"power not set for thermal Base unit '{thermal.name}'"
-            )
+            assert thermal.power is not None, f"power not set for thermal Base unit '{thermal.name}'"
 
     def test_power_matches_reference(self, da_thermal_base_results):
         """The power values for thermal Base must match the day-ahead reference."""
@@ -168,6 +164,4 @@ class TestDayAheadThermalBaseManualActivation:
             pytest.skip(f"Reference dataset not found: {DA_REFERENCE_DATASET}")
 
         for thermal, params in da_thermal_base_results:
-            _compare_with_reference(
-                thermal, params, DA_REFERENCE_DATASET, "power", "2028-09-26 12:00:00"
-            )
+            _compare_with_reference(thermal, params, DA_REFERENCE_DATASET, "power", "2028-09-26 12:00:00")
