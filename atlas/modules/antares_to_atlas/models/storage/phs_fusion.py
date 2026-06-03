@@ -19,7 +19,7 @@ def merge_open_and_closed_phs(
     """Merge open-loop and closed-loop PHS equipment when both exist for the same node.
 
     When a node has both:
-    - Open-loop PHS (name: {node}_phs_open)
+    - Open-loop PHS (name: {node}_step_open)
     - Closed-loop PHS (name: {node}_phs)
 
     They are merged into a single PHS equipment by:
@@ -57,7 +57,7 @@ def _merge_phs_for_node(atlas_dataset: AtlasDataset, node_name: str, parameters:
     and removes the open PHS.
     """
     closed_name = f"{node_name}_step_closed"
-    open_name = f"{node_name}_phs_open"
+    open_name = f"{node_name}_step_open"
 
     try:
         closed_phs = atlas_dataset.storage.get(closed_name)
@@ -105,9 +105,9 @@ def _merge_phs_for_node(atlas_dataset: AtlasDataset, node_name: str, parameters:
 def _rename_open_phs_to_standard(atlas_dataset: AtlasDataset, node_name: str) -> None:
     """Rename open PHS to standard name when no closed PHS exists.
 
-    Changes {node}_phs_open to {node}_phs.
+    Changes {node}_step_open to {node}_phs.
     """
-    open_name = f"{node_name}_phs_open"
+    open_name = f"{node_name}_step_open"
     new_name = f"{node_name}_step_closed"
 
     try:

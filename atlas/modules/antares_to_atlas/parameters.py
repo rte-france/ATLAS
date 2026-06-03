@@ -47,10 +47,24 @@ class ThermalTechnologyConfig(BaseModel):
     maximum_gradient: float = 0.0
     strategy: ThermalStrategy = ThermalStrategy.BASE
     setup_delay: float = 0.0
+    minimum_time_on: Duration | None = None
+    minimum_time_off: Duration | None = None
 
-    @field_validator("minimum_stable_power_duration", "startup_duration", "shutdown_duration", mode="before")
+    @field_validator(
+        "minimum_stable_power_duration",
+        "startup_duration",
+        "shutdown_duration",
+        mode="before",
+    )
     @classmethod
     def parse_duration(cls, v):
+        return convert_to_duration(v)
+
+    @field_validator("minimum_time_on", "minimum_time_off", mode="before")
+    @classmethod
+    def parse_optional_duration(cls, v):
+        if v is None:
+            return None
         return convert_to_duration(v)
 
 
@@ -96,7 +110,7 @@ class ThermalParameters(BaseModel):
             shutdown_duration=duration(minutes=30),
             maximum_gradient=30,
             strategy=ThermalStrategy.INTERMEDIATE,
-            setup_delay=0.5,
+            setup_delay=0.0,
         )
     )
     hard_coal: ThermalTechnologyConfig = Field(
@@ -127,8 +141,8 @@ class ThermalParameters(BaseModel):
             startup_delay_probability=0.26,
             startup_duration=duration(minutes=24),
             shutdown_duration=duration(minutes=24),
-            maximum_gradient=10,
-            strategy=ThermalStrategy.PEAK,
+            maximum_gradient=30,
+            strategy=ThermalStrategy.INTERMEDIATE,
             setup_delay=0,
         )
     )
@@ -211,7 +225,7 @@ class DsrParameters(BaseModel):
 
 
 class StorageParameters(BaseModel):
-    battery_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="Battery initial level (default)")
+    battery_initial_level: float = Field(default=0.2, ge=0.0, le=1.0, description="Battery initial level (default)")
     battery_initial_level_by_area: dict[str, float] = Field(
         default_factory=dict, description="Per-area battery initial level overrides"
     )
@@ -219,7 +233,7 @@ class StorageParameters(BaseModel):
     ev_initial_level_by_area: dict[str, float] = Field(
         default_factory=dict, description="Per-area EV initial level overrides"
     )
-    phs_initial_level: float = Field(default=0.5, ge=0.0, le=1.0, description="PHS initial level (default)")
+    phs_initial_level: float = Field(default=0.2, ge=0.0, le=1.0, description="PHS initial level (default)")
     phs_initial_level_by_area: dict[str, float] = Field(
         default_factory=dict, description="Per-area PHS initial level overrides"
     )

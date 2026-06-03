@@ -95,8 +95,8 @@ class PHSFusionConverterBP23(Converter):
         closed_list: list[str] = []
         open_list: list[str] = []
         for storage in atlas_dataset.storage:
-            if storage.name.endswith("_phs_open"):
-                open_list.append(storage.name.removesuffix("_phs_open"))
+            if storage.name.endswith("_step_open"):
+                open_list.append(storage.name.removesuffix("_step_open"))
             elif storage.name.endswith("_step_closed"):
                 closed_list.append(storage.name.removesuffix("_step_closed"))
         return merge_open_and_closed_phs(atlas_dataset, closed_list, open_list, parameters)

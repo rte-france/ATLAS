@@ -80,7 +80,16 @@ def _convert_single_thermal(
     if installed_capacity == 0:
         return None
 
-    thermal_group_params = parameters.thermal.get(thermal_group)
+    # Refine Gas group into ccgt/ocgt based on cluster name when possible
+    refined_group = thermal_group
+    if thermal_group.lower() == "gas":
+        cluster_id = thermal.id.lower()
+        if "ocgt" in cluster_id:
+            refined_group = "ocgt"
+        elif "ccgt" in cluster_id:
+            refined_group = "ccgt"
+
+    thermal_group_params = parameters.thermal.get(refined_group) or parameters.thermal.get(thermal_group)
     if thermal_group_params is None:
         logger.warning(f"No thermal config for group '{thermal_group}', skipping {thermal_name}")
         return None

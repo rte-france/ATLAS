@@ -49,9 +49,6 @@ def convert_phs_open_units(
         if area_name not in areas:
             continue
 
-        if area_name.lower() == "fr":
-            continue
-
         area = areas[area_name]
 
         for storage in area.get_st_storages().values():
@@ -118,9 +115,32 @@ def _create_open_phs(
     # PHS MaximumPower = min(injection, withdrawal) per timestep
     max_power_ts = _elementwise_min(inj_ts, wdr_ts, parameters.start_date)
 
-    # Energy split (rounded as in the legacy)
-    additional_energy_ts = (closed_ratio_ts * props.reservoir_capacity).round()
-    phs_max_energy_ts = ((closed_ratio_ts * -1.0 + 1.0) * props.reservoir_capacity).round()
+    # Energy split — daily frequency to match closed PHS.
+    # groupby("1d") only downsamples; when input is already sub-daily (hourly scenario data), it averages.
+    # When input is annual (no scenario), build daily timeseries directly from scalar ratio.
+    _end_date = parameters.start_date + duration(years=1)
+    if scenario_ts is not None:
+        additional_energy_ts = (closed_ratio_ts * props.reservoir_capacity).round().groupby("1d", agg="mean")
+        phs_max_energy_ts = (
+            ((closed_ratio_ts * -1.0 + 1.0) * props.reservoir_capacity).round().groupby("1d", agg="mean")
+        )
+    else:
+        wdr_nom = props.withdrawal_nominal_capacity
+        inj_nom = props.injection_nominal_capacity
+        closed_ratio = max(0.0, wdr_nom - inj_nom) / wdr_nom if wdr_nom > 0 else 0.0
+        _last_day = _end_date - duration(days=1)
+        additional_energy_ts = Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1d",
+            end_date=_last_day,
+            default_value=round(closed_ratio * props.reservoir_capacity),
+        )
+        phs_max_energy_ts = Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1d",
+            end_date=_last_day,
+            default_value=round((1.0 - closed_ratio) * props.reservoir_capacity),
+        )
 
     minimum_soc_ts = get_minimum_soc(storage=storage, scenario=scenario_ts, parameters=parameters)
 
@@ -170,17 +190,9 @@ def _create_open_phs(
             )
     else:
         logger.debug(f"No hydro '{area.id}_hydro' found; open part of PHS will not be added to hydro.")
-        _end_date = parameters.start_date + duration(years=1)
-        _days_in_year = (_end_date - parameters.start_date).days
-        phs_max_energy_ts = Timeseries.from_index(
-            start_date=parameters.start_date,
-            frequency=f"{_days_in_year}d",
-            end_date=_end_date,
-            default_value=props.reservoir_capacity,
-        )
 
     phs = Storage(
-        name=f"{area.id}_phs_open",
+        name=storage.id,
         node=atlas_dataset.get("node", area.id),
         portfolio=get_portfolio(atlas_dataset, parameters, area.id),
         storage_type=StorageType.PUMPED_HYDRAULIC_STORAGE,
@@ -191,7 +203,7 @@ def _create_open_phs(
         charge_efficiency=props.efficiency,
         discharge_efficiency=1.0,
         storage_initial_level=storage.properties.initial_level,
-        transition_duration=duration(hours=0),
+        transition_duration=duration(days=0),
         power=phs_power_fm,
     )
 
@@ -206,7 +218,7 @@ def _safe_divide(numerator: Timeseries, denominator: Timeseries, start_date: Dat
         .select(pl.when(pl.col("d") > 0.0).then(pl.col("n") / pl.col("d")).otherwise(0.0))
         .to_series()
     )
-    return Timeseries.from_values(start_date, frequency="1h", values=result)
+    return Timeseries.from_values(start_date, frequency=numerator.frequency, values=result)
 
 
 def _elementwise_min(ts_a: Timeseries, ts_b: Timeseries, start_date: DateTime) -> Timeseries:
@@ -216,7 +228,7 @@ def _elementwise_min(ts_a: Timeseries, ts_b: Timeseries, start_date: DateTime) -
         .select(pl.min_horizontal("a", "b"))
         .to_series()
     )
-    return Timeseries.from_values(start_date, frequency="1h", values=result)
+    return Timeseries.from_values(start_date, frequency=ts_a.frequency, values=result)
 
 
 def _get_sts_actual_power(
@@ -390,7 +402,7 @@ def convert_phs_open_fr(
         charge_efficiency=charge_efficiency,
         discharge_efficiency=discharge_efficiency,
         storage_initial_level=parameters.storage.get_phs_initial_level("fr"),
-        transition_duration=duration(hours=0),
+        transition_duration=duration(days=0),
         is_v2g=False,
         power=power_fm,
     )

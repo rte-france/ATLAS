@@ -83,10 +83,6 @@ def _create_battery(
     """
     props = storage.properties
 
-    if props.reservoir_capacity == 0.0:
-        logger.debug(f"Skipping battery {storage.id} in {area_id}: zero reservoir capacity")
-        return None
-
     try:
         scenario = (
             study.get_output(parameters.output_name)
@@ -129,7 +125,7 @@ def _create_battery(
         charge_efficiency=props.efficiency,
         discharge_efficiency=1.0,
         storage_initial_level=parameters.storage.get_battery_initial_level(area_id),
-        transition_duration=duration(hours=0),
+        transition_duration=duration(days=0),
         additional_hours=duration(days=2),
         is_v2g=False,
         co2_emission_factor=0.0,

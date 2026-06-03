@@ -114,7 +114,7 @@ def _create_closed_phs(
         charge_efficiency=props.efficiency,
         discharge_efficiency=1.0,
         storage_initial_level=parameters.storage.get_phs_initial_level(area_id),
-        transition_duration=duration(hours=0),
+        transition_duration=duration(days=0),
         additional_hours=duration(days=6),
         is_v2g=False,
         co2_emission_factor=0.0,
