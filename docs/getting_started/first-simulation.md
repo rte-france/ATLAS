@@ -119,6 +119,8 @@ steps:
 
 ```
 
+The order in which steps are written in the yaml is important: it defines the actual chain of modules in the simulation. The name of each module has to correspond to an existing module, however the user can choose whatever he wants in the `name` field.
+
 Run the workflow:
 
 ```bash
