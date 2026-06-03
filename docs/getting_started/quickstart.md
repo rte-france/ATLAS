@@ -43,13 +43,14 @@ atlas run parameters.yaml \
 
 ## Running a Workflow
 
-An electricity market is by nature comprised of several, sequential steps. For (relatively cnocise) multi-step simulations, use workflows:
+An electricity market is by nature comprised of several, sequential steps. For (relatively concise) multi-step simulations, use workflows:
 
 ```bash
 atlas run workflow.yaml --workflow
 ```
 
-Workflows chain multiple modules together, with outputs from one step feeding into the next.
+Workflows chain multiple modules together, with outputs from one step feeding into the next. In this case, the YAML file "workflow.yaml" contains all the information about the modules used, their order, their parameters, and the input dataset.
+See [Your First Simulation](first-simulation.md) for a complete walkthrough on workflow usage.
 
 ## Next Steps
 
