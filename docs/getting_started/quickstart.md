@@ -21,18 +21,19 @@ Atlas version : 0.1.0
 
 ## Running a Simple Module
 
-Atlas provides three main modules for electricity market simulation:
+In the current version, Atlas provides three main modules for electricity market simulation. They correspond to the chain of modules simulating the Day-Ahead market:
 
-- **PortfolioOptimisation** - Optimize asset portfolios
-- **MarketClearing** - Simulate market clearing mechanisms
-- **DayAheadOrders** - Generate day-ahead market orders
+- **DayAheadOrders** - Generates day-ahead market orders
+- **MarketClearing** - Performs a market clearing, based on a set of market orders
+- **PortfolioOptimisation** - Defines optimal generation and consumption plans to anwser results from MarketClearing
+
 
 ### Basic Module Execution
 
 To run a module, you need:
 
-1. A **parameters file** (YAML) - defines simulation settings
-2. An **input dataset** - contains market and asset data
+1. A **parameters file** (YAML) - defines simulation settings for the current module
+2. An **input dataset** - contains power system data (asset characteristics, geographical representation, market specificties, etc.)
 
 ```bash
 atlas run parameters.yaml \
@@ -42,7 +43,7 @@ atlas run parameters.yaml \
 
 ## Running a Workflow
 
-For multi-step simulations, use workflows:
+An electricity market is by nature comprised of several, sequential steps. For (relatively cnocise) multi-step simulations, use workflows:
 
 ```bash
 atlas run workflow.yaml --workflow
