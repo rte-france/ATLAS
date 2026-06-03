@@ -46,7 +46,7 @@ from atlas.modules.antares_to_atlas.converters.standard import (
     ThermalConverter,
     WindConverter,
 )
-from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters, HypothesisEnum
 
 
 class AntaresToAtlas:
@@ -125,9 +125,8 @@ class AntaresToAtlas:
         for converter in standard_converters:
             registry.register(converter)
 
-        if self.parameters.hypothesis is not None:
-            if self.parameters.hypothesis == "BP23":
-                self._register_bp23_converters(registry)
+        if self.parameters.hypothesis == HypothesisEnum.BP23:
+            self._register_bp23_converters(registry)
 
         return registry
 
