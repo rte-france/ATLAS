@@ -162,8 +162,6 @@ def profiling(
         run_module(parameters, module_name, dataset_path, output)
 
 
-_VALID_FORMATS = ("parquet", "csv", "pickle")
-
 antares_app = typer.Typer(help="Convert Antares studies to Atlas dataset format.")
 app.add_typer(antares_app, name="antares-to-atlas")
 
@@ -181,9 +179,7 @@ def antares_run(
     study_path: Path = typer.Argument(help="Path to the Antares study directory"),
     parameters_file: Path = typer.Option(..., "--parameters", "-p", help="Parameters YAML file"),
     output: Path = typer.Option(..., "--output", "-o", help="Directory to write the converted AtlasDataset"),
-    fmt: Literal["csv", "parquet", "pickle"] = typer.Option(
-        "parquet", "--format", "-f", help=f"Output timeseries and matrices format: {', '.join(_VALID_FORMATS)}"
-    ),
+    fmt: Literal["csv", "parquet", "pickle"] = typer.Option("parquet", "--format", "-f"),
 ) -> None:
     """Convert an Antares study to Atlas dataset format.
 
@@ -201,10 +197,6 @@ def antares_run(
 
     if not study_path.exists() or not study_path.is_dir():
         rprint(f"[bold red]Error[/bold red]: Study directory not found: {study_path}")
-        raise typer.Exit(code=1)
-
-    if fmt not in _VALID_FORMATS:
-        rprint(f"[bold red]Error[/bold red]: Unknown format '{fmt}'. Valid: {', '.join(_VALID_FORMATS)}")
         raise typer.Exit(code=1)
 
     converter = _load_converter(parameters_file)

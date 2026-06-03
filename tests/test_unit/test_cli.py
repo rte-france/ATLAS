@@ -570,8 +570,8 @@ class TestAntaresToAtlasRunCommand:
                 "json",
             ],
         )
-        assert result.exit_code == 1
-        assert "Unknown format" in result.stdout
+        assert result.exit_code == 2
+        assert "Invalid value for '--format'" in result.output
 
     @patch("atlas.app.AntaresToAtlas")
     def test_run_with_valid_inputs(self, mock_antares, tmp_path):
