@@ -3,7 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Module that implements BalancingOrdersParameters.
+Module that implements BSPBalancingOrdersParameters.
 """
 
 from pydantic import Field, field_validator
@@ -15,101 +15,121 @@ from atlas.enums import MarketType
 class BSPBalancingOrdersParameters(AbstractModuleParameters):
     """Parameters for the BSP Balancing Orders Formulation module.
 
-    :param product_type: Type of balancing market product to formulate orders for
+    :param product_type: Type of balancing market product to formulate orders for.
+        Accepted values: 'RRActivation', 'MFRRActivation'. Default: 'RRActivation'
     :type product_type: MarketType
-    :param market_price_cap: Maximum price cap for balancing market orders, in euro/MWh
+    :param market_price_cap: Price cap of the market in euro/MWh, used as a symmetric cap
+        and as the price of 'at all costs' bids. Usual values: 10000 for RR, 15000 for mFRR.
+        Default: 15000
     :type market_price_cap: float
-    :param with_combinatorial_options: Whether to formulate combinatorial (multi-timestep) orders
+    :param with_combinatorial_options: Whether to formulate combinatorial (multi-timestep linked)
+        orders. Default: True
     :type with_combinatorial_options: bool
-    :param market_area_names: List of market area names to include. Accepts 'All', 'None',
-        or a semicolon-separated string like 'FR; BE; DE'
-    :type market_area_names: list[str]
-    :param excluded_equipments_: Raw list of equipment names to exclude. Use the
-        'excluded_equipments' property for resolved access
+    :param market_area_names: Market area names to include. Accepts 'all' to include all,
+        or a list like '[FR, BE]'. Default: 'all'
+    :type market_area_names: str | list[str]
+    :param excluded_equipments_: Equipment names to exclude, semicolon-separated or as a list.
+        'None' and ['none'] resolve to an empty list. Default: None
     :type excluded_equipments_: list[str] | None
-    :param excluded_technologies_: Raw list of technology class names to exclude. Use the
-        'excluded_technologies' property for resolved access
+    :param excluded_technologies_: Technology class names to exclude, semicolon-separated or
+        as a list. 'None' and ['none'] resolve to an empty list. Default: None
     :type excluded_technologies_: list[str] | None
-    :param hydro_storage_quantity_percentage: Percentage of available quantity offered for
-        hydraulic and storage equipments, between 0 and 1
+    :param hydro_storage_quantity_percentage: Fraction of available power offered for hydraulic
+        and storage units. Should be kept at 1 unless used in specific studies. Default: 1.0
     :type hydro_storage_quantity_percentage: float
-    :param with_fixed_id_markets: Whether intraday markets are fixed (affects storage constraint horizon)
+    :param with_fixed_id_markets: Whether the simulation includes fixed intraday markets.
+        Affects the storage adequacy constraint horizon. Default: True
     :type with_fixed_id_markets: bool
-    :param conservative_stored_energy: Whether to apply a conservative stored energy constraint
-        extending the storage adequacy horizon beyond the balancing time frame
+    :param conservative_stored_energy: If True, storage units only provide reserves if reservoir
+        constraints are respected until the next DA or ID market execution. Default: True
     :type conservative_stored_energy: bool
-    :param storage_price_threshold: Threshold ratio of maximum energy above which storage order
-        prices are adjusted to limit excessive activations
+    :param storage_price_threshold: Fraction of MaximumEnergy above which activated balancing
+        energy is considered excessive and order prices are adjusted. Default: 0.1
     :type storage_price_threshold: float
-    :param res_self_balancing: Whether renewable energy sources use a self-balancing strategy,
-        enabling upward orders and specific downward self-balancing orders
+    :param res_self_balancing: Whether wind and solar units use the self-balancing strategy,
+        enabling upward orders and specific downward self-balancing orders. Default: False
     :type res_self_balancing: bool
     """
 
     product_type: MarketType = Field(
-        description="Type of balancing market product to formulate orders for.",
+        MarketType.rr_activation,
+        description=(
+            "Type of balancing market product to formulate orders for. "
+            "Accepted values: 'RRActivation', 'MFRRActivation'."
+        ),
     )
     market_price_cap: float = Field(
-        description="Maximum price cap for balancing market orders, in euro/MWh.",
+        15000,
+        description=(
+            "Price cap of the market in euro/MWh, used as a symmetric cap "
+            "and as the price of 'at all costs' bids. "
+            "Usual values: 10000 for RR markets, 15000 for mFRR markets."
+        ),
     )
     with_combinatorial_options: bool = Field(
+        True,
         description="Whether to formulate combinatorial (multi-timestep linked) orders.",
     )
 
     market_area_names: str | list[str] = Field(
+        "all",
         description=(
-            "List of market area names to include in order formulation. "
+            "Market area names to include in order formulation. "
             "Accepts 'All' to include all available market areas, "
-            "'None' for an empty selection, "
-            "or a semicolon-separated string like 'FR; BE; DE'."
+            "or a list like '[FR, BE]'."
         ),
     )
     excluded_equipments_: list[str] | None = Field(
         None,
         description=(
-            "List of equipment names to exclude from order formulation. 'None' and ['none'] resolve to an empty list."
+            "Equipment names to exclude from order formulation. 'None' and ['none'] resolve to an empty list."
         ),
         alias="excluded_equipments",
     )
     excluded_technologies_: list[str] | None = Field(
         None,
         description=(
-            "List of technology class names to exclude from order formulation. "
-            "'None' and ['none'] resolve to an empty list."
+            "Technology class names to exclude from order formulation. 'None' and ['none'] resolve to an empty list."
         ),
         alias="excluded_technologies",
     )
 
     hydro_storage_quantity_percentage: float = Field(
+        1.0,
         ge=0.0,
         le=1.0,
         description=(
-            "Percentage of available quantity offered for hydraulic and storage equipments. Must be between 0 and 1."
+            "Fraction of available power offered for hydraulic and storage units. "
+            "Should be kept at 1 unless used in specific studies."
         ),
     )
     with_fixed_id_markets: bool = Field(
+        True,
         description=(
-            "Whether intraday markets are considered fixed. "
+            "Whether the simulation includes fixed intraday markets. "
             "Affects the storage adequacy constraint horizon computation."
         ),
     )
     conservative_stored_energy: bool = Field(
+        True,
         description=(
-            "Whether to apply a conservative stored energy constraint, "
-            "extending the storage adequacy horizon beyond the balancing time frame."
+            "If True, storage units only provide reserves if reservoir constraints "
+            "are respected until the next DA or ID market execution."
         ),
     )
     storage_price_threshold: float = Field(
+        0.1,
         ge=0.0,
         description=(
-            "Threshold ratio of maximum energy above which storage order prices are adjusted "
-            "to limit excessive activations on balancing markets."
+            "Fraction of MaximumEnergy above which activated balancing energy is considered "
+            "excessive and order prices are linearly adjusted."
         ),
     )
 
     res_self_balancing: bool = Field(
+        False,
         description=(
-            "Whether renewable energy sources use a self-balancing strategy. "
+            "Whether wind and solar units use the self-balancing strategy. "
             "When True, enables upward orders and specific downward self-balancing orders for RES."
         ),
     )
