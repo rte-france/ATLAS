@@ -46,10 +46,10 @@ def convert_links(study: Study, parameters: AntaresToAtlasParameters, atlas_data
                 loss_factor=0.0,
                 time_resolution=0.0,
                 maximum_flow=Timeseries.from_values(
-                    parameters.start_date, frequency="1h", values=link.get_capacity_direct()[0].to_list()
+                    parameters.start_date, frequency="1h", values=link.get_capacity_direct()[0]
                 ),
                 minimum_flow=Timeseries.from_values(
-                    parameters.start_date, frequency="1h", values=link.get_capacity_indirect()[0].to_list()
+                    parameters.start_date, frequency="1h", values=link.get_capacity_indirect()[0]
                 )
                 * (-1),
             )

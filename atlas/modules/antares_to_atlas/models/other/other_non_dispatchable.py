@@ -15,68 +15,88 @@ from atlas.modules.antares_to_atlas.utils import get_portfolio
 from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
 
 
+def _make_unit(
+    name: str,
+    values: list[float],
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+    area_name: str,
+) -> OtherNonDispatchable:
+    ts = Timeseries.from_values(
+        start_date=parameters.execution_date,
+        frequency="1h",
+        values=values,
+    )
+    return OtherNonDispatchable(
+        name=name,
+        portfolio=get_portfolio(atlas_dataset, parameters, area_name),
+        node=atlas_dataset.get("node", area_name),
+        maximum_power_forecast=ForecastingMatrix().add(ts, parameters.execution_date, inplace=False),
+        co2_emission_factor=0.0,
+        has_daily_energy_constraint=False,
+        maximum_afrr=0.0,
+        maximum_fcr=0.0,
+        maximum_gradient=0.0,
+        setup_delay=0.0,
+        unit_count=0,
+        additional_hours=duration(),
+    )
+
+
 def convert_other_non_dispatchable_units(
     study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
 ) -> AtlasDataset:
-    """Convert other non-dispatchable generation units from Antares to Atlas."""
+    """Convert other non-dispatchable generation units from Antares to Atlas.
+
+    Creates one :class:`OtherNonDispatchable` per area for each non-zero column
+    in the Antares misc-gen matrix (bio_mass, waste, other by default) and one
+    for run-of-river hydro when the RoR series is non-zero.
+    """
     logger.info("Converting non-dispatchable generation units")
 
     areas = study.get_areas()
     study_output = study.get_output(parameters.output_name)
+    col_names = parameters.output.misc_gen_column_names
     non_disp_units = []
+
     for area_name in parameters.market_areas:
         if area_name not in areas:
             continue
 
-        ror = areas[area_name].hydro.get_ror_series()
+        area = areas[area_name]
+
+        misc_gen = area.get_misc_gen_matrix()
+        for col_idx in range(misc_gen.shape[1]):
+            values = misc_gen.iloc[:, col_idx]
+            if not values.abs().max() > 0:
+                continue
+            suffix = col_names.get(col_idx, str(col_idx))
+            non_disp_units.append(
+                _make_unit(
+                    name=f"{area_name}_{suffix}",
+                    values=values,
+                    parameters=parameters,
+                    atlas_dataset=atlas_dataset,
+                    area_name=area_name,
+                )
+            )
+
+        ror = area.hydro.get_ror_series()
         scenario = study_output.get_hydro_ts_numbers(area_name).get(parameters.scenario, None)
         if scenario is not None:
             ror_series = ror[scenario - 1]
             if ror_series.abs().max().item() > 0:
-                ror_ts = Timeseries.from_values(
-                    start_date=parameters.execution_date,
-                    frequency="1h",
-                    values=ror_series,
-                )
                 non_disp_units.append(
-                    OtherNonDispatchable(
+                    _make_unit(
                         name=f"{area_name}_ror",
-                        portfolio=get_portfolio(atlas_dataset, parameters, area_name),
-                        node=atlas_dataset.get("node", area_name),
-                        maximum_power_forecast=ForecastingMatrix().add(
-                            ror_ts, parameters.execution_date, inplace=False
-                        ),
-                        co2_emission_factor=0.0,
-                        has_daily_energy_constraint=False,
-                        maximum_afrr=0.0,
-                        maximum_fcr=0.0,
-                        maximum_gradient=0.0,
-                        setup_delay=0.0,
-                        unit_count=0,
-                        additional_hours=duration(),
+                        values=ror_series.tolist(),
+                        parameters=parameters,
+                        atlas_dataset=atlas_dataset,
+                        area_name=area_name,
                     )
                 )
 
-            # prod = Timeseries.from_values(
-            #     start_date=parameters.start_date,
-            #     frequency="1h",
-            #     values=study_output.get_mc_ind_area(
-            #         parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area_name
-            #     )[(parameters.output.misc_ndg_column, "MWh")],
-            # )
-
-            # if prod.abs().max() > 0:
-            #     non_disp_units.append(
-            #         OtherNonDispatchable(
-            #             name=f"{area_name}_misc_ndg",
-            #             portfolio=get_portfolio(atlas_dataset, parameters, area_name),
-            #             node=atlas_dataset.get("node", area_name),
-            #             maximum_power_forecast=ForecastingMatrix().add(prod, parameters.execution_date, inplace=False),
-            #         )
-            #     )
-
     atlas_dataset.other_non_dispatchable.add(non_disp_units)
-
     return atlas_dataset
