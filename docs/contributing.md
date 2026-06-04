@@ -72,11 +72,11 @@ uv run mypy atlas
 
 ## Build the documentation website
 
-We use `mkdocs` to build our documentation website, run the command below and visit [http://localhost:8000](http://localhost:8000) :
+We use `zensical` to build our documentation website, run the command below and visit [http://localhost:8000](http://localhost:8000) :
 
 ```bash
 uv sync --all-groups
-uv run mkdocs serve
+uv run zensical serve
 ```
 
 ## Making a Pull Request
