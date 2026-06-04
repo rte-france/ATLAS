@@ -107,7 +107,9 @@ class TestOutputValues:
 
 
 class TestChangeSets:
-    def test_run_produces_non_empty_change_sets(self, output_dataset: tuple[MarketClearingOutputDataset, float]) -> None:
+    def test_run_produces_non_empty_change_sets(
+        self, output_dataset: tuple[MarketClearingOutputDataset, float]
+    ) -> None:
         assert isinstance(output_dataset[0].change_sets, list)
         assert len(output_dataset[0].change_sets) > 0
 

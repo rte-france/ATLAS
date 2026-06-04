@@ -28,7 +28,7 @@ atlas run <parameters.yaml> --module <MODULE_NAME> --dataset <DATASET_PATH>
 **Options:**
 
 - `config_path` (required): Path to the module parameters YAML file
-- `--module`, `-m` (required): Module name to execute (e.g., `PortfolioOptimisation`, `MarketClearing`, `DayAheadOrders`)
+- `--module`, `-m` (required): Module name to execute (e.g., `PortfolioOptimisation`, `MarketClearing`, `DayAheadOrders`, `IntradayPriceForecast`)
 - `--dataset`, `-d` (required): Path to the input dataset directory containing Atlas-formatted data
 
 **Example:**
@@ -44,6 +44,7 @@ atlas run parameters.yaml \
 - `PortfolioOptimisation` - Portfolio optimization simulation
 - `MarketClearing` - Market clearing simulation
 - `DayAheadOrders` - Day-ahead order generation
+- `IntradayPriceForecast` - Intraday price forecast
 
 #### Workflow Mode
 
@@ -242,7 +243,7 @@ atlas --show-completion
 
 ## Related Documentation
 
-- [Getting Started](getting_started.md) - Installation and setup
+- [Getting Started](getting_started/getting_started.md) - Installation and setup
 - [Workflow System](api/workflow/workflow.md) - Understanding workflows
 - [Module Development](implementing-a-module.md) - Creating custom modules
 - [AtlasDataset](api/io/atlas_dataset.md) - Input/output data format

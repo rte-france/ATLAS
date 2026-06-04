@@ -1,6 +1,10 @@
 # Modules
 
-Atlas provides four simulation modules for electricity market modeling. Each can be run independently or chained together in workflows.
+Atlas provides four simulation modules for electricity market modeling. Each can be run
+independently or chained together in [workflows](workflow.md). All modules share a common
+set of [parameters](common-parameters.md) and follow the same [module pattern](module-pattern.md).
+
+## Available Modules
 
 <div class="grid cards" markdown>
 
@@ -54,9 +58,42 @@ Atlas provides four simulation modules for electricity market modeling. Each can
 
 </div>
 
-## Resources
+## Shared Documentation
 
-- [Running Modules](running-modules.md) - Execution methods and CLI usage
-- [Module Pattern](module-pattern.md) - Standard module structure
-- [Common Parameters](common-parameters.md) - Shared parameters
-- [Your First Simulation](../getting_started/first-simulation.md) - Complete tutorial
+Configuration and concepts common to every module:
+
+<div class="grid cards" markdown>
+
+-   :material-tune:{ .lg .middle } **Common Parameters**
+
+    ---
+
+    The `temporal`, `solver`, `output`, and `multiprocessing` sections shared by all modules.
+
+    [:octicons-arrow-right-24: Common parameters](common-parameters.md)
+
+-   :material-play-circle:{ .lg .middle } **Running Modules**
+
+    ---
+
+    Execute a module from Python with `ModuleRun`, or from the command line.
+
+    [:octicons-arrow-right-24: Running modules](running-modules.md)
+
+-   :material-shape-outline:{ .lg .middle } **Module Pattern**
+
+    ---
+
+    The `AbstractModule` lifecycle every module implements: import, validate, execute, export.
+
+    [:octicons-arrow-right-24: Module pattern](module-pattern.md)
+
+-   :material-school:{ .lg .middle } **Your First Simulation**
+
+    ---
+
+    A complete walkthrough running a module end to end on a sample dataset.
+
+    [:octicons-arrow-right-24: First simulation](../getting_started/first-simulation.md)
+
+</div>

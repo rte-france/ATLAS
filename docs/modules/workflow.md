@@ -39,7 +39,7 @@ Each entry under `steps` defines one execution unit:
 
 | Parameter | Required | Default | Description |
 |---|---|---|---|
-| `module` | Yes | — | Module to run (`DayAheadOrders`, `MarketClearing`, `PortfolioOptimisation`) |
+| `module` | Yes | — | Module to run (`DayAheadOrders`, `MarketClearing`, `PortfolioOptimisation`, `IntradayPriceForecast`) |
 | `parameters_path` | Yes | — | Path to the module parameters file |
 | `name` | No | module name | Custom name for the step |
 
@@ -90,9 +90,10 @@ my-workflow/
     Each `parameters_path` file in `parameters/` must follow the YAML format defined by the corresponding module.
     See the **Parameters** section in each module's user guide for the expected structure and available fields:
 
-    - [Day-Ahead Orders parameters](../modules/day-ahead-orders/user-guide/input-data.md)
-    - [Market Clearing parameters](../modules/market-clearing/user-guide/input-data.md)
-    - [Portfolio Optimisation parameters](../modules/portfolio-optimisation/user-guide/input-data.md)
+    - [Day-Ahead Orders parameters](../modules/day-ahead-orders/user-guide/parameters.md)
+    - [Market Clearing parameters](../modules/market-clearing/user-guide/parameters.md)
+    - [Portfolio Optimisation parameters](../modules/portfolio-optimisation/user-guide/parameters.md)
+    - [Intraday Price Forecast parameters](../modules/intraday-price-forecast/user-guide/parameters.md)
 
 When `path_from_workflow: true` (the default), all relative paths in `workflow.yaml` are resolved from the directory containing the workflow file — so you can move the whole folder without breaking paths.
 

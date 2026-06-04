@@ -193,14 +193,18 @@ Follow the structure of existing modules under `docs/modules/`:
 
 ```
 docs/modules/my-module/
-    index.md                       # Overview and links
+    index.md                       # Landing page: quick-start snippet + links
     user-guide/
         overview.md                # What the module does
-        input-data.md              # Module-specific parameters
-        running.md                 # Quick-start snippet
+        parameters.md              # Module-specific parameters reference
+        results.md                 # Accessing and interpreting outputs
+        examples.md                # (optional) Worked examples
     developer/
         architecture.md            # Classes, data flow, design decisions
 ```
 
-See [Running](modules/running-modules.md) for the expected content of `running.md`,
+Add the new pages to the `nav` in `zensical.toml` under the **Modules** (user guide)
+and **Developer Guide › Module Architecture** sections.
+
+See [Running Modules](modules/running-modules.md) for the canonical execution snippet,
 and any existing module's `developer/architecture.md` for the expected level of detail.

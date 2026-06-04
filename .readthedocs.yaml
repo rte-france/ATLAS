@@ -1,0 +1,24 @@
+# Read the Docs configuration file.
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html
+#
+# Atlas builds its documentation with `zensical` (a MkDocs-based static site
+# generator) managed by `uv`. Zensical is not a natively supported Read the Docs
+# builder, so we drive the build through `build.commands` and hand the generated
+# site over to Read the Docs via the `$READTHEDOCS_OUTPUT/html` directory.
+
+version: 2
+
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.13"
+  commands:
+    # Install uv (same approach as the GitHub Actions workflows).
+    - pip install uv
+    # Install only the documentation dependency group.
+    - uv sync --group docs --no-dev
+    # Build the site (zensical auto-discovers zensical.toml; outputs to `public/`).
+    - uv run zensical build
+    # Publish the built site to the location Read the Docs serves from.
+    - mkdir -p $READTHEDOCS_OUTPUT/html
+    - cp -r public/. $READTHEDOCS_OUTPUT/html/
