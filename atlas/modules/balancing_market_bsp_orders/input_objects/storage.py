@@ -6,12 +6,12 @@ This file is part of the ATLAS project.
 Module that implements BalancingStorage.
 """
 
-from atlas.modules.balancing_market_bsp_orders.input_objects.base import BalancingEquipmentMixin
 from pendulum import Duration
 
 from atlas.enums import StorageType
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.modules.balancing_market_bsp_orders.input_objects.base import BalancingEquipmentMixin
 from atlas.objects.equipment.storage import Storage
 
 

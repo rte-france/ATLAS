@@ -6,9 +6,8 @@ This file is part of the ATLAS project.
 Module that implements BalancingThermal.
 """
 
-from atlas.modules.balancing_market_bsp_orders.input_objects.base import BalancingEquipmentMixin
-
 from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.modules.balancing_market_bsp_orders.input_objects.base import BalancingEquipmentMixin
 from atlas.objects.equipment.thermal import Thermal
 
 

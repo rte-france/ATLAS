@@ -6,10 +6,9 @@ This file is part of the ATLAS project.
 Module that implements BalancingLoad.
 """
 
-from atlas.modules.balancing_market_bsp_orders.input_objects.base import BalancingEquipmentMixin
-
 from atlas.enums import LoadType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.modules.balancing_market_bsp_orders.input_objects.base import BalancingEquipmentMixin
 from atlas.objects.equipment.load import Load
 
 
