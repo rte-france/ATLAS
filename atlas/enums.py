@@ -28,7 +28,7 @@ class BusinessModelName(StrEnum):
     WIND = "wind"
 
 
-class LoadType(str, Enum):
+class LoadType(StrEnum):
     """
     Represents different types of electrical loads.
 
@@ -42,7 +42,7 @@ class LoadType(str, Enum):
     OTHER_NON_DISPATCHABLE_LOAD = "OtherNonDispatchableLoad"
 
 
-class StorageType(str, Enum):
+class StorageType(StrEnum):
     """
     Represents different energy storage technologies.
 
@@ -56,7 +56,7 @@ class StorageType(str, Enum):
     ELECTRIC_VEHICLE = "ElectricVehicle"
 
 
-class ThermalStrategy(str, Enum):
+class ThermalStrategy(StrEnum):
     """
     Thermal generation strategy classification.
 
@@ -70,7 +70,7 @@ class ThermalStrategy(str, Enum):
     PEAK = "Peak"
 
 
-class ReservesTypes(str, Enum):
+class ReservesTypes(StrEnum):
     """
     Types of reserves used in grid balancing.
 
@@ -84,7 +84,7 @@ class ReservesTypes(str, Enum):
     aFRR = "aFRR"  # noqa: N815
 
 
-class ComplementDirection(str, Enum):
+class ComplementDirection(StrEnum):
     """
     Direction used in complementarity constraints.
 
@@ -98,7 +98,7 @@ class ComplementDirection(str, Enum):
     LesserThan = "LesserThan"
 
 
-class CouplingType(str, Enum):
+class CouplingType(StrEnum):
     """
     Type of coupling constraints between energy assets.
 
@@ -117,7 +117,7 @@ class CouplingType(str, Enum):
     ATC = "ATC"
 
 
-class OrderType(str, Enum):
+class OrderType(StrEnum):
     """
     Market order type.
 
@@ -129,7 +129,7 @@ class OrderType(str, Enum):
     Sell = "Sell"
 
 
-class Product(str, Enum):
+class Product(StrEnum):
     """
     Enumeration of electricity market products.
 
@@ -177,7 +177,7 @@ class SolverStatus(Enum):
     MODEL_INVALID = "model_invalid"
 
 
-class InflowFrequency(str, Enum):
+class InflowFrequency(StrEnum):
     """
     Frequency of inflow data.
 
@@ -189,7 +189,7 @@ class InflowFrequency(str, Enum):
     Monthly = "Monthly"
 
 
-class MarketType(str, Enum):
+class MarketType(StrEnum):
     """
     Enumeration of market types.
 
@@ -205,7 +205,7 @@ class MarketType(str, Enum):
     mfrr_activation = "MFRRActivation"
 
 
-class SolverEnum(str, Enum):
+class SolverEnum(StrEnum):
     """
     Enumeration of solver types.
 

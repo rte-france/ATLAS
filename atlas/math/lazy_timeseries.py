@@ -471,7 +471,7 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
     def get_time_by_index(self, index: int) -> pendulum.DateTime:
         return pendulum.instance(self._row_at(index)["time"])
 
-    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
+    def iter_rows(self) -> Generator[tuple[datetime, float]]:
         """
         Iterate over rows of the LazyTimeseries, yielding (time, value) tuples.
 

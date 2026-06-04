@@ -6,14 +6,11 @@ This file is part of the ATLAS project.
 """
 
 from collections.abc import Iterable, Iterator
-from typing import Generic, TypeVar
 
 from atlas.objects.business_model import BusinessModel
 
-T = TypeVar("T", bound=BusinessModel)
 
-
-class Container(Generic[T]):
+class Container[T: BusinessModel]:
     def __init__(self, items: Iterable[T] | None = None):
         self._items: dict[str, T] = {}
 

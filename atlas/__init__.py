@@ -86,4 +86,4 @@ __all__ = [
     "MarketClearingModule",
 ]
 
-__version__ = version("atlas")
+__version__ = version("rte-atlas")

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Generic
 
-from atlas.abstract_class.job import AbstractJob, J
-from atlas.abstract_class.orchestrator_parameters import PO
+from atlas.abstract_class.job import AbstractJob
+from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.config import logger
 from atlas.custom_errors import WorkflowJobError
 from atlas.orchestrator.current_input_state import CurrentInputState
@@ -12,7 +11,7 @@ from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.timing import timer
 
 
-class AbstractOrchestrator(ABC, Generic[PO, J]):
+class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](ABC):
     """Placeholder abstract class for orchestrator."""
 
     parameters: PO
