@@ -7,6 +7,7 @@ Module that implements Parameters
 from __future__ import annotations
 
 import json
+import copy
 from pathlib import Path
 from typing import Self
 
@@ -51,7 +52,7 @@ class Parameters(BaseModel):
         if parameters is None:
             parameters = {}
 
-        context.update(parameters)
+        parameters = context.apply_on(parameters, True)
         return cls(**parameters)
 
     @staticmethod
@@ -152,10 +153,14 @@ class ContextParameters(BaseModel):
         deep_update(self.default, context.default, True)
         deep_update(self.forced, context.forced, True)
 
-    def update(self, base: dict) -> None:
+    def apply_on(self, base: dict, inplace: bool = False) -> dict:
         """
-        Add any default value in given context if not present in this context.
-        Override any forced value in this context that are also present in given context.
+        Return the resulting dictionary obtained by applying this context to the given dictionary,
+        return a deepcopy if inplace is False.
+        Any default value in this context will be added if not present in the dictionary.
+        Override any forced value from this context that are also present in given dict.
         """
-        deep_update(base, self.default, False)
-        deep_update(base, self.forced, True)
+        updated_dict = base if inplace else copy.deepcopy(base)
+        deep_update(updated_dict, self.default, False)
+        deep_update(updated_dict, self.forced, True)
+        return updated_dict

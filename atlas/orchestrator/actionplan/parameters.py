@@ -76,7 +76,7 @@ class Task(BaseModel):
     module: ModuleRegistry | None = None
     workflow: Workflow | Path | None = None
     module_parameters_path: Path | None = None
-    priority: int
+    priority: int = 0
     from_: DateTime  # FIXME change name, "from" isn't available in python
     until: DateTime
     frequency: Duration
@@ -182,9 +182,9 @@ class Task(BaseModel):
                 f"Task {self.name} must have an 'until' date before 'from' date {self.from_}, current value is {self.until}"
             )
         timedelta = self.until - self.from_
-        if timedelta.total_seconds() % (self.frequency.total_seconds()) != 0:
-            diff_seconds = timedelta.total_seconds() % (self.frequency.total_seconds())
-            last_execution_date = self.until - Duration(seconds=diff_seconds)
+        diff_seconds = timedelta.total_seconds() % (self.frequency.total_seconds())
+        if diff_seconds != 0:
+            last_execution_date = self.until + Duration(seconds=diff_seconds)
             warnings.warn(
                 f"Task {self.name} last execution date is not equal to 'until' {self.until}', last value is {last_execution_date}",
                 DataQualityWarning,

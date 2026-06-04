@@ -17,6 +17,7 @@ from atlas import WorkflowParameters
 from atlas.abstract_class.job import AbstractJob
 from atlas.abstract_class.module import AbstractModule
 from atlas.abstract_class.parameters import AbstractModuleParameters
+from atlas.io_utils.parameters import OutputParameters
 from atlas.io_utils.utils import deep_update
 from atlas.orchestrator.actionplan.parameters import Task
 from atlas.orchestrator.workflow.workflow import Workflow
@@ -103,17 +104,18 @@ class ModuleTaskIterator(TaskIterator):
 
     def _build_current_parameters(self) -> AbstractModuleParameters:
         parameters = copy.deepcopy(self.parameters)
-        parameters.output.output_dir = self.root_output_dir / self.next_execution_date
+        if parameters.output is not None:
+            parameters.output.output_dir = self.root_output_dir / str(self.next_execution_date.isoformat())
         parameters.temporal.start_date = self.next_start_date
         parameters.temporal.end_date = self.next_end_date
         parameters.temporal.execution_date = self.next_execution_date
         return parameters
 
     def __lt__(self, other):
-        return super.__lt__(other)
+        return super().__lt__(other)
 
     def __eq__(self, other):
-        return super.__eq__(other)
+        return super().__eq__(other)
 
 
 class WorkflowTaskIterator(TaskIterator):
@@ -130,12 +132,12 @@ class WorkflowTaskIterator(TaskIterator):
             parameters.context.forced,
             {
                 "temporal": {
-                    "execution_date": self.task.until,
+                    "execution_date": self.next_execution_date,
                     "start_date": self.next_start_date,
                     "end_date": self.next_end_date,
                 },
                 "output": {
-                    "output_dir": self.root_output_dir / self.next_execution_date,
+                    "output_dir": self.root_output_dir / str(self.next_execution_date.isoformat()),
                 },
             },
             True,
@@ -147,7 +149,7 @@ class WorkflowTaskIterator(TaskIterator):
         return list(workflow.jobs)
 
     def __lt__(self, other):
-        return super.__lt__(other)
+        return super().__lt__(other)
 
     def __eq__(self, other):
-        return super.__eq__(other)
+        return super().__eq__(other)

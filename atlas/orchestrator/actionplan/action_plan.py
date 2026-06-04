@@ -14,6 +14,7 @@ from typing import cast
 
 from atlas import WorkflowParameters
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
+from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.actionplan.job import ActionPlanJob, ModuleTaskIterator, TaskIterator, WorkflowTaskIterator
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, Task
 from atlas.orchestrator.workflow.workflow import Workflow
@@ -39,9 +40,11 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         return any(Task.are_concurrent(itr.task, task) for itr in self._priority_queue)
 
     @classmethod
-    def from_file(cls, file_path: str | Path) -> ActionPlan:
+    def from_file(cls, file_path: str | Path, context: ContextParameters | None = None) -> ActionPlan:
         file_path = Path(file_path)
         parameters = ActionPlanParameters.from_file(file_path=file_path)
+        if context is not None:
+            parameters.context.use(context)
         parameters._orchestrator_path = file_path.parent
         return cls(parameters=parameters)
 
@@ -55,6 +58,8 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
     def _add_task_module(self, task: Task, root_output_dir: Path) -> None:
         if task.module is None:
             raise ValueError("_add_task_module called without a module")
+        if task.module_parameters_path is None:
+            raise ValueError("_add_task_module called without a module parameter path")
         module_parameters = (
             task.module.value()
             .get_parameters_class()
@@ -66,10 +71,11 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
     def _add_task_workflow(self, task: Task, root_output_dir: Path) -> None:
         if isinstance(task.workflow, Path):
             workflow_parameters = WorkflowParameters.from_file(
-                self.parameters.resolve_path(task.workflow), self.parameters.context
+                self.parameters.resolve_path(task.workflow)
             )
         elif isinstance(task.workflow, Workflow):
             workflow_parameters = task.workflow.parameters
+        workflow_parameters.context.use(self.parameters.context)
         workflow_iterator = WorkflowTaskIterator(task, workflow_parameters, root_output_dir)
         self._push_iterator(workflow_iterator)
 
@@ -80,13 +86,13 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         heapq.heappush(self._priority_queue, iterator)
 
     def _pop_iterator(self) -> TaskIterator:
-        return heapq.heappop(self._priority_queue)
+        itr = heapq.heappop(self._priority_queue)
+        self._jobs_count -= len(itr)
+        return itr
 
     def _build_priority_queue(self) -> None:
         for task in self.parameters.tasks:
             self.add_task(task)
-        for itr in self._priority_queue:
-            self._jobs_count += len(itr)
 
     @property
     def jobs(self) -> Iterator[ActionPlanJob]:
@@ -109,4 +115,4 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
     def __repr__(self) -> str:
         """Return a human-readable string representation of the workflow."""
-        return f"ActionPlan '{self.parameters.name}' ({len(self.parameters.tasks)} task{'s' if self.parameters.tasks != 1 else ''} with a total of {self.jobs_count} step{'s' if self.jobs_count != 1 else ''})"
+        return f"ActionPlan '{self.parameters.name}' ({len(self.parameters.tasks)} task{'s' if len(self.parameters.tasks) > 1 else ''} with a total of {self.jobs_count} step{'s' if self.jobs_count > 1 else ''})"
