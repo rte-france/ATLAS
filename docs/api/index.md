@@ -29,6 +29,13 @@ Pydantic models for equipment assets, market entities, and network objects.
 - [:lucide-workflow: **Workflow**](workflow/workflow.md) — Main workflow orchestration
 - [:lucide-square: **Workflow Step**](workflow/workflow_step.md) — Individual workflow steps
 
+## :lucide-refresh-cw: Orchestrator
+
+- [:lucide-database: **CurrentInputState**](orchestrator/current_input_state.md) — Shared state passed between modules
+- [:lucide-git-commit: **ChangeSets**](orchestrator/change_set.md) — Immutable state mutations (Add / Update / Delete)
+- [:lucide-layers: **CISHandler**](orchestrator/cis_handler.md) — Apply a batch of ChangeSets with ordering and rollback
+- [:lucide-wrench: **ChangeSetHandler**](orchestrator/change_set_handler.md) — Apply a single ChangeSet with reference resolution
+
 ## :lucide-cpu: Optimisation
 
 - [:lucide-sliders: **Solver Interface**](solver/interface.md) — OR-Tools solver interface

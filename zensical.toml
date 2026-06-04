@@ -119,6 +119,12 @@ nav = [
             { "Workflow" = "api/workflow/workflow.md" },
             { "Workflow Step" = "api/workflow/workflow_step.md" },
         ]},
+        { "Orchestrator" = [
+            { "CurrentInputState" = "api/orchestrator/current_input_state.md" },
+            { "ChangeSets" = "api/orchestrator/change_set.md" },
+            { "CISHandler" = "api/orchestrator/cis_handler.md" },
+            { "ChangeSetHandler" = "api/orchestrator/change_set_handler.md" },
+        ]},
         { "Optimisation" = [
             { "Solver Interface" = "api/solver/interface.md" },
             { "Models" = "api/solver/models.md" },
