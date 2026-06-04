@@ -15,7 +15,7 @@ In this tutorial, you will:
 ## What You'll Need
 
 - Atlas installed ([see Installation](getting_started.md))
-- A solver installed (OR-Tools comes by default, or [install Xpress](getting_started.md#available-solver))
+- A solver installed (OR-Tools comes by default, or [install Xpress](getting_started.md#xpress-optional))
 - Sample dataset (instructions below)
 
 ## Understanding the Workflow
