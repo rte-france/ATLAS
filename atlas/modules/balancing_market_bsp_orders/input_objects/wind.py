@@ -8,16 +8,23 @@ Module that implements BalancingWind.
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.modules.balancing_market_bsp_orders.input_objects.base import BalancingEquipmentMixin
 from atlas.objects.equipment.wind import Wind
 
 
-class BalancingWind(BalancingEquipmentMixin, Wind):
-    """Wind equipment subclass for the Balancing Orders Formulation module.
+class BalancingWind(Wind):
+    """Wind equipment subclass for the Balancing Orders Formulation module."""
 
-    Enforces attributes required by the wind/PV order formulator, in addition
-    to the common balancing attributes defined in BalancingEquipmentMixin.
-    """
-
+    power: ForecastingMatrix | LazyForecastingMatrix
+    fcr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    fcr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    afrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    afrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    mfrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    mfrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    rr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    rr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    variable_cost: AbstractTimeseries
+    setup_delay: float
+    maximum_gradient: float
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
     maximum_curtailment_ratio: AbstractTimeseries

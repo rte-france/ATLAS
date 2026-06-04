@@ -7,17 +7,25 @@ Module that implements BalancingLoad.
 """
 
 from atlas.enums import LoadType
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.modules.balancing_market_bsp_orders.input_objects.base import BalancingEquipmentMixin
 from atlas.objects.equipment.load import Load
 
 
-class BalancingLoad(BalancingEquipmentMixin, Load):
-    """Load equipment subclass for the Balancing Orders Formulation module.
+class BalancingLoad(Load):
+    """Load equipment subclass for the Balancing Orders Formulation module."""
 
-    Enforces attributes required by the load order formulator, in addition
-    to the common balancing attributes defined in BalancingEquipmentMixin.
-    """
-
+    power: ForecastingMatrix | LazyForecastingMatrix
+    fcr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    fcr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    afrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    afrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    mfrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    mfrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    rr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    rr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    variable_cost: AbstractTimeseries
+    setup_delay: float
+    maximum_gradient: float
     load_type: LoadType
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix

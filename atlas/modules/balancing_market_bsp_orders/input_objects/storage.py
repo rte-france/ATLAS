@@ -11,17 +11,24 @@ from pendulum import Duration
 from atlas.enums import StorageType
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.modules.balancing_market_bsp_orders.input_objects.base import BalancingEquipmentMixin
 from atlas.objects.equipment.storage import Storage
 
 
-class BalancingStorage(BalancingEquipmentMixin, Storage):
-    """Storage equipment subclass for the Balancing Orders Formulation module.
+class BalancingStorage(Storage):
+    """Storage equipment subclass for the Balancing Orders Formulation module."""
 
-    Enforces attributes required by the storage order formulator, in addition
-    to the common balancing attributes defined in BalancingEquipmentMixin.
-    """
-
+    power: ForecastingMatrix | LazyForecastingMatrix
+    fcr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    fcr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    afrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    afrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    mfrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    mfrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    rr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    rr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    variable_cost: AbstractTimeseries
+    setup_delay: float
+    maximum_gradient: float
     maximum_power: AbstractTimeseries
     minimum_power: AbstractTimeseries
     stored_energy: ForecastingMatrix | LazyForecastingMatrix
