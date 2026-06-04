@@ -11,7 +11,7 @@ For common parameters (`temporal`, `solver`, `output`), see [Common Parameters](
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `market` | `Product` | `DayAhead` | Type of clearing to execute. Only orders matching this market name are considered (not case-sensitive). |
-| `timestep` | `Duration` | `1h` | Time resolution of the studied market. Must be strictly greater than 0. |
+| `timestep` | `Duration` | `PT1H` | Time resolution of the studied market. Must be strictly greater than 0. |
 | `execution_datetime_tolerance` | `int` | `5 min` | Tolerance window for overlapping markets (Intraday or Balancing). Must exceed the execution date difference between consecutive order formulation and clearing. |
 
 ## Market Scope
@@ -65,7 +65,7 @@ temporal:
   start_date: "2028-09-27 00:00:00"
   end_date: "2028-09-28 00:00:00"
   execution_date: "2028-09-26 12:00:00"
-  timestep: "1h"
+  timestep: "PT1H"
 solver:
   solver_name: "SCIP"
   use_presolve: true
@@ -86,8 +86,8 @@ flow_penalty_lambda_4: 0
 market_price_penalty_alpha: 10
 market_price_penalty_beta: 20
 fb_branch_load_slack_penalty: 200
-paradoxically_accepted_penalty_M: 1000
-paradoxically_rejected_penalty_N: 10000
+paradoxically_accepted_penalty_M: 10000
+paradoxically_rejected_penalty_N: 1000
 allowed_round_off_error: 1e-3
 ```
 

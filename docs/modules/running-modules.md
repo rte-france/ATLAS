@@ -27,6 +27,7 @@ Replace `<ModuleName>` with the specific module you want to run:
 - `PortfolioOptimisationModule`
 - `DayAheadOrdersModule`
 - `MarketClearingModule`
+- `IntradayPriceForecastModule`
 
 ## Loading Data
 
@@ -53,11 +54,11 @@ Parameters can be provided in three formats:
 
 **Dictionary**:
 ```python
-ModuleRun(module, dataset, params={
+ModuleRun(module, dataset, parameters={
     "temporal": {
-        "start_date": "2024-01-01T00:00:00",
-        "end_date": "2024-01-02T00:00:00",
-        "execution_date": "2023-12-31T12:00:00",
+        "start_date": "2024-01-01 00:00:00",
+        "end_date": "2024-01-02 00:00:00",
+        "execution_date": "2023-12-31 12:00:00",
         "timestep": "PT1H",
     },
     "output": {
@@ -68,12 +69,12 @@ ModuleRun(module, dataset, params={
 
 **YAML file**:
 ```python
-ModuleRun(module, dataset, "config/parameters.yml").run()
+ModuleRun(module, dataset, parameters="config/parameters.yml").run()
 ```
 
 **JSON file**:
 ```python
-ModuleRun(module, dataset, "config/parameters.json").run()
+ModuleRun(module, dataset, parameters="config/parameters.json").run()
 ```
 
 See [Common Parameters](common-parameters.md) for parameters shared across all modules.
@@ -111,8 +112,8 @@ params = {
     # ... other parameters ...
     "solver": {
         "solver_name": "XPRESS",
-        "solver_timeout": 300,
-        "solver_duality_gap": 0.01,
+        "timeout": "PT5M",
+        "duality_gap": 0.01,
         "use_presolve": True,
     },
 }
@@ -138,3 +139,4 @@ See [CLI Documentation](../cli.md) for more details.
     - [Portfolio Optimisation](../modules/portfolio-optimisation/index.md)
     - [Day-Ahead Orders](../modules/day-ahead-orders/index.md)
     - [Market Clearing](../modules/market-clearing/index.md)
+    - [Intraday Price Forecast](../modules/intraday-price-forecast/index.md)

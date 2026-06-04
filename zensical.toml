@@ -36,26 +36,30 @@ nav = [
         ]},
     ]},
     { "Modules" = [
-        { "Overview" = "modules/index.md" },
+        "modules/index.md",
         { "Common Parameters" = "modules/common-parameters.md" },
         { "Portfolio Optimisation" = [
             { "Overview" = "modules/portfolio-optimisation/index.md" },
+            { "User Guide" = "modules/portfolio-optimisation/user-guide/overview.md" },
             { "Parameters" = "modules/portfolio-optimisation/user-guide/parameters.md" },
             { "Results" = "modules/portfolio-optimisation/user-guide/results.md" },
             { "Examples" = "modules/portfolio-optimisation/user-guide/examples.md" },
         ]},
         { "Market Clearing" = [
             { "Overview" = "modules/market-clearing/index.md" },
+            { "User Guide" = "modules/market-clearing/user-guide/overview.md" },
             { "Parameters" = "modules/market-clearing/user-guide/parameters.md" },
             { "Results" = "modules/market-clearing/user-guide/results.md" },
         ]},
         { "Day-Ahead Orders" = [
             { "Overview" = "modules/day-ahead-orders/index.md" },
+            { "User Guide" = "modules/day-ahead-orders/user-guide/overview.md" },
             { "Parameters" = "modules/day-ahead-orders/user-guide/parameters.md" },
             { "Results" = "modules/day-ahead-orders/user-guide/results.md" },
         ]},
         { "Intraday Price Forecast" = [
             { "Overview" = "modules/intraday-price-forecast/index.md" },
+            { "User Guide" = "modules/intraday-price-forecast/user-guide/overview.md" },
             { "Parameters" = "modules/intraday-price-forecast/user-guide/parameters.md" },
             { "Results" = "modules/intraday-price-forecast/user-guide/results.md" },
         ]},

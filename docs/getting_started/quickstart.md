@@ -21,11 +21,12 @@ Atlas version : 0.1.0
 
 ## Running a Simple Module
 
-Atlas provides three main modules for electricity market simulation:
+Atlas provides four main modules for electricity market simulation:
 
 - **PortfolioOptimisation** - Optimize asset portfolios
 - **MarketClearing** - Simulate market clearing mechanisms
 - **DayAheadOrders** - Generate day-ahead market orders
+- **IntradayPriceForecast** - Forecast intraday prices from day-ahead scenarios
 
 ### Basic Module Execution
 
