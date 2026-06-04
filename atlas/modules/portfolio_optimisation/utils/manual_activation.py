@@ -10,7 +10,7 @@ from pendulum import DateTime
 
 from atlas.enums import MarketType, StorageType, ThermalStrategy
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
@@ -161,7 +161,7 @@ def _calculate_new_power(equipment: EquipmentPO, parameters: PortfolioOptimisati
         da_power = Timeseries.from_index(
             parameters.temporal.start_date,
             parameters.temporal.timestep,
-            parameters.temporal.end_date,
+            parameters.temporal.end_date - parameters.temporal.timestep,
             default_value=0,
         )
 
@@ -177,7 +177,7 @@ def _calculate_new_power(equipment: EquipmentPO, parameters: PortfolioOptimisati
             id_power = Timeseries.from_index(
                 parameters.temporal.start_date,
                 parameters.temporal.timestep,
-                parameters.temporal.end_date,
+                parameters.temporal.end_date - parameters.temporal.timestep,
                 default_value=0,
             )
         result = cast(Timeseries, da_power) + cast(Timeseries, id_power)
@@ -556,23 +556,30 @@ def _finalize_power_update(
     :return: None
     :rtype: None
     """
-    # Add extra timestep for interpolation
-    next_time = parameters.temporal.end_date + parameters.temporal.timestep
+    # Extend new_power to end_date for interpolation
+    end_date = parameters.temporal.end_date
     if equipment.power:
         next_power_value = equipment.power.get_forecast(
-            parameters.temporal.execution_date, next_time, next_time
-        ).get_value(next_time)
-        new_power.set_value(next_time, next_power_value)
+            parameters.temporal.execution_date, end_date, end_date
+        ).get_value(end_date)
+    else:
+        next_power_value = 0.0
+    new_power = Timeseries.from_values(
+        start_date=parameters.temporal.start_date,
+        frequency=parameters.temporal.timestep,
+        values=list(new_power.values) + [next_power_value],
+    )
 
     # Update equipment power
     if parameters.use_forecast:
-        if equipment.id_po_for_orders:
-            cast(ForecastingMatrix | LazyForecastingMatrix, equipment.id_po_for_orders).add(
-                new_power, parameters.temporal.execution_date
-            )
+        if not equipment.id_po_for_orders:
+            equipment.id_po_for_orders = ForecastingMatrix()
+        equipment.id_po_for_orders.add(new_power, parameters.temporal.execution_date)
     else:
         if equipment.power:
-            equipment.power.replace(
-                parameters.temporal.execution_date,
-                new_power,
-            )
+            if parameters.temporal.execution_date in equipment.power:
+                equipment.power.replace(parameters.temporal.execution_date, new_power)
+            else:
+                equipment.power.add(new_power, parameters.temporal.execution_date)
+        else:
+            equipment.power = ForecastingMatrix().add(new_power, parameters.temporal.execution_date)

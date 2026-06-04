@@ -88,7 +88,7 @@ def optimise_single_portfolio(
         model.build()
 
         if parameters.solver.export_lp:
-            output_path = parameters.get_output_dir() / "lp_export"
+            output_path = parameters.get_lp_dir()
             output_path.mkdir(parents=True, exist_ok=True)
             model.export_model(output_path / f"po_{portfolio.name}.lp")
 

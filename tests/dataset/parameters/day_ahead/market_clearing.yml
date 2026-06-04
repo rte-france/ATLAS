@@ -1,0 +1,26 @@
+temporal:
+  start_date: "2028-09-27 00:00:00"
+  end_date: "2028-09-28 00:00:00"
+  execution_date: "2028-09-26 12:00:00"
+  timestep: "PT1H"
+activate_constrained_tso_quantity: False
+prevent_adverse_flows: False
+fb_branch_load_slack_penalty: 200
+control_block_names: "All"
+market_area_names: "All"
+exchange_constraints_type: "ATC"
+price_modifier_lambda_1: 0
+flow_penalty_lambda_2: 0
+flow_penalty_lambda_3: 0
+flow_penalty_lambda_4: 0
+market_price_penalty_alpha: 10
+market_price_penalty_beta: 20
+paradoxically_accepted_penalty_M: 1_000
+paradoxically_rejected_penalty_N: 10_000
+solver:
+  solver_name: "SCIP"
+  use_presolve: True
+  timeout: "PT10S"
+market: "DayAhead"
+allowed_round_off_error: 1e-3
+execution_datetime_tolerance: 5

@@ -93,7 +93,7 @@ def run(
                 result = ModuleRun(module, dataset, parameters).run()
 
                 if parameters.output.export_output_dataset:
-                    CurrentInputState(result).to_directory(parameters.get_output_dir())
+                    CurrentInputState(result).to_directory(parameters.get_output_dataset_dir())
 
             logger.info(f"Module '{module_name}' completed in {t()} seconds")
             rprint(f"[bold green]✓[/bold green] Module '{module_name}' completed successfully.")

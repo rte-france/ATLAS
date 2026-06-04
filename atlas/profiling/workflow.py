@@ -134,7 +134,7 @@ def _patch_execute_job(orchestrator_cls, state: _State) -> None:
 
             if job.parameters.output.export_output_dataset:
                 t0 = time.perf_counter()
-                cis.to_directory(self.parameters.resolve_path(job.parameters.output.output_dir) / "output_dataset")
+                cis.to_directory(self.parameters.resolve_path(job.parameters.get_) / "output_dataset")
                 export_s = time.perf_counter() - t0
 
         except Exception as e:
