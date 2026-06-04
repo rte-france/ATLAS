@@ -1,118 +1,98 @@
 # Parameters
 
-## Overview
-
 The Portfolio Optimisation module is configured through `PortfolioOptimisationParameters`. Parameters can be provided as a dictionary or loaded from a JSON/YAML file.
 
 For common parameters (`temporal`, `solver`, `output`, `multiprocessing`), see [Common Parameters](../../common-parameters.md).
 
-## Optimization Parameters
+---
 
-### Optimization Scope
+## Optimization Scope
 
-- **`is_portfolio_bidding`** (bool, default: True):
-    * `True`: Optimize at portfolio level
-    * `False`: Optimize individual units
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `is_portfolio_bidding` | `bool` | `True` | `True`: optimize at portfolio level. `False`: optimize individual units. |
+| `use_forecast` | `bool` | `False` | `True`: use price forecasts (before market). `False`: use actual prices. |
 
-- **`use_forecast`** (bool, default: False):
-    * `True`: Use price forecasts (optimization before market)
-    * `False`: Use actual prices
+## Exclusions
 
-### Exclusions
-
-- **`excluded_market_areas`** (list[str], default: None): Market areas to exclude from optimization
-    * Format: List of strings (e.g., `["FR", "DE"]`)
-    * Special values: `["all"]` or `["none"]`
-
-- **`excluded_technologies`** (list[str], default: None): Equipment types to exclude
-    * Format: List of strings (e.g., `["thermal", "wind"]`)
-    * Options: `"thermal"`, `"storage"`, `"wind"`, `"solar"`, `"hydro"`, `"load"`, `"other_non_dispatchable"`
-    * Special values: `["all"]` or `["none"]`
-
-- **`excluded_thermal_strategy`** (list[str], default: None): Thermal strategies to manually activate
-    * Format: List of strings (e.g., `["Peak", "Base"]`)
-    * Options: `["Peak"]`, `["Intermediate"]`, `["Base"]`, `["all"]`, `["none"]`, or `None`
-
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `excluded_market_areas` | `list[str]` | `None` | Market areas to exclude. Accepts explicit names, `["all"]`, or `["none"]`. |
+| `excluded_technologies` | `list[str]` | `None` | Equipment types to exclude: `"thermal"`, `"storage"`, `"wind"`, `"solar"`, `"hydro"`, `"load"`, `"other_non_dispatchable"`, `["all"]`, `["none"]`. |
+| `excluded_thermal_strategy` | `list[str]` | `None` | Thermal strategies to exclude: `"Peak"`, `"Intermediate"`, `"Base"`, `["all"]`, `["none"]`. |
 
 ## Penalties & Pricing
 
-### Imbalance Penalties
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `imbalance_penalty_offset` | `float` | `10` €/MWh | Offset when forecasting imbalance settlement price. |
+| `isp_forecast_lower_bound` | `float` | `10` €/MWh | Lower bound of the absolute ISP forecast. |
+| `small_imbalance_penalty` | `float` | `0.1` | Coefficient for small imbalance ISP. |
+| `large_imbalance_penalty` | `float` | `0.2` | Coefficient for large imbalance ISP. |
+| `small_imbalance_size` | `float` | `0.15` | Fraction of portfolio energy considered "small". |
+| `maximum_imbalance` | `float` | `100 000` MW | Maximum allowed imbalance. |
+| `automated_unprocured_reserves_penalty` | `float` | `30 000` €/MW/h | Penalty for not providing automated reserves. |
+| `manual_unprocured_reserves_penalty` | `float` | `30 000` €/MW/h | Penalty for not providing manual reserves. |
 
-- **`imbalance_penalty_offset`** (float, default: 10 €/MWh): Offset when forecasting imbalance settlement price
-
-- **`isp_forecast_lower_bound`** (float, default: 10 €/MWh): Lower bound of absolute ISP forecast
-
-- **`small_imbalance_penalty`** (float, default: 0.1): Coefficient for small imbalance ISP
-
-- **`large_imbalance_penalty`** (float, default: 0.2): Coefficient for large imbalance ISP
-
-- **`small_imbalance_size`** (float, default: 0.15): Percentage of portfolio energy considered "small"
-
-- **`maximum_imbalance`** (float, default: 100000 MW): Maximum allowed imbalance
-
-### Reserve Penalties
-
-- **`automated_unprocured_reserves_penalty`** (float, default: 30000 €/MW/h): Penalty for not providing automated reserves
-
-- **`manual_unprocured_reserves_penalty`** (float, default: 30000 €/MW/h): Penalty for not providing manual reserves
-
-## Storage Equipment Parameters
+## Storage Equipment
 
 ### Battery
 
-- **`battery_number_of_fragments`** (int, default: 3): Number of power offer fragments
-
-- **`battery_smoothing_factor`** (float, default: 0.2): Smoothing factor for power curve (0-1)
-
-- **`battery_reserve_duration`** (Duration, default: 60 minutes): Manual reserve duration
-
-- **`battery_automated_reserve_duration`** (Duration, default: 60 minutes): Automated reserve duration
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `battery_number_of_fragments` | `int` | `3` | Number of power offer fragments per timestep. |
+| `battery_smoothing_factor` | `float` | `0.2` | Smoothing factor for the power curve (0–1). |
+| `battery_reserve_duration` | `Duration` | `60 min` | Manual reserve duration. |
+| `battery_automated_reserve_duration` | `Duration` | `60 min` | Automated reserve duration. |
 
 ### Pumped Hydraulic Storage
 
-- **`pumped_hydraulic_number_of_fragments`** (int, default: 3): Number of power offer fragments
-
-- **`pumped_hydraulic_smoothing_factor`** (float, default: 0.2): Smoothing factor for power curve
-
-- **`pumped_hydraulic_reserve_duration`** (Duration, default: 60 minutes): Manual reserve duration
-
-- **`pumped_hydraulic_automated_reserve_duration`** (Duration, default: 60 minutes): Automated reserve duration
-
-- **`hydraulic_minimal_fragment_size`** (int, default: 100 MW): Minimal power for offers
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `pumped_hydraulic_number_of_fragments` | `int` | `3` | Number of power offer fragments per timestep. |
+| `pumped_hydraulic_smoothing_factor` | `float` | `0.2` | Smoothing factor for the power curve (0–1). |
+| `pumped_hydraulic_reserve_duration` | `Duration` | `60 min` | Manual reserve duration. |
+| `pumped_hydraulic_automated_reserve_duration` | `Duration` | `60 min` | Automated reserve duration. |
+| `hydraulic_minimal_fragment_size` | `int` | `100` MW | Offers below this threshold are removed and remaining fragments renormalized. |
 
 ### Electric Vehicle
 
-- **`electric_vehicle_number_of_fragments`** (int, default: 3): Number of power offer fragments
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `electric_vehicle_number_of_fragments` | `int` | `3` | Number of power offer fragments per timestep. |
+| `electric_vehicle_smoothing_factor` | `float` | `0.2` | Smoothing factor for the power curve (0–1). |
+| `electric_vehicle_reserve_duration` | `Duration` | `1 min` | Manual reserve duration. |
+| `electric_vehicle_automated_reserve_duration` | `Duration` | `1 min` | Automated reserve duration. |
 
-- **`electric_vehicle_smoothing_factor`** (float, default: 0.2): Smoothing factor for power curve
+## Numerical Stability
 
-- **`electric_vehicle_reserve_duration`** (Duration, default: 1 minute): Manual reserve duration
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `allowed_round_off_error` | `float` | `0.01` MW | Accepted power values below this threshold are treated as zero. |
 
-- **`electric_vehicle_automated_reserve_duration`** (Duration, default: 1 minute): Automated reserve duration
+---
 
-## Performance Parameters
+## Example Configuration
 
-- **`allowed_round_off_error`** (float, default: 0.01 MW): Rounding error threshold
-
-```yml
+```yaml
 temporal:
-  start_date:  "2028-09-27 00:00:00"
+  start_date: "2028-09-27 00:00:00"
   end_date: "2028-09-28 00:00:00"
   execution_date: "2028-09-26 12:00:00"
   timestep: "1h"
 solver:
   solver_name: "SCIP"
-  use_presolve: True
-  export_lp: True
+  use_presolve: true
+  export_lp: true
 output:
-  export_result: True
-  export_output_dataset: True
+  export_result: true
+  export_output_dataset: true
 multiprocessing:
-  enable: True
+  enable: true
   max_workers: 4
 market: DayAhead
-is_portfolio_bidding: True
-use_forecast: False
+is_portfolio_bidding: true
+use_forecast: false
 excluded_market_areas: ["FR", "DE"]
 excluded_technologies: ["thermal"]
 excluded_thermal_strategy: ["Peak"]

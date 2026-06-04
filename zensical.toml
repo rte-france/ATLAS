@@ -28,7 +28,6 @@ nav = [
             { "Workflows" = "modules/workflow.md" },
             { "Profiling" = "profiling.md" },
         ]},
-        { "Common Parameters" = "modules/common-parameters.md" },
         { "Examples" = [
             { "AtlasDataset" = "examples/atlas_dataset.md" },
             { "Timeseries" = "examples/timeseries.md" },
@@ -38,6 +37,7 @@ nav = [
     ]},
     { "Modules" = [
         { "Overview" = "modules/index.md" },
+        { "Common Parameters" = "modules/common-parameters.md" },
         { "Portfolio Optimisation" = [
             { "Overview" = "modules/portfolio-optimisation/index.md" },
             { "Parameters" = "modules/portfolio-optimisation/user-guide/parameters.md" },
@@ -62,6 +62,7 @@ nav = [
     ]},
     { "Developer Guide" = [
         { "Data Model" = "data-model.md" },
+        { "Data Flow & Orchestration" = "data-flow.md" },
         { "Module Pattern" = "modules/module-pattern.md" },
         { "Implementing a Module" = "implementing-a-module.md" },
         { "Module Architecture" = [
