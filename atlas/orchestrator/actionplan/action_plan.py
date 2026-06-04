@@ -35,6 +35,9 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         self._jobs_count = 0
         self._build_priority_queue()
 
+    def _has_concurrent_task_with(self, task: Task) -> bool:
+        return any(Task.are_concurrent(itr.task, task) for itr in self._priority_queue)
+
     @classmethod
     def from_file(cls, file_path: str | Path) -> ActionPlan:
         file_path = Path(file_path)
@@ -71,6 +74,9 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         self._push_iterator(workflow_iterator)
 
     def _push_iterator(self, iterator: TaskIterator):
+        if self._has_concurrent_task_with(iterator.task):
+            raise ValueError("Try to add a concurrent task to the Action plan")
+        self._jobs_count += len(iterator)
         heapq.heappush(self._priority_queue, iterator)
 
     def _pop_iterator(self) -> TaskIterator:

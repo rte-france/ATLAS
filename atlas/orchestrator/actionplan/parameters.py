@@ -10,6 +10,7 @@ from __future__ import annotations
 import warnings
 from pathlib import Path
 from typing import Any
+from math import gcd
 
 from pendulum import Duration
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -40,6 +41,13 @@ class ActionPlanParameters(AbstractOrchestratorParameters):
     tasks: list[Task]
     hooks: list[Hook] = []
 
+    @model_validator(mode="after")
+    def concurrent_tasks(self) -> ActionPlanParameters:
+        for idx, t1 in enumerate(self.tasks):
+            for t2 in self.tasks[idx + 1:]:
+                if Task.are_concurrent(t1, t2):
+                    raise ValueError(f"Action plan {self.name} contains two concurrent tasks:\n{t1}\n{t2}")
+        return self
 
 class Task(BaseModel):
     """Definition of a single task
@@ -74,6 +82,36 @@ class Task(BaseModel):
     frequency: Duration
     offset_start_date: Duration
     offset_end_date: Duration
+
+    @classmethod
+    def are_concurrent(cls, task1: Task, task2: Task) -> bool:
+        # Different priority are ignored
+        if task1.priority != task2.priority:
+            return False
+
+        # Concurrent impossible
+        if task1.from_ > task2.until or task1.until < task2.from_:
+            return False
+
+        # With same frequency, will be concurrent if diff in from is a multiple of frequency
+        if task1.frequency == task2.frequency:
+            return (task1.from_ - task2.from_).total_seconds() % task1.frequency.total_seconds() == 0
+
+        # Otherwise, they will be concurrent on exactly one date, using Bézout's identity we can close some cases
+        g = gcd(int(task1.frequency.total_seconds()), int(task2.frequency.total_seconds()))
+        delta_from = int((task1.from_ - task2.from_).total_seconds())
+        if delta_from % g != 0:
+            return False
+
+        # We know brute force to check if there exist a concurrent date
+        date1 = task1.from_
+        date2 = task2.from_
+        while date1 != date2 and date1 <= task1.until and date2 <= task2.until:
+            if date1 < date2:
+                date1 = date1 + task1.frequency
+            else:
+                date2 = date2 + task2.frequency
+        return date1 == date2
 
     @field_validator("module", mode="before")
     @classmethod
