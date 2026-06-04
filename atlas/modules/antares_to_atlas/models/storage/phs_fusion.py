@@ -7,6 +7,7 @@ from loguru import logger
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
@@ -81,7 +82,15 @@ def _merge_phs_for_node(atlas_dataset: AtlasDataset, node_name: str, parameters:
             closed_phs.minimum_power += open_phs.minimum_power
 
         if closed_phs.maximum_energy is not None and open_phs.maximum_energy is not None:
-            closed_phs.maximum_energy += open_phs.maximum_energy
+            closed_energy = closed_phs.maximum_energy
+            open_energy = open_phs.maximum_energy
+            if isinstance(closed_energy, Timeseries) and isinstance(open_energy, Timeseries):
+                if closed_energy.frequency != open_energy.frequency:
+                    closed_energy = closed_energy.upsample(
+                        open_energy.frequency, interpolation_method="constant", inplace=False
+                    )
+                    closed_phs.maximum_energy = closed_energy
+            closed_phs.maximum_energy += open_energy
 
         if isinstance(open_phs.power, ForecastingMatrix):
             exec_key = parameters.execution_date.format(open_phs.power.date_format)

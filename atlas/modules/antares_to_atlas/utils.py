@@ -101,19 +101,27 @@ def get_maximum_power(
         maximum_power_ts = Timeseries.from_values(
             start_date=parameters.start_date,
             frequency="1h",
-            values=thermal.get_series_matrix()[scenario - 1].to_list(),
+            values=thermal.get_series_matrix()[scenario - 1],
         )
 
     except Exception:
+        logger.debug(f"Falling back to computed maximum power for {getattr(thermal, 'name', thermal)}")
+        capacity_mod = thermal.get_prepro_modulation_matrix()[2].reset_index(drop=True)  # 8760 hourly
+        prepro = thermal.get_prepro_data_matrix()
+        # FO/PO rates are daily (365 rows) — expand to hourly by repeating each day 24 times
+        fo_rate = prepro[2].repeat(24).reset_index(drop=True)
+        po_rate = prepro[3].repeat(24).reset_index(drop=True)
+        # Align lengths to modulation series length
+        n = len(capacity_mod)
+        fo_rate = fo_rate.iloc[:n]
+        po_rate = po_rate.iloc[:n]
         default_value = (
             thermal.properties.nominal_capacity
             * thermal.properties.unit_count
-            * thermal.get_prepro_modulation_matrix()[2]  # Capacity Modulation
-            * (1 - thermal.get_prepro_data_matrix()[2])  # FORate
-            * (1 - thermal.get_prepro_data_matrix()[3])  # PORate
+            * capacity_mod
+            * (1 - fo_rate)
+            * (1 - po_rate)
         )
-
-        logger.debug(f"Falling back to computed maximum power for {getattr(thermal, 'name', thermal)}")
         maximum_power_ts = Timeseries.from_values(
             start_date=parameters.start_date,
             frequency="1h",

@@ -106,7 +106,7 @@ def _create_closed_phs(
         maximum_power=maximum_withdrawal_power_ts,
         maximum_energy=Timeseries.from_index(
             start_date=parameters.start_date,
-            frequency="1d",
+            frequency=f"{(parameters.start_date + duration(years=1) - parameters.start_date).days}d",
             end_date=parameters.start_date + duration(years=1),
             default_value=props.reservoir_capacity,
         ),
