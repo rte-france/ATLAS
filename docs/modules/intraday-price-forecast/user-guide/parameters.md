@@ -20,34 +20,6 @@ The Intraday Price Forecast module is configured through `IntradayPriceForecastP
 
 ---
 
-## Required Input Data
-
-### Market Areas
-
-| Field | Type | Description |
-|---|---|---|
-| `price_forecast_high` | `ForecastingMatrix` | High price scenario. |
-| `price_forecast_low` | `ForecastingMatrix` | Low price scenario. |
-| `da_price` | `AbstractTimeseries` | Day-ahead price. |
-| `id_price` | `dict[str, Timeseries]` | Intraday price history (optional). |
-
-### Load Units
-
-| Field | Type | Description |
-|---|---|---|
-| `maximum_power_forecast` | `ForecastingMatrix` | Power forecasts indexed by execution date. |
-| `power_forecast_high` | `ForecastingMatrix` | High consumption scenario. |
-| `power_forecast_low` | `ForecastingMatrix` | Low consumption scenario. |
-| `load_type` | `LoadType` | Must be `LoadType.BASE_LOAD` to be included in calculations. |
-
-### Solar & Wind Units
-
-| Field | Type | Description |
-|---|---|---|
-| `maximum_power_forecast` | `ForecastingMatrix` | Power forecasts indexed by execution date. |
-
----
-
 ## Example Configuration
 
 ```yaml
@@ -67,4 +39,5 @@ execution_date_scenarios: "2024-01-01 00:00:00"
 
 ## Next Steps
 
+- [Input Objects](input-objects.md): Required input data and attributes
 - [Results](results.md): Understanding outputs

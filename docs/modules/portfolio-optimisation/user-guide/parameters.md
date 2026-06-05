@@ -100,4 +100,5 @@ excluded_thermal_strategy: ["Peak"]
 
 ## Next Steps
 
+- [Input Objects](input-objects.md): Required input data and attributes
 - [Results](results.md): Understanding outputs

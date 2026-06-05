@@ -32,6 +32,7 @@ See [Running Modules](../running-modules.md) for execution details.
 ### User Guide
 - [Overview](user-guide/overview.md): Module-specific introduction
 - [Parameters](user-guide/parameters.md): Module-specific parameters
+- [Input Objects](user-guide/input-objects.md): Required input data and attributes
 - [Results](user-guide/results.md): Accessing outputs
 
 ### Common Documentation

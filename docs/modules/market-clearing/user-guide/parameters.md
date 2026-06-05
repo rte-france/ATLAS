@@ -93,4 +93,5 @@ allowed_round_off_error: 1e-3
 
 ## Next Steps
 
+- [Input Objects](input-objects.md): Required input data and attributes
 - [Results](results.md): Understanding outputs
