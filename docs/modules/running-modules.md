@@ -7,7 +7,8 @@ All ATLAS modules are run through `ModuleRun`, which handles dataset state manag
 ```python
 from atlas import AtlasDataset
 from atlas.modules.module_run import ModuleRun
-from atlas.modules.<module_name> import <ModuleName>Module
+from atlas.modules.<module_name>.module import <ModuleName>Module
+# Note the differences in case between <module_name> and <ModuleName>
 
 # 1. Load input data
 dataset = AtlasDataset.from_directory("path/to/dataset")
@@ -22,12 +23,12 @@ result = ModuleRun(
 
 `ModuleRun.run()` returns an `AtlasDataset` with all changes applied.
 
-Replace `<ModuleName>` with the specific module you want to run:
+Replace `<ModuleName>` with the specific module you want to run (with their associated `<module_name>`):
 
-- `PortfolioOptimisationModule`
-- `DayAheadOrdersModule`
-- `MarketClearingModule`
-- `IntradayPriceForecastModule`
+- `PortfolioOptimisationModule` (`portfolio_optimisation`)
+- `DayAheadOrdersModule` (`day_ahead_orders`)
+- `MarketClearingModule`  (`market_clearing`)
+- `IntradayPriceForecastModule`  (`intraday_price_forecast`)
 
 ## Loading Data
 
