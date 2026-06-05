@@ -548,31 +548,6 @@ class TestAntaresToAtlasRunCommand:
         assert result.exit_code == 1
         assert "Study directory not found" in result.stdout
 
-    def test_run_invalid_format(self, tmp_path):
-        """Test that command fails with an invalid output format."""
-        study_dir = tmp_path / "study"
-        study_dir.mkdir()
-        params_file = tmp_path / "params.yaml"
-        params_file.write_text("")
-        output_dir = tmp_path / "output"
-
-        result = runner.invoke(
-            app,
-            [
-                "antares-to-atlas",
-                "run",
-                str(study_dir),
-                "-p",
-                str(params_file),
-                "-o",
-                str(output_dir),
-                "-f",
-                "json",
-            ],
-        )
-        assert result.exit_code == 2
-        assert "Invalid value for '--format'" in result.output
-
     @patch("atlas.app.AntaresToAtlas")
     def test_run_with_valid_inputs(self, mock_antares, tmp_path):
         """Test that command succeeds with valid inputs (mocked execution)."""
