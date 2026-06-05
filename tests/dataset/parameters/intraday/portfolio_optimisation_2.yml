@@ -1,0 +1,20 @@
+temporal:
+  start_date: "2028-09-27 00:00:00"
+  end_date: "2028-09-28 00:00:00"
+  execution_date: "2028-09-26 22:00:00"
+  timestep: "PT1H"
+market: "Intraday"
+solver:
+  solver_name: "SCIP"
+  export_lp: false
+multiprocessing:
+  enable: false
+use_forecast: false
+small_imbalance_penalty: 0.05
+battery_smoothing_factor: 0.1
+small_imbalance_size: 0.15
+isp_forecast_lower_bound: 0
+electric_vehicle_number_of_fragments: 3
+pumped_hydraulic_number_of_fragments: 3
+excluded_thermal_strategy:
+  - "Base"

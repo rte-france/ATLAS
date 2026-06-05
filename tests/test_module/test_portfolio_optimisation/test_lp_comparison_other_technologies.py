@@ -11,14 +11,16 @@ against pre-existing reference LP files to ensure the optimization model remains
 import tempfile
 from pathlib import Path
 
+import pendulum
 import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.solver.solver_helper import SolverHelper
+from tests.utils import load_threshold_for_module
 
 # Test data directories
-INPUT_DATASET_DIR = Path("tests/dataset/portfolio_optimisation_input")
+INPUT_DATASET_DIR = Path("tests/dataset/day_ahead/portfolio_optimisation_input")
 REFERENCE_LP_DIR = Path(__file__).parent / "lp_files" / "others"
 
 
@@ -52,20 +54,20 @@ def generated_lp_files():
         input_data = AtlasDataset.from_directory(INPUT_DATASET_DIR)
         po_module = PortfolioOptimisationModule()
 
+        start = pendulum.now()
         try:
             po_module.run(input_data, params_dict)
         except Exception as e:
             pytest.fail(f"Portfolio optimization failed: {e}")
+        elapsed = (pendulum.now() - start).total_seconds()
 
-        # Collect all generated LP files
         lp_files = list((Path(tmpdir) / "lp_export").glob("*.lp"))
 
-        # Read and cache LP file data to avoid keeping tmpdir alive
         lp_data_cache = {}
         for lp_file in lp_files:
             lp_data_cache[lp_file.name] = SolverHelper.read_lp_ortools(str(lp_file))
 
-        yield lp_data_cache
+        yield lp_data_cache, elapsed
 
 
 class TestOtherTechnologiesLPComparison:
@@ -77,6 +79,7 @@ class TestOtherTechnologiesLPComparison:
     )
     def test_generated_lp_matches_reference(self, generated_lp_files, lp_filename):
         """Test that generated LP files match the reference LP files for other technologies."""
+        lp_data_cache, _ = generated_lp_files
         reference_lp = REFERENCE_LP_DIR / lp_filename
 
         if not INPUT_DATASET_DIR.exists():
@@ -85,11 +88,10 @@ class TestOtherTechnologiesLPComparison:
         if not reference_lp.exists():
             pytest.skip(f"Reference LP file not found: {reference_lp}")
 
-        # Get LP data from cache
-        if lp_filename not in generated_lp_files:
+        if lp_filename not in lp_data_cache:
             pytest.fail(f"Generated LP file not found: {lp_filename}")
 
-        generated_lp_data = generated_lp_files[lp_filename]
+        generated_lp_data = lp_data_cache[lp_filename]
 
         try:
             reference_lp_data = SolverHelper.read_lp_ortools(str(reference_lp))
@@ -111,16 +113,13 @@ class TestOtherTechnologiesLPComparison:
             assert comparison_result["objectives"]["identical_pct"] == 100.0, (
                 f"Objectives mismatch for {lp_filename}: {comparison_result['objectives']['identical_pct']}% identical"
             )
-
             assert comparison_result["variables"]["identical_pct"] == 100.0, (
                 f"Variables mismatch for {lp_filename}: {comparison_result['variables']['identical_pct']}% identical"
             )
-
             assert comparison_result["constraints"]["identical_pct"] == 100.0, (
                 f"Constraints mismatch for {lp_filename}: "
                 f"{comparison_result['constraints']['identical_pct']}% identical"
             )
-
             for category in ["objectives", "variables", "constraints"]:
                 assert comparison_result[category]["modified"] == 0, f"Modified {category} found in {lp_filename}"
                 assert comparison_result[category]["only_legacy"] == 0, (
@@ -129,3 +128,13 @@ class TestOtherTechnologiesLPComparison:
                 assert comparison_result[category]["only_atlas"] == 0, (
                     f"{category.capitalize()} only in generated LP for {lp_filename}"
                 )
+
+    def test_execution_time_within_threshold(self, generated_lp_files):
+        """Test that module execution time is within the defined threshold."""
+        _, elapsed = generated_lp_files
+
+        threshold = load_threshold_for_module("PortfolioOptimisationTechno")
+        if threshold is None:
+            pytest.skip("No performance threshold defined for PortfolioOptimisationTechno")
+
+        assert elapsed <= threshold, f"PortfolioOptimisation took {elapsed:.2f}s, expected <= {threshold}s"
