@@ -58,10 +58,10 @@ def build_inflows_for_area(
         return build_reservoir_inflows(area, parameters, mapping_mc_ts)
 
     if parameters.hydro.water_value_scenarios == "all":
-        logger.warning(f"'all' water value scenarios not yet supported for area {area.id}")
-        return {}
+        scenarios = [str(k) for k in mapping_mc_ts.keys()]
+    else:
+        scenarios = parameters.hydro.water_value_scenarios
 
-    scenarios: list[str] = parameters.hydro.water_value_scenarios
     if not scenarios:
         logger.warning("Water values are requested but no scenarios are indicated")
         return {}
@@ -108,11 +108,9 @@ def add_inflows_from_csv(
     logger.info(f"Adding inflows from CSV for area {area.id}")
 
     if parameters.hydro.water_value_scenarios == "all":
-        # TODO: retrieve all available scenarios from area (e.g. area.get_marginal_prices())
-        logger.warning(f"'all' water value scenarios not yet supported for area {area.id}")
-        return {}
-
-    scenarios: list[str] = parameters.hydro.water_value_scenarios
+        scenarios = [str(k) for k in mapping_mc_ts.keys()]
+    else:
+        scenarios = parameters.hydro.water_value_scenarios
 
     if not scenarios:
         logger.warning("Water values are requested but no scenarios are indicated")

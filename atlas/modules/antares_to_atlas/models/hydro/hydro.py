@@ -88,7 +88,7 @@ def _create_hydraulic_equipment(
         maximum_power=maximum_power_ts,
         minimum_power=Timeseries.from_index(
             start_date=parameters.start_date,
-            frequency="1d",
+            frequency=f"{(parameters.start_date + duration(years=1) - parameters.start_date).days}d",
             end_date=parameters.start_date + duration(years=1),
             default_value=0.0,
         ),
@@ -100,7 +100,7 @@ def _create_hydraulic_equipment(
         ),
         minimum_energy=Timeseries.from_index(
             start_date=parameters.start_date,
-            frequency="1d",
+            frequency=f"{(parameters.start_date + duration(years=1) - parameters.start_date).days}d",
             end_date=parameters.start_date + duration(years=1),
             default_value=0.0,
         ),

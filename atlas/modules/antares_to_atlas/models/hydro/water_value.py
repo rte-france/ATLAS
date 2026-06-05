@@ -166,8 +166,10 @@ def _run_bellman_iteration(
     subdiv = parameters.hydro.storage_subdivision
     use_interp = parameters.hydro.use_bellman_interpolation
 
-    # Pre-compute max power at hourly resolution: daily (365) → hourly (8760)
+    # Pre-compute max power at hourly resolution: daily (365) → hourly (8760 or 8784 for leap year)
     max_power_arr = np.repeat(np.array(hydro.maximum_power.values, dtype=float), 24)
+    if len(max_power_arr) < n_time_steps:
+        max_power_arr = np.pad(max_power_arr, (0, n_time_steps - len(max_power_arr)), mode="edge")
 
     # Accumulator: wv[t, level_idx] — sum across all scenarios
     wv = np.zeros((n_time_steps, n_levels), dtype=float)
@@ -175,7 +177,7 @@ def _run_bellman_iteration(
     for scenario, inflows_ts in scenario_inflows:
         logger.debug(f"Running Bellman for scenario {scenario}")
 
-        # Price forecast: hourly (8760 values) from study output
+        # Price forecast: hourly from study output, padded to n_time_steps
         price_arr = np.array(
             study_output.get_mc_ind_area(
                 int(scenario),
@@ -185,9 +187,13 @@ def _run_bellman_iteration(
             )[(parameters.output.marginal_price_column, "Euro")],
             dtype=float,
         )
+        if len(price_arr) < n_time_steps:
+            price_arr = np.pad(price_arr, (0, n_time_steps - len(price_arr)), mode="edge")
 
-        # Inflows: daily /24 → expand to hourly (8760 values)
+        # Inflows: daily /24 → expand to hourly, padded to n_time_steps
         inflows_arr = np.repeat(np.array(inflows_ts.values, dtype=float), 24)
+        if len(inflows_arr) < n_time_steps:
+            inflows_arr = np.pad(inflows_arr, (0, n_time_steps - len(inflows_arr)), mode="edge")
 
         wv_sc = np.zeros((n_time_steps, n_levels), dtype=float)
         # Rolling buffer: bellman_next holds bellman[t+1] during backward pass
