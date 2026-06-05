@@ -3,8 +3,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import Any
-
 from antares.craft.model.study import Study
 from loguru import logger
 from pandas import Series
@@ -20,7 +18,7 @@ from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
 
 def _make_unit(
     name: str,
-    values: list[float] | Series[Any],
+    values: list[float] | Series,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
     area_name: str,

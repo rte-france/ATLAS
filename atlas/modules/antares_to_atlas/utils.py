@@ -109,8 +109,8 @@ def get_maximum_power(
         capacity_mod = thermal.get_prepro_modulation_matrix()[2].reset_index(drop=True)  # 8760 hourly
         prepro = thermal.get_prepro_data_matrix()
         # FO/PO rates are daily (365 rows) — expand to hourly by repeating each day 24 times
-        fo_rate = prepro[2].repeat(24).reset_index(drop=True)
-        po_rate = prepro[3].repeat(24).reset_index(drop=True)
+        fo_rate = prepro[parameters.output.FORate].repeat(24).reset_index(drop=True)
+        po_rate = prepro[parameters.output.PORate].repeat(24).reset_index(drop=True)
         # Align lengths to modulation series length
         n = len(capacity_mod)
         fo_rate = fo_rate.iloc[:n]
@@ -189,7 +189,7 @@ def get_binding_constraint_for_phs(study: Study, area_id: str) -> tuple[float, f
     return 1.0, 1.0
 
 
-def get_nuclear_modulation_factor(study: Study) -> float | None:
+def get_nuclear_modulation_factor(study: Study, thermal_name: str) -> float | None:
     """Get nuclear modulation factor from binding constraint 'nuc_modulation_daily'.
 
     Returns abs(weights[5]) of the binding constraint, or None if not found.
@@ -198,9 +198,4 @@ def get_nuclear_modulation_factor(study: Study) -> float | None:
     if not weights:
         return None
 
-    values = list(weights.values())
-    if len(values) <= 5:
-        logger.warning(f"nuc_modulation_daily has only {len(values)} terms, expected at least 6")
-        return None
-
-    return abs(values[5])
+    return weights.get(thermal_name, None)

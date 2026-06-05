@@ -76,7 +76,7 @@ def _create_hydraulic_equipment(
     """Create a Hydraulic equipment for an area."""
 
     maximum_power_ts = Timeseries.from_values(
-        parameters.start_date, frequency="1d", values=area.hydro.get_maxpower()[scenario - 1]
+        parameters.start_date, frequency="1d", values=area.hydro.get_maxpower()[parameters.output.hydro_max_power]
     )
 
     fragment = parameters.hydro.get_fragment(area.id)
@@ -86,11 +86,8 @@ def _create_hydraulic_equipment(
         node=atlas_dataset.get("node", area.id),
         portfolio=get_portfolio(atlas_dataset, parameters, area.id),
         maximum_power=maximum_power_ts,
-        minimum_power=Timeseries.from_index(
-            start_date=parameters.start_date,
-            frequency=f"{(parameters.start_date + duration(years=1) - parameters.start_date).days}d",
-            end_date=parameters.start_date + duration(years=1),
-            default_value=0.0,
+        minimum_power=Timeseries.from_values(
+            parameters.start_date, frequency="1d", values=area.hydro.get_maxpower()[parameters.output.hydro_min_power]
         ),
         maximum_energy=Timeseries.from_index(
             start_date=parameters.start_date,
@@ -133,13 +130,13 @@ def _create_hydraulic_equipment(
     if (parameters.hydro.use_heuristic or area.hydro.properties.reservoir) and parameters.hydro.use_water_value:
         if area.hydro.properties.reservoir:
             hydro.inflows = Timeseries.from_values(
-                parameters.start_date, frequency="1d", values=area.hydro.get_mod_series()[scenario - 1].to_list()
+                parameters.start_date, frequency="1d", values=area.hydro.get_mod_series()[scenario - 1]
             )
         else:
             add_inflows_from_csv(area, hydro, area.hydro.get_mod_series(), parameters, mapping_mc_ts)
     else:
         hydro.energy_target = Timeseries.from_values(
-            parameters.start_date, frequency="1d", values=area.hydro.get_mod_series()[scenario - 1].to_list()
+            parameters.start_date, frequency="1d", values=area.hydro.get_mod_series()[scenario - 1]
         )
 
     daily_energy = Timeseries.from_values(
@@ -147,7 +144,7 @@ def _create_hydraulic_equipment(
         frequency="1h",
         values=study_output.get_mc_ind_area(
             mc_year=scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.id
-        )[(parameters.output.ror_column, "MWh")],
+        )[(parameters.output.stor_column, "MWh")],
     ).groupby("1d", agg="sum")
 
     hydro.minimum_daily_energy = daily_energy * parameters.hydro.min_energy_coeff

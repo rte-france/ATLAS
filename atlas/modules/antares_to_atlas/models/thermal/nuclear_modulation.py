@@ -35,14 +35,12 @@ def add_nuclear_modulation(
         logger.debug("No thermal equipment found, skipping nuclear modulation")
         return atlas_dataset
 
-    # Get the modulation factor from binding constraint
-    modulation_factor = get_nuclear_modulation_factor(study)
-
     # Process FR nuclear units
     units_to_remove: list[str] = []
 
     for equipment in atlas_dataset.thermal:
         thermal_id = equipment.name.removeprefix("fr_")
+        modulation_factor = get_nuclear_modulation_factor(study, thermal_id)
         thermal = fr_thermals.get(thermal_id)
         if thermal is None or thermal.properties.group != "nuclear":
             continue

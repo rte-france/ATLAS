@@ -272,6 +272,7 @@ class OutputParameters(BaseModel):
         default="MISC. NDG", description="MC output column name for misc non-dispatchable generation"
     )
     ror_column: str = Field(default="H. ROR", description="MC output column name for run-of-river hydro generation")
+    stor_column: str = Field(default="H. STOR", description="MC output column name for storage level")
     misc_gen_column_names: dict[int, str] = Field(
         default={
             0: "chp_bio",
@@ -285,6 +286,12 @@ class OutputParameters(BaseModel):
         },
         description="Mapping from Antares miscgen column index (0-7) to Atlas OtherNonDispatchable name suffix",
     )
+    hydro_max_power: int = Field(default=0, description="Index of Antares hydro max power series to use")
+    hydro_min_power: int = Field(default=2, description="Index of Antares hydro min power series to use")
+    PORate: int = 3
+    FORate: int = 2
+    PODuration: int = 1
+    FODuration: int = 0
 
 
 class HydroReservoirConfig(BaseModel):
