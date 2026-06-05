@@ -95,6 +95,7 @@ Atlas version : 0.1.0
 ### `atlas prometheus-to-atlas` - Convert Prometheus Data
 
 Convert a single Prometheus dataset to Atlas format.
+NB: Prometheus is the decommissioned platform on which Atlas was originally developed. This section is only relevant for a user wanting to extract a dataset of this orignal platform and convert it to the new Python model.
 
 **Syntax:**
 
@@ -136,6 +137,7 @@ atlas prometheus-to-atlas \
 ### `atlas prometheus-to-atlas-recursive` - Batch Convert Prometheus Data
 
 Recursively convert multiple Prometheus datasets to Atlas format. Useful for processing entire directory structures.
+NB: Prometheus is the decommissioned platform on which Atlas was originally developed. This section is only relevant for a user wanting to extract a dataset of this orignal platform and convert it to the new Python model.
 
 **Syntax:**
 
