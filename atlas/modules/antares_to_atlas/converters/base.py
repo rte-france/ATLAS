@@ -36,6 +36,7 @@ class Converter(ABC):
     supported_versions: list[str] = []  # Empty means all versions
     required_market_areas: list[str] = []  # Empty means no requirement
     tags: list[ConvertersTags] = []  # Category labels for tag-based filtering
+    always_run: ClassVar[bool] = False  # When True, tag filters are bypassed (conversion_steps still applies)
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -77,11 +78,12 @@ class Converter(ABC):
             if self.name not in parameters.conversion_steps:
                 return False
 
-        # Check tag filters (only_tags / skip_tags)
-        if parameters.only_tags and not any(tag in parameters.only_tags for tag in self.tags):
-            return False
-        if parameters.skip_tags and any(tag in parameters.skip_tags for tag in self.tags):
-            return False
+        # Check tag filters (only_tags / skip_tags) — bypassed for always_run converters
+        if not self.always_run:
+            if parameters.only_tags and not any(tag in parameters.only_tags for tag in self.tags):
+                return False
+            if parameters.skip_tags and any(tag in parameters.skip_tags for tag in self.tags):
+                return False
 
         # Check required market areas
         # When market_areas="all", every area is implicitly present

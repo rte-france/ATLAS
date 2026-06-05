@@ -17,7 +17,6 @@ from loguru import logger
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.converters.bp23 import (
-    BatteryConverterBP23,
     DSRConverterBP23,
     DSRFRConverterBP23,
     ElectricVehicleConverterBP23,
@@ -29,7 +28,6 @@ from atlas.modules.antares_to_atlas.converters.bp23 import (
     P2GConverterBP23,
     ParticularMidConverterBP23,
     ParticularPeakConverterBP23,
-    PHSClosedConverterBP23,
     PHSFusionConverterBP23,
     PHSOpenConverterBP23,
     PHSOpenFRConverterBP23,
@@ -37,10 +35,12 @@ from atlas.modules.antares_to_atlas.converters.bp23 import (
 )
 from atlas.modules.antares_to_atlas.converters.registry import ConverterRegistry
 from atlas.modules.antares_to_atlas.converters.standard import (
+    BatteryConverter,
     HydroConverter,
     LinkConverter,
     LoadConverter,
     NonDispatchableConverter,
+    PHSClosedConverter,
     SolarConverter,
     SystemStructureConverter,
     ThermalConverter,
@@ -121,6 +121,8 @@ class AntaresToAtlas:
             LinkConverter,
             ThermalConverter,
             NonDispatchableConverter,
+            BatteryConverter,
+            PHSClosedConverter,
         ]
         for converter in standard_converters:
             registry.register(converter)
@@ -140,14 +142,12 @@ class AntaresToAtlas:
             MixedFuelConverterBP23,  # Depends on thermal converter
             ElectricVehicleConverterBP23,
             ElectricVehicleFRConverterBP23,  # France-specific EVs + heavy vehicles
-            BatteryConverterBP23,
             ParticularMidConverterBP23,
             ParticularPeakConverterBP23,
             P2GConverterBP23,
             MultiEnergyConverterBP23,  # Must run after all thermic units
             DSRConverterBP23,
             DSRFRConverterBP23,  # France-specific DSR
-            PHSClosedConverterBP23,  # Depends on hydro converter
             PHSOpenConverterBP23,  # Open-loop PHS (non-FR), updates hydro equipment
             PHSOpenFRConverterBP23,  # Open-loop PHS (FR-specific)
             PHSFusionConverterBP23,  # Merge open + closed PHS by node
