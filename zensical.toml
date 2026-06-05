@@ -21,6 +21,10 @@ nav = [
         { "Quickstart (5 min)" = "getting_started/quickstart.md" },
         { "Your First Simulation" = "getting_started/first-simulation.md" },
     ]},
+    { "Antares Integration" = [
+        { "Overview" = "antares-integration/index.md" },
+        { "User Guide" = "antares-integration/user-guide.md" },
+    ]},
     { "User Guide" = [
         { "Running Atlas" = [
             { "CLI" = "cli.md" },

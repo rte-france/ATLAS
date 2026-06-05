@@ -10,7 +10,7 @@ This module provides a Timeseries class for handling Timeseries data using Polar
 from __future__ import annotations
 
 import pickle
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -86,7 +86,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         cls,
         start_date: str | datetime | pendulum.DateTime,
         frequency: str | timedelta | pendulum.Duration,
-        values: list[float],
+        values: Sequence[float] | pd.Series | pl.Series,
         date_format="YYYY-MM-DD HH:mm:ss",
         timezone: str = "UTC",
     ) -> Timeseries:
@@ -997,6 +997,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
                     raise ValueError(f"Could not read existing file for concatenation: {e}") from e
 
         # Write the file
+        Path(path_str).parent.mkdir(parents=True, exist_ok=True)
         if file_format_lower == "csv":
             df_to_write.write_csv(path_str, separator=separator)
         elif file_format_lower == "parquet":

@@ -202,6 +202,47 @@ Summary:
 
 ---
 
+### `atlas antares-to-atlas` - Convert an Antares Study
+
+Convert an Antares study directory into an Atlas-formatted dataset. See the [Antares Integration guide](antares-integration/user-guide.md) for full details.
+
+#### `atlas antares-to-atlas run`
+
+```bash
+atlas antares-to-atlas run <STUDY_PATH> \
+  --parameters parameters.yaml \
+  --output ./atlas-dataset/ \
+  --format parquet
+```
+
+**Arguments:**
+
+- `STUDY_PATH`: Path to the Antares study directory (must contain `study.antares`)
+
+**Options:**
+
+- `-p, --parameters` (required): Parameters YAML file
+- `-o, --output` (required): Output directory for the Atlas dataset
+- `-f, --format` (optional, default: `parquet`): Output format — `parquet`, `csv`, or `pickle`
+
+#### `atlas antares-to-atlas validate`
+
+Validate a parameters file without running the conversion.
+
+```bash
+atlas antares-to-atlas validate --parameters parameters.yaml
+```
+
+#### `atlas antares-to-atlas converters`
+
+List all converters that would execute with the given parameters.
+
+```bash
+atlas antares-to-atlas converters --parameters parameters.yaml
+```
+
+---
+
 ## Common Usage Patterns
 
 ### Running a Simple Simulation

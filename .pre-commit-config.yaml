@@ -1,20 +1,24 @@
 repos:
--   repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.11.6  # Use the latest version from https://github.com/charliermarsh/ruff-pre-commit/releases
-    hooks:
-    -   id: ruff-format
-        args: [--config=pyproject.toml]
+    - repo: https://github.com/charliermarsh/ruff-pre-commit
+      rev: v0.15.4 # Use the latest version from https://github.com/charliermarsh/ruff-pre-commit/releases
+      hooks:
+          - id: ruff-format
+            args: [--config=pyproject.toml]
+            files: ^atlas/
+          - id: ruff-check
+            args: [--config=pyproject.toml]
+            files: ^atlas/
 
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0  # Use the latest version from https://github.com/pre-commit/pre-commit-hooks/releases
-    hooks:
-    -   id: trailing-whitespace
-    -   id: end-of-file-fixer
-    -   id: check-added-large-files
-        args: ['--maxkb=2000']  # Set max file size to 2000KB (2MB), default is 500KB
-    -   id: check-yaml
-        exclude: 'mkdocs.yml'  # Exclude mkdocs.yml due to !!python/name: tags
-    -   id: check-toml
-    -   id: check-merge-conflict
-    -   id: check-json
-    -   id: detect-private-key
+    - repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v6.0.0 # Use the latest version from https://github.com/pre-commit/pre-commit-hooks/releases
+      hooks:
+          - id: trailing-whitespace
+          - id: end-of-file-fixer
+          - id: check-added-large-files
+            args: ["--maxkb=2000"] # Set max file size to 2000KB (2MB), default is 500KB
+          - id: check-yaml
+            exclude: "mkdocs.yml" # Exclude mkdocs.yml due to !!python/name: tags
+          - id: check-toml
+          - id: check-merge-conflict
+          - id: check-json
+          - id: detect-private-key

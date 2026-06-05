@@ -176,6 +176,9 @@ cython_debug/
 # VS Code settings
 .vscode/
 
+# Zed settings
+.zed/
+
 # Atlas site dir
 public/
 
