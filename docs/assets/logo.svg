@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 90" width="380" height="90" role="img" aria-label="ATLAS">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600&amp;display=swap');
+    </style>
+  </defs>
+  <text
+    x="8"
+    y="76"
+    font-family="'Space Grotesk', ui-sans-serif, system-ui, sans-serif"
+    font-size="80"
+    font-weight="600"
+    letter-spacing="6"
+  >
+    <tspan fill="#0088cc">A</tspan><tspan fill="#1b3d70">TLAS</tspan>
+  </text>
+</svg>
