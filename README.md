@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/logo.svg" alt="ATLAS" height="80"/>
-
-**Power market simulator for day-ahead, intraday, and balancing markets.**
+<img src="docs/assets/logo.svg" alt="ATLAS" />
 
 Developed by [Artelys](https://www.artelys.com) for [RTE](https://www.rte-france.com)
 
