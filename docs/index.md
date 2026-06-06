@@ -27,6 +27,10 @@ hide:
 
 </div>
 
+<p class="hero-description" markdown>
+ATLAS is an agent-based simulator for electricity markets, covering day-ahead, intraday, and balancing markets. It models the sequential decisions of market participants — from order formulation to market clearing and portfolio optimisation — through independent modules chained into configurable workflows.
+</p>
+
 <div class="grid cards" markdown>
 
 -   [:lucide-rocket:{ .lg .middle } **Quick Start**](getting_started/getting_started.md)

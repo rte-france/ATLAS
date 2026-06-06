@@ -94,15 +94,19 @@ Atlas version : 0.1.0
 
 ### `atlas prometheus-to-atlas` - Convert Prometheus Data
 
-Convert a single Prometheus dataset to Atlas format.
+Converts Prometheus datasets to Atlas format. Two subcommands are available.
+
+#### `atlas prometheus-to-atlas run`
+
+Convert a single Prometheus dataset.
 
 **Syntax:**
 
 ```bash
-atlas prometheus-to-atlas \
+atlas prometheus-to-atlas run \
   <TIMESERIES_FOLDER> \
   <HDF5_FILE> \
-  <OUTPUT_DIR> \
+  --output <OUTPUT_DIR> \
   [OPTIONS]
 ```
 
@@ -110,46 +114,49 @@ atlas prometheus-to-atlas \
 
 - `timeseries_folder_path`: Path to folder containing timeseries CSV files
 - `hdf5_path`: Path to the Prometheus HDF5 file
-- `output_dir`: Output directory for Atlas-formatted data
 
 **Options:**
 
+- `--output`, `-o` (required): Output directory for Atlas-formatted data
 - `--date-format-forecasting`: Date format for forecasting matrices (default: `"DD/MM/YYYY HH:mm:ss"`)
 - `--date-format-input-files`: Date format for input files (default: `"DD/MM/YYYY HH:mm:ss"`)
 - `--date-format-timestep`: Date format for timestep column (default: `"DD_MM_YYYY_HH_mm_ss"`)
-- `--use-mp / --no-use-mp`: Enable/disable multiprocessing (default: enabled)
-- `--n-workers`: Number of worker processes (default: auto-detect)
+- `--mp / --no-mp`: Enable/disable multiprocessing (default: enabled)
+- `--workers`, `-w`: Number of worker processes (default: auto-detect)
 
 **Example:**
 
 ```bash
-atlas prometheus-to-atlas \
+atlas prometheus-to-atlas run \
   ./prometheus/ts/ \
   ./prometheus/data.hdf5 \
-  ./atlas-data/ \
-  --use-mp \
-  --n-workers 4
+  --output ./atlas-data/ \
+  --workers 4
 ```
 
 ---
 
-### `atlas prometheus-to-atlas-recursive` - Batch Convert Prometheus Data
+#### `atlas prometheus-to-atlas batch`
 
-Recursively convert multiple Prometheus datasets to Atlas format. Useful for processing entire directory structures.
+Convert all Prometheus datasets found in a directory. Each sub-directory must contain a `ts/` folder and a single HDF5 file.
 
 **Syntax:**
 
 ```bash
-atlas prometheus-to-atlas-recursive \
+atlas prometheus-to-atlas batch \
   <ROOT_DIR> \
-  <OUTPUT_ROOT_DIR> \
+  --output <OUTPUT_ROOT_DIR> \
   [OPTIONS]
 ```
 
 **Arguments:**
 
-- `root_dir`: Root directory containing multiple module folders
-- `output_root_dir`: Output root directory for converted datasets
+- `root_dir`: Root directory containing multiple module sub-directories
+
+**Options:**
+
+- `--output`, `-o` (required): Root output directory for converted datasets
+- Same date format and multiprocessing options as `run`
 
 **Expected Directory Structure:**
 
@@ -166,41 +173,24 @@ root_dir/
     └── uuid-file.hdf5
 ```
 
-**Options:**
-
-- Same as `prometheus-to-atlas` command
-- Automatically processes all valid subdirectories in parallel
-
 **Example:**
 
 ```bash
-atlas prometheus-to-atlas-recursive \
+atlas prometheus-to-atlas batch \
   ./prometheus-datasets/ \
-  ./atlas-datasets/ \
-  --use-mp \
-  --n-workers 8
+  --output ./atlas-datasets/ \
+  --workers 8
 ```
 
 **Output:**
 
-The command will display progress and a summary:
-
 ```
-Found 3 module(s) to process
-Processing modules in parallel using 8 workers
-
-Results:
-✓ day-ahead: Successfully processed
-✓ portfolio-optimisation: Successfully processed
-✓ market-clearing: Successfully processed
-
-Summary:
-  Processed: 3
-  Failed: 0
-  Total: 3
+Summary: 3 succeeded, 0 failed out of 3
 ```
 
 ---
+
+<a id="atlas-antares-to-atlas"></a>
 
 ### `atlas antares-to-atlas` - Convert an Antares Study
 
