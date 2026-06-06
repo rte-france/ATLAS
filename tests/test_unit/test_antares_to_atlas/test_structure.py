@@ -309,7 +309,18 @@ class TestConverterRegistry:
 
 # ── Standard converter names for orchestrator assertions ──────────────────────
 
-_STANDARD_NAMES = {"node", "load", "wind", "solar", "hydro", "link", "thermal", "non_dispatchable", "battery", "phs_closed"}
+_STANDARD_NAMES = {
+    "node",
+    "load",
+    "wind",
+    "solar",
+    "hydro",
+    "link",
+    "thermal",
+    "non_dispatchable",
+    "battery",
+    "phs_closed",
+}
 _BP23_NAMES = {
     "mixed_fuel",
     "electric_vehicle",
@@ -411,9 +422,7 @@ class TestAntaresToAtlasOrchestrator:
         assert set(resolved.market_areas) == {"fr", "de", "be"}
 
     def test_resolve_parameters_excludes_listed_areas(self):
-        ata = AntaresToAtlas.from_dict(
-            {**_BASE_PARAMS, "market_areas": "all", "excluded_market_areas": ["de"]}
-        )
+        ata = AntaresToAtlas.from_dict({**_BASE_PARAMS, "market_areas": "all", "excluded_market_areas": ["de"]})
         study = MagicMock()
         study.get_areas.return_value = ["fr", "de", "be"]
         resolved = ata._resolve_parameters(study)
