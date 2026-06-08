@@ -25,29 +25,11 @@ class ConcreteTaskIterator(TaskIterator):
 
     def __init__(self, task: Task, job = None, module_parameters = None):
         super().__init__(task)
-        if module_parameters is None:
-            module_parameters = MockModuleParametersBuilder().build()
-
         self._job: ConcreteJob = job
         self.parameters = module_parameters
 
     def build_jobs(self):
-        parameters = copy.deepcopy(self.parameters)
-        parameters.temporal.start_date = self.next_start_date
-        parameters.temporal.end_date = self.next_end_date
-        parameters.temporal.execution_date = self.next_execution_date
-
-        module = MockModuleBuilder().build()
-        if self._job is not None:
-            module = self._job.module
-
-        return [MockJobBuilder()
-                .with_name("concrete_task_test")
-                .with_module(module)
-                .with_module_parameters(parameters)
-                .build()]
-
-        return [ActionPlanJob("insert_name", self.module, self._build_current_parameters())]
+        return [self._job]
 
     def __lt__(self, other):
         return super().__lt__(other)
@@ -186,6 +168,40 @@ class MockJobBuilder:
             self.module_cls = MagicMock(return_value=self.module)
         return self.job_cls(self.name, self.module_cls, self.module_parameters)
 
+class ModuleConfigBuilder:
+    """Default: a path to a minimal module YAML with no other parameters than temporale."""
+
+    def __init__(self):
+        self.misc = ""
+        self.start_date = '2028-09-27 00:00:00'
+        self.end_date = '2028-09-28 00:00:00'
+        self.execution_date = '2028-09-26 12:00:00'
+
+    def with_start_date(self, start_date):
+        self.start_date = start_date
+
+    def with_end_date(self, end_date):
+        self.end_date = end_date
+
+    def with_execution_date(self, execution_date):
+        self.execution_date = execution_date
+
+    def with_any(self, misc) -> Self:
+        self.misc = misc
+        return self
+
+    def build(self, tmp_path):
+        config = tmp_path / "module_config.yaml"
+        content = (
+            f"temporal:\n"
+            f"  start_date: {self.start_date}\n"
+            f"  end_date: {self.end_date}\n"
+            f"  execution_date: {self.execution_date}\n"
+            f"{self.misc}\n"
+        )
+        config.write_text(content)
+        return config
+
 
 class OrchestratorConfigBuilder:
     """Default: a path to a minimal orchestrator YAML with no job named test_orchestrator."""
@@ -254,7 +270,9 @@ class OrchestratorConfigBuilder:
 
 class MockTaskBuilder:
     def __init__(self):
+        self.name = "mock_task"
         self.from_ = DateTime(2026, 1, 1)
+        self.next_execution_date = self.from_
         self.until = DateTime(2026, 1, 1)
         self.frequency = Duration(days=1)
         self.offset_start_date = Duration(days=1)
@@ -262,10 +280,15 @@ class MockTaskBuilder:
         self.priority = 1
         self.module = None
         self.workflow = None
-        self.parameters = None
+        self.module_parameters_path = None
+
+    def with_name(self, name) -> Self:
+        self.name = name
+        return self
 
     def with_from_until_frequency(self, from_, until, frequency) -> Self:
         self.from_ = from_
+        self.next_execution_date = self.from_
         self.until = until
         self.frequency = frequency
         return self
@@ -278,20 +301,21 @@ class MockTaskBuilder:
         self.offset_end_date = offset_end_date
         return self
 
+    def with_next_execution_date(self, next_execution_date) -> Self:
+        self.next_execution_date = next_execution_date
+        return self
+
     def with_priority(self, priority: int) -> Self:
         self.priority = priority
         return self
 
-    def with_module(self, module) -> Self:
+    def with_module_and_parameters(self, module, module_parameters_path) -> Self:
         self.module = module
+        self.module_parameters_path = module_parameters_path
         return self
 
     def with_workflow(self, workflow) -> Self:
         self.workflow = workflow
-        return self
-
-    def with_parameters(self, parameters) -> Self:
-        self.parameters = parameters
         return self
 
     def build(self):

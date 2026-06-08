@@ -81,37 +81,33 @@ class TestTask:
         with pytest.raises(Exception):
             TestTask.build_task(module="PortfolioOptimisation", workflow=empty_workflow, module_parameters_path=params_file)
 
-    def test_parameters_path_is_path_object_module(self, tmp_path, params_file, empty_workflow):
+    def test_parameters_path_is_path_object_module(self, tmp_path, params_file):
         task = TestTask.build_task(module="PortfolioOptimisation", module_parameters_path=str(params_file))
-        assert isinstance(task.parameters_path, Path)
-
-    def test_parameters_path_is_path_object_workflow(self, tmp_path, params_file, empty_workflow):
-        task = TestTask.build_task(workflow=empty_workflow, module_parameters_path=str(params_file))
-        assert isinstance(task.parameters_path, Path)
+        assert isinstance(task.module_parameters_path, Path)
 
     def test_datetime_are_preserved(self, params_file, empty_workflow):
         from_ = pendulum.DateTime(year=1, month=1, day=1)
         until = pendulum.DateTime(year=1, month=1, day=2)
 
         task = TestTask.build_task(from_=from_, until=until, module_parameters_path=params_file, module="PortfolioOptimisation")
-        assert task.from_ == from_
-        assert task.until == until
+        assert task.from_.replace(tzinfo=None) == from_
+        assert task.until.replace(tzinfo=None) == until
 
-        task = TestTask.build_task(from_=from_, until=until, module_parameters_path=params_file, workflow=empty_workflow)
-        assert task.from_ == from_
-        assert task.until == until
+        task = TestTask.build_task(from_=from_, until=until, workflow=empty_workflow)
+        assert task.from_.replace(tzinfo=None) == from_
+        assert task.until.replace(tzinfo=None) == until
 
     def test_duration_are_preserved(self, params_file, empty_workflow):
         frequency = pendulum.Duration(years=1, months=1, days=1)
         offset_start_date = pendulum.Duration(years=2, months=2, days=2)
         offset_end_date = pendulum.Duration(years=3, months=3, days=3)
 
-        task = TestTask.build_task(frequency=frequency, offset_start_date=offset_start_date, offset_end_date=offset_end_date, parameters_path=params_file, module="PortfolioOptimisation")
+        task = TestTask.build_task(frequency=frequency, offset_start_date=offset_start_date, offset_end_date=offset_end_date, module_parameters_path=params_file, module="PortfolioOptimisation")
         assert task.frequency == frequency
         assert task.offset_start_date == offset_start_date
         assert task.offset_end_date == offset_end_date
 
-        task = TestTask.build_task(frequency=frequency, offset_start_date=offset_start_date, offset_end_date=offset_end_date, parameters_path=params_file, workflow=empty_workflow)
+        task = TestTask.build_task(frequency=frequency, offset_start_date=offset_start_date, offset_end_date=offset_end_date, workflow=empty_workflow)
         assert task.frequency == frequency
         assert task.offset_start_date == offset_start_date
         assert task.offset_end_date == offset_end_date
@@ -134,16 +130,15 @@ class TestTask:
     def test_warning_frequency_dont_reach_until(self, params_file, empty_workflow):
         with pytest.warns(DataQualityWarning):
             TestTask.build_task(
-                frequency=pendulum.Duration(days=3),
+                frequency=pendulum.Duration(days=10),
                 from_=DateTime(2000, 1, 1),
-                until=DateTime(2000, 1, 12),
+                until=DateTime(2000, 1, 15),
                 module_parameters_path=params_file,
                 module="PortfolioOptimisation")
 
         with pytest.warns(DataQualityWarning):
             TestTask.build_task(
-                frequency=pendulum.Duration(days=3),
+                frequency=pendulum.Duration(days=10),
                 from_=DateTime(2000, 1, 1),
-                until=DateTime(2000, 1, 12),
-                module_parameters_path=params_file,
+                until=DateTime(2000, 1, 15),
                 workflow=empty_workflow)

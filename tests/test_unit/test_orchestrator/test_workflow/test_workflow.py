@@ -177,7 +177,6 @@ class TestWorkflowContextParameters:
         workflow = Workflow.from_file(
             TestWorkflowContextParameters.create_config(tmp_path, context_file), overriding_context
         )
-        print(workflow.parameters.context)
         assert workflow.parameters.context.default["foo"] == "default_value_overriding"
         assert workflow.parameters.context.forced["foo"] == "forced_value_overriding"
         assert workflow.parameters.context.default["override_exclusive"] == "default_value_override_exclusive"
