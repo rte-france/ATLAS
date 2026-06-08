@@ -126,6 +126,7 @@ class TestWorkflowContextParameters:
         config = tmp_path / "workflow.yaml"
         config.write_text(
             "name: test_workflow\n" + context + f"dataset_path: {dataset_dir}\n"
+            f"output_dataset_path: {output_dir}\n"
             f"steps:\n"
             f"  - module: MarketClearing\n"
             f"    parameters_path: {params_file}\n"
