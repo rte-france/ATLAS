@@ -13,6 +13,7 @@ from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.antares_to_atlas import AntaresToAtlas, AntaresToAtlasParameters
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
+from atlas.modules.intraday_price_forecast.module import IntradayPriceForecastModule
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.objects.business_model import BusinessModel
@@ -53,6 +54,7 @@ __all__ = [
     "WorkflowJob",
     "BusinessModel",
     "ControlBlock",
+    "ConstraintBounds",
     "CriticalBranch",
     "Equipment",
     "ForecastingMatrix",
@@ -64,12 +66,10 @@ __all__ = [
     "Load",
     "MarketArea",
     "MarketAreaPtdf",
-    "LazyScenarioMatrix",
     "MarketBorder",
     "OptimisationModel",
     "Node",
     "Logger",
-    "Parameters",
     "get_metadata_from_file",
     "get_metadata_from_frame",
     "NodePtdf",
@@ -79,14 +79,17 @@ __all__ = [
     "Portfolio",
     "ScenarioMatrix",
     "Solar",
+    "SolutionInfo",
     "Storage",
     "SolverOptions",
+    "SolverStatus",
     "Thermal",
     "Timeseries",
     "Wind",
     "PortfolioOptimisationModule",
     "DayAheadOrdersModule",
     "MarketClearingModule",
+    "IntradayPriceForecastModule",
 ]
 
 __version__ = version("rte-atlas")

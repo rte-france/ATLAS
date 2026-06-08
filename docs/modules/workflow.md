@@ -1,13 +1,15 @@
-# Workflows
+# Run a Workflow
 
-A workflow chains multiple modules sequentially, where the output dataset of each step becomes the input of the next.
+A workflow chains multiple modules sequentially — the output dataset of each step becomes the input of the next.
 
-## Workflow Configuration File
+---
+
+## Define a Workflow
 
 A workflow is defined in a YAML file:
 
 ```yaml
-name: my-workflow
+name: day-ahead
 dataset_path: ./data/input/
 output_dataset_path: ./data/output/
 output_dir: ./results/
@@ -26,16 +28,13 @@ steps:
 |---|---|---|---|
 | `name` | No | `null` | Name of the workflow |
 | `dataset_path` | Yes | — | Path to the initial input dataset |
-| `output_dataset_path` | Yes | — | Path where the final output dataset is written |
 | `output_dir` | No | `.` | Root directory for per-step results |
-| `path_from_workflow` | No | `true` | If `true`, resolve relative paths from the workflow file location |
-| `rollback_on_job_failure` | No | `true` | Roll back the dataset to the previous step state if a step fails |
-| `create_job_snapshots` | No | `false` | Save a dataset snapshot before each step (useful for debugging) |
+| `path_from_workflow` | No | `true` | Resolve relative paths from the workflow file location |
+| `rollback_on_job_failure` | No | `true` | Roll back to the previous step's state if a step fails |
+| `create_job_snapshots` | No | `false` | Save a dataset snapshot before each step |
 | `export_output` | No | `true` | Export the output dataset after each step |
 
 ### Step Parameters
-
-Each entry under `steps` defines one execution unit:
 
 | Parameter | Required | Default | Description |
 |---|---|---|---|
@@ -44,9 +43,11 @@ Each entry under `steps` defines one execution unit:
 | `name` | No | module name | Custom name for the step |
 
 !!! note "Duplicate step names"
-    If two steps share the same name (or the same module without a custom name), Atlas automatically appends `_1`, `_2`, etc. to keep names unique.
+    If two steps share the same name, Atlas automatically appends `_1`, `_2`, etc. to keep them unique.
 
-## Running a Workflow
+---
+
+## Run
 
 ### CLI
 
@@ -61,44 +62,112 @@ from atlas import Workflow
 
 workflow = Workflow.from_file("workflow.yaml")
 workflow.execute()
-
-# Access the final output dataset
-output = workflow.get_output_dataset()
 ```
+
+### Programmatic
+
+You can also build a workflow directly in Python, without a YAML file:
+
+```python
+from atlas import Workflow, WorkflowParameters
+from atlas.orchestrator.workflow.job import Step
+
+parameters = WorkflowParameters(
+    name="day-ahead",
+    dataset_path="./data/input/",
+    output_dir="./results/",
+    steps=[
+        Step(module="DayAheadOrders", parameters_path="./parameters/day_ahead_orders.yml"),
+        Step(module="MarketClearing", parameters_path="./parameters/market_clearing.yml"),
+        Step(module="PortfolioOptimisation", parameters_path="./parameters/portfolio_optimisation.yml"),
+    ],
+)
+
+workflow = Workflow(parameters=parameters)
+workflow.execute()
+```
+
+This is useful for building workflows dynamically, for example when the list of steps depends on runtime conditions.
+
+---
+
+## Accessing Results
+
+After execution, access the final output dataset:
+
+```python
+workflow.execute()
+
+# Final dataset after all steps
+result = workflow.get_output_dataset()
+
+# Access results from the final dataset
+for order in result.order.all():
+    print(f"{order.name}: {order.accepted_power} MW")
+```
+
+To access the output of a specific step:
+
+```python
+# Access individual step results
+for job in workflow.jobs:
+    step_result = job.get_output_dataset()
+    print(f"Step '{job.name}': {len(step_result.order.all())} orders")
+```
+
+---
 
 ## Directory Layout
 
-A typical workflow project looks like this:
+A typical workflow project:
 
 ```
 my-workflow/
 ├── workflow.yaml
 ├── data/
-│   ├── input/          # Initial dataset (dataset_path)
-│   └── output/         # Final dataset (output_dataset_path)
+│   ├── input/              # Initial dataset (dataset_path)
+│   └── output/             # Final dataset
 ├── parameters/
 │   ├── day_ahead_orders.yml
 │   ├── market_clearing.yml
 │   └── portfolio_optimisation.yml
-└── results/            # Per-step outputs (output_dir)
+└── results/                # Per-step outputs (output_dir)
     ├── DayAheadOrders/
     ├── MarketClearing/
     └── PortfolioOptimisation/
 ```
 
-!!! info "Parameter files format"
-    Each `parameters_path` file in `parameters/` must follow the YAML format defined by the corresponding module.
-    See the **Parameters** section in each module's user guide for the expected structure and available fields:
-
-    - [Day-Ahead Orders parameters](../modules/day-ahead-orders/user-guide/parameters.md)
-    - [Market Clearing parameters](../modules/market-clearing/user-guide/parameters.md)
-    - [Portfolio Optimisation parameters](../modules/portfolio-optimisation/user-guide/parameters.md)
-    - [Intraday Price Forecast parameters](../modules/intraday-price-forecast/user-guide/parameters.md)
-
 When `path_from_workflow: true` (the default), all relative paths in `workflow.yaml` are resolved from the directory containing the workflow file — so you can move the whole folder without breaking paths.
+
+---
+
+## Advanced Options
+
+### Rollback on Failure
+
+With `rollback_on_job_failure: true` (default), if a step fails the dataset is restored to its state before that step. This prevents a partial run from leaving the dataset in an inconsistent state.
+
+```yaml
+rollback_on_job_failure: true  # safe default — always restore on failure
+```
+
+Set to `false` only if you want to inspect the dataset state at the point of failure.
+
+### Step Snapshots
+
+With `create_job_snapshots: true`, Atlas saves a copy of the dataset before each step. Useful for debugging — you can reload from any snapshot and re-run from that point.
+
+```yaml
+create_job_snapshots: true
+```
+
+Snapshots are saved in `output_dir/<step_name>/snapshot/`.
+
+---
 
 ## See Also
 
-- [Running Modules in Python](running-modules.md): how to run a single module
+- [Run a Module](running-modules.md): running a single module
 - [Common Parameters](common-parameters.md): parameters shared by all modules
+- [CLI reference](../cli.md): full command-line reference
 - [Workflow API Reference](../api/workflow/workflow.md): full API documentation

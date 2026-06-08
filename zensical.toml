@@ -22,11 +22,9 @@ nav = [
         { "Your First Simulation" = "getting_started/first-simulation.md" },
     ]},
     { "User Guide" = [
-        { "Running Atlas" = [
-            { "CLI" = "cli.md" },
-            { "Python API" = "modules/running-modules.md" },
-            { "Workflows" = "modules/workflow.md" },
-        ]},
+        { "Command Line" = "cli.md" },
+        { "Run a Module" = "modules/running-modules.md" },
+        { "Run a Workflow" = "modules/workflow.md" },
         { "Antares Integration" = [
             { "Overview" = "antares-integration/index.md" },
             { "User Guide" = "antares-integration/user-guide.md" },
