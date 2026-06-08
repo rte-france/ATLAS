@@ -8,6 +8,8 @@ Module that implements BSPBalancingOrdersOutputDataset.
 
 from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
 
 
 class BSPBalancingOrdersOutputDataset(AbstractModuleOutput[BSPBalancingOrdersParameters]):
@@ -18,6 +20,9 @@ class BSPBalancingOrdersOutputDataset(AbstractModuleOutput[BSPBalancingOrdersPar
 
     To be completed when order formulators are implemented.
     """
+
+    orders: list[Order] = []
+    couplings: list[OrderCoupling] = []
 
     def build_change_sets(self) -> None:
         """Populate self.change_sets with the ChangeSet objects produced by this module.

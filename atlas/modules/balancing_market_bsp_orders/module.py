@@ -9,6 +9,7 @@ Module that implements BSPBalancingOrdersModule.
 from atlas.abstract_class.module import AbstractModule
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.balancing_market_bsp_orders.input_dataset import BSPBalancingOrdersInputDataset
+from atlas.modules.balancing_market_bsp_orders.order_formulators.load import LoadOrderFormulator
 from atlas.modules.balancing_market_bsp_orders.output_dataset import BSPBalancingOrdersOutputDataset
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
 
@@ -60,7 +61,13 @@ class BSPBalancingOrdersModule(
         Iterates over each technology group and delegates to the corresponding
         order formulator. Results are aggregated into the output dataset.
         """
-        return BSPBalancingOrdersOutputDataset()
+        output_dataset = BSPBalancingOrdersOutputDataset()
+
+        for equipment in input_dataset.load_equipments.values():
+            orders, _ = LoadOrderFormulator(equipment, input_dataset.time_index, parameters).formulate()
+            output_dataset.orders.extend(orders)
+
+        return output_dataset
 
     def validates_results(
         self,
