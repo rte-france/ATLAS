@@ -8,9 +8,9 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 import warnings
+from math import gcd
 from pathlib import Path
 from typing import Any
-from math import gcd
 
 from pendulum import Duration
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -44,10 +44,11 @@ class ActionPlanParameters(AbstractOrchestratorParameters):
     @model_validator(mode="after")
     def concurrent_tasks(self) -> ActionPlanParameters:
         for idx, t1 in enumerate(self.tasks):
-            for t2 in self.tasks[idx + 1:]:
+            for t2 in self.tasks[idx + 1 :]:
                 if Task.are_concurrent(t1, t2):
                     raise ValueError(f"Action plan {self.name} contains two concurrent tasks:\n{t1}\n{t2}")
         return self
+
 
 class Task(BaseModel):
     """Definition of a single task

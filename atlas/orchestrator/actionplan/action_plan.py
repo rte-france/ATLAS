@@ -70,9 +70,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
     def _add_task_workflow(self, task: Task, root_output_dir: Path) -> None:
         if isinstance(task.workflow, Path):
-            workflow_parameters = WorkflowParameters.from_file(
-                self.parameters.resolve_path(task.workflow)
-            )
+            workflow_parameters = WorkflowParameters.from_file(self.parameters.resolve_path(task.workflow))
         elif isinstance(task.workflow, Workflow):
             workflow_parameters = task.workflow.parameters
         workflow_parameters.context.use(self.parameters.context)
