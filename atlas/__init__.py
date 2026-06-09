@@ -15,6 +15,7 @@ from atlas.modules.antares_to_atlas.antares_to_atlas import AntaresToAtlas, Anta
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.modules.intraday_price_forecast.module import IntradayPriceForecastModule
 from atlas.modules.market_clearing.module import MarketClearingModule
+from atlas.modules.module_run import ModuleRun
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.equipment.equipment import Equipment
@@ -90,6 +91,7 @@ __all__ = [
     "DayAheadOrdersModule",
     "MarketClearingModule",
     "IntradayPriceForecastModule",
+    "ModuleRun",
 ]
 
 __version__ = version("rte-atlas")

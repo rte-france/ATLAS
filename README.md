@@ -52,8 +52,7 @@ git clone https://github.com/rte-france/ATLAS.git && cd ATLAS && uv sync
 ### 1. Build a dataset
 
 ```python
-from atlas import AtlasDataset, ControlBlock, MarketArea, Node, Portfolio, Thermal
-from atlas.math.timeseries import Timeseries
+from atlas import AtlasDataset, ControlBlock, MarketArea, Node, Portfolio, Thermal, Timeseries
 
 cb = ControlBlock(name="cb_fr")
 area = MarketArea(name="fr", control_block=cb)
@@ -110,11 +109,10 @@ atlas run parameters.yaml \
 Or from Python:
 
 ```python
-from atlas import AtlasDataset
-from atlas.modules.module_run import ModuleRun
-from atlas.modules.day_ahead_orders import DayAheadOrdersModule
+from atlas import AtlasDataset, ModuleRun, DayAheadOrdersModule
 
 dataset = AtlasDataset.from_directory("./data/input/")
+
 result = ModuleRun(
     module=DayAheadOrdersModule(),
     dataset=dataset,
