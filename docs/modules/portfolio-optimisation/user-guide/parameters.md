@@ -49,7 +49,7 @@ For common parameters (`temporal`, `solver`, `output`, `multiprocessing`), see [
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `pumped_hydraulic_number_of_fragments` | `int` | `3` | Number of power offer fragments per timestep. |
+| `pumped_hydraulic_number_of_fragments` | `int` | `3` | See the similar parameter for batteries. |
 | `pumped_hydraulic_smoothing_factor` | `float` | `0.2` | Smoothing factor for the power curve (0–1). |
 | `pumped_hydraulic_reserve_duration` | `Duration` | `60 min` | Manual reserve duration. |
 | `pumped_hydraulic_automated_reserve_duration` | `Duration` | `60 min` | Automated reserve duration. |
