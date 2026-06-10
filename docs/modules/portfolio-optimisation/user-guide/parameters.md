@@ -10,8 +10,8 @@ For common parameters (`temporal`, `solver`, `output`, `multiprocessing`), see [
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `is_portfolio_bidding` | `bool` | `True` | `True`: optimize at portfolio level. `False`: optimize individual units. |
-| `use_forecast` | `bool` | `False` | `True`: use price forecasts (before market). `False`: use actual prices. |
+| `is_portfolio_bidding` | `bool` | `True` | `True`: optimization performed at the portfolio level. `False`: unit-based optimization. |
+| `use_forecast` | `bool` | `False` | `True`: use price forecasts (when used in the order formulation step at the beggining of a market). `False`: use actual market prices, when the module is used after a Market Clearing. |
 
 ## Exclusions
 
@@ -26,10 +26,10 @@ For common parameters (`temporal`, `solver`, `output`, `multiprocessing`), see [
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `imbalance_penalty_offset` | `float` | `10` €/MWh | Offset when forecasting imbalance settlement price. |
-| `isp_forecast_lower_bound` | `float` | `10` €/MWh | Lower bound of the absolute ISP forecast. |
-| `small_imbalance_penalty` | `float` | `0.1` | Coefficient for small imbalance ISP. |
-| `large_imbalance_penalty` | `float` | `0.2` | Coefficient for large imbalance ISP. |
-| `small_imbalance_size` | `float` | `0.15` | Fraction of portfolio energy considered "small". |
+| `isp_forecast_lower_bound` | `float` | `10` €/MWh | Lower bound of the absolute value of the Imbalance Settlement Price forecast. |
+| `small_imbalance_penalty` | `float` | `0.1` | Penalty coefficient applied to the forecasted ISP for "small" imbalances (this notion is defined by the parameter `small_imbalance_size`). The resulting penalty will be 1+coeff (resp. 1-coeff) for small positive (resp. negative) imbalances |
+| `large_imbalance_penalty` | `float` | `0.2` | Similar to `small_imbalance_penalty`, but for the "large" part of the imbalance (above the `small_imbalance_size`). |
+| `small_imbalance_size` | `float` | `0.15` | Ratio applied to the total installed capacity of the portfolio, that defines "small" imbalances (imbalances smaller than this ratio) and "large" imbalances (greater than this ratio). |
 | `maximum_imbalance` | `float` | `100 000` MW | Maximum allowed imbalance. |
 | `automated_unprocured_reserves_penalty` | `float` | `30 000` €/MW/h | Penalty for not providing automated reserves. |
 | `manual_unprocured_reserves_penalty` | `float` | `30 000` €/MW/h | Penalty for not providing manual reserves. |
@@ -40,7 +40,7 @@ For common parameters (`temporal`, `solver`, `output`, `multiprocessing`), see [
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `battery_number_of_fragments` | `int` | `3` | Number of power offer fragments per timestep. |
+| `battery_number_of_fragments` | `int` | `3` | In the optimization process, the total available power range of the battery is separated into fragments. This parameter defines the number of power. |
 | `battery_smoothing_factor` | `float` | `0.2` | Smoothing factor for the power curve (0–1). |
 | `battery_reserve_duration` | `Duration` | `60 min` | Manual reserve duration. |
 | `battery_automated_reserve_duration` | `Duration` | `60 min` | Automated reserve duration. |
