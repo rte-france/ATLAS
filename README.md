@@ -101,9 +101,9 @@ load_price: 3000
 ### 3. Run a module
 
 ```bash
-atlas run parameters.yaml \
-  --module DayAheadOrders \
-  --dataset ./data/input/
+atlas module list # See available modules 
+
+atlas module run DayAheadOrders -p parameters.yaml -d ./data/input/
 ```
 
 Or from Python:
@@ -138,7 +138,9 @@ steps:
 ```
 
 ```bash
-atlas run workflow.yaml --workflow
+atlas workflow list workflow.yaml # List all workflow steps
+
+atlas workflow run workflow.yaml
 ```
 
 ## Documentation

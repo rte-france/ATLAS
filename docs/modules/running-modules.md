@@ -38,15 +38,15 @@ Available modules:
 ## CLI
 
 ```bash
-atlas run parameters.yml \
-  --module DayAheadOrders \
-  --dataset ./data/input/
+atlas module run DayAheadOrders \
+  -p parameters.yml \
+  -d ./data/input/
 ```
 
-| Option | Short | Required | Description |
+| Argument / Option | Short | Required | Description |
 |---|---|---|---|
-| `config_path` | — | Yes | Path to the parameters YAML file |
-| `--module` | `-m` | Yes | Module name (`DayAheadOrders`, `MarketClearing`, `PortfolioOptimisation`, `IntradayPriceForecast`) |
+| `MODULE_NAME` | — | Yes | Module name. Run `atlas module list` to see all available modules. |
+| `--parameters` | `-p` | Yes | Path to the parameters YAML file |
 | `--dataset` | `-d` | Yes | Path to the input dataset directory |
 
 ---

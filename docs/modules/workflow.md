@@ -52,7 +52,13 @@ steps:
 ### CLI
 
 ```bash
-atlas run workflow.yaml --workflow
+atlas workflow run workflow.yaml
+```
+
+To inspect the steps of a workflow file before running it:
+
+```bash
+atlas workflow list workflow.yaml
 ```
 
 ### Python
