@@ -840,6 +840,16 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
             result = self.collect() - other
             return LazyTimeseries(result.to_lazy(), self.timezone)
 
+    def __neg__(self) -> LazyTimeseries:
+        """
+        Negate all numeric values in the LazyTimeseries.
+
+        :return: The LazyTimeseries where all numeric values are negated
+        :rtype: LazyTimeseries
+        """
+        lf = self.timeseries.with_columns(pl.col("value").mul(-1))
+        return LazyTimeseries(lf, self.timezone)
+
     def __truediv__(self, other: float | LazyTimeseries | Timeseries) -> LazyTimeseries:
         """
         Divide all numeric columns by a scalar or timeseries.

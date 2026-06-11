@@ -430,6 +430,15 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
 
         return Timeseries(df, self.timezone)
 
+    def __neg__(self) -> Timeseries:
+        """Negate all numeric values in the Timeseries.
+
+        :return: The Timeseries where all numeric values are negated
+        :rtype: Timeseries
+        """
+        df = self.timeseries.with_columns(pl.selectors.numeric().mul(-1))
+        return Timeseries(df, self.timezone)
+
     def __truediv__(self, other: float | Timeseries) -> Timeseries:
         """Divide all numeric columns by a scalar or timeseries.
 

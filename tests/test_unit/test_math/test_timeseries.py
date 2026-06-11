@@ -528,6 +528,55 @@ class TestTimeseriesBasicOperations:
         with pytest.raises(ValueError):
             sample_ts - ts_with_wrong_timstamps
 
+    def test_neg_returns_timeseries(self, sample_ts):
+        """__neg__ returns a Timeseries instance."""
+        result = -sample_ts
+        assert isinstance(result, Timeseries)
+
+    def test_neg_negates_values(self, sample_ts):
+        """__neg__ negates all values."""
+        result = -sample_ts
+        assert result.values == [-10.0, -20.0, -30.0, -40.0]
+
+    def test_neg_preserves_index(self, sample_ts):
+        """__neg__ preserves the time index."""
+        result = -sample_ts
+        assert result.index == sample_ts.index
+
+    def test_neg_preserves_timezone(self, sample_ts):
+        """__neg__ preserves the timezone."""
+        result = -sample_ts
+        assert result.timezone == sample_ts.timezone
+
+    def test_neg_double_negation(self, sample_ts):
+        """Applying __neg__ twice returns the original values."""
+        result = -(-sample_ts)
+        assert result.values == sample_ts.values
+
+    def test_neg_does_not_modify_original(self, sample_ts):
+        """__neg__ does not modify the original Timeseries."""
+        original_values = sample_ts.values[:]
+        _ = -sample_ts
+        assert sample_ts.values == original_values
+
+    def test_neg_used_in_subtraction(self, sample_ts):
+        """__neg__ allows use in expressions like -ts - other."""
+        other = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": [
+                        datetime(2023, 1, 1, 0, 0),
+                        datetime(2023, 1, 1, 1, 0),
+                        datetime(2023, 1, 1, 2, 0),
+                        datetime(2023, 1, 1, 3, 0),
+                    ],
+                    "value": [1.0, -2.0, 3.0, -44.0],
+                }
+            )
+        )
+        result = -sample_ts - other
+        assert result.values == [-11.0, -18.0, -33.0, 4.0]
+
     def test_div_with_value(self, sample_ts):
         """Test division operation between a timeseries and a value."""
         ts = sample_ts / 2

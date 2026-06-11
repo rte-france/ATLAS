@@ -946,6 +946,56 @@ class TestLazyTimeseriesArithmetic:
         expected = [10.0 - 2.0, 15.0 - 3.0, 20.0 - 4.0, 25.0 - 5.0, 30.0 - 6.0]
         assert collected.values == expected
 
+    def test_neg_returns_lazy_timeseries(self, sample_lazy_ts):
+        """__neg__ returns a LazyTimeseries instance."""
+        result = -sample_lazy_ts
+        assert isinstance(result, LazyTimeseries)
+
+    def test_neg_negates_values(self, sample_lazy_ts):
+        """__neg__ negates all values."""
+        result = -sample_lazy_ts
+        assert result.collect().values == [-10.0, -15.0, -20.0, -25.0, -30.0]
+
+    def test_neg_preserves_index(self, sample_lazy_ts):
+        """__neg__ preserves the time index."""
+        result = -sample_lazy_ts
+        assert result.index == sample_lazy_ts.index
+
+    def test_neg_preserves_timezone(self, sample_lazy_ts):
+        """__neg__ preserves the timezone."""
+        result = -sample_lazy_ts
+        assert result.timezone == sample_lazy_ts.timezone
+
+    def test_neg_double_negation(self, sample_lazy_ts):
+        """Applying __neg__ twice returns the original values."""
+        result = -(-sample_lazy_ts)
+        assert result.collect().values == sample_lazy_ts.collect().values
+
+    def test_neg_does_not_modify_original(self, sample_lazy_ts):
+        """__neg__ does not modify the original LazyTimeseries."""
+        original_values = sample_lazy_ts.values[:]
+        _ = -sample_lazy_ts
+        assert sample_lazy_ts.values == original_values
+
+    def test_neg_used_in_subtraction(self, sample_lazy_ts):
+        """__neg__ allows use in expressions like -ts - other."""
+        other = LazyTimeseries(
+            pl.DataFrame(
+                {
+                    "time": [
+                        datetime(2023, 1, 1, 0, 0),
+                        datetime(2023, 1, 1, 1, 0),
+                        datetime(2023, 1, 1, 2, 0),
+                        datetime(2023, 1, 1, 3, 0),
+                        datetime(2023, 1, 1, 4, 0),
+                    ],
+                    "value": [1.0, -2.0, 3.0, -44.0, 0],
+                }
+            ).lazy()
+        )
+        result = -sample_lazy_ts - other
+        assert result.collect().values == [-11.0, -13.0, -23.0, 19, -30]
+
     def test_div_with_scalar(self, sample_lazy_ts):
         """Test division with scalar value."""
         result = sample_lazy_ts / 2.0
