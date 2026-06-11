@@ -22,11 +22,12 @@ nav = [
         { "Your First Simulation" = "getting_started/first-simulation.md" },
     ]},
     { "User Guide" = [
-        { "Running Atlas" = [
-            { "CLI" = "cli.md" },
-            { "Python API" = "modules/running-modules.md" },
-            { "Workflows" = "modules/workflow.md" },
-            { "Profiling" = "profiling.md" },
+        { "Command Line" = "cli.md" },
+        { "Run a Module" = "modules/running-modules.md" },
+        { "Run a Workflow" = "modules/workflow.md" },
+        { "Antares Integration" = [
+            { "Overview" = "antares-integration/index.md" },
+            { "User Guide" = "antares-integration/user-guide.md" },
         ]},
         { "Examples" = [
             { "AtlasDataset" = "examples/atlas_dataset.md" },
@@ -38,45 +39,64 @@ nav = [
     { "Modules" = [
         "modules/index.md",
         { "Common Parameters" = "modules/common-parameters.md" },
-        { "Portfolio Optimisation" = [
-            { "Overview" = "modules/portfolio-optimisation/index.md" },
-            { "User Guide" = "modules/portfolio-optimisation/user-guide/overview.md" },
-            { "Parameters" = "modules/portfolio-optimisation/user-guide/parameters.md" },
-            { "Results" = "modules/portfolio-optimisation/user-guide/results.md" },
-            { "Examples" = "modules/portfolio-optimisation/user-guide/examples.md" },
+        { "Day-Ahead Orders" = [
+            { "Overview" = "modules/day-ahead-orders/index.md" },
+            { "User Guide" = [
+                { "Overview" = "modules/day-ahead-orders/user-guide/overview.md" },
+                { "Parameters" = "modules/day-ahead-orders/user-guide/parameters.md" },
+                { "Input Objects" = "modules/day-ahead-orders/user-guide/input-objects.md" },
+                { "Results" = "modules/day-ahead-orders/user-guide/results.md" },
+            ]},
         ]},
         { "Market Clearing" = [
             { "Overview" = "modules/market-clearing/index.md" },
-            { "User Guide" = "modules/market-clearing/user-guide/overview.md" },
-            { "Parameters" = "modules/market-clearing/user-guide/parameters.md" },
-            { "Results" = "modules/market-clearing/user-guide/results.md" },
+            { "User Guide" = [
+                { "Overview" = "modules/market-clearing/user-guide/overview.md" },
+                { "Parameters" = "modules/market-clearing/user-guide/parameters.md" },
+                { "Input Objects" = "modules/market-clearing/user-guide/input-objects.md" },
+                { "Results" = "modules/market-clearing/user-guide/results.md" },
+            ]},
         ]},
-        { "Day-Ahead Orders" = [
-            { "Overview" = "modules/day-ahead-orders/index.md" },
-            { "User Guide" = "modules/day-ahead-orders/user-guide/overview.md" },
-            { "Parameters" = "modules/day-ahead-orders/user-guide/parameters.md" },
-            { "Results" = "modules/day-ahead-orders/user-guide/results.md" },
+        { "Portfolio Optimisation" = [
+            { "Overview" = "modules/portfolio-optimisation/index.md" },
+            { "User Guide" = [
+                { "Overview" = "modules/portfolio-optimisation/user-guide/overview.md" },
+                { "Parameters" = "modules/portfolio-optimisation/user-guide/parameters.md" },
+                { "Input Objects" = "modules/portfolio-optimisation/user-guide/input-objects.md" },
+                { "Results" = "modules/portfolio-optimisation/user-guide/results.md" },
+                { "Examples" = "modules/portfolio-optimisation/user-guide/examples.md" },
+            ]},
         ]},
         { "Intraday Price Forecast" = [
             { "Overview" = "modules/intraday-price-forecast/index.md" },
-            { "User Guide" = "modules/intraday-price-forecast/user-guide/overview.md" },
-            { "Parameters" = "modules/intraday-price-forecast/user-guide/parameters.md" },
-            { "Results" = "modules/intraday-price-forecast/user-guide/results.md" },
+            { "User Guide" = [
+                { "Overview" = "modules/intraday-price-forecast/user-guide/overview.md" },
+                { "Parameters" = "modules/intraday-price-forecast/user-guide/parameters.md" },
+                { "Input Objects" = "modules/intraday-price-forecast/user-guide/input-objects.md" },
+                { "Results" = "modules/intraday-price-forecast/user-guide/results.md" },
+            ]},
         ]},
     ]},
     { "Developer Guide" = [
-        { "Data Model" = "data-model.md" },
-        { "Data Flow & Orchestration" = "data-flow.md" },
-        { "Module Pattern" = "modules/module-pattern.md" },
-        { "Implementing a Module" = "implementing-a-module.md" },
-        { "Module Architecture" = [
-            { "Portfolio Optimisation" = "modules/portfolio-optimisation/developer/architecture.md" },
-            { "Market Clearing" = "modules/market-clearing/developer/architecture.md" },
-            { "Day-Ahead Orders" = "modules/day-ahead-orders/developer/architecture.md" },
-            { "Intraday Price Forecast" = "modules/intraday-price-forecast/developer/architecture.md" },
+        { "Architecture" = [
+            { "Data Model" = "data-model.md" },
+            { "Data Flow & Orchestration" = "data-flow.md" },
         ]},
-        { "Contributing" = "contributing.md" },
-        { "Release Process" = "release_process.md" },
+        { "Module Development" = [
+            { "Module Pattern" = "modules/module-pattern.md" },
+            { "Implementing a Module" = "implementing-a-module.md" },
+            { "Module Architecture" = [
+                { "Day-Ahead Orders" = "modules/day-ahead-orders/developer/architecture.md" },
+                { "Market Clearing" = "modules/market-clearing/developer/architecture.md" },
+                { "Portfolio Optimisation" = "modules/portfolio-optimisation/developer/architecture.md" },
+                { "Intraday Price Forecast" = "modules/intraday-price-forecast/developer/architecture.md" },
+            ]},
+        ]},
+        { "Contributing" = [
+            { "Contributing Guide" = "contributing.md" },
+            { "Release Process" = "release_process.md" },
+            { "Profiling" = "profiling.md" },
+        ]},
     ]},
     { "API Reference" = [
         { "Overview" = "api/index.md" },

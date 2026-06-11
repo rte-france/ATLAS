@@ -27,6 +27,10 @@ hide:
 
 </div>
 
+<p class="hero-description" markdown>
+ATLAS is an agent-based simulator for electricity markets, covering day-ahead, intraday, and balancing markets. It models the sequential decisions of market participants — from order formulation to market clearing and portfolio optimisation — through independent modules chained into configurable workflows.
+</p>
+
 <div class="grid cards" markdown>
 
 -   [:lucide-rocket:{ .lg .middle } **Quick Start**](getting_started/getting_started.md)
@@ -54,13 +58,14 @@ hide:
 
     [:octicons-arrow-right-24: Data model](data-model.md)
 
--   [:lucide-file-input:{ .lg .middle } **Antares Integration**](getting_started/getting_started.md)
+-   [:lucide-file-input:{ .lg .middle } **Antares Integration**](antares-integration/index.md)
 
     ---
 
-    Load Antares study inputs directly into ATLAS via `antares-craft`.
+    Convert an Antares study into an Atlas-ready dataset with a single command.
 
-    [:octicons-arrow-right-24: Getting started](getting_started/getting_started.md)
+    [:octicons-arrow-right-24: Overview](antares-integration/index.md)
+    · [:octicons-arrow-right-24: User guide](antares-integration/user-guide.md)
 
 -   [:lucide-flask-conical:{ .lg .middle } **Examples**](examples/atlas_dataset.md)
 

@@ -10,7 +10,7 @@ This module provides AbstractTimeseries base class for Timeseries and LazyTimese
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, Self
@@ -85,7 +85,7 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         cls,
         start_date: str | datetime | pendulum.DateTime,
         frequency: str | timedelta | pendulum.Duration,
-        values: list[float],
+        values: Sequence[float] | pd.Series | pl.Series,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
         timezone: str = "UTC",
     ) -> Self:

@@ -10,7 +10,6 @@ Unit tests for Workflow.
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from atlas.timing import build_datetime
 import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
@@ -18,6 +17,7 @@ from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
 from atlas.orchestrator.workflow.workflow import Workflow
+from atlas.timing import build_datetime
 
 
 def _make_workflow_step(name="step", output=None):
@@ -309,6 +309,7 @@ class TestWorkflowContextParameters:
         config = tmp_path / "workflow.yaml"
         config.write_text(
             "name: test_workflow\n" + context + f"dataset_path: {dataset_dir}\n"
+            f"output_dataset_path: {output_dir}\n"
             f"steps:\n"
             f"  - module: MarketClearing\n"
             f"    parameters_path: {params_file}\n"
