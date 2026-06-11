@@ -35,7 +35,7 @@ app.add_typer(workflow_app, name="workflow")
 @module_app.command("run")
 def run_module_cmd(
     module_name: str = typer.Argument(help="Module name. Run atlas module list to list availables modules."),
-    parameters: Path = typer.Option(..., "--parameters", "-p", help="Path to the module parameters YAML"),
+    parameters_path: Path = typer.Option(..., "--parameters", "-p", help="Path to the module parameters YAML"),
     dataset_path: Path = typer.Option(..., "--dataset", "-d", help="Path to the Atlas input dataset directory"),
 ) -> None:
     """Run a single Atlas module.
@@ -47,8 +47,8 @@ def run_module_cmd(
         rprint(f"Error: Dataset directory not found: {dataset_path}")
         raise typer.Exit(code=1)
 
-    if not parameters.exists():
-        rprint(f"Error: Parameters file not found: {parameters}")
+    if not parameters_path.exists():
+        rprint(f"Error: Parameters file not found: {parameters_path}")
         raise typer.Exit(code=1)
 
     try:
@@ -59,13 +59,13 @@ def run_module_cmd(
 
     logger.info(f"Running module: {module_name}")
     logger.info(f"  Dataset   : {dataset_path}")
-    logger.info(f"  Parameters: {parameters}")
+    logger.info(f"  Parameters: {parameters_path}")
 
     try:
         with timer() as t:
             dataset = AtlasDataset.from_directory(dataset_path)
             module = module_class()
-            params = cast(AbstractModuleParameters, module.get_parameters_class()).from_file(parameters)
+            params = cast(AbstractModuleParameters, module.get_parameters_class()).from_file(parameters_path)
             result = ModuleRun(module, dataset, params).run()
 
             if params.output.export_output_dataset:
@@ -96,20 +96,20 @@ def list_modules() -> None:
 
 @workflow_app.command("run")
 def run_workflow_cmd(
-    config_path: Path = typer.Argument(help="Path to the workflow configuration YAML"),
+    parameters_path: Path = typer.Argument(help="Path to the workflow configuration YAML"),
 ) -> None:
     """Run an Atlas workflow.
 
     \b
       atlas workflow run workflow.yaml
     """
-    if not config_path.exists():
-        rprint(f"[bold red]Error[/bold red]: Workflow configuration file not found: {config_path}")
+    if not parameters_path.exists():
+        rprint(f"[bold red]Error[/bold red]: Workflow configuration file not found: {parameters_path}")
         raise typer.Exit(code=1)
 
-    logger.info(f"Running workflow: {config_path}")
+    logger.info(f"Running workflow: {parameters_path}")
     with timer() as t:
-        wf = Workflow.from_file(config_path)
+        wf = Workflow.from_file(parameters_path)
         wf.execute()
     logger.info(f"Workflow completed in {t()} seconds")
     logger.info("✓ Workflow completed successfully.")
@@ -117,7 +117,7 @@ def run_workflow_cmd(
 
 @workflow_app.command("list")
 def list_workflow(
-    config_path: Path = typer.Argument(help="Path to the workflow configuration YAML"),
+    parameters_path: Path = typer.Argument(help="Path to the workflow configuration YAML"),
 ) -> None:
     """List the steps declared in a workflow file.
 
@@ -126,17 +126,17 @@ def list_workflow(
     """
     from atlas.orchestrator.workflow.parameters import WorkflowParameters
 
-    if not config_path.exists():
-        rprint(f"[bold red]Error[/bold red]: Workflow configuration file not found: {config_path}")
+    if not parameters_path.exists():
+        rprint(f"[bold red]Error[/bold red]: Workflow configuration file not found: {parameters_path}")
         raise typer.Exit(code=1)
 
     try:
-        params = WorkflowParameters.from_file(config_path)
+        params = WorkflowParameters.from_file(parameters_path)
     except Exception as e:
         rprint(f"[bold red]Error[/bold red]: Failed to load workflow: {e}")
         raise typer.Exit(code=1) from e
 
-    title = f"Workflow: {params.name or config_path.stem}  —  {len(params.steps)} step(s)"
+    title = f"Workflow: {params.name or parameters_path.stem}  —  {len(params.steps)} step(s)"
     table = Table(title=title, show_lines=False)
     table.add_column("#", style="dim", width=4)
     table.add_column("Step name", style="bold")
