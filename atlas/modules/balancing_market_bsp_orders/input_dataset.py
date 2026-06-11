@@ -15,6 +15,7 @@ from atlas.abstract_class.dataset import AbstractDataset
 from atlas.config import logger
 from atlas.enums import LoadType
 from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.io_utils.container import Container
 from atlas.modules.balancing_market_bsp_orders.input_objects.hydro import BalancingHydro
 from atlas.modules.balancing_market_bsp_orders.input_objects.load import BalancingLoad
 from atlas.modules.balancing_market_bsp_orders.input_objects.solar import BalancingSolar
@@ -37,6 +38,7 @@ BalancingEquipment = (
 )
 
 # Load types that cannot provide balancing reserves
+# TODO : No power to gas ?
 _NON_DISPATCHABLE_LOAD_TYPES = {LoadType.BASE_LOAD, LoadType.OTHER_NON_DISPATCHABLE_LOAD}
 
 
@@ -84,7 +86,7 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
             parameters.temporal.timestep,
         )
 
-        self.market_areas: dict[str, MarketArea] = self.get_market_areas([ma for ma in input_data.market_area])
+        self.market_areas: dict[str, MarketArea] = self.get_market_areas(input_data.market_area)
 
         self.hydro_equipments: dict[str, BalancingHydro] = self.get_hydro_equipments(input_data.hydro)
         self.storage_equipments: dict[str, BalancingStorage] = self.get_storage_equipments(input_data.storage)
@@ -93,7 +95,7 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
         self.solar_equipments: dict[str, BalancingSolar] = self.get_solar_equipments(input_data.solar)
         self.thermal_equipments: dict[str, BalancingThermal] = self.get_thermal_equipments(input_data.thermal)
 
-    def get_market_areas(self, market_areas: list[MarketArea]) -> dict[str, MarketArea]:
+    def get_market_areas(self, market_areas: Container[MarketArea]) -> dict[str, MarketArea]:
         """Filter and return market areas according to the 'market_area_names' parameter."""
         if self.parameters.market_area_names == "all":
             return {ma.name: ma for ma in market_areas}
@@ -118,7 +120,7 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
         """Return True if the equipment passes all common eligibility filters."""
         return self._is_in_included_market_area(equipment) and not self._is_excluded_by_parameters(equipment)
 
-    def get_hydro_equipments(self, equipments: list[Any]) -> dict[str, BalancingHydro]:
+    def get_hydro_equipments(self, equipments: Container[Hydro]) -> dict[str, BalancingHydro]:
         """Filter hydro equipments and cast them to BalancingHydro."""
         result = {}
         for equipment in equipments:
@@ -130,7 +132,7 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
             result[equipment.name] = BalancingHydro.model_validate(equipment_dump)
         return result
 
-    def get_storage_equipments(self, equipments: list[Any]) -> dict[str, BalancingStorage]:
+    def get_storage_equipments(self, equipments: Container[Storage]) -> dict[str, BalancingStorage]:
         """Filter storage equipments and cast them to BalancingStorage."""
         result = {}
         for equipment in equipments:
@@ -142,7 +144,7 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
             result[equipment.name] = BalancingStorage.model_validate(equipment_dump)
         return result
 
-    def get_load_equipments(self, equipments: list[Any]) -> dict[str, BalancingLoad]:
+    def get_load_equipments(self, equipments: Container[Load]) -> dict[str, BalancingLoad]:
         """Filter load equipments, excluding non-dispatchable types, and cast to BalancingLoad."""
         result = {}
         for equipment in equipments:
@@ -157,7 +159,7 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
             result[equipment.name] = BalancingLoad.model_validate(equipment_dump)
         return result
 
-    def get_wind_equipments(self, equipments: list[Any]) -> dict[str, BalancingWind]:
+    def get_wind_equipments(self, equipments: Container[Wind]) -> dict[str, BalancingWind]:
         """Filter wind equipments and cast them to BalancingWind."""
         result = {}
         for equipment in equipments:
@@ -169,7 +171,7 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
             result[equipment.name] = BalancingWind.model_validate(equipment_dump)
         return result
 
-    def get_solar_equipments(self, equipments: list[Any]) -> dict[str, BalancingSolar]:
+    def get_solar_equipments(self, equipments: Container[Solar]) -> dict[str, BalancingSolar]:
         """Filter solar equipments and cast them to BalancingSolar."""
         result = {}
         for equipment in equipments:
@@ -181,7 +183,7 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
             result[equipment.name] = BalancingSolar.model_validate(equipment_dump)
         return result
 
-    def get_thermal_equipments(self, equipments: list[Any]) -> dict[str, BalancingThermal]:
+    def get_thermal_equipments(self, equipments: Container[Thermal]) -> dict[str, BalancingThermal]:
         """Filter thermal equipments, excluding those in maintenance, and cast to BalancingThermal."""
         result = {}
         for equipment in equipments:
@@ -215,4 +217,7 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
 
     @staticmethod
     def shallow_dump(model: BaseModel) -> dict[str, Any]:
-        return {name: value for name, value in model.__dict__.items()}
+        result = {}
+        for name, value in model.__dict__.items():
+            result[name] = value
+        return result

@@ -8,6 +8,7 @@ Module that implements LoadOrderFormulator.
 
 from pendulum import DateTime
 
+import atlas.config as cfg
 from atlas.enums import OrderType
 from atlas.modules.balancing_market_bsp_orders.input_objects.load import BalancingLoad
 from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator
@@ -72,7 +73,7 @@ class LoadOrderFormulator(AbstractOrderFormulator):
             qmax_up = max(0.0, upward_available.get_value(time))
             if qmax_up > 0:
                 order = self.build_order(
-                    order_type=OrderType.sell,
+                    order_type=OrderType.Sell,
                     start=time,
                     end=next_time,
                     price=self.equipment.variable_cost.get_value(time),
@@ -86,7 +87,7 @@ class LoadOrderFormulator(AbstractOrderFormulator):
             qmax_down = downward_available.get_value(time)
             if qmax_down >= 1.0:
                 order = self.build_order(
-                    order_type=OrderType.buy,
+                    order_type=OrderType.Buy,
                     start=time,
                     end=next_time,
                     price=self.equipment.variable_cost.get_value(time),

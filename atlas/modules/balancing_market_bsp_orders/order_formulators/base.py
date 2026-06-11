@@ -8,10 +8,10 @@ Module that implements AbstractOrderFormulator.
 
 from abc import ABC, abstractmethod
 
-import pandas as pd
 from pendulum import DateTime
 
 from atlas.enums import MarketType, OrderType, Product
+from atlas.math.timeseries import Timeseries
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
 from atlas.objects.market.order import Order
 
@@ -54,7 +54,7 @@ class AbstractOrderFormulator(ABC):
         start: DateTime,
         end: DateTime,
         product_type: MarketType,
-    ) -> tuple[pd.Series, pd.Series]:
+    ) -> tuple[Timeseries, Timeseries]:
         """
         Compute total upward and downward procured power across all reserve types.
 
@@ -70,7 +70,7 @@ class AbstractOrderFormulator(ABC):
         :param product_type: Type of market (RR, mFRR)
         :type product_type: MarketType
         :return: Tuple of (upward_procured, downward_procured)
-        :rtype: tuple[pd.Series, pd.Series]
+        :rtype: tuple[Timeseries, Timeseries]
         """
 
         upward = self.equipment.fcr_up_procured.get_forecast(
@@ -109,6 +109,7 @@ class AbstractOrderFormulator(ABC):
         price: float,
         qmin: float,
         qmax: float,
+        suffix: str = "",
     ) -> Order | None:
         """
         Build an Order instance from the given parameters.
@@ -127,6 +128,8 @@ class AbstractOrderFormulator(ABC):
         :type qmin: float
         :param qmax: Maximum accepted quantity in MW
         :type qmax: float
+        :param suffix: Optional suffix appended to the order name (e.g. '_selfbal')
+        :type suffix: str
         :return: Formulated Order instance, or None if qmax rounds to 0
         :rtype: Order | None
         """
@@ -139,7 +142,7 @@ class AbstractOrderFormulator(ABC):
         price = max(-self.parameters.market_price_cap, price)
 
         return Order(
-            name=self._build_order_name(order_type, start, end),
+            name=self._build_order_name(order_type, start, end, suffix),
             execution_date=self.parameters.temporal.execution_date,
             start_date=start,
             end_date=end,
@@ -154,11 +157,17 @@ class AbstractOrderFormulator(ABC):
             market_area=self.equipment.portfolio.market_area,
         )
 
-    def _build_order_name(self, order_type: OrderType, start: DateTime, end: DateTime) -> str:
+    def _build_order_name(
+        self,
+        order_type: OrderType,
+        start: DateTime,
+        end: DateTime,
+        suffix: str = "",
+    ) -> str:
         """
         Build a standardised order name.
 
-        Format: {equipment}_{market}_{direction}_{start_hhmm}_{end_hhmm}_at_{execution_hhmm}
+        Format: {equipment}_{market}_{direction}_{start_hhmm}_{end_hhmm}_at_{execution_hhmm}{suffix}
 
         :param order_type: Buy or Sell
         :type order_type: OrderType
@@ -166,15 +175,17 @@ class AbstractOrderFormulator(ABC):
         :type start: DateTime
         :param end: Order end datetime
         :type end: DateTime
+        :param suffix: Optional suffix appended to the order name (e.g. '_selfbal')
+        :type suffix: str
         :return: Standardised order name
         :rtype: str
         """
-        direction = "U" if order_type == OrderType.sell else "D"
+        direction = "U" if order_type == OrderType.Sell else "D"
         market_short = self._market_short_name()
         return (
             f"{self.equipment.name}_{market_short}_{direction}_"
             f"{self._fmt_time(start)}_{self._fmt_time(end)}_"
-            f"at_{self._fmt_time(self.parameters.temporal.execution_date)}"
+            f"at_{self._fmt_time(self.parameters.temporal.execution_date)}{suffix}"
         )
 
     def _market_short_name(self) -> str:

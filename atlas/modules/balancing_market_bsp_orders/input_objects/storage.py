@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 Module that implements BalancingStorage.
 """
 
-from pendulum import Duration
+from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.enums import StorageType
 from atlas.math.abstract_timeseries import AbstractTimeseries
