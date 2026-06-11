@@ -24,6 +24,7 @@ dependencies = [
     "typing-extensions>=4.13.2",
     "dictdiffer>=0.9.0",
     "pyinstrument>=5.1.2",
+    "antares-craft>=0.14.0",
 ]
 
 [project.scripts]
@@ -91,6 +92,7 @@ docs = [
 ]
 
 [tool.mypy]
+plugins = ["pydantic.mypy"]
 disable_error_code = ["operator"]
 [[tool.mypy.overrides]]
 module = ["atlas.solver.solver_interface",

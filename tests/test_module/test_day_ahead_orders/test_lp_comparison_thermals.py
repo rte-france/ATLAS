@@ -153,4 +153,6 @@ class TestThermalCombinationLPComparison:
         if threshold is None:
             pytest.skip("No performance threshold defined for DayAheadOrdersThermal")
 
-        assert elapsed <= threshold, f"DayAheadOrders took {elapsed:.2f}s for {combination_name}, expected <= {threshold}s"
+        assert elapsed <= threshold, (
+            f"DayAheadOrders took {elapsed:.2f}s for {combination_name}, expected <= {threshold}s"
+        )
