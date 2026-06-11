@@ -434,7 +434,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                 # Loop over the time Steps to create the orders.
                 t = parent_date.add(minutes=-parameters.temporal.timestep.in_minutes() * direction)
 
-                for i in range(0, number_of_indexes):
+                for _ in range(0, number_of_indexes):
                     # For i=0, t=ParentDate. Then we go backward or downward depending on the "Direction"
                     t = t.add(minutes=parameters.temporal.timestep.in_minutes() * direction)
 
