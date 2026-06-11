@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from pendulum import DateTime, Duration
 
+from atlas.core.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.core.math.timeseries import Timeseries
 from atlas.enums import LoadType
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.timeseries import Timeseries
 from atlas.objects.equipment.load import Load
 
 

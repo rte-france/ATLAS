@@ -9,7 +9,7 @@ from antares.craft.model.study import Study
 from loguru import logger
 
 import atlas.config as cfg
-from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 

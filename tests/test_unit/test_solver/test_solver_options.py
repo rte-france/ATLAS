@@ -11,9 +11,9 @@ from unittest.mock import MagicMock
 
 from pendulum import duration
 
+from atlas.core.solver.models import SolverOptions
+from atlas.core.solver.solver_interface import OptimisationModel
 from atlas.enums import SolverEnum
-from atlas.solver.models import SolverOptions
-from atlas.solver.solver_interface import OptimisationModel
 from tests.conftest import requires_xpress
 
 
@@ -175,21 +175,21 @@ class TestSolverOptionsParameterPassing:
     @requires_xpress
     def test_xpress_uses_xpress_builder(self):
         """Test that XPRESS solver uses XPRESSParameterBuilder."""
-        from atlas.solver.solver_interface import XPRESSParameterBuilder
+        from atlas.core.solver.solver_interface import XPRESSParameterBuilder
 
         model = OptimisationModel(solver_name=SolverEnum.XPRESS)
         assert isinstance(model._parameter_builder, XPRESSParameterBuilder)
 
     def test_generic_solver_uses_generic_builder(self):
         """Test that generic solvers use GenericParameterBuilder."""
-        from atlas.solver.solver_interface import GenericParameterBuilder
+        from atlas.core.solver.solver_interface import GenericParameterBuilder
 
         model = OptimisationModel(solver_name=SolverEnum.GLOP)
         assert isinstance(model._parameter_builder, GenericParameterBuilder)
 
     def test_scip_uses_scip_builder(self):
         """Test that SCIP solver uses SCIPParameterBuilder."""
-        from atlas.solver.solver_interface import SCIPParameterBuilder
+        from atlas.core.solver.solver_interface import SCIPParameterBuilder
 
         model = OptimisationModel(solver_name=SolverEnum.SCIP)
         assert isinstance(model._parameter_builder, SCIPParameterBuilder)

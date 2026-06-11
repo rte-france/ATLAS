@@ -1,6 +1,6 @@
 import pytest
 
-from atlas.io_utils.container import Container
+from atlas.core.io_utils.container import Container
 from atlas.objects.business_model import BusinessModel
 
 

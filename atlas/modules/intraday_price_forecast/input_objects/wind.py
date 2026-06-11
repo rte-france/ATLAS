@@ -1,4 +1,4 @@
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.core.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.objects.equipment.wind import Wind
 
 

@@ -11,10 +11,10 @@ from antares.craft.model.study import Study
 from loguru import logger
 from pendulum import duration
 
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.math.forecasting_matrix import ForecastingMatrix
+from atlas.core.math.timeseries import Timeseries
 from atlas.enums import LoadType
-from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.modules.antares_to_atlas.utils import get_portfolio
 from atlas.objects.equipment.load import Load

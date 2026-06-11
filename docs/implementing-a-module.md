@@ -20,7 +20,7 @@ The central file is `module.py`. It wires together the other three classes and i
 ```python
 # module.py
 from atlas.abstract_class.module import AbstractModule
-from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
 
 from atlas.modules.my_module.input_dataset import MyModuleInputDataset
 from atlas.modules.my_module.output_dataset import MyModuleOutputDataset
@@ -116,7 +116,7 @@ The constructor receives both the raw dataset and the parsed parameters.
 ```python
 # input_dataset.py
 from atlas.abstract_class.dataset import AbstractDataset
-from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
 from atlas.objects.market.market_area import MarketArea
 
 from atlas.modules.my_module.parameters import MyModuleParameters
@@ -143,7 +143,7 @@ Change sets tell the orchestrator what was modified so it can propagate results 
 from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.modules.my_module.input_dataset import MyModuleInputDataset
 from atlas.modules.my_module.parameters import MyModuleParameters
-from atlas.orchestrator.change_set import UpdateObject
+from atlas.core.orchestrator.change_set import UpdateObject
 
 
 class MyModuleOutputDataset(AbstractModuleOutput[MyModuleParameters]):

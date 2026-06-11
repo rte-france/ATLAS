@@ -7,8 +7,8 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from atlas.math.lazy_matrix import LazyScenarioMatrix
-from atlas.math.matrix import ScenarioMatrix
+from atlas.core.math.lazy_matrix import LazyScenarioMatrix
+from atlas.core.math.matrix import ScenarioMatrix
 
 
 class TestAbstractScenarioMatrix:

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from atlas.orchestrator.change_set import ChangeSet
+from atlas.core.orchestrator.change_set import ChangeSet
 
 if TYPE_CHECKING:
-    from atlas.io_utils.atlas_dataset import AtlasDataset
-    from atlas.orchestrator.current_input_state import CurrentInputState
+    from atlas.core.io_utils.atlas_dataset import AtlasDataset
+    from atlas.core.orchestrator.current_input_state import CurrentInputState
 
 
 class InputLoaderError(Exception):

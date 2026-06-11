@@ -14,7 +14,7 @@ from antares.craft import read_study_local
 from antares.craft.model.study import Study
 from loguru import logger
 
-from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.converters.bp23 import (
     DSRConverterBP23,

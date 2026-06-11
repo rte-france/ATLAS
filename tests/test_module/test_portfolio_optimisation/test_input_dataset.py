@@ -9,11 +9,11 @@ from unittest.mock import Mock, patch
 import pendulum
 import pytest
 
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.parameters import DateParameters
+from atlas.core.math.forecasting_matrix import ForecastingMatrix
+from atlas.core.math.timeseries import Timeseries
 from atlas.enums import LoadType, MarketType
-from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.io_utils.parameters import DateParameters
-from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.input_objects.load import LoadPO

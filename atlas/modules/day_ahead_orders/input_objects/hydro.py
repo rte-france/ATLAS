@@ -5,8 +5,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
-from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.core.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.core.math.abstract_timeseries import AbstractTimeseries
 from atlas.objects.equipment.hydro import Hydro
 
 

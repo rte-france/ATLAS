@@ -8,8 +8,8 @@ from typing import Self
 
 from pydantic import ValidationInfo, model_validator
 
+from atlas.core.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.enums import MarketType
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.objects.market.market_area import MarketArea
 
 

@@ -7,8 +7,8 @@ This file is part of the ATLAS project.
 import pendulum
 import pytest
 
-from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.math.timeseries import Timeseries
+from atlas.core.math.forecasting_matrix import ForecastingMatrix
+from atlas.core.math.timeseries import Timeseries
 
 
 @pytest.fixture

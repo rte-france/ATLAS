@@ -8,9 +8,9 @@ import pendulum
 import polars as pl
 import pytest
 
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_matrix import LazyScenarioMatrix
-from atlas.math.timeseries import Timeseries
+from atlas.core.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.core.math.lazy_matrix import LazyScenarioMatrix
+from atlas.core.math.timeseries import Timeseries
 
 
 @pytest.fixture

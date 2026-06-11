@@ -13,8 +13,9 @@ import polars as pl
 from pendulum import DateTime
 
 import atlas.config as cfg
+from atlas.core.math.timeseries import Timeseries
+from atlas.core.solver.models import SolverOptions
 from atlas.enums import ComplementDirection, CouplingType, OrderType, Product, StorageType
-from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.input_objects.storage import StorageDAO
@@ -22,7 +23,6 @@ from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.steps.storage.optim.battery import BatteryModel
 from atlas.modules.day_ahead_orders.steps.storage.optim.electric_vehicle import ElectricVehicleModel
 from atlas.modules.day_ahead_orders.steps.storage.optim.storage import StorageModel
-from atlas.solver.models import SolverOptions
 
 
 @dataclass

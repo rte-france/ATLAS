@@ -7,8 +7,8 @@ This file is part of the ATLAS project.
 import pendulum
 from pendulum import Duration
 
-from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.math.timeseries import Timeseries
+from atlas.core.math.abstract_timeseries import AbstractTimeseries
+from atlas.core.math.timeseries import Timeseries
 from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.objects.market.market_area import MarketArea
 

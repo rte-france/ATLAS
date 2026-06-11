@@ -13,14 +13,14 @@ import pendulum
 from pendulum import Duration
 
 import atlas.config as cfg
-from atlas.math.timeseries import Timeseries
+from atlas.core.math.timeseries import Timeseries
+from atlas.core.solver.model_var import ModelVar
+from atlas.core.solver.solver_interface import OptimisationModel
 from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.steps.base import AbstractOptimStep
 from atlas.modules.portfolio_optimisation.steps.thermal.constraint_builder import ThermalConstraintBuilder
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
 from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
-from atlas.solver.model_var import ModelVar
-from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters

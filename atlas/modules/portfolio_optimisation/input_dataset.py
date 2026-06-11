@@ -7,9 +7,9 @@ This file is part of the ATLAS project.
 
 from itertools import groupby
 
-from atlas.abstract_class.dataset import AbstractDataset
+from atlas.core.abstract_class.dataset import AbstractDataset
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
 from atlas.enums import LoadType
-from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.input_objects.load import LoadPO
 from atlas.modules.portfolio_optimisation.input_objects.market_area import MarketAreaPO

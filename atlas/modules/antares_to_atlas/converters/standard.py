@@ -5,7 +5,7 @@ This file is part of the ATLAS project.
 
 from antares.craft.model.study import Study
 
-from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.models.hydro.hydro import convert_hydro_units
 from atlas.modules.antares_to_atlas.models.load.load import convert_load_units

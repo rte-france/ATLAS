@@ -4,13 +4,13 @@ from typing import Self
 from unittest.mock import MagicMock
 
 import yaml
-from pendulum import Duration, DateTime
+from pendulum import DateTime, Duration
 
-from atlas.abstract_class.job import AbstractJob
-from atlas.abstract_class.orchestrator import AbstractOrchestrator
-from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
-from atlas.io_utils.parameters import ContextParameters
-from atlas.orchestrator.actionplan.job import Task, TaskIterator
+from atlas.core.abstract_class.job import AbstractJob
+from atlas.core.abstract_class.orchestrator import AbstractOrchestrator
+from atlas.core.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
+from atlas.core.io_utils.parameters import ContextParameters
+from atlas.core.orchestrator.actionplan.job import Task, TaskIterator
 
 
 class ConcreteJob(AbstractJob):
@@ -23,7 +23,7 @@ class ConcreteJob(AbstractJob):
 class ConcreteTaskIterator(TaskIterator):
     """Minimalist implementation of TaskIterator"""
 
-    def __init__(self, task: Task, job = None, module_parameters = None):
+    def __init__(self, task: Task, job=None, module_parameters=None):
         super().__init__(task)
         self._job: ConcreteJob = job
         self.parameters = module_parameters
@@ -36,6 +36,7 @@ class ConcreteTaskIterator(TaskIterator):
 
     def __eq__(self, other):
         return super().__eq__(other)
+
 
 class ConcreteOrchestratorParameters(AbstractOrchestratorParameters):
     """Minimalist implementation of AbstractOrchestratorParameters"""
@@ -72,6 +73,7 @@ class MockOutPutBuilder:
     def build(self):
         return copy.copy(self.mock_output)
 
+
 class MockModuleParametersBuilder:
     def __init__(self):
         self.temporal = MagicMock()
@@ -106,12 +108,13 @@ class MockModuleParametersBuilder:
         self.relative_src = path
         return self
 
-    def build(self, tmp_path = None):
+    def build(self, tmp_path=None):
         if not self.output and tmp_path is not None:
             self.output = tmp_path / "output_path"
         if not self.relative_src and tmp_path is not None:
             self.relative_src = tmp_path / "relative_src"
         return copy.copy(self)
+
 
 class MockModuleBuilder:
     """Default: return a module so that module.run() returns an output with no change set."""
@@ -168,14 +171,15 @@ class MockJobBuilder:
             self.module_cls = MagicMock(return_value=self.module)
         return self.job_cls(self.name, self.module_cls, self.module_parameters)
 
+
 class ModuleConfigBuilder:
     """Default: a path to a minimal module YAML with no other parameters than temporale."""
 
     def __init__(self):
         self.misc = ""
-        self.start_date = '2028-09-27 00:00:00'
-        self.end_date = '2028-09-28 00:00:00'
-        self.execution_date = '2028-09-26 12:00:00'
+        self.start_date = "2028-09-27 00:00:00"
+        self.end_date = "2028-09-28 00:00:00"
+        self.execution_date = "2028-09-26 12:00:00"
 
     def with_start_date(self, start_date):
         self.start_date = start_date

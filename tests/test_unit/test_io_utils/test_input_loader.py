@@ -9,16 +9,16 @@ from pydantic import BaseModel, ConfigDict
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
-from atlas.io_utils import input_loader
-from atlas.io_utils.input_loader import load_from_directory
-from atlas.io_utils.models import InputLoaderConfig
-from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
-from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_matrix import LazyScenarioMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.matrix import ScenarioMatrix
-from atlas.math.timeseries import Timeseries
+from atlas.core.io_utils import input_loader
+from atlas.core.io_utils.input_loader import load_from_directory
+from atlas.core.io_utils.models import InputLoaderConfig
+from atlas.core.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.core.math.abstract_timeseries import AbstractTimeseries
+from atlas.core.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.core.math.lazy_matrix import LazyScenarioMatrix
+from atlas.core.math.lazy_timeseries import LazyTimeseries
+from atlas.core.math.matrix import ScenarioMatrix
+from atlas.core.math.timeseries import Timeseries
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.equipment.equipment import Equipment
 
@@ -144,8 +144,8 @@ def complex_input_dir(tmp_path, mock_model_mapping):
 
 
 @patch.dict(cfg.__dict__, {"MODEL_MAPPING_NAME": {"hydro": MagicMock()}})
-@patch("atlas.io_utils.input_loader._load_timeseries", return_value=Timeseries())
-@patch("atlas.io_utils.input_loader._load_matrix")
+@patch("atlas.core.io_utils.input_loader._load_timeseries", return_value=Timeseries())
+@patch("atlas.core.io_utils.input_loader._load_matrix")
 def test_from_directory_success(mock_matrix, mock_ts, temp_input_dir, mock_model_mapping):
     mock_matrix.side_effect = [ScenarioMatrix(), ForecastingMatrix()]
 

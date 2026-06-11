@@ -1,8 +1,8 @@
 import pytest
 
-from atlas.abstract_class.module import AbstractModule
+from atlas.core.abstract_class.module import AbstractModule
+from atlas.core.orchestrator.module_registry import ModuleRegistry
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
-from atlas.orchestrator.module_registry import ModuleRegistry
 
 
 class TestModuleRegistry:

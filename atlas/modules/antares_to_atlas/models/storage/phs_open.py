@@ -12,10 +12,10 @@ from antares.craft.model.study import Study
 from loguru import logger
 from pendulum import DateTime, duration
 
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.math.forecasting_matrix import ForecastingMatrix
+from atlas.core.math.timeseries import Timeseries
 from atlas.enums import StorageType
-from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.models.hydro.inflows import _load_inflows_from_csv, _match_inflows_to_scenarios
 from atlas.modules.antares_to_atlas.models.storage._helpers import get_minimum_soc, get_power_bounds
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters

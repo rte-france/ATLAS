@@ -6,8 +6,8 @@ This file is part of the ATLAS project.
 from antares.craft.model.study import Study
 from loguru import logger
 
-from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.math.timeseries import Timeseries
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.modules.antares_to_atlas.utils import get_cluster_weights_from_bc, get_marginal_price
 

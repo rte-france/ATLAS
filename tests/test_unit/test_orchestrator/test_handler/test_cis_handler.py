@@ -3,14 +3,14 @@ from unittest.mock import patch
 import pytest
 
 from atlas import MarketArea
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.orchestrator.change_set import AddObject, DeleteObject, UpdateObject
+from atlas.core.orchestrator.current_input_state import CurrentInputState
+from atlas.core.orchestrator.handler.cis_handler import CISHandler
 from atlas.custom_errors import ChangeSetApplicationError
 from atlas.enums import BusinessModelName
-from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.objects.market.order import Order
 from atlas.objects.network_operator.control_block import ControlBlock
-from atlas.orchestrator.change_set import AddObject, DeleteObject, UpdateObject
-from atlas.orchestrator.current_input_state import CurrentInputState
-from atlas.orchestrator.handler.cis_handler import CISHandler
 
 
 @pytest.fixture

@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from pendulum import DateTime
 
-from atlas.solver.solver_interface import OptimisationModel
+from atlas.core.solver.solver_interface import OptimisationModel
 
 
 def add_reserve_variables(

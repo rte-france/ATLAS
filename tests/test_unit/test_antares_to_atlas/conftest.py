@@ -8,7 +8,7 @@ Shared fixtures for antares_to_atlas unit tests.
 
 import pytest
 
-from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market_operator.portfolio import Portfolio

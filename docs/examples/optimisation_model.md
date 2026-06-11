@@ -7,7 +7,7 @@ The `OptimisationModel` provides a unified interface for building and solving op
 ### Basic Setup
 
 ```python
-from atlas.solver.solver_interface import OptimisationModel
+from atlas import OptimisationModel
 from atlas.enums import SolverEnum
 
 # Create model with default solver (GLOP for LP)
@@ -26,7 +26,7 @@ model = OptimisationModel(
 ### With Solver Options
 
 ```python
-from atlas.solver.models import SolverOptions
+from atlas import SolverOptions
 from pendulum import duration
 
 # Configure solver options
@@ -187,8 +187,8 @@ print(f"Slack for capacity limit: {slack}")
 ## Complete Example: Production Planning
 
 ```python
-from atlas.solver.solver_interface import OptimisationModel
-from atlas.solver.models import SolverOptions
+from atlas import OptimisationModel
+from atlas import SolverOptions
 from atlas.enums import SolverEnum, SolverStatus
 
 # Create model

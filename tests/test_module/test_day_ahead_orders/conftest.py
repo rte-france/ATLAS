@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.io_utils.container import Container
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.container import Container
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters

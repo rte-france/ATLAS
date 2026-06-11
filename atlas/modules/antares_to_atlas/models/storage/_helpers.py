@@ -7,7 +7,7 @@ from antares.craft.model.st_storage import STStorage
 from loguru import logger
 from pendulum import duration
 
-from atlas.math.timeseries import Timeseries
+from atlas.core.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 

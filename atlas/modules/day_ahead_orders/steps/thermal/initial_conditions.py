@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pendulum import DateTime
 
-    from atlas.math.timeseries import Timeseries
+    from atlas.core.math.timeseries import Timeseries
 
 
 @dataclass

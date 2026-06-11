@@ -6,9 +6,9 @@ This file is part of the ATLAS project.
 
 from pendulum import DateTime, Duration
 
+from atlas.core.math.abstract_timeseries import AbstractTimeseries
+from atlas.core.math.timeseries import Timeseries
 from atlas.enums import StorageType
-from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.objects.equipment.storage import Storage
 

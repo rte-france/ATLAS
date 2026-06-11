@@ -2,12 +2,12 @@ import pytest
 from pydantic_core._pydantic_core import ValidationError
 
 from atlas import MarketArea
-from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.orchestrator.change_set import AddObject, DeleteObject, UpdateObject
+from atlas.core.orchestrator.current_input_state import CurrentInputState
+from atlas.core.orchestrator.handler.change_set_handler import ChangeSetHandler
 from atlas.objects.market.order import Order
 from atlas.objects.network_operator.control_block import ControlBlock
-from atlas.orchestrator.change_set import AddObject, DeleteObject, UpdateObject
-from atlas.orchestrator.current_input_state import CurrentInputState
-from atlas.orchestrator.handler.change_set_handler import ChangeSetHandler
 
 
 # ------------------------

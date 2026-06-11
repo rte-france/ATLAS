@@ -7,9 +7,9 @@ This file is part of the ATLAS project.
 
 import pytest
 
+from atlas.core.io_utils.container import Container
+from atlas.core.io_utils.utils import diff_business_model
 from atlas.enums import CouplingType, ThermalStrategy
-from atlas.io_utils.container import Container
-from atlas.io_utils.utils import diff_business_model
 from atlas.modules.day_ahead_orders.steps.abstract_step import StepResult
 from atlas.modules.day_ahead_orders.steps.hydro import HydraulicStep
 from atlas.modules.day_ahead_orders.steps.load import LoadStep

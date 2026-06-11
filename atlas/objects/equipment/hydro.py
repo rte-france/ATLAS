@@ -8,9 +8,9 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
+from atlas.core.math.abstract_timeseries import AbstractTimeseries
+from atlas.core.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.enums import InflowFrequency
-from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.objects.equipment.equipment import Equipment
 from atlas.validators import parse_list_float, serializer_list_float
 

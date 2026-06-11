@@ -12,9 +12,9 @@ from collections.abc import Iterable
 from loguru import logger
 
 import atlas.config as cfg
-from atlas.abstract_class.module import AbstractModule
+from atlas.core.abstract_class.module import AbstractModule
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
 from atlas.enums import BusinessModelName
-from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.input_objects.portfolio_equipments import PortfolioEquipments

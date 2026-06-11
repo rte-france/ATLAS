@@ -10,8 +10,8 @@ from functools import cached_property
 from pendulum import DateTime
 from pydantic import Field
 
-from atlas.abstract_class.parameters import AbstractModuleParameters
-from atlas.io_utils.parameters import (
+from atlas.core.abstract_class.parameters import AbstractModuleParameters
+from atlas.core.io_utils.parameters import (
     MultiProcessingParameters,
     SolverParameters,
 )

@@ -8,9 +8,9 @@ This file is part of the ATLAS project.
 from collections.abc import Iterable
 
 import atlas.config as cfg
-from atlas.abstract_class.module import AbstractModule
+from atlas.core.abstract_class.module import AbstractModule
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
 from atlas.enums import BusinessModelName
-from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters

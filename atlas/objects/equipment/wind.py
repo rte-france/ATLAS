@@ -6,8 +6,8 @@ This file is part of the ATLAS project.
 
 from pydantic import Field
 
-from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.core.math.abstract_timeseries import AbstractTimeseries
+from atlas.core.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.objects.equipment.equipment import Equipment
 
 

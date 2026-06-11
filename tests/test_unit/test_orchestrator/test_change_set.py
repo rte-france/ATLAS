@@ -8,10 +8,10 @@ This file is part of the ATLAS project.
 import pytest
 
 from atlas import MarketArea, Order
+from atlas.core.orchestrator.change_set import AddObject, ChangeSet, DeleteObject, UpdateObject
 from atlas.enums import BusinessModelName
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.network_operator.control_block import ControlBlock
-from atlas.orchestrator.change_set import AddObject, ChangeSet, DeleteObject, UpdateObject
 
 
 @pytest.fixture

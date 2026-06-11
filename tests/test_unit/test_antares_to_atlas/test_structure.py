@@ -7,10 +7,11 @@ Structure tests for antares_to_atlas: Converter base class, ConverterRegistry,
 AntaresToAtlas orchestrator, and AntaresToAtlasParameters.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
-from atlas.io_utils.atlas_dataset import AtlasDataset
+import pytest
+
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.antares_to_atlas import AntaresToAtlas
 from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.converters.registry import ConverterRegistry
@@ -20,7 +21,6 @@ from atlas.modules.antares_to_atlas.parameters import (
     ConvertersTags,
     HypothesisEnum,
 )
-
 from tests.test_unit.test_antares_to_atlas.conftest import make_params
 
 # ── Minimal concrete converters used across multiple test classes ──────────────
@@ -309,7 +309,18 @@ class TestConverterRegistry:
 
 # ── Standard converter names for orchestrator assertions ──────────────────────
 
-_STANDARD_NAMES = {"node", "load", "wind", "solar", "hydro", "link", "thermal", "non_dispatchable", "battery", "phs_closed"}
+_STANDARD_NAMES = {
+    "node",
+    "load",
+    "wind",
+    "solar",
+    "hydro",
+    "link",
+    "thermal",
+    "non_dispatchable",
+    "battery",
+    "phs_closed",
+}
 _BP23_NAMES = {
     "mixed_fuel",
     "electric_vehicle",
@@ -411,9 +422,7 @@ class TestAntaresToAtlasOrchestrator:
         assert set(resolved.market_areas) == {"fr", "de", "be"}
 
     def test_resolve_parameters_excludes_listed_areas(self):
-        ata = AntaresToAtlas.from_dict(
-            {**_BASE_PARAMS, "market_areas": "all", "excluded_market_areas": ["de"]}
-        )
+        ata = AntaresToAtlas.from_dict({**_BASE_PARAMS, "market_areas": "all", "excluded_market_areas": ["de"]})
         study = MagicMock()
         study.get_areas.return_value = ["fr", "de", "be"]
         resolved = ata._resolve_parameters(study)

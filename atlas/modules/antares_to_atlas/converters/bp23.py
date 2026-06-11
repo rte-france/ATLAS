@@ -7,7 +7,7 @@ BP23 (Bilan Prévisionnel 2023) specific converters.
 
 from antares.craft.model.study import Study
 
-from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.models.hydro import compute_initial_levels, compute_water_values
 from atlas.modules.antares_to_atlas.models.load.dsr import convert_dsr_fr_units, convert_dsr_other_units

@@ -6,9 +6,9 @@ This file is part of the ATLAS project.
 
 from pydantic import Field, field_validator
 
-from atlas.abstract_class.parameters import AbstractModuleParameters
+from atlas.core.abstract_class.parameters import AbstractModuleParameters
+from atlas.core.io_utils.parameters import SolverParameters
 from atlas.enums import Enum, Product
-from atlas.io_utils.parameters import SolverParameters
 
 
 class ExchangeConstraintsType(str, Enum):

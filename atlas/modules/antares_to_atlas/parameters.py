@@ -15,8 +15,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from pydantic_extra_types.pendulum_dt import DateTime
 from typing_extensions import Self
 
+from atlas.core.io_utils.parameters import Parameters
 from atlas.enums import ThermalStrategy
-from atlas.io_utils.parameters import Parameters
 from atlas.validators import convert_to_duration
 
 

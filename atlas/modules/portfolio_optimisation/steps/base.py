@@ -10,8 +10,8 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Generic, TypeVar
 
 if TYPE_CHECKING:
+    from atlas.core.solver.solver_interface import OptimisationModel
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-    from atlas.solver.solver_interface import OptimisationModel
 
 T = TypeVar("T")
 

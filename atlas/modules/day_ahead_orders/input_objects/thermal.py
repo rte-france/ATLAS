@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 
 from pendulum import Duration
 
-from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.core.math.abstract_timeseries import AbstractTimeseries
 from atlas.objects.equipment.thermal import Thermal
 
 

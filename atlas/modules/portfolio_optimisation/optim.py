@@ -5,11 +5,11 @@ This file is part of the ATLAS project.
 """
 
 import atlas.config as cfg
+from atlas.core.solver.models import SolverOptions
+from atlas.core.solver.solver_interface import OptimisationModel
 from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.steps.portfolio import PortfolioStep
-from atlas.solver.models import SolverOptions
-from atlas.solver.solver_interface import OptimisationModel
 
 
 class PortfolioOptimisationModel(OptimisationModel):

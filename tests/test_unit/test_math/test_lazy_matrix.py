@@ -5,10 +5,10 @@ import pendulum
 import polars as pl
 import pytest
 
-from atlas.math.lazy_matrix import LazyScenarioMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.matrix import ScenarioMatrix
-from atlas.math.timeseries import Timeseries
+from atlas.core.math.lazy_matrix import LazyScenarioMatrix
+from atlas.core.math.lazy_timeseries import LazyTimeseries
+from atlas.core.math.matrix import ScenarioMatrix
+from atlas.core.math.timeseries import Timeseries
 
 
 @pytest.fixture

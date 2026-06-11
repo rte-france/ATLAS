@@ -5,17 +5,17 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas.abstract_class.dataset import AbstractModuleOutput
-from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.math.matrix import ScenarioMatrix
-from atlas.math.timeseries import Timeseries
+from atlas.core.abstract_class.dataset import AbstractModuleOutput
+from atlas.core.math.forecasting_matrix import ForecastingMatrix
+from atlas.core.math.matrix import ScenarioMatrix
+from atlas.core.math.timeseries import Timeseries
+from atlas.core.orchestrator.change_set import UpdateObject
 from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
 from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
 from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.orchestration import PortfolioOptimisationResult
-from atlas.orchestrator.change_set import UpdateObject
 
 
 class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisationParameters]):

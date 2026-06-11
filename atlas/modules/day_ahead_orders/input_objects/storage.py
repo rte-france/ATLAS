@@ -10,8 +10,8 @@ from typing import Self
 from pydantic import model_validator
 from pydantic_extra_types.pendulum_dt import Duration
 
+from atlas.core.math.abstract_timeseries import AbstractTimeseries
 from atlas.enums import StorageType
-from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.objects.equipment.storage import Storage
 
 

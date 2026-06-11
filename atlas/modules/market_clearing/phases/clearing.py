@@ -8,6 +8,8 @@ import json
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
+from atlas.core.solver.models import SolverOptions
+from atlas.core.solver.solver_interface import OptimisationModel
 from atlas.enums import ComplementDirection, CouplingType, OrderType
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
@@ -15,8 +17,6 @@ from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.input_objects.order_coupling import OrderCouplingMC
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
 from atlas.objects.network_operator.control_block import ControlBlock
-from atlas.solver.models import SolverOptions
-from atlas.solver.solver_interface import OptimisationModel
 
 # Static definition of default bounds on exchanges (can be changed at will):
 DEFAULT_MAX_FLOW = 10000.0

@@ -12,10 +12,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from atlas.core.orchestrator.module_registry import ModuleRegistry
+from atlas.core.orchestrator.workflow.job import WorkflowJob
+from atlas.core.orchestrator.workflow.parameters import Step
 from atlas.modules.market_clearing.module import MarketClearingModule
-from atlas.orchestrator.module_registry import ModuleRegistry
-from atlas.orchestrator.workflow.job import WorkflowJob
-from atlas.orchestrator.workflow.parameters import Step
 
 
 class TestStep:

@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from pendulum import DateTime, Duration
 
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.core.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
 
 

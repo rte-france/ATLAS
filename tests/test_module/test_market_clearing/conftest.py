@@ -9,7 +9,7 @@ from pathlib import Path
 import pendulum
 import pytest
 
-from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset

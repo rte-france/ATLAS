@@ -8,11 +8,11 @@ This file is part of the ATLAS project.
 from pathlib import Path
 from typing import Any
 
-from atlas.abstract_class.module import AbstractModule
-from atlas.abstract_class.parameters import AbstractModuleParameters
-from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.orchestrator.current_input_state import CurrentInputState
-from atlas.orchestrator.handler.cis_handler import CISHandler
+from atlas.core.abstract_class.module import AbstractModule
+from atlas.core.abstract_class.parameters import AbstractModuleParameters
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.orchestrator.current_input_state import CurrentInputState
+from atlas.core.orchestrator.handler.cis_handler import CISHandler
 
 
 class ModuleRun:

@@ -8,9 +8,9 @@ from typing import cast
 
 from pendulum import DateTime
 
+from atlas.core.math.abstract_timeseries import AbstractTimeseries
+from atlas.core.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.enums import MarketType
-from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.modules.portfolio_optimisation.input_objects.market_area import MarketAreaPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.objects.network_operator.control_block import ControlBlock

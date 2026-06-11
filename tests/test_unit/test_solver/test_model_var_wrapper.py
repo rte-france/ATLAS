@@ -12,7 +12,7 @@ import pendulum
 import pytest
 from loguru import logger
 
-from atlas.solver.model_var import ModelVar
+from atlas.core.solver.model_var import ModelVar
 
 
 class TestModelVar:

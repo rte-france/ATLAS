@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pendulum
 import pytest
 
+from atlas.core.solver.models import SolutionInfo
 from atlas.enums import MarketType, SolverStatus
 from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.utils.orchestration import (
@@ -19,7 +20,6 @@ from atlas.modules.portfolio_optimisation.utils.orchestration import (
     run_parallel,
     run_sequential,
 )
-from atlas.solver.models import SolutionInfo
 
 
 class TestPortfolioOptimisationResult:

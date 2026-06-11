@@ -8,8 +8,8 @@ import pytest
 from pendulum import DateTime, Duration
 from pydantic import ValidationError
 
+from atlas.core.io_utils.parameters import DateParameters, SolverParameters
 from atlas.enums import Product, SolverEnum
-from atlas.io_utils.parameters import DateParameters, SolverParameters
 from atlas.modules.market_clearing.parameters import (
     ExchangeConstraintsType,
     MarketClearingParameters,

@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from ortools.linear_solver import pywraplp
 
-from atlas.solver.solver_helper import SolverHelper
+from atlas.core.solver.solver_helper import SolverHelper
 
 # Test data directory helper
 TEST_DATA_DIR = Path(__file__).parent.parent / "test_data"

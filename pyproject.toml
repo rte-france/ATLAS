@@ -95,12 +95,12 @@ docs = [
 plugins = ["pydantic.mypy"]
 disable_error_code = ["operator"]
 [[tool.mypy.overrides]]
-module = ["atlas.solver.solver_interface",
-          "atlas.solver.solver_helper"]
+module = ["atlas.core.solver.solver_interface",
+          "atlas.core.solver.solver_helper"]
 ignore_errors = true
 
 [tool.coverage.run]
-omit = ['atlas/io_utils/prometheus_transformer.py']
+omit = ['atlas/core/io_utils/prometheus_transformer.py']
 
 [[tool.mypy.overrides]]
 module = ["dictdiffer.*"]

@@ -8,8 +8,8 @@ import pendulum
 from pendulum import Duration
 
 from atlas.config import logger
-from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.math.timeseries import Timeseries
+from atlas.core.math.abstract_timeseries import AbstractTimeseries
+from atlas.core.math.timeseries import Timeseries
 from atlas.objects.market.market_border import MarketBorder
 
 # Static definition of default bounds on exchanges (can be changed at will):

@@ -9,9 +9,9 @@ Test AbstractModule
 from unittest.mock import Mock
 
 from atlas import BusinessModel
-from atlas.abstract_class.dataset import ID, OD
-from atlas.abstract_class.module import AbstractModule
-from atlas.abstract_class.parameters import P
+from atlas.core.abstract_class.dataset import ID, OD
+from atlas.core.abstract_class.module import AbstractModule
+from atlas.core.abstract_class.parameters import P
 
 
 class ModuleTest(AbstractModule[P, ID, OD]):

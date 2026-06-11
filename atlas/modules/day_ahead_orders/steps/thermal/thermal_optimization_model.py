@@ -12,13 +12,13 @@ from typing import Literal
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.math.timeseries import Timeseries
+from atlas.core.math.timeseries import Timeseries
+from atlas.core.solver.model_var import ModelVar
+from atlas.core.solver.models import SolverOptions
+from atlas.core.solver.solver_interface import OptimisationModel
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.objects.equipment.thermal import Thermal
-from atlas.solver.model_var import ModelVar
-from atlas.solver.models import SolverOptions
-from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
 
 

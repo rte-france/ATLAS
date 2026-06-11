@@ -13,9 +13,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from atlas import WorkflowJob
-from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.io_utils.parameters import ContextParameters
-from atlas.orchestrator.workflow.workflow import Workflow
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.parameters import ContextParameters
+from atlas.core.orchestrator.workflow.workflow import Workflow
 from atlas.timing import build_datetime
 from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, OrchestratorConfigBuilder
 
@@ -71,11 +71,11 @@ class TestWorkflowAddStep:
 
 class TestWorkflowFromFile:
     def test_from_file_raises_if_steps_reference_nonexistent_params(self, tmp_path):
-        config = OrchestratorConfigBuilder().with_any(
-            f"steps:\n"
-            f"  - module: PortfolioOptimisation\n"
-            f"    parameters_path: /nonexistent/path/params.yaml\n"
-        ).build(tmp_path)
+        config = (
+            OrchestratorConfigBuilder()
+            .with_any("steps:\n  - module: PortfolioOptimisation\n    parameters_path: /nonexistent/path/params.yaml\n")
+            .build(tmp_path)
+        )
 
         # build_steps will try to open the parameters file -- should raise
         with pytest.raises(Exception):
@@ -93,11 +93,12 @@ class TestWorkflowRepresentation:
             "solver:\n"
             "  solver_name: GLOP\n"
         )
-        config = OrchestratorConfigBuilder().with_name("test_workflow").with_any(
-            f"steps:\n"
-            f"  - module: MarketClearing\n"
-            f"    parameters_path: {params_file}\n"
-        ).build(tmp_path)
+        config = (
+            OrchestratorConfigBuilder()
+            .with_name("test_workflow")
+            .with_any(f"steps:\n  - module: MarketClearing\n    parameters_path: {params_file}\n")
+            .build(tmp_path)
+        )
 
         workflow = Workflow.from_file(config)
         result = repr(workflow)
@@ -302,7 +303,7 @@ class TestWorkflowPathFromWorkflow:
         workflow = Workflow.from_file(config)
 
         with (
-            patch("atlas.orchestrator.current_input_state.CurrentInputState.from_directory") as mock_from_dir,
+            patch("atlas.core.orchestrator.current_input_state.CurrentInputState.from_directory") as mock_from_dir,
             patch.object(Path, "mkdir", return_value=None),
             patch.object(AtlasDataset, "to_directory"),
         ):
@@ -330,7 +331,7 @@ class TestWorkflowPathFromWorkflow:
         workflow = Workflow.from_file(config)
 
         with (
-            patch("atlas.orchestrator.current_input_state.CurrentInputState.from_directory") as mock_from_dir,
+            patch("atlas.core.orchestrator.current_input_state.CurrentInputState.from_directory") as mock_from_dir,
             patch.object(AtlasDataset, "to_directory"),
         ):
             mock_cis = MagicMock()

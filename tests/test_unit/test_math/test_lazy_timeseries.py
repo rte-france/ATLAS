@@ -6,8 +6,8 @@ import polars as pl
 import pytest
 from pendulum import Timezone
 
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.timeseries import Timeseries
+from atlas.core.math.lazy_timeseries import LazyTimeseries
+from atlas.core.math.timeseries import Timeseries
 
 
 @pytest.fixture

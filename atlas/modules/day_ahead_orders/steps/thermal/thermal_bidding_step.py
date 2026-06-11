@@ -9,8 +9,8 @@ from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import atlas.config as cfg
+from atlas.core.math.timeseries import Timeseries
 from atlas.enums import CouplingType, Product, ThermalStrategy
-from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_worker import optimize_single_thermal_unit

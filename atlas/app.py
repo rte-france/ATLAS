@@ -8,17 +8,17 @@ from rich import print as rprint
 from rich.table import Table
 
 import atlas
-from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.config import logger
-from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
+from atlas.core.abstract_class.parameters import AbstractModuleParameters
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
+from atlas.core.orchestrator.current_input_state import CurrentInputState
+from atlas.core.orchestrator.module_registry import ModuleRegistry
+from atlas.core.orchestrator.workflow.workflow import Workflow
+from atlas.core.profiling.module import run as run_module
+from atlas.core.profiling.workflow import run as run_workflow
 from atlas.modules.antares_to_atlas.antares_to_atlas import AntaresToAtlas
 from atlas.modules.module_run import ModuleRun
-from atlas.orchestrator.current_input_state import CurrentInputState
-from atlas.orchestrator.module_registry import ModuleRegistry
-from atlas.orchestrator.workflow.workflow import Workflow
-from atlas.profiling.module import run as run_module
-from atlas.profiling.workflow import run as run_workflow
 from atlas.timing import timer
 
 _PROFILING_LEVELS = ["workflow", "module"]

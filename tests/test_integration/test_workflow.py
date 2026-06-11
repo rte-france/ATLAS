@@ -3,8 +3,8 @@ from pathlib import Path
 import pendulum
 import pytest
 
-from atlas.orchestrator.current_input_state import CurrentInputState
-from atlas.orchestrator.workflow.workflow import Workflow
+from atlas.core.orchestrator.current_input_state import CurrentInputState
+from atlas.core.orchestrator.workflow.workflow import Workflow
 from tests.utils import load_threshold
 
 DAY_AHEAD_WORKFLOW_CONFIG = Path("tests/dataset/parameters/day_ahead/workflow.yml")

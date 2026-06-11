@@ -3,8 +3,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from atlas import AtlasDataset
-from atlas.orchestrator.actionplan.job import ActionPlanJob
-from atlas.orchestrator.workflow.job import WorkflowJob
+from atlas.core.orchestrator.actionplan.job import ActionPlanJob
+from atlas.core.orchestrator.workflow.job import WorkflowJob
 from tests.test_unit.test_orchestrator.orchestrator_factory import ConcreteJob, MockModuleBuilder
 
 CONCRETE_JOB_BUILDERS = [

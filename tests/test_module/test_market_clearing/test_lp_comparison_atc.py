@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from atlas.solver.solver_helper import SolverHelper
+from atlas.core.solver.solver_helper import SolverHelper
 
 REFERENCE_LP_DIR = Path(__file__).parent / "lp_files" / "atc_day_ahead"
 REFERENCE_LP_ID_DIR = Path(__file__).parent / "lp_files" / "atc_intraday"

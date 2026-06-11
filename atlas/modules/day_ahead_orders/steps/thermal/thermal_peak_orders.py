@@ -8,8 +8,8 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
+from atlas.core.math.timeseries import Timeseries
 from atlas.enums import CouplingType, OrderType, Product
-from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO

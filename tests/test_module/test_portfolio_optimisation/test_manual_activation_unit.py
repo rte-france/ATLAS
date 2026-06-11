@@ -16,8 +16,8 @@ from unittest.mock import Mock
 import pendulum
 import pytest
 
+from atlas.core.math.timeseries import Timeseries
 from atlas.enums import ThermalStrategy
-from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.input_objects.load import LoadPO
 from atlas.modules.portfolio_optimisation.input_objects.other_non_dispatchable import OtherNonDispatchablePO
@@ -32,7 +32,6 @@ from atlas.modules.portfolio_optimisation.utils.manual_activation import (
     is_excluded_thermal_strategy,
     should_manually_activate,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

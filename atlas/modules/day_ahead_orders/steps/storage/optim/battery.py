@@ -5,10 +5,10 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from atlas.core.solver.models import SolverOptions
 from atlas.modules.day_ahead_orders.input_objects.storage import StorageDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.steps.storage.optim.storage import StorageModel
-from atlas.solver.models import SolverOptions
 
 
 class BatteryModel(StorageModel):

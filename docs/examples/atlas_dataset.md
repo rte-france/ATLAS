@@ -216,8 +216,7 @@ dataset.to_directory("data/atlas-dataset/")
 ### Add a new hydro plant with timeseries
 
 ```python
-from atlas import AtlasDataset, Hydro
-from atlas.math.timeseries import Timeseries
+from atlas import AtlasDataset, Hydro, Timeseries
 import pandas as pd
 
 dataset = AtlasDataset.from_directory("data/atlas-dataset/")
@@ -245,8 +244,7 @@ dataset.to_directory("data/atlas-dataset/")
 ### Add a wind farm
 
 ```python
-from atlas import AtlasDataset, Wind
-from atlas.math.timeseries import Timeseries
+from atlas import AtlasDataset, Wind, Timeseries
 import pandas as pd
 import numpy as np
 

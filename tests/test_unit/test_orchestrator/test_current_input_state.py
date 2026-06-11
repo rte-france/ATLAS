@@ -14,13 +14,13 @@ Unit tests for CurrentInputState features:
 
 import pytest
 
-from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.orchestrator.change_set import AddObject, UpdateObject
+from atlas.core.orchestrator.current_input_state import CurrentInputState
+from atlas.core.orchestrator.handler.cis_handler import CISHandler
 from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market.order import Order
 from atlas.objects.network_operator.control_block import ControlBlock
-from atlas.orchestrator.change_set import AddObject, UpdateObject
-from atlas.orchestrator.current_input_state import CurrentInputState
-from atlas.orchestrator.handler.cis_handler import CISHandler
 
 
 @pytest.fixture

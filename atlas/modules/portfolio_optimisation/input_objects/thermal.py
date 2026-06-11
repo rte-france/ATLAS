@@ -9,9 +9,9 @@ from __future__ import annotations
 from pendulum import DateTime
 from pydantic import model_validator
 
-from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.core.math.abstract_timeseries import AbstractTimeseries
+from atlas.core.solver.model_var import ModelVar
 from atlas.objects.equipment.thermal import Thermal
-from atlas.solver.model_var import ModelVar
 
 
 class ThermalPO(Thermal):

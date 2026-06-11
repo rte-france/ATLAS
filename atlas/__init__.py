@@ -1,16 +1,21 @@
 from importlib.metadata import version
 
-from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.io_utils.parameters import Parameters
-from atlas.io_utils.utils import get_metadata_from_file, get_metadata_from_frame
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.parameters import Parameters
+from atlas.core.io_utils.utils import get_metadata_from_file, get_metadata_from_frame
+from atlas.core.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.core.math.abstract_timeseries import AbstractTimeseries
+from atlas.core.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.core.math.lazy_matrix import LazyScenarioMatrix
+from atlas.core.math.lazy_timeseries import LazyTimeseries
+from atlas.core.math.matrix import ScenarioMatrix
+from atlas.core.math.timeseries import Timeseries
+from atlas.core.orchestrator.workflow.job import WorkflowJob
+from atlas.core.orchestrator.workflow.parameters import WorkflowParameters
+from atlas.core.orchestrator.workflow.workflow import Workflow
+from atlas.core.solver.models import ConstraintBounds, SolutionInfo, SolverOptions, SolverStatus
+from atlas.core.solver.solver_interface import OptimisationModel
 from atlas.log import Logger
-from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
-from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_matrix import LazyScenarioMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.matrix import ScenarioMatrix
-from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.antares_to_atlas import AntaresToAtlas, AntaresToAtlasParameters
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.modules.market_clearing.module import MarketClearingModule
@@ -34,11 +39,6 @@ from atlas.objects.market.order_coupling import OrderCoupling
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
 from atlas.objects.network_operator.control_block import ControlBlock
-from atlas.orchestrator.workflow.job import WorkflowJob
-from atlas.orchestrator.workflow.parameters import WorkflowParameters
-from atlas.orchestrator.workflow.workflow import Workflow
-from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions, SolverStatus
-from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
 
 __all__ = [

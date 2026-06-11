@@ -7,7 +7,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from atlas.io_utils.parameters import DateParameters, Parameters
+from atlas.core.io_utils.parameters import DateParameters, Parameters
 
 
 def test_from_yaml_file():

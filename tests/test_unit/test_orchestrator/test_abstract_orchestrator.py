@@ -13,19 +13,19 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from atlas import AtlasDataset, WorkflowParameters
-from atlas.io_utils.parameters import ContextParameters
-from atlas.orchestrator.actionplan.action_plan import ActionPlan
-from atlas.orchestrator.actionplan.job import TaskIterator
-from atlas.orchestrator.actionplan.parameters import ActionPlanParameters
-from atlas.orchestrator.workflow.workflow import Workflow
+from atlas.core.io_utils.parameters import ContextParameters
+from atlas.core.orchestrator.actionplan.action_plan import ActionPlan
+from atlas.core.orchestrator.actionplan.job import TaskIterator
+from atlas.core.orchestrator.actionplan.parameters import ActionPlanParameters
+from atlas.core.orchestrator.workflow.workflow import Workflow
 from tests.test_unit.test_orchestrator.orchestrator_factory import (
-    ConcreteTaskIterator,
     ConcreteOrchestrator,
     ConcreteOrchestratorParameters,
-    MockOutPutBuilder,
+    ConcreteTaskIterator,
     MockJobBuilder,
+    MockOutPutBuilder,
     MockTaskBuilder,
-    OrchestratorConfigBuilder
+    OrchestratorConfigBuilder,
 )
 
 
@@ -110,9 +110,9 @@ class TestOrchestratorExecute:
         assert orchestrator.jobs_count == 2
 
         with (
-            patch("atlas.io_utils.atlas_dataset.AtlasDataset.from_directory", return_value=AtlasDataset()),
-            patch("atlas.orchestrator.handler.cis_handler.CISHandler.apply"),
-            patch("atlas.orchestrator.current_input_state.CurrentInputState") as MockCIS,
+            patch("atlas.core.io_utils.atlas_dataset.AtlasDataset.from_directory", return_value=AtlasDataset()),
+            patch("atlas.core.orchestrator.handler.cis_handler.CISHandler.apply"),
+            patch("atlas.core.orchestrator.current_input_state.CurrentInputState") as MockCIS,
             patch.object(AtlasDataset, "to_directory"),
         ):
             mock_cis_instance = MagicMock()
@@ -131,8 +131,8 @@ class TestOrchestratorExecute:
         assert orchestrator.jobs_count == 1
 
         with (
-            patch("atlas.io_utils.atlas_dataset.AtlasDataset.from_directory", return_value=AtlasDataset()),
-            patch("atlas.orchestrator.current_input_state.CurrentInputState") as MockCIS,
+            patch("atlas.core.io_utils.atlas_dataset.AtlasDataset.from_directory", return_value=AtlasDataset()),
+            patch("atlas.core.orchestrator.current_input_state.CurrentInputState") as MockCIS,
         ):
             mock_cis_instance = MagicMock()
             mock_cis_instance.filter_dataset.return_value = AtlasDataset()
@@ -153,8 +153,8 @@ class TestOrchestratorExecute:
         assert orchestrator.jobs_count == 1
 
         with (
-            patch("atlas.orchestrator.handler.cis_handler.CISHandler.apply") as mock_apply,
-            patch("atlas.orchestrator.current_input_state.CurrentInputState.from_directory") as MockFromDir,
+            patch("atlas.core.orchestrator.handler.cis_handler.CISHandler.apply") as mock_apply,
+            patch("atlas.core.orchestrator.current_input_state.CurrentInputState.from_directory") as MockFromDir,
             patch.object(AtlasDataset, "to_directory"),
         ):
             mock_cis_instance = MagicMock()
@@ -177,9 +177,9 @@ class TestOrchestratorExecute:
         assert orchestrator.jobs_count == 2
 
         with (
-            patch("atlas.io_utils.atlas_dataset.AtlasDataset.from_directory", return_value=AtlasDataset()),
-            patch("atlas.orchestrator.handler.cis_handler.CISHandler.apply"),
-            patch("atlas.orchestrator.current_input_state.CurrentInputState") as MockCIS,
+            patch("atlas.core.io_utils.atlas_dataset.AtlasDataset.from_directory", return_value=AtlasDataset()),
+            patch("atlas.core.orchestrator.handler.cis_handler.CISHandler.apply"),
+            patch("atlas.core.orchestrator.current_input_state.CurrentInputState") as MockCIS,
             patch.object(AtlasDataset, "to_directory"),
         ):
             mock_cis_instance = MagicMock()

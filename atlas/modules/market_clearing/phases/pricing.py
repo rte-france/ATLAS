@@ -10,6 +10,8 @@ import pendulum
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
+from atlas.core.solver.models import SolverOptions
+from atlas.core.solver.solver_interface import OptimisationModel
 from atlas.enums import ComplementDirection, CouplingType, SolverStatus
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
@@ -18,8 +20,6 @@ from atlas.modules.market_clearing.input_objects.order_coupling import OrderCoup
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.price_group import PriceGroup
 from atlas.objects.market.order import Order
-from atlas.solver.models import SolverOptions
-from atlas.solver.solver_interface import OptimisationModel
 
 
 class Pricing(OptimisationModel):

@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING
 
 from pendulum import DateTime
 
-from atlas.math.timeseries import Timeseries
+from atlas.core.math.timeseries import Timeseries
+from atlas.core.solver.solver_interface import OptimisationModel
 from atlas.modules.portfolio_optimisation.steps.thermal.initial_conditions import ThermalInitialConditions
 from atlas.modules.portfolio_optimisation.steps.thermal.initial_conditions_utils import (
     initialize_day_zero_core,
@@ -21,7 +22,6 @@ from atlas.modules.portfolio_optimisation.steps.thermal.initial_conditions_utils
     initialize_gradient_initial_conditions,
 )
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
-from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO

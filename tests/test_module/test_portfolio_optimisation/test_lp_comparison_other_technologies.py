@@ -14,9 +14,9 @@ from pathlib import Path
 import pendulum
 import pytest
 
-from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.solver.solver_helper import SolverHelper
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
-from atlas.solver.solver_helper import SolverHelper
 from tests.utils import load_threshold_for_module
 
 # Test data directories

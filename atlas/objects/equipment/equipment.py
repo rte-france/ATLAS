@@ -7,9 +7,9 @@ This file is part of the ATLAS project.
 from pendulum import Duration
 from pydantic import Field, field_serializer, field_validator
 
-from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
-from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.core.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.core.math.abstract_timeseries import AbstractTimeseries
+from atlas.core.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node

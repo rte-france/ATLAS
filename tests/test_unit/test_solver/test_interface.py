@@ -11,8 +11,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pendulum import duration
 
+from atlas.core.solver.solver_interface import OptimisationModel, SolutionInfo
 from atlas.enums import SolverStatus
-from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
 
 
 class TestOptimisationModel:
@@ -298,7 +298,7 @@ class TestOptimisationModel:
 
     def test_solve_with_time_limit(self, model, mock_solver):
         """Test solving with time limit via SolverOptions."""
-        from atlas.solver.models import SolverOptions
+        from atlas.core.solver.models import SolverOptions
 
         model.set_solver_options(SolverOptions(time_limit=duration(seconds=30)))
         model.solve()

@@ -1,5 +1,5 @@
-from atlas.abstract_class.dataset import AbstractDataset
-from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.abstract_class.dataset import AbstractDataset
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.intraday_price_forecast.input_objects.load import LoadIDPF
 from atlas.modules.intraday_price_forecast.input_objects.market_area import MarketAreaIDPF
 from atlas.modules.intraday_price_forecast.input_objects.solar import SolarIDPF

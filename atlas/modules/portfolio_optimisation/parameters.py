@@ -12,9 +12,9 @@ from pendulum import DateTime, duration
 from pydantic import Field, field_validator
 from pydantic_extra_types.pendulum_dt import Duration
 
-from atlas.abstract_class.parameters import AbstractModuleParameters
+from atlas.core.abstract_class.parameters import AbstractModuleParameters
+from atlas.core.io_utils.parameters import MultiProcessingParameters, SolverParameters
 from atlas.enums import MarketType, StorageType, ThermalStrategy
-from atlas.io_utils.parameters import MultiProcessingParameters, SolverParameters
 from atlas.timing import generate_datetimes
 from atlas.validators import convert_to_duration
 

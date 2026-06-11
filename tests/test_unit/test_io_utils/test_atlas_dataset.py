@@ -12,13 +12,13 @@ import polars as pl
 import pytest
 from pendulum import DateTime, Duration, Timezone
 
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.container import Container
+from atlas.core.io_utils.utils import diff_business_model, diff_lists, diff_on_other_than_business_model
+from atlas.core.math.forecasting_matrix import ForecastingMatrix
+from atlas.core.math.matrix import ScenarioMatrix
+from atlas.core.math.timeseries import Timeseries
 from atlas.enums import ComplementDirection, CouplingType, OrderType, Product, ThermalStrategy
-from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.io_utils.container import Container
-from atlas.io_utils.utils import diff_business_model, diff_lists, diff_on_other_than_business_model
-from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.math.matrix import ScenarioMatrix
-from atlas.math.timeseries import Timeseries
 from atlas.objects.equipment.hydro import Hydro
 from atlas.objects.equipment.load import Load
 from atlas.objects.equipment.solar import Solar

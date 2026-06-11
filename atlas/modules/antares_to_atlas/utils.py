@@ -11,8 +11,8 @@ from antares.craft.model.study import Study
 from antares.craft.model.thermal import ThermalCluster
 from loguru import logger
 
-from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.math.timeseries import Timeseries
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 

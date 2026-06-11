@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 import pendulum
 from pendulum import Duration
 
-from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.core.math.abstract_timeseries import AbstractTimeseries
 from atlas.objects.market.critical_branch import CriticalBranch
 
 

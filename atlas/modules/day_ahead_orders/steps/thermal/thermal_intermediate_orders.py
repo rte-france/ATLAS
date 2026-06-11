@@ -12,9 +12,10 @@ import polars as pl
 from pendulum import DateTime
 
 import atlas.config as cfg
+from atlas.core.math.matrix import ScenarioMatrix
+from atlas.core.math.timeseries import Timeseries
+from atlas.core.solver.models import SolverOptions
 from atlas.enums import CouplingType
-from atlas.math.matrix import ScenarioMatrix
-from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
@@ -23,7 +24,6 @@ from atlas.modules.day_ahead_orders.steps.thermal.constraint_builder import Ther
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_optimization_model import ThermalOptimizationModel
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_unit_orders import ThermalUnitOrders
 from atlas.objects.equipment.thermal import Thermal
-from atlas.solver.models import SolverOptions
 
 
 class ThermalIntermediateLoadOrders(ThermalUnitOrders):

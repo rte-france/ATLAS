@@ -11,8 +11,8 @@ from typing import TypedDict, get_args, get_origin
 from pendulum import DateTime
 
 import atlas.config as cfg
+from atlas.core.io_utils.utils import to_snake_case
 from atlas.enums import BusinessModelName
-from atlas.io_utils.utils import to_snake_case
 from atlas.objects.business_model import BusinessModel
 
 

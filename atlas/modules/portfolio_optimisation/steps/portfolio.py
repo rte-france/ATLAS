@@ -9,10 +9,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import atlas.config as cfg
+from atlas.core.solver.solver_interface import OptimisationModel
 from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.steps import create_po_step
 from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
-from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
     from pendulum import DateTime, Duration

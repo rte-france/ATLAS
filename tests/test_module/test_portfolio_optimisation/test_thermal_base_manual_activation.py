@@ -23,8 +23,8 @@ import polars as pl
 import pytest
 import yaml
 
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
 from atlas.enums import ThermalStrategy
-from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 

@@ -2,11 +2,11 @@ import pendulum
 import pytest
 
 from atlas import ControlBlock
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.io_utils.parameters import DateParameters
+from atlas.core.math.forecasting_matrix import ForecastingMatrix
+from atlas.core.math.timeseries import Timeseries
 from atlas.enums import LoadType
-from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.io_utils.parameters import DateParameters
-from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_price_forecast.input_dataset import IntradayPriceForecastInputDataset
 from atlas.modules.intraday_price_forecast.input_objects.load import LoadIDPF
 from atlas.modules.intraday_price_forecast.input_objects.market_area import MarketAreaIDPF

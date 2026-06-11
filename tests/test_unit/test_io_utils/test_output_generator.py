@@ -6,10 +6,10 @@ import pendulum
 import polars as pl
 import pytest
 
-from atlas.io_utils.output_writer import save_to_directory
-from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.math.matrix import ScenarioMatrix
-from atlas.math.timeseries import Timeseries
+from atlas.core.io_utils.output_writer import save_to_directory
+from atlas.core.math.forecasting_matrix import ForecastingMatrix
+from atlas.core.math.matrix import ScenarioMatrix
+from atlas.core.math.timeseries import Timeseries
 from atlas.objects.equipment.equipment import Equipment
 from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market_operator.portfolio import Portfolio

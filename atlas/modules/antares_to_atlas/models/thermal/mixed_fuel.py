@@ -9,9 +9,9 @@ from antares.craft.model.thermal import ThermalCluster
 from loguru import logger
 from pendulum import duration
 
-from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.math.timeseries import Timeseries
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.math.forecasting_matrix import ForecastingMatrix
+from atlas.core.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.modules.antares_to_atlas.utils import get_maximum_power, get_portfolio, get_variable_cost
 from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable

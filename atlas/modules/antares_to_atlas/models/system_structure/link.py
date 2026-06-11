@@ -6,9 +6,9 @@ This file is part of the ATLAS project.
 from antares.craft.model.study import Study
 from loguru import logger
 
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.math.timeseries import Timeseries
 from atlas.enums import CouplingType
-from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.objects.market.market_border import MarketBorder
 

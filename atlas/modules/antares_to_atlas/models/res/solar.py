@@ -7,8 +7,8 @@ from antares.craft.model.study import Study
 from loguru import logger
 from pendulum import duration
 
-from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.math.timeseries import Timeseries
+from atlas.core.io_utils.atlas_dataset import AtlasDataset
+from atlas.core.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.modules.antares_to_atlas.utils import get_portfolio
 from atlas.objects.equipment.solar import Solar
