@@ -5,12 +5,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from unittest.mock import MagicMock
-
 import pytest
 
 from atlas.timing import generate_datetimes
 from atlas.enums import MarketType
+from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.timeseries import Timeseries
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
 from atlas.objects.equipment.load import Load
 from atlas.objects.market.market_area import MarketArea
@@ -49,32 +49,6 @@ def time_index(parameters) -> list:
     )
 
 
-@pytest.fixture(scope="function")
-def mock_timeseries():
-    """Return a factory that creates a mock Timeseries with a fixed get_value."""
-
-    def _make(value: float = 0.0):
-        ts = MagicMock()
-        ts.get_value = MagicMock(return_value=value)
-        ts.__sub__ = MagicMock(side_effect=lambda other: _make(value - other.get_value(None)))
-        ts.__add__ = MagicMock(side_effect=lambda other: _make(value + other.get_value(None)))
-        return ts
-
-    return _make
-
-
-@pytest.fixture(scope="function")
-def mock_forecasting_matrix(mock_timeseries):
-    """Return a factory that creates a mock ForecastingMatrix returning a fixed Timeseries."""
-
-    def _make(value: float = 0.0):
-        fm = MagicMock()
-        fm.get_forecast = MagicMock(return_value=mock_timeseries(value))
-        return fm
-
-    return _make
-
-
 @pytest.fixture(scope="session")
 def real_market_objects():
     """Return real BusinessModel instances required by Order validation."""
@@ -85,23 +59,65 @@ def real_market_objects():
     return {"control_block": control_block, "market_area": market_area, "node": node, "portfolio": portfolio}
 
 
+def make_forecasting_matrix(parameters: BSPBalancingOrdersParameters, value: float) -> ForecastingMatrix:
+    """
+    Build a ForecastingMatrix with a single forecast at execution_date covering the full time frame.
+
+    :param parameters: Module parameters providing temporal context
+    :type parameters: BSPBalancingOrdersParameters
+    :param value: Constant value to fill the timeseries with
+    :type value: float
+    :return: A ForecastingMatrix with one forecast entry
+    :rtype: ForecastingMatrix
+    """
+    ts = Timeseries.from_index(
+        start_date=parameters.temporal.start_date,
+        frequency=parameters.temporal.timestep,
+        end_date=parameters.temporal.end_date,
+        default_value=value,
+    )
+    fm = ForecastingMatrix()
+    fm.add(ts, parameters.temporal.execution_date)
+    return fm
+
+
+def make_timeseries(parameters: BSPBalancingOrdersParameters, value: float) -> Timeseries:
+    """
+    Build a Timeseries covering the full time frame with a constant value.
+
+    :param parameters: Module parameters providing temporal context
+    :type parameters: BSPBalancingOrdersParameters
+    :param value: Constant value to fill the timeseries with
+    :type value: float
+    :return: A Timeseries with constant values
+    :rtype: Timeseries
+    """
+    return Timeseries.from_index(
+        start_date=parameters.temporal.start_date,
+        frequency=parameters.temporal.timestep,
+        end_date=parameters.temporal.end_date,
+        default_value=value,
+    )
+
+
 @pytest.fixture(scope="function")
-def mock_equipment(mock_forecasting_matrix, mock_timeseries, real_market_objects):
-    """Return a Load instance with mocked timeseries fields required by AbstractOrderFormulator."""
+def mock_equipment(parameters, real_market_objects):
+    """Return a Load instance with real timeseries fields required by AbstractOrderFormulator."""
     return Load.model_construct(
         name="test_equipment",
         node=real_market_objects["node"],
         portfolio=real_market_objects["portfolio"],
         setup_delay=0.0,
         maximum_gradient=0.0,
-        power=mock_forecasting_matrix(50.0),
-        fcr_up_procured=mock_forecasting_matrix(0.0),
-        fcr_down_procured=mock_forecasting_matrix(0.0),
-        afrr_up_procured=mock_forecasting_matrix(0.0),
-        afrr_down_procured=mock_forecasting_matrix(0.0),
-        mfrr_up_procured=mock_forecasting_matrix(0.0),
-        mfrr_down_procured=mock_forecasting_matrix(0.0),
-        rr_up_procured=mock_forecasting_matrix(0.0),
-        rr_down_procured=mock_forecasting_matrix(0.0),
-        variable_cost=mock_timeseries(10.0),
+        power=make_forecasting_matrix(parameters, 50.0),
+        fcr_up_procured=make_forecasting_matrix(parameters, 0.0),
+        fcr_down_procured=make_forecasting_matrix(parameters, 0.0),
+        afrr_up_procured=make_forecasting_matrix(parameters, 0.0),
+        afrr_down_procured=make_forecasting_matrix(parameters, 0.0),
+        mfrr_up_procured=make_forecasting_matrix(parameters, 0.0),
+        mfrr_down_procured=make_forecasting_matrix(parameters, 0.0),
+        rr_up_procured=make_forecasting_matrix(parameters, 0.0),
+        rr_down_procured=make_forecasting_matrix(parameters, 0.0),
+        variable_cost=make_timeseries(parameters, 10.0),
+        maximum_power_forecast=make_forecasting_matrix(parameters, 100.0),
     )
