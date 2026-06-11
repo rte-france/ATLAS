@@ -22,6 +22,9 @@ def compute_initial_prices(
     min_sell_price = 9999.0
     max_buy_price = 0.0
 
+    if equipment.portfolio.market_area.id_price_forecast is None:
+        return min_sell_price, max_buy_price
+
     price_forecast = equipment.portfolio.market_area.id_price_forecast.get_forecast(
         parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
     )

@@ -585,7 +585,12 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
 
                 if generate_inflexible_order and pow_t == 0.0:
                     # Compute the price
-                    q = minimum_power * (1.0 if equipment.minimum_time_on == 0.0 else equipment.minimum_time_on)
+                    min_hours_on = 0.0  # FIXME: is 0.0 a good default value?
+                    if equipment.minimum_time_on is not None:
+                        min_hours_on = (
+                            1.0 if equipment.minimum_time_on.in_hours() == 0.0 else equipment.minimum_time_on.in_hours()
+                        )
+                    q = minimum_power * min_hours_on
                     price = equipment.startup_cost.get_value(t) / q + equipment.variable_cost.get_value(t)
 
                     # Create the inflex order instance

@@ -49,6 +49,9 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
         if equipment.variable_cost is not None:
             variable_costs = equipment.variable_cost.filter(item=orders_timestamps, inplace=False)
 
+        if equipment.portfolio.market_area.id_price_forecast is None:
+            return orders, []
+
         price_forecast = equipment.portfolio.market_area.id_price_forecast.get_forecast(
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
         )
