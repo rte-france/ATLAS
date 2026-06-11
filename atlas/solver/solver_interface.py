@@ -7,14 +7,20 @@ This file is part of the ATLAS project.
 Module that implements OR-Tools optimisation interface.
 """
 
+from pathlib import Path
 from typing import Any, Literal
 
 from ortools.linear_solver import pywraplp
 
 from atlas.config import logger
-from atlas.enum import SolverEnum, SolverStatus
+from atlas.enums import SolverEnum, SolverStatus
 from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions
-from atlas.solver.solver_parameters import GenericParameterBuilder, SolverParameterBuilder, XPRESSParameterBuilder
+from atlas.solver.solver_parameters import (
+    GenericParameterBuilder,
+    SCIPParameterBuilder,
+    SolverParameterBuilder,
+    XPRESSParameterBuilder,
+)
 from atlas.timing import timer
 
 
@@ -49,6 +55,7 @@ class OptimisationModel:
         self._constraints_name: set[str] = set()
         self._objective: Any | None = None
         self._objective_direction: Literal["maximize", "minimize"] | None = None
+        self._objective_pending: bool = False
         self._solution_info: SolutionInfo | None = None
         self._options: SolverOptions = options if options is not None else SolverOptions()
 
@@ -78,6 +85,8 @@ class OptimisationModel:
         """
         if self.solver_name == SolverEnum.XPRESS:
             return XPRESSParameterBuilder(self._solver)
+        elif self.solver_name == SolverEnum.SCIP:
+            return SCIPParameterBuilder(self._solver)
         else:
             return GenericParameterBuilder(self._solver)
 
@@ -277,10 +286,11 @@ class OptimisationModel:
         terms one at a time. The optimization direction must be set using set_direction()
         before calling this method.
 
-        Examples:
-        model.set_direction("maximize")
-        model.add_objective(x + 2 * y)
-        model.add_objective(3 * z)  # Adds to existing objective
+        **Example**
+
+            model.set_direction("maximize")
+            model.add_objective(x + 2 * y)
+            model.add_objective(3 * z)  # Adds to existing objective
 
         :param objective_expr: OR-Tools expression to add to the objective
         :type objective_expr: Any (OR-Tools expression object)
@@ -297,7 +307,7 @@ class OptimisationModel:
         else:
             self._objective = self._objective + objective_expr
 
-        self._update_solver_objective()
+        self._objective_pending = True
 
     def set_objective(self, objective_expr: Any) -> None:
         """
@@ -308,8 +318,11 @@ class OptimisationModel:
         must be set using set_direction() before calling this method.
 
         This method allows you to set objectives directly like:
-        model.set_direction("maximize")
-        model.set_objective(x + 2 * y)
+
+        **Example**
+
+            model.set_direction("maximize")
+            model.set_objective(x + 2 * y)
 
         :param objective_expr: OR-Tools expression for the objective
         :type objective_expr: Any (OR-Tools expression object)
@@ -324,6 +337,7 @@ class OptimisationModel:
         logger.debug("Setting objective expression")
         self._objective = objective_expr
         self._update_solver_objective()
+        self._objective_pending = False
 
     def _update_solver_objective(self) -> None:
         """
@@ -348,6 +362,9 @@ class OptimisationModel:
         :return: Solution information
         :rtype: SolutionInfo
         """
+        if self._objective_pending:
+            self._update_solver_objective()
+            self._objective_pending = False
         self._apply_solver_options()
 
         with timer() as t:
@@ -366,7 +383,10 @@ class OptimisationModel:
         }
 
         mapped_status = status_map.get(status, SolverStatus.NOT_SOLVED)
-        logger.info(f"Optimisation finished in {solve_time} with status: {mapped_status.name}")
+        if not self.name:
+            logger.info(f"Optimisation finished in {solve_time} with status: {mapped_status.name}")
+        else:
+            logger.info(f"{self.name} optimisation finished in {solve_time} with status: {mapped_status.name}")
 
         objective_value = None
 
@@ -426,15 +446,16 @@ class OptimisationModel:
         slack_value = constraint.ub() - sum_coeff if constraint.ub() != float("inf") else constraint.lb() - sum_coeff
         return slack_value
 
-    def export_model(self, filename: str) -> None:
+    def export_model(self, filename: str | Path) -> None:
         """
         Export the model to a file.
 
         :param filename: Output filename
         :type filename: str
-        :param format_type: Export format ('lp', 'mps')
-        :type format_type: str
         """
+        if self._objective_pending:
+            self._update_solver_objective()
+            self._objective_pending = False
         logger.debug(f"Exporting model to '{filename}'")
 
         lp = self._solver.ExportModelAsLpFormat(False)
@@ -475,7 +496,20 @@ class OptimisationModel:
         self._solution_info = None
         self._objective = None
         self._objective_direction = None
+        self._objective_pending = False
         self._initialize_solver(self.solver_name)
+
+    def deactivate_constraint(self, constraint_name: str) -> None:
+        """
+        Deactivate a constraint by setting its bounds to (-inf, +inf)
+
+        :param constraint_name: Name of the constraint to deactivate
+        :type constraint_name: str
+        :raises ValueError: If constraint doesn't exist
+        """
+        logger.debug(f"Deactivating constraint '{constraint_name}'")
+        constraint = self.get_constraint(constraint_name)
+        constraint.SetBounds(float("-inf"), float("inf"))
 
     def __repr__(self) -> str:
         """String representation of the model."""

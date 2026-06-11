@@ -3,7 +3,7 @@
 Thanks for taking the time to contribute!
 We welcome bug reports, feature suggestions, and pull requests.
 
-## 🛠️ Project Setup
+## Project Setup
 
 This project uses [`uv`](https://github.com/astral-sh/uv/#installation) for dependency management and Python environment isolation.
 
@@ -31,7 +31,7 @@ If you're contributing new dependencies, install them with:
 uv add package-name
 ```
 
-## 🧪 Running Tests
+## Running Tests
 
 We use pytest for testing. To run the tests:
 
@@ -41,7 +41,21 @@ uv run pytest .
 
 > Make sure all tests pass before submitting a PR.
 
-## 🧹 Code Style
+### Integration Tests
+
+Integration tests are heavier and run automatically on PRs targeting `main`. You do not need to run them locally — they are triggered by CI.
+
+Mark integration tests with `@pytest.mark.integration`:
+
+```python
+@pytest.mark.integration
+def test_my_module_end_to_end():
+    ...
+```
+
+These tests are excluded from the default `pytest` run (`-m 'not integration'`) and only execute in CI on PRs to `main`.
+
+## Code Style
 
 We use `ruff` to format and lint the code:
 
@@ -56,14 +70,23 @@ We also use `mypy` for typing analysis :
 uv run mypy atlas
 ```
 
-## 🧩 Making a Pull Request
+## Build the documentation website
+
+We use `mkdocs` to build our documentation website, run the command below and visit [http://localhost:8000](http://localhost:8000) :
+
+```bash
+uv sync --all-groups
+uv run mkdocs serve
+```
+
+## Making a Pull Request
 
 Before contributing code, make sure you've:
 
 - Synced with the latest version of the `develop` branch.
 - Created a **descriptive branch name** using one of the following conventions:
 
-### 🔖 Branch Naming Conventions
+### Branch Naming Conventions
 
 - `feat/your-feature-name` or `feature/your-feature-name` – for new features
 

@@ -6,9 +6,8 @@ import plotly.graph_objects as go
 import polars as pl
 import pytest
 
-from atlas.math.lazy_matrix import LazyMatrix
-from atlas.math.matrix import Matrix
-from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
+from atlas.math.lazy_matrix import LazyScenarioMatrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 
 
@@ -47,75 +46,75 @@ def sample_polars_df(sample_pandas_df):
 
 @pytest.fixture
 def sample_matrix(sample_polars_df):
-    return Matrix(sample_polars_df)
+    return ScenarioMatrix(sample_polars_df)
 
 
 def test_init_with_polars(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     assert matrix.indexes == ["scenario1", "scenario2"]
     assert matrix.matrix.shape == (3, 3)
 
 
 def test_init_with_matrix(sample_matrix):
-    matrix = Matrix(sample_matrix)
+    matrix = ScenarioMatrix(sample_matrix)
     assert matrix.indexes == ["scenario1", "scenario2"]
     assert matrix.matrix.shape == (3, 3)
 
 
 def test_init_with_pandas(sample_pandas_df):
-    matrix = Matrix(sample_pandas_df)
+    matrix = ScenarioMatrix(sample_pandas_df)
     assert matrix.indexes == ["scenario1", "scenario2"]
     assert matrix.matrix.shape == (3, 3)
 
 
 def test_invalid_timezone(sample_polars_df):
     with pytest.raises(ValueError, match="Invalid timezone"):
-        Matrix(sample_polars_df, timezone="Mars/Phobos")
+        ScenarioMatrix(sample_polars_df, timezone="Mars/Phobos")
 
 
 def test_getitem(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     ts = matrix["scenario1"]
     assert ts.to_frame().shape == (3, 2)
 
 
 def test_select(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     ts = matrix.select("scenario1")
     assert ts.to_frame().shape == (3, 2)
 
 
 def test_getitem_invalid(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     with pytest.raises(KeyError, match="No timeseries found"):
         _ = matrix["non_existing"]
 
 
 def test_contains(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     assert "scenario1" in matrix
     assert "non_existing" not in matrix
 
 
 def test_len(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     assert len(matrix) == 2
 
 
 def test_eq(sample_polars_df):
-    matrix1 = Matrix(sample_polars_df)
-    matrix2 = Matrix(sample_polars_df)
+    matrix1 = ScenarioMatrix(sample_polars_df)
+    matrix2 = ScenarioMatrix(sample_polars_df)
     assert matrix1 == matrix2
 
 
 def test_eq_invalid_type(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     with pytest.raises(TypeError):
         assert matrix == "not a matrix"
 
 
 def test_add_timeseries(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     new_ts = Timeseries(
         pl.DataFrame(
             {
@@ -129,7 +128,7 @@ def test_add_timeseries(sample_polars_df):
 
 
 def test_add_timeseries_already_existing_index(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     new_ts = Timeseries(
         pl.DataFrame(
             {
@@ -143,7 +142,7 @@ def test_add_timeseries_already_existing_index(sample_polars_df):
 
 
 def test_add_dict(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     matrix.add(
         {
             "time": pd.date_range(start="2025-01-01", periods=4, freq="D"),
@@ -155,7 +154,7 @@ def test_add_dict(sample_polars_df):
 
 
 def test_add_polars_dataframe(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     new_df = pl.DataFrame(
         {
             "time": pd.date_range(start="2025-01-01", periods=4, freq="D"),
@@ -168,7 +167,7 @@ def test_add_polars_dataframe(sample_polars_df):
 
 
 def test_add_pandas_dataframe(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     new_df = pd.DataFrame(
         {
             "time": pd.date_range(start="2025-01-01", periods=4, freq="D"),
@@ -181,20 +180,19 @@ def test_add_pandas_dataframe(sample_polars_df):
 
 
 def test_delete_existing(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     matrix.delete("scenario1")
     assert "scenario1" not in matrix.indexes
 
 
 def test_delete_non_existing(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     with pytest.raises(KeyError, match="No timeseries to delete"):
         matrix.delete("non_existing")
 
 
 def test_delete_all_scenarios(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
-    initial_count = len(matrix.indexes)
+    matrix = ScenarioMatrix(sample_polars_df)
 
     # Delete all scenarios
     for index in matrix.indexes.copy():
@@ -206,7 +204,7 @@ def test_delete_all_scenarios(sample_polars_df):
 
 
 def test_delete_and_readd(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
 
     # Delete scenario1
     matrix.delete("scenario1")
@@ -232,7 +230,7 @@ def test_delete_and_readd(sample_polars_df):
 
 
 def test_get_matrix(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     df = matrix.get_matrix()
     assert isinstance(df, pl.DataFrame)
 
@@ -240,7 +238,7 @@ def test_get_matrix(sample_polars_df):
 def test_from_file_parquet(tmp_path, sample_pandas_df):
     file_path = tmp_path / "matrix.parquet"
     sample_pandas_df.to_parquet(file_path, index=False)
-    matrix = Matrix.from_file(file_path)
+    matrix = ScenarioMatrix.from_file(file_path)
     assert matrix.indexes == ["scenario1", "scenario2"]
     assert matrix.matrix.shape == (3, 3)
 
@@ -248,7 +246,7 @@ def test_from_file_parquet(tmp_path, sample_pandas_df):
 def test_from_file_csv(tmp_path, sample_pandas_df):
     file_path = tmp_path / "matrix.csv"
     sample_pandas_df.to_csv(file_path, index=False, sep=";")
-    matrix = Matrix.from_file(file_path)
+    matrix = ScenarioMatrix.from_file(file_path)
     assert matrix.indexes == ["scenario1", "scenario2"]
     assert matrix.matrix.shape == (3, 3)
 
@@ -256,7 +254,7 @@ def test_from_file_csv(tmp_path, sample_pandas_df):
 def test_from_file_csv_str_input(tmp_path, sample_pandas_df):
     file_path = tmp_path / "matrix.csv"
     sample_pandas_df.to_csv(file_path, index=False, sep=";")
-    matrix = Matrix.from_file(str(file_path))
+    matrix = ScenarioMatrix.from_file(str(file_path))
     assert matrix.indexes == ["scenario1", "scenario2"]
     assert matrix.matrix.shape == (3, 3)
 
@@ -271,7 +269,7 @@ def test_from_file_with_filter(tmp_path):
     )
     file_path = tmp_path / "filtered.parquet"
     df.write_parquet(file_path)
-    matrix = Matrix.from_file(file_path, filters=("region", "FR"))
+    matrix = ScenarioMatrix.from_file(file_path, filters=("region", "FR"))
     assert "region" not in matrix.matrix.columns
     assert matrix.matrix.shape[0] == 2
 
@@ -285,46 +283,98 @@ def test_from_file_with_invalid_schema(tmp_path):
         }
     )
 
-    with pytest.raises(ValueError, match="Matrix must have N columns one for datetime and N-1 for numerical values"):
-        matrix = Matrix(df)
+    with pytest.raises(
+        ValueError, match="ScenarioMatrix must have N columns one for datetime and N-1 for numerical values"
+    ):
+        ScenarioMatrix(df)
 
 
 def test_to_file_csv(tmp_path, sample_polars_df):
     path = tmp_path / "out.csv"
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     matrix.to_file(path, file_format="csv")
     assert path.read_text().startswith("time;")
 
 
 def test_to_file_parquet(tmp_path, sample_polars_df):
     path = tmp_path / "out.parquet"
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     matrix.to_file(path, file_format="parquet")
     assert path.exists()
 
 
 def test_to_file_pickle(tmp_path, sample_polars_df):
     path = tmp_path / "out.pickle"
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     matrix.to_file(path, file_format="pickle")
     assert path.exists()
 
 
 def test_to_file_invalid(tmp_path, sample_polars_df):
     path = tmp_path / "out.xls"
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     with pytest.raises(NotImplementedError, match="Format not supported"):
         matrix.to_file(path, file_format="xls")
 
 
 def test_to_file_extension_mismatch(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     with pytest.raises(ValueError, match="Format and file extension don't match"):
         matrix.to_file("test.csv", file_format="parquet")
 
 
+def test_to_file_with_attribute_csv(tmp_path, sample_polars_df):
+    """Test to_file_with_attribute with CSV format."""
+    path = tmp_path / "test_attr.csv"
+    matrix = ScenarioMatrix(sample_polars_df)
+
+    # Write file with attribute
+    matrix.to_file_with_attribute(path, attribute="power", file_format="csv")
+    assert path.exists()
+
+    # Check if file contains attribute column
+    df = pl.read_csv(path, separator=";")
+    assert "attribute" in df.columns
+    assert df["attribute"].unique().to_list() == ["power"]
+    assert len(df) == len(matrix.dataframe)
+
+
+def test_to_file_with_attribute_concatenate(tmp_path, sample_polars_df):
+    """Test to_file_with_attribute with concatenation of existing file."""
+    path = tmp_path / "test_concat.parquet"
+
+    # Create first matrix
+    matrix1 = ScenarioMatrix(sample_polars_df)
+
+    # Write first matrix with attribute "power"
+    matrix1.to_file_with_attribute(path, attribute="power", file_format="parquet")
+
+    # Create second matrix with different data
+    df2 = pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-04", periods=2, freq="D"),
+            "scenario1": [4, 5],
+            "scenario2": [8, 9],
+        }
+    )
+    matrix2 = ScenarioMatrix(df2)
+
+    # Write second matrix with attribute "capacity"
+    matrix2.to_file_with_attribute(path, attribute="capacity", file_format="parquet")
+
+    # Read concatenated file
+    df_concat = pl.read_parquet(path)
+
+    # Check that both attributes are present
+    assert "attribute" in df_concat.columns
+    assert set(df_concat["attribute"].unique().to_list()) == {"power", "capacity"}
+
+    # Check total length
+    assert len(df_concat) == len(matrix1.dataframe) + len(matrix2.dataframe)
+
+
 def test_to_lazy(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
     lazy = matrix.to_lazy()
     assert isinstance(lazy, pl.LazyFrame)
 
@@ -338,12 +388,12 @@ def test_invalid_matrix_multiple_time_columns():
         }
     )
     with pytest.raises(ValueError, match="exactly one time column"):
-        Matrix(df)
+        ScenarioMatrix(df)
 
 
 def test_scenario_matrix_init(sample_polars_df):
     sm = ScenarioMatrix(sample_polars_df)
-    assert isinstance(sm, Matrix)
+    assert isinstance(sm, ScenarioMatrix)
     assert sm.indexes == ["scenario1", "scenario2"]
     assert sm.matrix.shape == (3, 3)
 
@@ -351,14 +401,14 @@ def test_scenario_matrix_init(sample_polars_df):
 def test_scenario_matrix_repr(sample_polars_df):
     sm = ScenarioMatrix(sample_polars_df)
     repr_str = repr(sm)
-    assert "Scenario Matrix" in repr_str
+    assert "ScenarioMatrix" in repr_str
     assert "scenario1" in repr_str
 
 
 def test_matrix_repr(sample_polars_df):
-    sm = Matrix(sample_polars_df)
+    sm = ScenarioMatrix(sample_polars_df)
     repr_str = repr(sm)
-    assert "Matrix" in repr_str
+    assert "ScenarioMatrix" in repr_str
     assert "scenario1" in repr_str
 
 
@@ -378,27 +428,27 @@ def test_lazy_scenario_matrix_repr(sample_polars_df):
 
 def test_lazy_matrix_repr(sample_polars_df):
     lazy_df = sample_polars_df.lazy()
-    lsm = LazyMatrix(lazy_df)
+    lsm = LazyScenarioMatrix(lazy_df)
     repr_str = repr(lsm)
-    assert "LazyMatrix with schema" in repr_str
+    assert "LazyScenarioMatrix with schema" in repr_str
 
 
 def test_get_indexes_invalid_schema(sample_polars_df_invalid_schema):
     with pytest.raises(
         ValueError,
-        match="LazyMatrix must have N columns one for datetime and N-1 for numerical values",
+        match="LazyScenarioMatrix must have N columns one for datetime and N-1 for numerical values",
     ):
         LazyScenarioMatrix(sample_polars_df_invalid_schema.lazy())
 
     with pytest.raises(
         ValueError,
-        match="LazyMatrix must have N columns one for datetime and N-1 for numerical values",
+        match="LazyScenarioMatrix must have N columns one for datetime and N-1 for numerical values",
     ):
-        LazyMatrix(sample_polars_df_invalid_schema.lazy())
+        LazyScenarioMatrix(sample_polars_df_invalid_schema.lazy())
 
 
 def test_matrix_plot_returns_valid_figure(sample_polars_df):
-    matrix = Matrix(sample_polars_df)
+    matrix = ScenarioMatrix(sample_polars_df)
 
     fig = matrix.plot()
 
@@ -422,7 +472,7 @@ def test_add_different_time_ranges():
             "scenario1": [1, 2, 3],
         }
     )
-    matrix = Matrix(initial_df)
+    matrix = ScenarioMatrix(initial_df)
 
     # Add timeseries with different time range
     new_ts = Timeseries(
@@ -447,7 +497,7 @@ def test_add_empty_timeseries():
             "scenario1": [1, 2, 3],
         }
     )
-    matrix = Matrix(initial_df)
+    matrix = ScenarioMatrix(initial_df)
 
     # Add empty timeseries
     empty_ts = Timeseries(
@@ -490,7 +540,7 @@ def test_scenario_matrix_set_frequency_upsample():
     assert sm.matrix.shape[0] == 3
 
 
-def test_scenario_matrix_set_frequency_downsample():
+def test_matrix_set_frequency_downsample():
     """Test downsampling scenario matrix from hourly to daily frequency."""
     # Create hourly data for 2 days
     hourly_times = pd.date_range(start="2025-01-01", periods=48, freq="h")
@@ -518,7 +568,7 @@ def test_scenario_matrix_set_frequency_downsample():
     assert abs(values1[1] - 35.5) < 0.001
 
 
-def test_scenario_matrix_set_frequency_same():
+def test_matrix_set_frequency_same():
     """Test set_frequency with same frequency (should return unchanged)."""
     df = pl.DataFrame(
         {
@@ -537,7 +587,7 @@ def test_scenario_matrix_set_frequency_same():
     assert result.matrix.equals(sm.matrix)
 
 
-def test_scenario_matrix_set_frequency_inplace():
+def test_matrix_set_frequency_inplace():
     """Test set_frequency with inplace=True."""
     df = pl.DataFrame(
         {
@@ -558,7 +608,7 @@ def test_scenario_matrix_set_frequency_inplace():
     assert sm.matrix.shape != original_shape
 
 
-def test_scenario_matrix_set_frequency_empty():
+def test_matrix_set_frequency_empty():
     """Test set_frequency on empty matrix."""
     # Create empty matrix with at least one scenario column to satisfy validation
     df = pl.DataFrame(
@@ -570,3 +620,77 @@ def test_scenario_matrix_set_frequency_empty():
 
     assert result.matrix.shape[0] == 0
     assert len(result.indexes) == 1  # Has scenario1 column
+
+
+# ============================================================
+# inplace parameter
+# ============================================================
+
+
+class TestInplace:
+    @pytest.fixture
+    def matrix(self, sample_polars_df):
+        return ScenarioMatrix(sample_polars_df)
+
+    @pytest.fixture
+    def new_ts(self):
+        return Timeseries(
+            pl.DataFrame(
+                {
+                    "time": pd.date_range(start="2025-01-01", periods=3, freq="D"),
+                    "value": [100, 200, 300],
+                }
+            )
+        )
+
+    def test_add_not_inplace_returns_new_matrix(self, matrix, new_ts):
+        result = matrix.add(new_ts, "scenario3", inplace=False)
+        assert isinstance(result, ScenarioMatrix)
+        assert "scenario3" in result.indexes
+        assert "scenario3" not in matrix.indexes
+
+    def test_add_not_inplace_preserves_original_data(self, matrix, new_ts):
+        original_indexes = matrix.indexes.copy()
+        matrix.add(new_ts, "scenario3", inplace=False)
+        assert matrix.indexes == original_indexes
+
+    def test_add_inplace_returns_self(self, matrix, new_ts):
+        result = matrix.add(new_ts, "scenario3", inplace=True)
+        assert result is matrix
+        assert "scenario3" in matrix.indexes
+        assert matrix["scenario3"].to_frame()["value"].to_list() == [100, 200, 300]
+
+    def test_delete_not_inplace_returns_new_matrix(self, matrix):
+        result = matrix.delete("scenario1", inplace=False)
+        assert isinstance(result, ScenarioMatrix)
+        assert "scenario1" not in result.indexes
+        assert "scenario1" in matrix.indexes
+
+    def test_delete_not_inplace_preserves_other_indexes(self, matrix):
+        result = matrix.delete("scenario1", inplace=False)
+        assert "scenario2" in result.indexes
+        assert len(result.indexes) == 1
+
+    def test_delete_inplace_returns_self(self, matrix):
+        result = matrix.delete("scenario1", inplace=True)
+        assert result is matrix
+        assert "scenario1" not in matrix.indexes
+
+    def test_replace_not_inplace_returns_new_matrix(self, matrix, new_ts):
+        result = matrix.replace("scenario1", new_ts, inplace=False)
+        assert isinstance(result, ScenarioMatrix)
+        assert "scenario1" in result.indexes
+
+    def test_replace_not_inplace_original_data_unchanged(self, matrix, new_ts):
+        original_values = matrix["scenario1"].to_frame()["value"].to_list()
+        matrix.replace("scenario1", new_ts, inplace=False)
+        assert matrix["scenario1"].to_frame()["value"].to_list() == original_values
+
+    def test_replace_not_inplace_result_has_new_data(self, matrix, new_ts):
+        result = matrix.replace("scenario1", new_ts, inplace=False)
+        assert result["scenario1"].to_frame()["value"].to_list() == [100, 200, 300]
+
+    def test_replace_inplace_returns_self(self, matrix, new_ts):
+        result = matrix.replace("scenario1", new_ts, inplace=True)
+        assert result is matrix
+        assert matrix["scenario1"].to_frame()["value"].to_list() == [100, 200, 300]

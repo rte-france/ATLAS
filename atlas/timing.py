@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 import re
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal, cast
 
 import pendulum
@@ -92,9 +92,9 @@ def pendulum_to_datetime(fmt: str) -> str:
 
 @contextmanager
 def timer() -> Generator[Callable[[], str], None, None]:
-    """Context manager to measure elapsed time in seconds."""
+    """Context manager to measure elapsed time with milliseconds precision."""
     start = pendulum.now()
-    yield lambda: str((pendulum.now() - start).as_duration())
+    yield lambda: f"{(pendulum.now() - start).total_seconds():.3f}s"
 
 
 def parse_frequency(freq: str) -> pendulum.Duration:
@@ -141,14 +141,14 @@ def build_datetime(dt: str | datetime | pendulum.DateTime, date_format="YYYY-MM-
     if isinstance(dt, datetime):
         return pendulum.instance(dt)
     if isinstance(dt, pendulum.DateTime):
-        return dt
+        return pendulum.parse(dt.to_iso8601_string())
     raise TypeError(f"Unsupported type for dt: {type(dt)}. Expected str, datetime, or pendulum.DateTime.")
 
 
 def generate_datetimes(
     start: str | datetime,
     end: str | datetime,
-    freq: str | pendulum.Duration,
+    freq: str | pendulum.Duration | timedelta,
     timezone: str = "UTC",
     date_format: str = "YYYY-MM-DD HH:mm:ss",
     closed: Literal["both", "left", "right", "none"] = "both",
@@ -192,13 +192,15 @@ def generate_datetimes(
     ]
 
 
-def get_duration(freq: str | pendulum.Duration) -> pendulum.Duration:
+def get_duration(freq: str | timedelta | pendulum.Duration) -> pendulum.Duration:
     if isinstance(freq, str):
         step = parse_frequency(freq)
     elif isinstance(freq, pendulum.Duration):
         step = freq
+    elif isinstance(freq, timedelta):
+        step = pendulum.duration(seconds=freq.total_seconds())
     else:
-        raise TypeError("Frequency must be a string or a pendulum.Duration")
+        raise TypeError("Frequency must be a string, a timedelta or a pendulum.Duration")
     return step
 
 

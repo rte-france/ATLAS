@@ -896,11 +896,22 @@ class TestTimeseriesBasicOperations:
 
         assert sample_ts == sample_ts_copy
 
-    def test_first_date(self, sample_ts):
-        assert sample_ts.first_date() == datetime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone("UTC"))
+    def test_get_by_index(self, sample_ts):
+        assert sample_ts.get_by_index(0) == 10.0
+        assert sample_ts.get_by_index(-1) == 40.0
+        assert sample_ts.get_by_index(2) == 30.0
+        with pytest.raises(IndexError):
+            sample_ts.get_by_index(99)
+        with pytest.raises(IndexError):
+            sample_ts.get_by_index(-99)
 
-    def test_last_date(self, sample_ts):
-        assert sample_ts.last_date() == datetime(2023, 1, 1, 3, 0, 0, tzinfo=Timezone("UTC"))
+    def test_get_time_by_index(self, sample_ts):
+        assert sample_ts.get_time_by_index(0) == datetime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone("UTC"))
+        assert sample_ts.get_time_by_index(-1) == datetime(2023, 1, 1, 3, 0, 0, tzinfo=Timezone("UTC"))
+        with pytest.raises(IndexError):
+            sample_ts.get_time_by_index(99)
+        with pytest.raises(IndexError):
+            sample_ts.get_time_by_index(-99)
 
     def test_iter_rows(self, sample_ts):
         """Test iterating over rows of the Timeseries."""
@@ -1232,3 +1243,51 @@ class TestTimeseriesExport:
             path = os.path.join(tmpdir, "test.json")
             with pytest.raises(NotImplementedError):
                 sample_ts.to_file(path, file_format="json")
+
+    def test_to_file_with_attribute_csv(self, sample_ts):
+        """Test to_file_with_attribute with CSV format."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test_attr.csv")
+
+            # Write file with attribute
+            sample_ts.to_file_with_attribute(path, attribute="power", file_format="csv")
+            assert os.path.exists(path)
+
+            # Check if file contains attribute column
+            df = pl.read_csv(path, separator=";")
+            assert "attribute" in df.columns
+            assert df["attribute"].unique().to_list() == ["power"]
+            assert len(df) == len(sample_ts)
+
+    def test_to_file_with_attribute_concatenate(self, sample_ts):
+        """Test to_file_with_attribute with concatenation of existing file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test_concat.parquet")
+
+            # First write with attribute "power"
+            sample_ts.to_file_with_attribute(path, attribute="power", file_format="parquet")
+
+            # Create another timeseries
+            df2 = pl.DataFrame(
+                {
+                    "time": [
+                        datetime(2023, 1, 1, 4, 0, 0),
+                        datetime(2023, 1, 1, 5, 0, 0),
+                    ],
+                    "value": [50.0, 60.0],
+                },
+            )
+            ts2 = Timeseries(df2)
+
+            # Write second timeseries with attribute "capacity"
+            ts2.to_file_with_attribute(path, attribute="capacity", file_format="parquet")
+
+            # Read concatenated file
+            df_concat = pl.read_parquet(path)
+
+            # Check that both attributes are present
+            assert "attribute" in df_concat.columns
+            assert set(df_concat["attribute"].unique().to_list()) == {"power", "capacity"}
+
+            # Check total length
+            assert len(df_concat) == len(sample_ts) + len(ts2)

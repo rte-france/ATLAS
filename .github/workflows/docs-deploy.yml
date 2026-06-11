@@ -32,7 +32,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.13'
 
       - name: Install uv
         run: pip install uv
@@ -81,7 +81,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.13'
 
       - name: Install uv
         run: pip install uv
@@ -90,4 +90,4 @@ jobs:
         run: uv sync --group docs --no-dev
 
       - name: Build docs (validation only)
-        run: uv run mkdocs build
+        run: uv run zensical build

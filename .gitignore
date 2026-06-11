@@ -176,22 +176,21 @@ cython_debug/
 # VS Code settings
 .vscode/
 
+# Zed settings
+.zed/
+
+# Atlas site dir
+public/
+
 # Data files
 data/
-*.csv
-*.parquet
 *.pickle
-*.lp
 *.pkl
-*.yml
 *.yaml
 *.txt
 
 # Notebooks
-polars_vs_pandas.ipynb
 test.ipynb
 
 # scripts
-commit.sh
-test.py
-CLAUDE.md
+scripts/

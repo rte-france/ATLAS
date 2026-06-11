@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pendulum import duration
 
-from atlas.enum import SolverStatus
+from atlas.enums import SolverStatus
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
 
 
@@ -212,26 +212,6 @@ class TestOptimisationModel:
         mock_expr = MagicMock()
         with pytest.raises(ValueError, match="Optimization direction must be set before setting objective"):
             model.set_objective(mock_expr)
-
-    def test_add_objective_first_call_maximize(self, model, mock_solver):
-        """Test first call to add_objective with maximize direction."""
-        mock_expr = MagicMock()
-        model.set_direction("maximize")
-        model.add_objective(mock_expr)
-
-        mock_solver.Maximize.assert_called_with(mock_expr)
-        assert model._objective is mock_expr
-        assert model._objective_direction == "maximize"
-
-    def test_add_objective_first_call_minimize(self, model, mock_solver):
-        """Test first call to add_objective with minimize direction."""
-        mock_expr = MagicMock()
-        model.set_direction("minimize")
-        model.add_objective(mock_expr)
-
-        mock_solver.Minimize.assert_called_with(mock_expr)
-        assert model._objective is mock_expr
-        assert model._objective_direction == "minimize"
 
     def test_add_objective_multiple_calls_same_direction(self, model, mock_solver):
         """Test multiple calls to add_objective."""
@@ -483,6 +463,61 @@ class TestOptimisationModel:
         with pytest.raises(ValueError, match="Constraint 'nonexistent' not found"):
             model.get_constraint_bounds("nonexistent")
 
+    def test_deactivate_constraint(self, model, mock_solver):
+        """Test deactivating a constraint."""
+        # Setup mock constraint
+        mock_constraint = MagicMock()
+        mock_constraint.lb.return_value = 5.0
+        mock_constraint.ub.return_value = 10.0
+        mock_constraint.SetBounds = MagicMock()
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        # Add constraint
+        mock_expr = MagicMock()
+        model.add_constraint(mock_expr, "test_constraint")
+
+        # Deactivate constraint
+        model.deactivate_constraint("test_constraint")
+
+        # Verify SetBounds was called with (-inf, +inf)
+        mock_constraint.SetBounds.assert_called_once_with(float("-inf"), float("inf"))
+        mock_solver.LookupConstraint.assert_called_with("test_constraint")
+
+    def test_deactivate_constraint_nonexistent(self, model, mock_solver):
+        """Test deactivating a non-existent constraint."""
+        with pytest.raises(ValueError, match="Constraint 'nonexistent' not found"):
+            model.deactivate_constraint("nonexistent")
+
+    def test_deactivate_constraint_multiple(self, model, mock_solver):
+        """Test deactivating multiple constraints."""
+        # Setup mock constraints
+        mock_constraint1 = MagicMock()
+        mock_constraint1.SetBounds = MagicMock()
+        mock_constraint2 = MagicMock()
+        mock_constraint2.SetBounds = MagicMock()
+
+        # Make LookupConstraint return different constraints
+        def lookup_side_effect(name):
+            if name == "constraint1":
+                return mock_constraint1
+            elif name == "constraint2":
+                return mock_constraint2
+            return None
+
+        mock_solver.LookupConstraint.side_effect = lookup_side_effect
+
+        # Add constraints
+        model.add_constraint(MagicMock(), "constraint1")
+        model.add_constraint(MagicMock(), "constraint2")
+
+        # Deactivate both constraints
+        model.deactivate_constraint("constraint1")
+        model.deactivate_constraint("constraint2")
+
+        # Verify both were deactivated
+        mock_constraint1.SetBounds.assert_called_once_with(float("-inf"), float("inf"))
+        mock_constraint2.SetBounds.assert_called_once_with(float("-inf"), float("inf"))
+
     def test_get_constraint_slack_value_not_solved(self, model):
         model._constraints_name.add("c1")
 
@@ -597,6 +632,76 @@ class TestOptimisationModel:
             model_no_name = OptimisationModel("SCIP")
             expected_no_name = "OptimisationModel(name=None,solver=SCIP)"
             assert repr(model_no_name) == expected_no_name
+
+    def test_objective_pending_flag_lifecycle(self, model, mock_solver):
+        """Flag starts False, set by add_objective, reset by solve and clear."""
+        assert model._objective_pending is False
+
+        model.set_direction("minimize")
+        model.add_objective(MagicMock())
+        assert model._objective_pending is True
+
+        model.solve()
+        assert model._objective_pending is False
+
+        model.add_objective(MagicMock())
+        assert model._objective_pending is True
+
+        model.clear()
+        assert model._objective_pending is False
+
+    def test_objective_pending_minimize_called_once_on_solve(self, model, mock_solver):
+        """N calls to add_objective produce exactly 1 Minimize on solve, not N."""
+        model.set_direction("minimize")
+        expr = MagicMock()
+        expr.__add__ = MagicMock(return_value=expr)
+
+        for _ in range(5):
+            model.add_objective(expr)
+
+        mock_solver.Minimize.assert_not_called()
+        model.solve()
+        assert mock_solver.Minimize.call_count == 1
+
+    def test_objective_pending_export_flushes_no_double_flush(self, model, mock_solver):
+        """export_model flushes once; subsequent solve does not flush again."""
+        model.set_direction("minimize")
+        model.add_objective(MagicMock())
+
+        with tempfile.NamedTemporaryFile(suffix=".lp", delete=False) as f:
+            tmp = f.name
+        try:
+            model.export_model(tmp)
+            assert mock_solver.Minimize.call_count == 1
+
+            model.solve()
+            assert mock_solver.Minimize.call_count == 1
+        finally:
+            os.unlink(tmp)
+
+    def test_objective_pending_set_objective_not_deferred(self, model, mock_solver):
+        """set_objective flushes immediately — flag stays False."""
+        model.set_direction("minimize")
+        model.set_objective(MagicMock())
+
+        assert model._objective_pending is False
+        mock_solver.Minimize.assert_called_once()
+
+    def test_objective_pending_set_objective_after_add_resets_flag(self, model, mock_solver):
+        """set_objective after add_objective resets the flag; solve does not double-flush."""
+        model.set_direction("minimize")
+        expr = MagicMock()
+        expr.__add__ = MagicMock(return_value=expr)
+
+        model.add_objective(expr)
+        assert model._objective_pending is True
+
+        model.set_objective(MagicMock())
+        assert model._objective_pending is False
+        assert mock_solver.Minimize.call_count == 1
+
+        model.solve()
+        assert mock_solver.Minimize.call_count == 1
 
 
 class TestIntegrationScenarios:

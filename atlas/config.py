@@ -4,90 +4,98 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas.logging import Logger
-from atlas.models.business_model import BusinessModel
-from atlas.models.control_block import ControlBlock
-from atlas.models.equipment.equipment import Equipment
-from atlas.models.equipment.hydro import Hydro
-from atlas.models.equipment.load import Load
-from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
-from atlas.models.equipment.solar import Solar
-from atlas.models.equipment.storage import Storage
-from atlas.models.equipment.thermal import Thermal
-from atlas.models.equipment.wind import Wind
-from atlas.models.market.critical_branch import CriticalBranch
-from atlas.models.market.market_area import MarketArea
-from atlas.models.market.market_area_ptdf import MarketAreaPtdf
-from atlas.models.market.market_border import MarketBorder
-from atlas.models.market.node_ptdf import NodePtdf
-from atlas.models.market.order import Order
-from atlas.models.market.order_coupling import OrderCoupling
-from atlas.models.node import Node
-from atlas.models.portfolio import Portfolio
+from atlas.enums import BusinessModelName
+from atlas.log import Logger
+from atlas.objects.business_model import BusinessModel
+from atlas.objects.equipment.equipment import Equipment
+from atlas.objects.equipment.hydro import Hydro
+from atlas.objects.equipment.load import Load
+from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
+from atlas.objects.equipment.solar import Solar
+from atlas.objects.equipment.storage import Storage
+from atlas.objects.equipment.thermal import Thermal
+from atlas.objects.equipment.wind import Wind
+from atlas.objects.market.critical_branch import CriticalBranch
+from atlas.objects.market.market_area import MarketArea
+from atlas.objects.market.market_area_ptdf import MarketAreaPtdf
+from atlas.objects.market.market_border import MarketBorder
+from atlas.objects.market.node_ptdf import NodePtdf
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
+from atlas.objects.market_operator.portfolio import Portfolio
+from atlas.objects.network.node import Node
+from atlas.objects.network_operator.control_block import ControlBlock
 
 logger = Logger().get_logger()
 
-MODEL_MAPPING_NAME: dict[str, type[BusinessModel]] = {
-    "control_block": ControlBlock,
-    "critical_branch": CriticalBranch,
-    "equipment": Equipment,
-    "hydro": Hydro,
-    "load": Load,
-    "market_area": MarketArea,
-    "market_area_ptdf": MarketAreaPtdf,
-    "market_border": MarketBorder,
-    "node": Node,
-    "node_ptdf": NodePtdf,
-    "order": Order,
-    "order_coupling": OrderCoupling,
-    "other_non_dispatchable": OtherNonDispatchable,
-    "solar": Solar,
-    "portfolio": Portfolio,
-    "storage": Storage,
-    "thermal": Thermal,
-    "wind": Wind,
+
+MODEL_MAPPING_NAME: dict[BusinessModelName, type[BusinessModel]] = {
+    BusinessModelName.CONTROL_BLOCK: ControlBlock,
+    BusinessModelName.CRITICAL_BRANCH: CriticalBranch,
+    BusinessModelName.EQUIPMENT: Equipment,
+    BusinessModelName.HYDRO: Hydro,
+    BusinessModelName.LOAD: Load,
+    BusinessModelName.MARKET_AREA: MarketArea,
+    BusinessModelName.MARKET_AREA_PTDF: MarketAreaPtdf,
+    BusinessModelName.MARKET_BORDER: MarketBorder,
+    BusinessModelName.NODE: Node,
+    BusinessModelName.NODE_PTDF: NodePtdf,
+    BusinessModelName.ORDER: Order,
+    BusinessModelName.ORDER_COUPLING: OrderCoupling,
+    BusinessModelName.OTHER_NON_DISPATCHABLE: OtherNonDispatchable,
+    BusinessModelName.SOLAR: Solar,
+    BusinessModelName.PORTFOLIO: Portfolio,
+    BusinessModelName.STORAGE: Storage,
+    BusinessModelName.THERMAL: Thermal,
+    BusinessModelName.WIND: Wind,
 }
 
-INVERSE_MODEL_MAPPING_NAME: dict[type[BusinessModel], str] = {model: name for name, model in MODEL_MAPPING_NAME.items()}
+
+INVERSE_MODEL_MAPPING_NAME: dict[type[BusinessModel], BusinessModelName] = {
+    model: name for name, model in MODEL_MAPPING_NAME.items()
+}
+
 
 EQUIPMENT_MODELS = [
-    "wind",
-    "storage",
-    "hydro",
-    "solar",
-    "thermal",
-    "other_non_dispatchable",
-    "load",
+    BusinessModelName.WIND,
+    BusinessModelName.STORAGE,
+    BusinessModelName.HYDRO,
+    BusinessModelName.SOLAR,
+    BusinessModelName.THERMAL,
+    BusinessModelName.OTHER_NON_DISPATCHABLE,
+    BusinessModelName.LOAD,
 ]
+
 
 MODEL_ORDER_INSTANTIATION = (
     [
-        "control_block",
-        "market_area",
-        "market_area_ptdf",
-        "market_border",
-        "node",
-        "node_ptdf",
-        "portfolio",
+        BusinessModelName.CONTROL_BLOCK,
+        BusinessModelName.MARKET_AREA,
+        BusinessModelName.MARKET_AREA_PTDF,
+        BusinessModelName.MARKET_BORDER,
+        BusinessModelName.NODE,
+        BusinessModelName.NODE_PTDF,
+        BusinessModelName.PORTFOLIO,
     ]
     + EQUIPMENT_MODELS
     + [
-        "order",
-        "order_coupling",
+        BusinessModelName.ORDER,
+        BusinessModelName.ORDER_COUPLING,
     ]
-    + ["critical_branch"]
+    + [BusinessModelName.CRITICAL_BRANCH]
 )
 
+
 DEFAULT_VALUE_IO = {
-    "equipment": {
+    BusinessModelName.EQUIPMENT: {
         "setup_delay": 0,
         "unit_count": 1,
         "maximum_gradient": 0,
     },
-    "storage": {
-        "transition_duration": 0,
+    BusinessModelName.STORAGE: {
+        "transition_duration": "P0D",
     },
-    "market_border": {
+    BusinessModelName.MARKET_BORDER: {
         "coupling_type": "ATC",
     },
 }

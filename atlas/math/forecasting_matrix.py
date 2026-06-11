@@ -9,17 +9,20 @@ Module that implements ForecastingMatrix
 
 from __future__ import annotations
 
-from datetime import datetime
+import copy
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Self, cast
 
 import pendulum
 import polars as pl
+from pydantic_core import core_schema
 
 from atlas.io_utils.utils import read_data_file
-from atlas.math.lazy_matrix import LazyMatrix
+from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.matrix import Matrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.timing import (
     build_datetime,
@@ -29,13 +32,13 @@ from atlas.timing import (
     infer_frequency,
     pendulum_to_datetime,
 )
-from atlas.typing import TimeseriesDict
+from atlas.type import TimeseriesDict
 
 if TYPE_CHECKING:
     import pandas as pd
 
 
-class ForecastingMatrix(Matrix):
+class ForecastingMatrix(ScenarioMatrix):
     """
     A matrix structure for managing collections of forecast time series, indexed by forecast generation time.
 
@@ -45,7 +48,7 @@ class ForecastingMatrix(Matrix):
 
     def __init__(
         self,
-        matrix: pl.DataFrame | pd.DataFrame | Matrix | None = None,
+        matrix: pl.DataFrame | pd.DataFrame | ScenarioMatrix | None = None,
         timezone: str = "UTC",
         date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> None:
@@ -64,9 +67,18 @@ class ForecastingMatrix(Matrix):
         self._parsed_indexes_cache: pl.DataFrame | None = None
         self._frequency_cache: dict[str, pendulum.Duration] = {}
 
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        return core_schema.is_instance_schema(
+            cls,
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda x: "forecasting_matrix", when_used="json"
+            ),
+        )
+
     def __repr__(self):
-        """Provide a string representation of the Matrix object."""
-        return f"Forecasting Matrix : {self.matrix}"
+        """Provide a string representation of the ScenarioMatrix object."""
+        return f"Forecasting ScenarioMatrix : {self.matrix}"
 
     @property
     def date_format(self) -> str:
@@ -126,9 +138,10 @@ class ForecastingMatrix(Matrix):
 
     def add(
         self,
-        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
+        timeseries: AbstractTimeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str | datetime | pendulum.DateTime,
-    ) -> None:
+        inplace: bool = True,
+    ) -> Self:
         """
         Add a Timeseries to the matrix and keep indexes sorted.
 
@@ -136,11 +149,13 @@ class ForecastingMatrix(Matrix):
         :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict
         :param index: Datetime key for the new forecast.
         :type index: str | datetime
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         """
         dt: str = build_datetime(index, self.date_format).format(self.date_format)
-
-        super().add(timeseries, dt)
-        self._sort_indexes()
+        result = super().add(timeseries, dt, inplace=inplace)
+        result._sort_indexes()
+        return result
 
     def __contains__(self, index: str | datetime | pendulum.DateTime) -> bool:
         """
@@ -185,25 +200,27 @@ class ForecastingMatrix(Matrix):
         """
         return self.__getitem__(index)
 
-    def delete(self, index: str | datetime | pendulum.DateTime) -> None:
+    def delete(self, index: str | datetime | pendulum.DateTime, inplace: bool = True) -> Self:
         """
         Delete a timeseries by index.
 
         :param index: Forecast generation datetime (as string or datetime object).
         :type index: str | datetime
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         :raises KeyError: If the index does not exist in the matrix.
         """
         dt: str = build_datetime(index, self.date_format).format(self.date_format)
-
-        super().delete(dt)
-
-        self._sort_indexes()
+        result = super().delete(dt, inplace=inplace)
+        result._sort_indexes()
+        return result
 
     def replace(
         self,
         index: str | datetime | pendulum.DateTime,
         timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
-    ) -> None:
+        inplace: bool = True,
+    ) -> Self:
         """
         Replace a Timeseries in the matrix and keep indexes sorted.
 
@@ -211,9 +228,13 @@ class ForecastingMatrix(Matrix):
         :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict
         :param index: Datetime key for the new forecast.
         :type index: str | datetime
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         """
-        self.delete(index=index)
-        self.add(timeseries=timeseries, index=index)
+        target = self if inplace else copy.deepcopy(self)
+        target.delete(index=index)
+        target.add(timeseries=timeseries, index=index)
+        return target
 
     def _get_parsed_indexes(self) -> pl.DataFrame:
         """
@@ -250,7 +271,7 @@ class ForecastingMatrix(Matrix):
         execution_date: datetime | str | pendulum.DateTime,
         start_date: datetime | str | pendulum.DateTime,
         end_date: datetime | str | pendulum.DateTime,
-        timestep: str | pendulum.Duration | None = None,
+        timestep: str | timedelta | pendulum.Duration | None = None,
         default_value: float | None = None,
     ) -> Timeseries:
         """
@@ -400,12 +421,12 @@ class ForecastingMatrix(Matrix):
         self._date_format = date_format
 
 
-class LazyForecastingMatrix(LazyMatrix):
+class LazyForecastingMatrix(LazyScenarioMatrix):
     """Stores Timeseries objects lazily by scenario name, with access and deletion by name."""
 
     def __init__(
         self,
-        matrix: LazyMatrix | pl.LazyFrame | Matrix,
+        matrix: LazyScenarioMatrix | pl.LazyFrame | ScenarioMatrix,
         timezone: str = "UTC",
         date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> None:
@@ -466,7 +487,8 @@ class LazyForecastingMatrix(LazyMatrix):
         self,
         timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str | datetime | pendulum.DateTime,
-    ) -> None:
+        inplace: bool = True,
+    ) -> Self:
         """
         Add a timeseries to the lazy forecasting matrix.
 
@@ -474,27 +496,32 @@ class LazyForecastingMatrix(LazyMatrix):
         :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict
         :param index: Datetime key for the new forecast.
         :type index: str | datetime | pendulum.DateTime
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         :raises KeyError: If index already exists in the matrix.
         """
         dt: str = build_datetime(index, self.date_format).format(self.date_format)
-        super().add(timeseries, dt)
+        return super().add(timeseries, dt, inplace=inplace)
 
-    def delete(self, index: str | datetime | pendulum.DateTime) -> None:
+    def delete(self, index: str | datetime | pendulum.DateTime, inplace: bool = True) -> Self:
         """
         Delete a timeseries by index.
 
         :param index: Forecast generation datetime (as string or datetime object).
         :type index: str | datetime | pendulum.DateTime
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         :raises KeyError: If the index does not exist in the matrix.
         """
         dt: str = build_datetime(index, self.date_format).format(self.date_format)
-        super().delete(dt)
+        return super().delete(dt, inplace=inplace)
 
     def replace(
         self,
         index: str | datetime | pendulum.DateTime,
         timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
-    ) -> None:
+        inplace: bool = True,
+    ) -> Self:
         """
         Replace a Timeseries in the matrix and keep indexes sorted.
 
@@ -502,9 +529,13 @@ class LazyForecastingMatrix(LazyMatrix):
         :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
         :param index: Datetime key for the new forecast.
         :type index: str | datetime
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         """
-        self.delete(index=index)
-        self.add(timeseries=timeseries, index=index)
+        target = self if inplace else copy.deepcopy(self)
+        target.delete(index=index)
+        target.add(timeseries=timeseries, index=index)
+        return target
 
     def get_forecast(
         self,
@@ -542,4 +573,13 @@ class LazyForecastingMatrix(LazyMatrix):
             end_date=end_date,
             timestep=timestep,
             default_value=default_value,
+        )
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        return core_schema.is_instance_schema(
+            cls,
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda x: "forecasting_matrix", when_used="json"
+            ),
         )

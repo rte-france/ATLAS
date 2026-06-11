@@ -10,8 +10,8 @@ This module provides a Timeseries class for handling Timeseries data using Polar
 from __future__ import annotations
 
 import pickle
-from collections.abc import Generator
-from datetime import datetime
+from collections.abc import Generator, Sequence
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -23,11 +23,12 @@ import plotly.graph_objects
 import polars as pl
 
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
-from atlas.typing import TimeseriesDict
+from atlas.type import TimeseriesDict
 
 
-class Timeseries:
+class Timeseries(AbstractTimeseries[pl.DataFrame]):
     """
     A flexible and efficient time series class using a Polars backend.
 
@@ -84,8 +85,8 @@ class Timeseries:
     def from_values(
         cls,
         start_date: str | datetime | pendulum.DateTime,
-        frequency: str | pendulum.Duration,
-        values: list[float],
+        frequency: str | timedelta | pendulum.Duration,
+        values: Sequence[float] | pd.Series | pl.Series,
         date_format="YYYY-MM-DD HH:mm:ss",
         timezone: str = "UTC",
     ) -> Timeseries:
@@ -123,7 +124,7 @@ class Timeseries:
     def from_index(
         cls,
         start_date: str | datetime | pendulum.DateTime,
-        frequency: str | pendulum.Duration,
+        frequency: str | timedelta | pendulum.Duration,
         end_date: str | datetime | pendulum.DateTime,
         default_value: list[float] | float = 0,
         date_format="YYYY-MM-DD HH:mm:ss",
@@ -173,7 +174,7 @@ class Timeseries:
         return cls(df, timezone)
 
     @classmethod
-    def from_timeseries(cls, timeseries: Timeseries, default_value: float | None = None) -> Timeseries:
+    def from_timeseries(cls, timeseries: AbstractTimeseries, default_value: float | None = None) -> Timeseries:
         """Create a Timeseries from another, using its structure.
 
         :param timeseries: The input timeseries object
@@ -266,7 +267,11 @@ class Timeseries:
                 pl.col("time").cast(pl.Datetime("us", time_zone=timezone))
             )
 
-            self._return_inplace(self.timeseries, inplace=True)
+            self._return(self.timeseries, inplace=True)
+
+    def _get_data(self) -> pl.DataFrame:
+        """Return the underlying DataFrame."""
+        return self.timeseries
 
     def __getitem__(self, column_name: str) -> list[float | datetime]:
         if column_name not in ("time", "value"):
@@ -488,7 +493,7 @@ class Timeseries:
         return self.timeseries.select("value").to_series().to_list()
 
     @property
-    def timestep(self) -> pendulum.Duration | None:
+    def timestep(self) -> pendulum.Duration:
         """Return the frequency string of the timeseries index."""
         return self.frequency
 
@@ -521,6 +526,15 @@ class Timeseries:
         """
         return self.timeseries.lazy()
 
+    def collect(self) -> Timeseries:
+        """
+        Return self (no-op for eager Timeseries).
+
+        :return: Self
+        :rtype: Timeseries
+        """
+        return self
+
     def sort(
         self,
         inplace: bool = True,
@@ -534,7 +548,7 @@ class Timeseries:
         :return: Sorted Timeseries
         :rtype: Timeseries
         """
-        return self._return_inplace(self.timeseries, inplace)
+        return self._return(self.timeseries, inplace)
 
     def _get_shape(self) -> tuple[int, int]:
         """Return (rows, columns) of the underlying Polars DataFrame."""
@@ -548,11 +562,11 @@ class Timeseries:
         :type timezone: str
         """
         check_timezone(timezone)
-
         self.timezone = timezone
         self.timeseries = self.timeseries.with_columns(
             pl.col("time").dt.convert_time_zone(timezone),
         )
+        self._invalidate_cache()
 
     def set_value(
         self,
@@ -576,19 +590,16 @@ class Timeseries:
         :return: Timeseries with the set value
         :rtype: Timeseries
         """
-        dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
+        dt = build_datetime(time, date_format).in_tz(self.timezone)
 
         if dt not in self.dataframe["time"]:
             raise ValueError(f"Could not set value at {dt} because timestamp is not in the Timeseries")
 
-        df = self.timeseries.filter(pl.col("time") != dt)
-        new_row = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
-            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
-            pl.col("value").cast(pl.Float64()),
+        df = self.timeseries.with_columns(
+            pl.when(pl.col("time") == dt).then(pl.lit(value)).otherwise(pl.col("value")).alias("value")
         )
-        df = pl.concat([df, new_row])
 
-        return self._return_inplace(df, inplace)
+        return self._return(df, inplace)
 
     def set_values(
         self,
@@ -610,7 +621,7 @@ class Timeseries:
         other = Timeseries(other)
         if len(self.timeseries) == 0:
             other_df = other.dataframe
-            return self._return_inplace(other_df, inplace)
+            return self._return(other_df, inplace)
 
         other_ts = Timeseries(other)
         if self.frequency != other_ts.frequency:
@@ -623,7 +634,7 @@ class Timeseries:
         df = self.timeseries.filter(~pl.col("time").is_in(other_ts.dataframe["time"]))
         df = pl.concat([df, other_ts.dataframe])
 
-        return self._return_inplace(df, inplace)
+        return self._return(df, inplace)
 
     def sum_value_at(
         self,
@@ -660,7 +671,7 @@ class Timeseries:
         )
         df = pl.concat([df, new_row])
 
-        return self._return_inplace(df, inplace)
+        return self._return(df, inplace)
 
     def mul_value_at(
         self,
@@ -697,7 +708,7 @@ class Timeseries:
         )
         df = pl.concat([df, new_row])
 
-        return self._return_inplace(df, inplace)
+        return self._return(df, inplace)
 
     def add_indexes(
         self,
@@ -719,7 +730,7 @@ class Timeseries:
         other = Timeseries(other)
         if len(self.timeseries) == 0:
             other_df = other.dataframe
-            return self._return_inplace(other_df, inplace)
+            return self._return(other_df, inplace)
 
         other_ts = Timeseries(other)
         if self.frequency != other_ts.frequency:
@@ -731,7 +742,7 @@ class Timeseries:
 
         df = pl.concat([self.timeseries, other_ts.dataframe])
 
-        return self._return_inplace(df, inplace)
+        return self._return(df, inplace)
 
     def add_index(
         self,
@@ -771,7 +782,7 @@ class Timeseries:
         )
         df = pl.concat([self.timeseries, new_row])
 
-        return self._return_inplace(df, inplace)
+        return self._return(df, inplace)
 
     def upsample(
         self,
@@ -808,7 +819,7 @@ class Timeseries:
         else:
             raise NotImplementedError("Unsupported interpolation method")
 
-        return self._return_inplace(df, inplace)
+        return self._return(df, inplace)
 
     def groupby(
         self,
@@ -849,7 +860,7 @@ class Timeseries:
         else:
             raise NotImplementedError("Unsupported aggregation function")
 
-        return self._return_inplace(df, inplace)
+        return self._return(df, inplace)
 
     def set_frequency(self, frequency: str | pendulum.Duration, inplace: bool = True) -> Timeseries:
         """
@@ -871,7 +882,7 @@ class Timeseries:
         else:
             df = self
 
-        return self._return_inplace(df.dataframe, inplace)
+        return self._return(df.dataframe, inplace)
 
     def _join(
         self,
@@ -933,71 +944,70 @@ class Timeseries:
         else:
             raise NotImplementedError("Format not supported")
 
-    def filter(
+    def to_file_with_attribute(
         self,
-        item: list[datetime] | list[pendulum.DateTime] | list[str] | datetime | pendulum.DateTime | str,
-        date_format: str = "YYYY-MM-DD HH:mm:ss",
-        inplace: bool = True,
-    ) -> Timeseries:
+        path: str | Path,
+        attribute: str,
+        file_format: Literal["csv", "parquet", "pickle"] = "csv",
+        separator: str = ";",
+        concatenate: bool = True,
+    ) -> None:
         """
-        Filter the Timeseries based on a list of datetime.
+        Export the Timeseries to a file with an attribute column.
 
-        :param item: Datetime to filter the Timeseries
-        :type item: list[datetime] or datetime or pendulum.DateTime or str
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
-        :type date_format: str, optional
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :raises NotImplementedError: If the times to filter type is unsupported
-        :return: Filtered Timeseries
-        :rtype: Timeseries
+        If the file already exists and concatenate is True, the new data will be
+        appended to the existing data.
+
+        :param path: Destination file path
+        :type path: str or Path
+        :param attribute: Attribute name to add as a column
+        :type attribute: str
+        :param file_format: Export file format, defaults to "csv"
+        :type file_format: Literal["csv", "parquet", "pickle"], optional
+        :param separator: Export column separator format, defaults to ";"
+        :type separator: str, optional
+        :param concatenate: If True, concatenate with existing file data, defaults to True
+        :type concatenate: bool, optional
+        :raises ValueError: If file extension doesn't match format
+        :raises NotImplementedError: If the file format is not supported
         """
-        if isinstance(item, list):
-            item = [build_datetime(i, date_format=date_format).in_tz(self.timezone) for i in item]
-            df = self.timeseries.filter(pl.col("time").is_in(item))
+        file_format_lower = file_format.lower()
+
+        if isinstance(path, Path):
+            path_str = str(path)
         else:
-            date = build_datetime(item, date_format=date_format).in_tz(self.timezone)
-            df = self.timeseries.filter(pl.col("time") == date)
+            path_str = path
 
-        return self._return_inplace(df, inplace)
+        if not path_str.lower().endswith(file_format_lower):
+            raise ValueError("Format and file extension don't match.")
 
-    def slice(
-        self,
-        start_bound: datetime | pendulum.DateTime | str,
-        end_bound: datetime | pendulum.DateTime | str,
-        closed: Literal["left", "right", "both", "none"] = "both",
-        inplace: bool = True,
-    ) -> Timeseries:
-        """Get a slice of the Timeseries
+        df_to_write = self.timeseries.clone().insert_column(1, pl.lit(attribute).alias("attribute"))
 
-        :param start_bound: Datetime to filter the Timeseries
-        :param end_bound: Datetime to filter the Timeseries
-        :param closed : {'both', 'left', 'right', 'none'}
-            Define which sides of the interval are closed (inclusive).
-        :param inplace: Whether to modify the current instance, defaults to True
-        :return: The Timeseries object
-        """
-        date_start = build_datetime(start_bound).in_tz(self.timezone)
-        date_end = build_datetime(end_bound).in_tz(self.timezone)
-        df = self.timeseries.filter(pl.col("time").is_between(date_start, date_end, closed))
+        if concatenate:
+            path_obj = Path(path_str)
+            if path_obj.exists() and file_format_lower != "pickle":
+                try:
+                    if file_format_lower == "csv":
+                        existing_df = pl.read_csv(path_str, separator=separator, try_parse_dates=True)
+                    elif file_format_lower == "parquet":
+                        existing_df = pl.read_parquet(path_str)
 
-        return self._return_inplace(df, inplace)
+                    # Concatenate with existing data
+                    df_to_write = pl.concat([existing_df, df_to_write])
+                except Exception as e:
+                    raise ValueError(f"Could not read existing file for concatenation: {e}") from e
 
-    def slice_with_offset(
-        self,
-        offset: int,
-        length: int | None = None,
-        inplace: bool = True,
-    ) -> Timeseries:
-        """Get a slice of the Timeseries
-
-        :param offset: Start index. Negative indexing is supported.
-        :param length: Length of the slice. If set to `None`, all rows starting at the offset will be selected.
-        :param inplace: Whether to modify the current instance, defaults to True
-        :return: The Timeseries object
-        """
-        df = self.timeseries.slice(offset, length)
-        return self._return_inplace(df, inplace)
+        # Write the file
+        Path(path_str).parent.mkdir(parents=True, exist_ok=True)
+        if file_format_lower == "csv":
+            df_to_write.write_csv(path_str, separator=separator)
+        elif file_format_lower == "parquet":
+            df_to_write.write_parquet(path_str)
+        elif file_format_lower == "pickle":
+            with open(path_str, "wb") as f:
+                pickle.dump(self, f)
+        else:
+            raise NotImplementedError("Format not supported")
 
     def max(self) -> float:  # type:ignore[return]
         """Return the max value in the 'value' column.
@@ -1032,18 +1042,6 @@ class Timeseries:
         else:
             RuntimeError("Timeseries is empty, can't perform the sum")
 
-    def abs(self, inplace=True) -> Timeseries:
-        """Compute the absolute value of each timestamp
-
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :return: The timeseries with absolute values
-        :rtype: Timeseries
-        """
-        df = self.timeseries.with_columns(pl.col("value").abs())
-
-        return self._return_inplace(df, inplace)
-
     def interpolate(
         self, interpolation_method: Literal["linear", "constant"] = "constant", inplace: bool = True
     ) -> Timeseries:
@@ -1064,7 +1062,7 @@ class Timeseries:
         else:
             raise NotImplementedError("Unsupported interpolation method, use 'linear' or 'constant'")
 
-        return self._return_inplace(df, inplace)
+        return self._return(df, inplace)
 
     def get_value(
         self,
@@ -1083,12 +1081,10 @@ class Timeseries:
         if len(self.timeseries) == 0:
             raise ValueError("Can't get value on empty timeseries.")
         dt = build_datetime(datetime, date_format).in_tz(self.timezone)
-
-        df: pl.DataFrame = self.filter(datetime, date_format, inplace=False).dataframe
-        if len(df) > 0:
-            return df.to_dicts()[0]["value"]
-        else:
+        lookup = self._get_lookup()
+        if dt not in lookup:
             raise KeyError(f"Value for {dt.to_datetime_string()} not found in the Timeseries.")
+        return lookup[dt]
 
     def plot(
         self,
@@ -1128,7 +1124,7 @@ class Timeseries:
             title=title,
             height=height,
             width=width,
-            template=template,
+            template=template,  # type:ignore [arg-type]
             line_shape=line_shape,
             color_discrete_sequence=[line_color] if line_color else None,
         )
@@ -1148,7 +1144,7 @@ class Timeseries:
 
         return fig
 
-    def _return_inplace(self, df: pl.DataFrame, inplace: bool) -> Timeseries:
+    def _return(self, df: pl.DataFrame, inplace: bool) -> Timeseries:
         """
         Return the Timeseries object itself or modify existing.
 
@@ -1156,32 +1152,25 @@ class Timeseries:
         :rtype: Timeseries
         """
         if inplace:
+            old_len = len(self.timeseries)
             self.timeseries = df.sort("time")
-            self.frequency = infer_frequency(self.timeseries)
+            if getattr(self, "frequency", None) is None or len(self.timeseries) != old_len:
+                self.frequency = infer_frequency(self.timeseries)
+            self._invalidate_cache()
             return self
         return Timeseries(df, self.timezone)
 
-    def first_date(self) -> pendulum.DateTime | None:
-        """
-        Return the first date in the Timeseries index.
+    def get_by_index(self, index: int) -> float:
+        n = len(self.timeseries)
+        if n == 0 or index >= n or index < -n:
+            raise IndexError(f"index {index} is out of bounds for timeseries of length {n}")
+        return cast(float, self.timeseries.row(index, named=True)["value"])
 
-        :return: The first date in the Timeseries index
-        :rtype: DateTime or None
-        """
-        if len(self.timeseries) > 0:
-            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").head(1).item()))
-        return None
-
-    def last_date(self) -> pendulum.DateTime | None:
-        """
-        Return the last date in the Timeseries index.
-
-        :return: The last date in the Timeseries index
-        :rtype: DateTime or None
-        """
-        if len(self.timeseries) > 0:
-            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").tail(1).item()))
-        return None
+    def get_time_by_index(self, index: int) -> pendulum.DateTime:
+        n = len(self.timeseries)
+        if n == 0 or index >= n or index < -n:
+            raise IndexError(f"index {index} is out of bounds for timeseries of length {n}")
+        return cast(pendulum.DateTime, pendulum.instance(self.timeseries.row(index, named=True)["time"]))
 
     def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
         """
@@ -1192,23 +1181,3 @@ class Timeseries:
         """
         for row in self.timeseries.iter_rows(named=True):
             yield (row["time"], row["value"])
-
-    def round(
-        self,
-        rounding_precision: int = 0,
-        mode: Literal["half_to_even", "half_away_from_zero"] = "half_to_even",
-        inplace: bool = True,
-    ) -> Timeseries:
-        """
-        Returns a copy of the timeseries with all the numerical values rounded.
-        :param rounding_precision: Number of decimals used to round numerical values.
-        :type rounding_precision: int
-        :param mode: Rounding strategy.
-        :type mode: str
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :return: Rounded Timeseries
-        :rtype: Timeseries
-        """
-        df = self.timeseries.with_columns(pl.col("value").round(rounding_precision, mode))
-        return self._return_inplace(df, inplace)

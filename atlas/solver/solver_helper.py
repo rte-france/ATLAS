@@ -18,311 +18,6 @@ class SolverHelper:
     SOLVED_STATUS = [pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE]
 
     @staticmethod
-    def model_to_dict(solver):
-        """
-        Transform a Solver object to a dict
-
-        :param solver: ortools.linear_solver.pywraplp.Solver. The solver to transform.
-        :return: dict(str, 2d array)
-        """
-        model_dict = {"constraints": {}}
-        for cstr in solver.constraints():
-            constraint = solver.LookupConstraint(cstr.name())
-            constraint_name = cstr.name().replace(" ", "_").replace("-", "_").replace(":", "_")
-            model_dict["constraints"][constraint_name] = [constraint.lb(), constraint.ub()] + [
-                (var.name(), constraint.GetCoefficient(var))
-                for var in solver.variables()
-                if abs(constraint.GetCoefficient(var)) > 1e-8
-            ]
-        model_dict["variables"] = []
-        for variable in solver.variables():
-            model_dict["variables"].append(SolverHelper.dict_from_var(variable))
-        objective = solver.Objective()
-        model_dict["objectives"] = [objective.maximization(), objective.Offset()] + [
-            (var.name(), objective.GetCoefficient(var))
-            for var in solver.variables()
-            if abs(objective.GetCoefficient(var)) > 1e-8
-        ]
-        return model_dict
-
-    @staticmethod
-    def custom_export_problem_as_lp(solver, filename):
-        """
-        Export solver problem to lp with a custom format in order to keep float consistency
-
-        :param solver: ortools.linear_solver.pywraplp.Solver. The solver to transform.
-        :param filename: str or os.PathLike. File where lp will be saved.
-        :return
-        """
-        json_model = SolverHelper.model_to_dict(solver)
-        lp_string = "Maximize" if json_model["objectives"][0] else "Minimize"
-        lp_string += "\n OBJ: "
-        if abs(json_model["objectives"][1]) > 0.0:
-            lp_string += str(json_model["objectives"][1])
-        for name, coeff in json_model["objectives"][2:]:
-            # lp_string += " +" if coeff > 0.0 else " "
-            # lp_string += str(coeff) + " " + name
-            if coeff > 0.0:
-                lp_string += " +" + str(coeff) + " " + name
-            elif coeff < 0.0:
-                lp_string += " " + str(coeff) + " " + name
-
-        lp_string += "\nSubject To"
-        for constraint_name, constraint in json_model["constraints"].items():
-            lp_string += "\n " + str(constraint_name) + ":"
-            for name, coeff in constraint[2:]:
-                # lp_string += " +" if coeff > 0.0 else " "
-                # lp_string += str(coeff) + " " + name
-                if coeff > 0.0:
-                    lp_string += " +" + str(coeff) + " " + name
-                elif coeff < 0.0:
-                    lp_string += " " + str(coeff) + " " + name
-            lb, ub = constraint[0], constraint[1]
-            if lb == ub:
-                lp_string += " = " + str(lb)
-            else:
-                if abs(lb) == float("inf"):
-                    lp_string += " <= " + str(ub)
-                else:
-                    lp_string += " >= " + str(lb)
-
-        lp_string += "\nBounds"
-        for var_dict in json_model["variables"]:
-            if "OpBinary" not in var_dict["VarType"] and "OpInteger" not in var_dict["VarType"]:
-                if abs(var_dict["LowBound"]) == abs(var_dict["UpBound"]) == float("inf"):
-                    lp_string += "\n " + var_dict["Name"] + " free"
-                else:
-                    lp_string += (
-                        "\n "
-                        + str(var_dict["LowBound"])
-                        + " <= "
-                        + var_dict["Name"]
-                        + " <= "
-                        + str(var_dict["UpBound"])
-                    )
-
-        lp_string += "\nBinaries"
-        for var_dict in json_model["variables"]:
-            if "OpBinary" in var_dict["VarType"]:
-                lp_string += "\n " + var_dict["Name"]
-        lp_string += "\nEnd"
-        with open(filename, "w") as f:
-            f.write(lp_string)
-
-    @staticmethod
-    def model_from_dict(model_dict, solver_name):
-        """
-        Transform a dict to a Solver object
-
-        :param model_dict: dict(str, 2d array). Dict representing the solver to create
-        :param solver_name: str. Name of the solver to create
-        :return: ortools.linear_solver.pywraplp.Solver.
-        """
-        solver = pywraplp.Solver.CreateSolver(solver_name)
-        for variable in model_dict["variables"]:
-            SolverHelper.var_from_dict(variable, solver)
-        for ct_name, ct_parameters in model_dict["constraints"].items():
-            SolverHelper.constraint_from_dict(ct_name, ct_parameters, solver)
-        SolverHelper.objective_from_dict(model_dict["objectives"], solver)
-
-        return solver
-
-    @staticmethod
-    def constraint_from_dict(name, constraint, solver):
-        """
-        Create a ortools Constraint in a solver with a name and a list input
-
-        :param name: str. TName of the constraint.
-        :param constraint: 2d array. List containing all information for a constraint
-            [lower bound, upper bound, (variable name, coefficient), ...].
-        :param solver: ortools.linear_solver.pywraplp.Solver. THe solver where to add the constraint.
-        :return
-        """
-        lb = constraint[0]
-        ub = constraint[1]
-        ct = solver.Constraint(lb, ub, name)
-        for var_name, coeff in constraint[2:]:
-            ct.SetCoefficient(solver.LookupVariable(var_name), coeff)
-        return ct
-
-    @staticmethod
-    def objective_from_dict(objective, solver):
-        """
-        Create the objective in a solver with list input
-
-        :param objective: 2d array. List containing all information for a constraint
-            [direction of the optimization, offset, (variable name, coefficient), ...].
-        :param solver: ortools.linear_solver.pywraplp.Solver. THe solver where to add the objective.
-        :return
-        """
-        obj = solver.Objective()
-        obj.SetOffset(objective[1])
-        for var_name, coeff in objective[2:]:
-            obj.SetCoefficient(solver.LookupVariable(var_name), coeff)
-        obj.SetOptimizationDirection(objective[0])
-
-    @staticmethod
-    def var_from_dict(dict_var, solver):
-        """
-        Convert a dict representation of an optimisation variable to an OrTools variable and add it to the given solver
-
-        :param dict_var: dict. Representation of an optimisation variable
-        :param solver: ortools.linear_solver.pywraplp.Solver. The solver associated to the new variable
-        :return: OrTools variable
-        """
-        var_type = dict_var["VarType"]
-        lb = dict_var["LowBound"]
-        ub = dict_var["UpBound"]
-        name = dict_var["Name"]
-
-        if var_type in ["OpBinary", "OpInteger"]:
-            var = solver.IntVar(lb, ub, name)
-        else:
-            var = solver.NumVar(lb, ub, name)
-        return var
-
-    @staticmethod
-    def dict_from_var(var, value=None):
-        """
-        Convert an OrTools variable to a dict representation
-
-        :param var: OrTools variable. The variable to be converted
-        :param value: float. Optional value of the variable to set
-        :return: dict representation of the variable
-        """
-        if var.integer():
-            if var.lb() == 0 and var.ub() == 1:
-                var_type = "OpBinary"
-            else:
-                var_type = "OpInterger"
-        else:
-            var_type = "OpReal"
-        return {
-            "Name": var.name(),
-            "LowBound": var.lb(),
-            "UpBound": var.ub(),
-            "VarValue": value if value is not None else var.solution_value(),
-            "VarType": var_type,
-        }
-
-    @staticmethod
-    def export_solution_as_lp(solver, status, filename):
-        """
-        Export the solution in lp format to a file
-
-        :param solver: Solver. The solver from which we want to export the solution
-        :param status: int. Status of the solver
-        :param filename: str or os.PathLike. Path where the lp solution will be saved
-        :return:
-        """
-        with open(filename, "w") as f:
-            f.write("--------------------------- INFO ----------------------------\n")
-            objective = solver.Objective()
-            f.write(f"Sens : {'Minimization' if objective.minimization() else 'Maximization'}\n")
-            f.write("------------------------- SOLUTION --------------------------\n")
-            f.write("Status : \n")
-            f.write("--------------------- OBJECTIVE FUNCTION --------------------\n")
-            objective_value = objective.Value() if status in SolverHelper.SOLVED_STATUS else 0
-            f.write(f"Value: {objective_value:.6f}\n")
-            f.write("-------------------- CONSTRAINTS (MARGINAL COST) --------------------\n")
-            for constraint in sorted(solver.constraints(), key=lambda x: x.name()):
-                f.write(f"{constraint.name()} = {0:.6f}\n")
-            f.write("------------------------- VARIABLES -------------------------\n")
-            for variable in sorted(solver.variables(), key=lambda x: x.name()):
-                variable_solution = variable.solution_value() if status in SolverHelper.SOLVED_STATUS else 0
-                f.write(f"{variable.name()} = {variable_solution:.6f}\n")
-
-    @staticmethod
-    def get_constraint_value(solver, constraint_name):
-        """
-        Get the value of the constraint given (AffineExpression)
-
-        :param solver: solver
-        :param constraint_name: the constraint name
-        :return: the value of constraint
-        """
-        constraint = solver.LookupConstraint(constraint_name)
-        sum_coefs = sum([constraint.GetCoefficient(var) * var.solution_value() for var in solver.variables()])
-        return sum_coefs - constraint.ub() if constraint.ub() != float("inf") else sum_coefs - constraint.lb()
-
-    @staticmethod
-    def compare_solutions_as_lp(filename1, filename2, tolerance=1e-6, absolute_tolerance=1e-12):
-        """
-        Check that the solutions of two problems in lp format are identical
-
-        :param filename1: str or os.PathLike. Path to the first solution.lp file
-        :param filename2: str or os.PathLike. Path to the second solution.lp file
-        :param tolerance: float. Relative error tolerance.
-        :param absolute_tolerance: float. Absolute error tolerance
-        :return: True if solutions are identical, False otherwise
-        """
-        solution1 = SolverHelper.solution_to_dict(filename1)
-        solution2 = SolverHelper.solution_to_dict(filename2)
-
-        # Check if all keys are present in both solutions
-        all_keys = set(solution1.keys()) | set(solution2.keys())
-
-        for key in all_keys:
-            val1 = solution1.get(key, 0.0)
-            val2 = solution2.get(key, 0.0)
-
-            # Check if values are identical within tolerance
-            if abs(val1 - val2) > max(tolerance * max(abs(val1), abs(val2)), absolute_tolerance):
-                return False
-
-        return True
-
-    @staticmethod
-    def solution_to_dict(solution_file):
-        """
-        Convert a txt solution file to a dict with keys corresponding to variable, constraint or solution name and
-        values corresponding to their values
-
-        :param solution_file: str or os.PathLike. Path to the solution.lp file
-        :return: dict
-        """
-        solution = {}
-        with open(solution_file) as file:
-            lines = file.readlines()
-        for line in lines:
-            line = line.strip()
-            line = line.replace(" ", "")
-            # Get solution value
-            if "Value" in line:
-                key, value = line.split(":")
-                solution[key] = float(value)
-            elif "=" in line:
-                key, value = line.split("=")
-                solution[key] = float(value)
-
-        return solution
-
-    @staticmethod
-    def export_problem_as_lp(solver, filename):
-        """
-        Export the problem in lp format to a file
-
-        :param solver: Solver. The solver from which we want to export the solution
-        :param filename: str or os.PathLike. Path where the lp problem will be saved
-        :return:
-        """
-        with open(filename, "w") as f:
-            f.write(solver.ExportModelAsLpFormat(False))
-
-    @staticmethod
-    def deactivate_constraint(constraint):
-        """
-        Deactivate a constraint by setting its bounds to (-inf, +inf)
-
-        :param constraint: OrTools Constraint. The constraint  to deactivate
-        :return: The deactivated constraint
-        """
-        if constraint is None:
-            return
-        constraint.SetBounds(float("-inf"), float("inf"))
-        return constraint
-
-    @staticmethod
     def read_lp_ortools(filepath):
         """
         Read a lp file generated by or-tools
@@ -507,9 +202,15 @@ class SolverHelper:
                     continue
 
                     # raise ValueError("Constraint line must contain >=, <=, or = sign")
-                line = line.split(" ")
+                line = line.strip().split(" ")
 
-                if not SolverHelper.isfloat(line[0]) and line[0] not in ("+", "-"):
+                is_float = None
+                try:
+                    float(line[0])
+                    is_float = True
+                except ValueError:
+                    is_float = False
+                if not is_float and line[0] not in ("+", "-"):
                     line.insert(0, "+")
                 while "" in line:
                     line.remove("")
@@ -552,112 +253,6 @@ class SolverHelper:
                         variables[var_name] = [0.0, 1.0]  # Binary variables have bounds [0, 1]
 
         return {"objectives": objectives, "constraints": constraints, "variables": variables, "binaries": binaries}
-
-    @staticmethod
-    def read_lp_custom(filepath):
-        """
-        Read a lp file generated by export_custom_lp
-
-        :param filepath: str or os.PathLike. File path of the lp problem generated by export custom lp
-        :return: dict containing objective function, constraints and variables definitions.
-        """
-        objectives = OrderedDict()
-        constraints = OrderedDict()
-        variables = OrderedDict()
-        binaries = []
-        section = None
-        prev_line = ""
-        with open(filepath) as file:
-            lines = file.readlines()
-        for line in lines:
-            line = line.strip()
-            line = prev_line + line
-            current_line = line
-            prev_line = ""
-            if line.startswith("Obj: "):
-                line = line.replace("Obj: ", "")
-                line = line.replace("- ", "-")
-                line = line.replace("+ ", "+")
-                line = line.split(" ")
-                while "" in line:
-                    line.remove("")
-
-                for idx in range(0, len(line), 2):
-                    coef, var = line[idx : idx + 2]
-                    objectives[var] = float(coef)
-            elif line.startswith("Subject to"):
-                section = "constraint"
-            elif line.startswith("Bounds"):
-                section = "variable"
-                continue
-            elif line.startswith("End"):
-                break
-            elif section == "constraint":
-                constraint_name, line = line.split(": ")
-                # Replace spaces by underscores in constraint names
-                constraint_name = constraint_name.replace(" ", "_")
-                # line = line.replace("- ", "-")
-                # line = line.replace("+ ", "+")
-                import re
-
-                line = re.sub(r"([+\-*/])\s+(?=\d)", r"\1", line)
-                if ">=" in line:
-                    line, lb = line.split(">= ")
-                    ub = float("inf")
-                elif "<=" in line:
-                    line, ub = line.split("<= ")
-                    lb = float("-inf")
-                elif "=" in line:
-                    line, bound = line.split("= ")
-                    lb, ub = bound, bound
-                else:
-                    prev_line = current_line + " "
-                    continue
-
-                    # raise ValueError("Constraint line must contain >=, <=, or = sign")
-                line = line.split(" ")
-                if not SolverHelper.isfloat(line[0]) and line[0] not in ("+", "-"):
-                    line.insert(0, "+")
-                while "" in line:
-                    line.remove("")
-                if len(line) < 2:
-                    line = []
-                constraint = OrderedDict()
-                for idx in range(0, len(line), 2):
-                    coef, var_name = line[idx : idx + 2]
-                    if coef == "-":
-                        coef = "-1"
-                    if coef == "+":
-                        coef = "1"
-                    constraint[var_name] = float(coef)
-                constraint["LB"] = float(lb)
-                constraint["UB"] = float(ub)
-                constraints[constraint_name] = constraint
-            elif section == "variable":
-                if line.startswith("Binaries"):
-                    section = "binary"
-                    continue
-                if line.endswith("free"):
-                    line = line.split(" ")
-                    var_name, _ = line
-                    variables[var_name] = [float("-inf"), float("inf")]
-                else:
-                    line = line.split(" <= ")
-                    if len(line) == 2:
-                        var_name, ub = line
-                        lb = 0
-                    else:
-                        lb, var_name, ub = line
-                    variables[var_name] = [float(lb), float(ub)]
-
-            elif section == "binary":
-                var_name = line
-                binaries.append(var_name)
-                # Add binary variables to variables dictionary if not already present
-                if var_name not in variables:
-                    variables[var_name] = [0.0, 1.0]  # Binary variables have bounds [0, 1]
-
-        return objectives, constraints, variables, binaries
 
     @staticmethod
     def export_objective_differences_csv(
@@ -731,14 +326,14 @@ class SolverHelper:
                 f.write(f"{var},{coeff1},{coeff2},{diff},{status}\n")
 
     @staticmethod
-    def normalize_variable_name(var_name):
+    def normalize_variable_name(var_name: str):
         """
         Normalize variable names by removing trailing colons and other formatting artifacts
 
         :param var_name: str. Variable name to normalize
         :return: str. Normalized variable name
         """
-        return var_name.rstrip(":").strip()
+        return var_name.rstrip(":").strip().lower()
 
     @staticmethod
     def export_variable_differences_csv(
@@ -1144,6 +739,7 @@ class SolverHelper:
         tolerance=1e-5,
         normalize_names=True,
         keep_identical=True,
+        exclude_patterns=None,
     ):
         """
         Compare two LP problems, export differences to CSV files, and generate an overall summary report
@@ -1163,16 +759,40 @@ class SolverHelper:
         :param tolerance: float. Tolerance for numerical comparisons
         :param normalize_names: bool. Whether to normalize variable/constraint names (remove trailing colons, etc.)
         :param keep_identical: bool. Whether to keep rows with "Identical" status in the CSV output files
+        :param exclude_patterns: list of str or None. Regex patterns to exclude from analysis (e.g., ['energy_limit_day', 'temp_.*'])
         :return: dict with detailed statistics
         """
-        from pathlib import Path
 
         output_dir = Path(output_dir)
 
+        # Helper function to check if a name matches any exclude pattern
+        def should_exclude(name):
+            if exclude_patterns is None:
+                return False
+            for pattern in exclude_patterns:
+                if re.search(pattern, name):
+                    return True
+            return False
+
+        # Filter pb1 and pb2 based on exclude_patterns before exporting
+        pb1_filtered = {
+            "objectives": {k: v for k, v in pb1["objectives"].items() if not should_exclude(k)},
+            "variables": {k: v for k, v in pb1["variables"].items() if not should_exclude(k)},
+            "constraints": {k: v for k, v in pb1["constraints"].items() if not should_exclude(k)},
+            "binaries": pb1.get("binaries", []),
+        }
+
+        pb2_filtered = {
+            "objectives": {k: v for k, v in pb2["objectives"].items() if not should_exclude(k)},
+            "variables": {k: v for k, v in pb2["variables"].items() if not should_exclude(k)},
+            "constraints": {k: v for k, v in pb2["constraints"].items() if not should_exclude(k)},
+            "binaries": pb2.get("binaries", []),
+        }
+
         # Export differences to CSV files
         SolverHelper.export_objective_differences_csv(
-            pb1,
-            pb2,
+            pb1_filtered,
+            pb2_filtered,
             output_dir / "objective_differences.csv",
             pb1_name,
             pb2_name,
@@ -1181,8 +801,8 @@ class SolverHelper:
             keep_identical,
         )
         SolverHelper.export_variable_differences_csv(
-            pb1,
-            pb2,
+            pb1_filtered,
+            pb2_filtered,
             output_dir / "variable_differences.csv",
             pb1_name,
             pb2_name,
@@ -1191,8 +811,8 @@ class SolverHelper:
             keep_identical,
         )
         SolverHelper.export_constraint_differences_csv(
-            pb1,
-            pb2,
+            pb1_filtered,
+            pb2_filtered,
             output_dir / "constraint_differences.csv",
             pb1_name,
             pb2_name,
@@ -1202,8 +822,8 @@ class SolverHelper:
         )
         # Export detailed constraint coefficient information
         SolverHelper.export_constraint_details_csv(
-            pb1,
-            pb2,
+            pb1_filtered,
+            pb2_filtered,
             output_dir / "constraint_details.csv",
             pb1_name,
             pb2_name,
@@ -1212,33 +832,35 @@ class SolverHelper:
             keep_identical,
         )
 
-        # Normalize names for analysis
+        # Normalize names for analysis (use filtered data)
         if normalize_names:
-            obj1 = {SolverHelper.normalize_variable_name(k): v for k, v in pb1["objectives"].items()}
-            obj2 = {SolverHelper.normalize_variable_name(k): v for k, v in pb2["objectives"].items()}
+            obj1 = {SolverHelper.normalize_variable_name(k): v for k, v in pb1_filtered["objectives"].items()}
+            obj2 = {SolverHelper.normalize_variable_name(k): v for k, v in pb2_filtered["objectives"].items()}
 
-            vars1 = {SolverHelper.normalize_variable_name(k): v for k, v in pb1["variables"].items()}
-            vars2 = {SolverHelper.normalize_variable_name(k): v for k, v in pb2["variables"].items()}
+            vars1 = {SolverHelper.normalize_variable_name(k): v for k, v in pb1_filtered["variables"].items()}
+            vars2 = {SolverHelper.normalize_variable_name(k): v for k, v in pb2_filtered["variables"].items()}
 
             # Filter constraints with variables
             constraints1 = {}
             constraints2 = {}
-            for k, v in pb1["constraints"].items():
+            for k, v in pb1_filtered["constraints"].items():
                 if isinstance(v, dict) and (len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys())):
                     constraints1[SolverHelper.normalize_variable_name(k)] = v
                 elif isinstance(v, list | tuple) and len(v) > 2:
                     constraints1[SolverHelper.normalize_variable_name(k)] = v
 
-            for k, v in pb2["constraints"].items():
+            for k, v in pb2_filtered["constraints"].items():
                 if isinstance(v, dict) and (len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys())):
                     constraints2[SolverHelper.normalize_variable_name(k)] = v
                 elif isinstance(v, list | tuple) and len(v) > 2:
                     constraints2[SolverHelper.normalize_variable_name(k)] = v
         else:
-            obj1, obj2 = pb1["objectives"], pb2["objectives"]
-            vars1, vars2 = pb1["variables"], pb2["variables"]
-            constraints1 = {k: v for k, v in pb1["constraints"].items() if len(v) > 2}
-            constraints2 = {k: v for k, v in pb2["constraints"].items() if len(v) > 2}
+            obj1 = pb1_filtered["objectives"]
+            obj2 = pb2_filtered["objectives"]
+            vars1 = pb1_filtered["variables"]
+            vars2 = pb2_filtered["variables"]
+            constraints1 = {k: v for k, v in pb1_filtered["constraints"].items() if len(v) > 2}
+            constraints2 = {k: v for k, v in pb2_filtered["constraints"].items() if len(v) > 2}
 
         # Calculate direct statistics
         def calculate_direct_stats(dict1, dict2, item_type):
@@ -1261,13 +883,58 @@ class SolverHelper:
                 elif item_type == "variables":
                     lb1, ub1 = dict1[item]
                     lb2, ub2 = dict2[item]
-                    if abs(lb1 - lb2) <= tolerance and abs(ub1 - ub2) <= tolerance:
+                    # lb1 == lb2 and ub1 == ub2 resolve case of -inf/inf lower/upper bound
+                    if (lb1 == lb2 or abs(lb1 - lb2) <= tolerance) and (ub1 == ub2 or abs(ub1 - ub2) <= tolerance):
                         identical += 1
                     else:
                         modified += 1
                 else:  # constraints
-                    # Simplified constraint comparison - in practice you'd want more detailed logic
-                    identical += 1  # This would need proper implementation
+                    # Compare constraint bounds and coefficients
+                    c1 = dict1[item]
+                    c2 = dict2[item]
+
+                    # Get bounds
+                    if isinstance(c1, dict):
+                        lb1, ub1 = c1.get("LB"), c1.get("UB")
+                        vars1_dict = {k: v for k, v in c1.items() if k not in ["LB", "UB"]}
+                    elif isinstance(c1, list | tuple) and len(c1) >= 2:
+                        lb1, ub1 = c1[0], c1[1]
+                        vars1_dict = {var: coeff for var, coeff in c1[2:] if isinstance(var, str)}
+                    else:
+                        lb1, ub1 = None, None
+                        vars1_dict = {}
+
+                    if isinstance(c2, dict):
+                        lb2, ub2 = c2.get("LB"), c2.get("UB")
+                        vars2_dict = {k: v for k, v in c2.items() if k not in ["LB", "UB"]}
+                    elif isinstance(c2, list | tuple) and len(c2) >= 2:
+                        lb2, ub2 = c2[0], c2[1]
+                        vars2_dict = {var: coeff for var, coeff in c2[2:] if isinstance(var, str)}
+                    else:
+                        lb2, ub2 = None, None
+                        vars2_dict = {}
+
+                    # Check if bounds are different
+                    bounds_different = False
+                    if (abs(lb1 - lb2) > tolerance if lb1 is not None and lb2 is not None else lb1 != lb2) or (
+                        abs(ub1 - ub2) > tolerance if ub1 is not None and ub2 is not None else ub1 != ub2
+                    ):
+                        bounds_different = True
+
+                    # Check if coefficients are different
+                    coeff_different = False
+                    all_vars = set(vars1_dict.keys()) | set(vars2_dict.keys())
+                    for var in all_vars:
+                        coeff1 = vars1_dict.get(var, 0.0)
+                        coeff2 = vars2_dict.get(var, 0.0)
+                        if abs(coeff1 - coeff2) > tolerance:
+                            coeff_different = True
+                            break
+
+                    if bounds_different or coeff_different:
+                        modified += 1
+                    else:
+                        identical += 1
 
             total_legacy = len(dict1)
             return {
@@ -1339,6 +1006,13 @@ class SolverHelper:
             f.write("LP COMPARISON OVERALL SUMMARY REPORT\n")
             f.write("=" * 60 + "\n\n")
 
+            if exclude_patterns:
+                f.write("EXCLUDED PATTERNS:\n")
+                f.write("-" * 30 + "\n")
+                for pattern in exclude_patterns:
+                    f.write(f"  - {pattern}\n")
+                f.write("\n")
+
             for category in ["objectives", "variables", "constraints"]:
                 stats = summary[category]
                 f.write(f"{category.upper()}:\n")
@@ -1354,55 +1028,6 @@ class SolverHelper:
                 f.write("\n")
 
         return summary
-
-    @staticmethod
-    def isfloat(num):
-        """
-        Test if the given number is a float
-
-        :param num: int or float. Number to test
-        :return: True if the number is a float, False else
-        """
-        try:
-            float(num)
-            return True
-        except ValueError:
-            return False
-
-    @staticmethod
-    def export_lp_problem(solver, output_path, lp_name, custom_lp_name, print_lp, custom_lp):
-        """
-        Export a lp problem
-
-        :param solver: ortools.linear_solver.pywraplp.Solver
-        :param output_path: str or Path like. Path where to export the problem
-        :param lp_name: str. Name of the file where the problem is exported
-        :param custom_lp_name: str. Name of the file where the problem with custom export is exported
-        :param print_lp: bool. True if the problem must be export else otherwise
-        :param custom_lp: bool. True if the problem must be export with custom export otherwise False
-        """
-        # Save the problem itself for debug:
-        if print_lp:
-            filename = Path(output_path) / lp_name
-            SolverHelper.export_problem_as_lp(solver, filename)
-            if custom_lp:
-                SolverHelper.custom_export_problem_as_lp(solver, Path(output_path) / custom_lp_name)
-
-    @staticmethod
-    def export_lp_solution(solver, status, output_path, lp_solution_name, print_lp):
-        """
-        Export the lp solution
-
-        :param solver: ortools.linear_solver.pywraplp.Solver
-        :param status: ortools.linear_solver.pywraplp.Solver.Status. Status of the solution
-        :param output_path: str or Path like. Path where to export the solution
-        :param lp_solution_name: str. Name of the file where the solution is exported
-        :param print_lp: bool. True if the solution must be export otherwise False
-        """
-        # Export the solution in a file for debug:
-        if print_lp and status in SolverHelper.SOLVED_STATUS:
-            filename = Path(output_path) / lp_solution_name
-            SolverHelper.export_solution_as_lp(solver, status, filename)
 
     @staticmethod
     def rebuild_lp_with_real_names(lp_file: str, csv_file: str, new_lp_file: str):
