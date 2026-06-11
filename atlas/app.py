@@ -34,7 +34,7 @@ app.add_typer(workflow_app, name="workflow")
 
 @module_app.command("run")
 def run_module_cmd(
-    module_name: str = typer.Argument(help=f"Module name. Valid modules: {', '.join(ModuleRegistry.get_names())}"),
+    module_name: str = typer.Argument(help="Module name. Run atlas module list to list availables modules."),
     parameters: Path = typer.Option(..., "--parameters", "-p", help="Path to the module parameters YAML"),
     dataset_path: Path = typer.Option(..., "--dataset", "-d", help="Path to the Atlas input dataset directory"),
 ) -> None:
@@ -83,7 +83,7 @@ def list_modules() -> None:
     """List all available Atlas modules.
 
     \b
-      atlas run module list
+      atlas module list
     """
     names = ModuleRegistry.get_names()
     table = Table(title=f"Available modules ({len(names)})", show_lines=False)
