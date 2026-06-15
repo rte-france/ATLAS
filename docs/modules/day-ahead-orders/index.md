@@ -2,7 +2,7 @@
 
 ## Overview
 
-Computes all market orders based on equipment in the input dataset, including load, non-dispatchable, storage, hydraulic, wind, solar, and thermal orders.
+Creates all market orders for the Day-Ahead market, for all equipments in the input dataset (including load, non-dispatchable, storage, hydraulic, wind, solar, and thermal orders). The order formulation at the portfolio level is currently not implemented in Atlas.
 
 ## Quick Start
 

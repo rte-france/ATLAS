@@ -11,7 +11,7 @@ For common parameters (`temporal`, `solver`, `output`, `multiprocessing`), see [
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `proportional_reserves_penalty` | `bool` | `True` | When `True`, reserve volume is flexible and penalised proportionally instead of being fixed. |
-| `automated_unprocured_reserves_penalty` | `float` | `10 000` €/MW/h | Penalty for failing to provide the automated reserves procurement. |
+| `automated_unprocured_reserves_penalty` | `float` | `10 000` €/MW/h | Penalty for failing to provide the automated reserves procurement. Should be greater than the manual reserve penalty. |
 | `manual_unprocured_reserves_penalty` | `float` | `100` €/MW/h | Penalty for failing to provide the manual reserves procurement. |
 
 ## Storage Equipment
@@ -20,23 +20,22 @@ For common parameters (`temporal`, `solver`, `output`, `multiprocessing`), see [
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `battery_nb_fragments` | `int` | `3` | Number of orders formulated per timestep for Battery instances. |
-| `battery_smoothing_factor` | `float` | `0.1` | Extra cost coefficient per power fragment for Battery instances. |
+| `battery_nb_fragments` | `int` | `3` | In the optimization problem, the total upward capacity (i.e. what can be sold) is divided into fragments to avoid an all-or-nothing effect of the price forecast. Each fragment considered a lower price forecast compared to the precedent. |
+| `battery_smoothing_factor` | `float` | `0.1` | Extra coefficient applied to the price forecast. Each fragment i considers `price_forecast_medium` * (1 - (i*`battery_smoothing_factor`)/(`battery_nb_fragments` - 1)) as its price forecast reference. |
 
 ### Pumped Hydraulic Storage
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `phs_nb_fragments` | `int` | `3` | Number of orders formulated per timestep for PumpedHydraulicStorage instances. |
-| `phs_smoothing_factor` | `float` | `0.2` | Extra cost coefficient per power fragment for PumpedHydraulicStorage instances. |
-| `hydraulic_minimal_fragment_size` | `int` | `100` MW | Offers below this threshold are removed and remaining fragments renormalized. |
+| `phs_nb_fragments` | `int` | `3` | See similar parameter for batteries. |
+| `phs_smoothing_factor` | `float` | `0.2` | See similar parameter for batteries. |
 
 ### Electric Vehicle
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `ev_nb_fragments` | `int` | `3` | Number of orders formulated per timestep for ElectricVehicle instances. |
-| `ev_smoothing_factor` | `float` | `0.1` | Extra cost coefficient per power fragment for ElectricVehicle instances. |
+| `ev_nb_fragments` | `int` | `3` | See similar parameter for batteries. |
+| `ev_smoothing_factor` | `float` | `0.1` | See similar parameter for batteries. |
 | `ev_energy_coef` | `float` | `1.5` | Multiplier on `DisplacementEnergy` delta to generate enough Buy offers over the full EV horizon. |
 
 ## Other Equipment
@@ -45,8 +44,9 @@ For common parameters (`temporal`, `solver`, `output`, `multiprocessing`), see [
 |---|---|---|---|
 | `load_price` | `float` | `3 000` €/MWh | Price applied to all load orders. `3 000` is the standard DayAhead upper price cap. |
 | `epsilon` | `float` | `0.001` | Slack parameter to avoid infeasibilities from numerical approximations in thermal constraints. |
-| `price_forecasts_types` | `list[str]` | `["Medium"]` | Available price forecast scenarios in the input data. `"Medium"` must always be present. |
-| `thermal_additional_hours` | `Duration` | `12h` | Extra optimisation horizon appended after `end_date` for thermal units. |
+| `price_forecasts_types` | `list[str]` | `["Medium"]` | Available price forecast scenarios in the input data. `"Medium"` must always be present. If present, `"Low"` and `"High"` are used in the Thermal optimization problem for Intermediate strategy.`"Medium"` is always used for the price forecast estimation of Storage units. |
+| `thermal_additional_hours` | `Duration` | `12h` | Extra optimisation horizon appended after `end_date` for thermal units, for economical relevance of orders formulated. Regardless of this extra horizon, technical constraints are always checked on extended time frames. |
+| `hydraulic_minimal_fragment_size` | `int` | `100` MW | For hydro units, the range [`MinimumPower`; `MaximumPower`] is divided into a fixed number of fragments. Depending on the capacity of the unit, this can lead to small fragments which are not deemed relevant. This parameter imposes an minimum size on said fragments (MW). |
 
 ---
 
