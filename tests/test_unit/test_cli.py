@@ -26,56 +26,52 @@ class TestVersionCommand:
 
 
 class TestRunCommandModuleMode:
-    """Tests for the 'atlas run' command in module mode."""
+    """Tests for the 'atlas run module run' subcommand."""
 
-    def test_run_module_missing_module_flag(self, tmp_path):
-        """Test that run fails when --module is missing in module mode."""
+    def test_run_module_missing_dataset_flag(self, tmp_path):
+        """Test that run module run fails when --dataset is missing."""
         params_file = tmp_path / "params.yaml"
         params_file.write_text("temporal:\n  start_date: '2028-09-27 00:00:00'")
+
+        result = runner.invoke(app, ["module", "run", "PortfolioOptimisation", "--parameters", str(params_file)])
+        assert result.exit_code != 0
+
+    def test_run_module_missing_parameters_flag(self, tmp_path):
+        """Test that run module run fails when --parameters is missing."""
         dataset_dir = tmp_path / "dataset"
         dataset_dir.mkdir()
 
-        result = runner.invoke(app, ["run", str(params_file), "--dataset", str(dataset_dir)])
-        assert result.exit_code == 1
-        assert "--module is required" in result.stdout
-
-    def test_run_module_missing_dataset_flag(self, tmp_path):
-        """Test that run fails when --dataset is missing in module mode."""
-        params_file = tmp_path / "params.yaml"
-        params_file.write_text("temporal:\n  start_date: '2028-09-27 00:00:00'")
-
-        result = runner.invoke(app, ["run", str(params_file), "--module", "PortfolioOptimisation"])
-        assert result.exit_code == 1
-        assert "--dataset is required" in result.stdout
+        result = runner.invoke(app, ["module", "run", "PortfolioOptimisation", "--dataset", str(dataset_dir)])
+        assert result.exit_code != 0
 
     def test_run_module_nonexistent_dataset(self, tmp_path):
-        """Test that run fails when dataset directory doesn't exist."""
+        """Test that run module run fails when dataset directory doesn't exist."""
         params_file = tmp_path / "params.yaml"
         params_file.write_text("temporal:\n  start_date: '2028-09-27 00:00:00'")
         nonexistent_dir = tmp_path / "nonexistent"
 
         result = runner.invoke(
             app,
-            ["run", str(params_file), "--module", "PortfolioOptimisation", "--dataset", str(nonexistent_dir)],
+            ["module", "run", "PortfolioOptimisation", "-p", str(params_file), "-d", str(nonexistent_dir)],
         )
         assert result.exit_code == 1
         assert "Dataset directory not found" in result.stdout
 
     def test_run_module_nonexistent_parameters(self, tmp_path):
-        """Test that run fails when parameters file doesn't exist."""
+        """Test that run module run fails when parameters file doesn't exist."""
         dataset_dir = tmp_path / "dataset"
         dataset_dir.mkdir()
         nonexistent_params = tmp_path / "nonexistent.yaml"
 
         result = runner.invoke(
             app,
-            ["run", str(nonexistent_params), "--module", "PortfolioOptimisation", "--dataset", str(dataset_dir)],
+            ["module", "run", "PortfolioOptimisation", "-p", str(nonexistent_params), "-d", str(dataset_dir)],
         )
         assert result.exit_code == 1
         assert "Parameters file not found" in result.stdout
 
     def test_run_module_invalid_module_name(self, tmp_path):
-        """Test that run fails with an invalid module name."""
+        """Test that run module run fails with an invalid module name."""
         params_file = tmp_path / "params.yaml"
         params_file.write_text("temporal:\n  start_date: '2028-09-27 00:00:00'")
         dataset_dir = tmp_path / "dataset"
@@ -83,7 +79,7 @@ class TestRunCommandModuleMode:
 
         result = runner.invoke(
             app,
-            ["run", str(params_file), "--module", "InvalidModule", "--dataset", str(dataset_dir)],
+            ["module", "run", "InvalidModule", "-p", str(params_file), "-d", str(dataset_dir)],
         )
         assert result.exit_code == 1
         assert "Unknown module" in result.stdout
@@ -92,28 +88,22 @@ class TestRunCommandModuleMode:
     @patch("atlas.app.AtlasDataset")
     @patch("atlas.app.ModuleRegistry")
     def test_run_module_with_valid_inputs(self, mock_registry, mock_atlas_dataset, mock_module_run, tmp_path):
-        """Test that run succeeds with valid inputs (mocked execution)."""
-        # Setup mock module
+        """Test that run module run succeeds with valid inputs (mocked execution)."""
         mock_module_class = MagicMock()
         mock_module_instance = MagicMock()
         mock_module_class.return_value = mock_module_instance
         mock_registry.get.return_value = mock_module_class
 
-        # Setup mock parameters
         mock_params_class = MagicMock()
         mock_params_instance = MagicMock()
         mock_params_instance.output.export_output_dataset = False
         mock_params_class.from_file.return_value = mock_params_instance
         mock_module_instance.get_parameters_class.return_value = mock_params_class
 
-        # Setup mock ModuleRun
         mock_run_instance = MagicMock()
         mock_module_run.return_value = mock_run_instance
-
-        # Setup mock dataset loading
         mock_atlas_dataset.from_directory.return_value = MagicMock()
 
-        # Create test files
         params_file = tmp_path / "params.yaml"
         params_file.write_text("temporal:\n  start_date: '2028-09-27 00:00:00'")
         dataset_dir = tmp_path / "dataset"
@@ -121,7 +111,7 @@ class TestRunCommandModuleMode:
 
         result = runner.invoke(
             app,
-            ["run", str(params_file), "--module", "PortfolioOptimisation", "--dataset", str(dataset_dir)],
+            ["module", "run", "PortfolioOptimisation", "-p", str(params_file), "-d", str(dataset_dir)],
         )
 
         assert result.exit_code == 0
@@ -131,25 +121,40 @@ class TestRunCommandModuleMode:
         mock_run_instance.run.assert_called_once()
 
 
+class TestRunModuleListCommand:
+    """Tests for the 'atlas run module list' subcommand."""
+
+    def test_module_list_succeeds(self):
+        """Test that module list exits successfully."""
+        result = runner.invoke(app, ["module", "list"])
+        assert result.exit_code == 0
+
+    def test_module_list_shows_known_modules(self):
+        """Test that module list displays registered module names."""
+        result = runner.invoke(app, ["module", "list"])
+        assert result.exit_code == 0
+        assert "PortfolioOptimisation" in result.stdout
+        assert "MarketClearing" in result.stdout
+        assert "DayAheadOrders" in result.stdout
+
+
 class TestRunCommandWorkflowMode:
-    """Tests for the 'atlas run' command in workflow mode."""
+    """Tests for the 'atlas run workflow run' subcommand."""
 
     def test_run_workflow_nonexistent_config(self, tmp_path):
-        """Test that run fails when workflow config doesn't exist."""
+        """Test that run workflow run fails when config doesn't exist."""
         nonexistent_config = tmp_path / "nonexistent_workflow.yaml"
 
-        result = runner.invoke(app, ["run", str(nonexistent_config), "--workflow"])
+        result = runner.invoke(app, ["workflow", "run", str(nonexistent_config)])
         assert result.exit_code == 1
         assert "Workflow configuration file not found" in result.stdout
 
     @patch("atlas.app.Workflow")
     def test_run_workflow_with_valid_config(self, mock_workflow, tmp_path):
-        """Test that run succeeds with valid workflow config (mocked execution)."""
-        # Setup mock workflow
+        """Test that run workflow run succeeds with valid config (mocked execution)."""
         mock_workflow_instance = MagicMock()
         mock_workflow.from_file.return_value = mock_workflow_instance
 
-        # Create test workflow config
         workflow_config = tmp_path / "workflow.yaml"
         workflow_config.write_text(
             """
@@ -160,12 +165,46 @@ class TestRunCommandWorkflowMode:
             """
         )
 
-        result = runner.invoke(app, ["run", str(workflow_config), "--workflow"])
+        result = runner.invoke(app, ["workflow", "run", str(workflow_config)])
 
         assert result.exit_code == 0
-        # Check that the workflow was executed (logs are printed, not in stdout)
         mock_workflow.from_file.assert_called_once()
         mock_workflow_instance.execute.assert_called_once()
+
+
+class TestRunWorkflowListCommand:
+    """Tests for the 'atlas run workflow list' subcommand."""
+
+    def test_workflow_list_nonexistent_config(self, tmp_path):
+        """Test that workflow list fails when config doesn't exist."""
+        nonexistent_config = tmp_path / "nonexistent.yaml"
+        result = runner.invoke(app, ["workflow", "list", str(nonexistent_config)])
+        assert result.exit_code == 1
+        assert "Workflow configuration file not found" in result.stdout
+
+    def test_workflow_list_invalid_yaml(self, tmp_path):
+        """Test that workflow list fails gracefully on invalid YAML."""
+        bad_file = tmp_path / "bad.yaml"
+        bad_file.write_text("not: valid: yaml: [")
+        result = runner.invoke(app, ["workflow", "list", str(bad_file)])
+        assert result.exit_code == 1
+
+    def test_workflow_list_shows_steps(self, tmp_path):
+        """Test that workflow list displays steps from a valid workflow file."""
+        workflow_config = tmp_path / "workflow.yaml"
+        workflow_config.write_text(
+            "dataset_path: ./dataset\n"
+            "steps:\n"
+            "  - module: PortfolioOptimisation\n"
+            "    parameters_path: params.yaml\n"
+            "  - module: MarketClearing\n"
+            "    parameters_path: mc_params.yaml\n"
+        )
+        result = runner.invoke(app, ["workflow", "list", str(workflow_config)])
+        assert result.exit_code == 0
+        assert "PortfolioOptimisation" in result.stdout
+        assert "MarketClearing" in result.stdout
+        assert "params.yaml" in result.stdout
 
 
 class TestPrometheusToAtlasCommand:
@@ -685,15 +724,23 @@ class TestCLIHelp:
         """Test that main help command works."""
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        assert "run" in result.stdout
-        assert "version" in result.stdout
-
-    def test_run_command_help(self):
-        """Test that run command help works."""
-        result = runner.invoke(app, ["run", "--help"])
-        assert result.exit_code == 0
         assert "module" in result.stdout
         assert "workflow" in result.stdout
+        assert "version" in result.stdout
+
+    def test_run_module_help_shows_subcommands(self):
+        """Test that run module help lists run and list subcommands."""
+        result = runner.invoke(app, ["module", "--help"])
+        assert result.exit_code == 0
+        assert "run" in result.stdout
+        assert "list" in result.stdout
+
+    def test_run_workflow_help_shows_subcommands(self):
+        """Test that run workflow help lists run and list subcommands."""
+        result = runner.invoke(app, ["workflow", "--help"])
+        assert result.exit_code == 0
+        assert "run" in result.stdout
+        assert "list" in result.stdout
 
     def test_prometheus_to_atlas_command_help(self):
         """Test that prometheus-to-atlas run subcommand help works."""

@@ -797,6 +797,15 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         """Subtract all numeric columns by a scalar or timeseries."""
         ...
 
+    def __neg__(self) -> Self:
+        """
+        Negate all numeric values in the Timeseries.
+
+        :return: The Timeseries where all numeric values are negated
+        :rtype: Self
+        """
+        return self * -1
+
     @abstractmethod
     def __truediv__(self, other: Any) -> Self:
         """Divide all numeric columns by a scalar or timeseries."""
