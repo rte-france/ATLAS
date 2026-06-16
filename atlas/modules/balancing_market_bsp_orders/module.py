@@ -64,16 +64,16 @@ class BSPBalancingOrdersModule(
         """
         output_dataset = BSPBalancingOrdersOutputDataset()
 
-        for equipment in input_dataset.load_equipments.values():
-            orders, _ = LoadOrderFormulator(equipment, input_dataset.time_index, parameters).formulate()
+        for load in input_dataset.load_equipments.values():
+            orders, _ = LoadOrderFormulator(load, input_dataset.time_index, parameters).formulate()
             output_dataset.orders.extend(orders)
 
-        for equipment in input_dataset.wind_equipments.values():
-            orders, _ = WindPvOrderFormulator(equipment, input_dataset.time_index, parameters).formulate()
+        for wind in input_dataset.wind_equipments.values():
+            orders, _ = WindPvOrderFormulator(wind, input_dataset.time_index, parameters).formulate()
             output_dataset.orders.extend(orders)
 
-        for equipment in input_dataset.solar_equipments.values():
-            orders, _ = WindPvOrderFormulator(equipment, input_dataset.time_index, parameters).formulate()
+        for solar in input_dataset.solar_equipments.values():
+            orders, _ = WindPvOrderFormulator(solar, input_dataset.time_index, parameters).formulate()
             output_dataset.orders.extend(orders)
 
         return output_dataset
