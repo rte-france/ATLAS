@@ -31,7 +31,7 @@ def _make_mr(module=None, cis=None, params=None):
     """Build a ModuleRun bypassing __init__, with a pre-resolved module and CIS."""
     mr = ModuleRun.__new__(ModuleRun)
     mr.module = module if module is not None else _make_module()
-    mr.dataset = cis if cis is not None else MagicMock()
+    mr.cis = cis if cis is not None else MagicMock()
     mr.parameters = params if params is not None else {}
     return mr
 
@@ -97,7 +97,7 @@ class TestModuleRunResolve:
         with patch("atlas.modules.module_run.CurrentInputState", return_value=cis_instance) as mock_cis_cls:
             mr = ModuleRun(_make_module(), dataset, {})
         mock_cis_cls.assert_called_once_with(dataset)
-        assert mr.dataset is cis_instance
+        assert mr.cis is cis_instance
 
 
 class TestModuleRunRun:

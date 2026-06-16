@@ -24,7 +24,7 @@ class ModuleRun:
         parameters: AbstractModuleParameters | dict[str, Any] | str | Path,
     ):
         self.module = self._resolve_module(module)
-        self.dataset = self._resolve_dataset(dataset)
+        self.cis = self._resolve_dataset(dataset)
         self.parameters = parameters
 
     @staticmethod
@@ -42,7 +42,7 @@ class ModuleRun:
         return CurrentInputState(dataset)
 
     def run(self) -> AtlasDataset:
-        cis = self.dataset
+        cis = self.cis
         output_dataset = self.module.run(cis.get_data(), self.parameters)
         CISHandler.apply(output_dataset.change_sets, cis)
         return cis.get_data(copy=False)
