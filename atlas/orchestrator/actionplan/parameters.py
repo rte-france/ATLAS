@@ -179,7 +179,7 @@ class Task(BaseModel):
         timedelta = self.until - self.from_
         diff_seconds = timedelta.total_seconds() % (self.frequency.total_seconds())
         if diff_seconds != 0:
-            last_execution_date = self.until + Duration(seconds=diff_seconds)
+            last_execution_date = self.until - Duration(seconds=diff_seconds)
             warnings.warn(
                 f"Task {self.name} last execution date is not equal to 'until' {self.until}', last value is {last_execution_date}",
                 DataQualityWarning,
