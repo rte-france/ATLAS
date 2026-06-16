@@ -12,8 +12,9 @@ import pytest
 from pendulum import Duration
 from pydantic_extra_types.pendulum_dt import DateTime
 
+from atlas.custom_errors import DataQualityWarning
 from atlas.orchestrator.workflow.workflow import Workflow
-from atlas.orchestrator.actionplan.parameters import Task, DataQualityWarning
+from atlas.orchestrator.actionplan.parameters import Task
 from atlas.orchestrator.module_registry import ModuleRegistry
 from tests.test_unit.test_orchestrator.orchestrator_factory import OrchestratorConfigBuilder
 

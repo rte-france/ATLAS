@@ -17,17 +17,11 @@ from pydantic import BaseModel, ConfigDict, field_validator, model_validator, Al
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
+from atlas.custom_errors import DataQualityWarning
 from atlas.orchestrator.hook.hook import Hook
 from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.orchestrator.workflow.workflow import Workflow
 from atlas.validators import convert_to_duration
-
-
-# FIXME Move this class to an other file
-class DataQualityWarning(UserWarning):
-    """Warning for potential input data quality issues."""
-
-    pass
 
 
 class ActionPlanParameters(AbstractOrchestratorParameters):
