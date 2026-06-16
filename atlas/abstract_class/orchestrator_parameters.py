@@ -34,7 +34,6 @@ class AbstractOrchestratorParameters(Parameters):
 
     name: str | None = None
     dataset_path: Path
-    parameters_path: Path | None = None  # FIXME unused?
     path_from_workflow: bool = Field(
         default=True,
         validation_alias=AliasChoices("path_from_workflow", "path_from_orchestrator", "path_from_action_plan"),
