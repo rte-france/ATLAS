@@ -10,6 +10,7 @@ from atlas.abstract_class.module import AbstractModule
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.balancing_market_bsp_orders.input_dataset import BSPBalancingOrdersInputDataset
 from atlas.modules.balancing_market_bsp_orders.order_formulators.load import LoadOrderFormulator
+from atlas.modules.balancing_market_bsp_orders.order_formulators.wind_solar import WindPvOrderFormulator
 from atlas.modules.balancing_market_bsp_orders.output_dataset import BSPBalancingOrdersOutputDataset
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
 
@@ -65,6 +66,14 @@ class BSPBalancingOrdersModule(
 
         for equipment in input_dataset.load_equipments.values():
             orders, _ = LoadOrderFormulator(equipment, input_dataset.time_index, parameters).formulate()
+            output_dataset.orders.extend(orders)
+
+        for equipment in input_dataset.wind_equipments.values():
+            orders, _ = WindPvOrderFormulator(equipment, input_dataset.time_index, parameters).formulate()
+            output_dataset.orders.extend(orders)
+
+        for equipment in input_dataset.solar_equipments.values():
+            orders, _ = WindPvOrderFormulator(equipment, input_dataset.time_index, parameters).formulate()
             output_dataset.orders.extend(orders)
 
         return output_dataset
