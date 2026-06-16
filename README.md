@@ -101,7 +101,7 @@ load_price: 3000
 ### 3. Run a module
 
 ```bash
-atlas module list # See available modules 
+atlas module list # See available modules
 
 atlas module run DayAheadOrders -p parameters.yaml -d ./data/input/
 ```
@@ -109,13 +109,11 @@ atlas module run DayAheadOrders -p parameters.yaml -d ./data/input/
 Or from Python:
 
 ```python
-from atlas import AtlasDataset, ModuleRun, DayAheadOrdersModule
-
-dataset = AtlasDataset.from_directory("./data/input/")
+from atlas import AtlasDataset, ModuleRun
 
 result = ModuleRun(
-    module=DayAheadOrdersModule(),
-    dataset=dataset,
+    module="DayAheadOrders",
+    dataset="./data/input/",
     parameters="parameters.yaml",
 ).run()
 ```
