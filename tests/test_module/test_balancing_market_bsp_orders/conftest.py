@@ -35,12 +35,17 @@ PARAMETERS_DICT = {
 }
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def parameters() -> BSPBalancingOrdersParameters:
     return BSPBalancingOrdersParameters.model_validate(PARAMETERS_DICT)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
+def parameters_self_balancing() -> BSPBalancingOrdersParameters:
+    return BSPBalancingOrdersParameters.model_validate({**PARAMETERS_DICT, "res_self_balancing": True})
+
+
+@pytest.fixture(scope="function")
 def time_index(parameters) -> list:
     return generate_datetimes(
         parameters.temporal.start_date,

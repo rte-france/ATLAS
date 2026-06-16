@@ -53,7 +53,7 @@ class WindPvOrderFormulator(AbstractOrderFormulator):
         upward_available = max_power - forecasted_power - upward_procured
 
         # Minimum power = maximum_power_forecast * (1 - maximum_curtailment_ratio)
-        min_power = max_power * (1 - self.equipment.maximum_curtailment_ratio)
+        min_power = max_power - max_power * self.equipment.maximum_curtailment_ratio
         downward_available = forecasted_power - min_power - downward_procured
 
         orders: list[Order] = []
@@ -74,9 +74,9 @@ class WindPvOrderFormulator(AbstractOrderFormulator):
                     price=self.equipment.variable_cost.get_value(time),
                     qmin=0.0,
                     qmax=qmax_up,
+                    suffix="_selfbal",
                 )
                 if order is not None:
-                    order.name += "_selfbal"
                     orders.append(order)
 
             # --- Downward orders
@@ -94,9 +94,9 @@ class WindPvOrderFormulator(AbstractOrderFormulator):
                     price=float(self.parameters.market_price_cap),
                     qmin=0.0,
                     qmax=self_balancing_qmax,
+                    suffix="_selfbal",
                 )
                 if order is not None:
-                    order.name += "_selfbal"
                     orders.append(order)
             else:
                 self_balancing_qmax = 0.0
