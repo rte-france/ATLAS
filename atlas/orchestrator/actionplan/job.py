@@ -110,12 +110,6 @@ class ModuleTaskIterator(TaskIterator):
         parameters.temporal.execution_date = self.next_execution_date
         return parameters
 
-    def __lt__(self, other):
-        return super().__lt__(other)
-
-    def __eq__(self, other):
-        return super().__eq__(other)
-
 
 class WorkflowTaskIterator(TaskIterator):
     def __init__(self, task: Task, parameters: WorkflowParameters, root_output_dir: Path):
@@ -146,9 +140,3 @@ class WorkflowTaskIterator(TaskIterator):
     def build_jobs(self) -> list[AbstractJob]:
         workflow = Workflow(self._build_current_parameters())
         return list(workflow.jobs)
-
-    def __lt__(self, other):
-        return super().__lt__(other)
-
-    def __eq__(self, other):
-        return super().__eq__(other)
