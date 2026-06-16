@@ -10,7 +10,6 @@ from rich.table import Table
 import atlas
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.config import logger
-from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
 from atlas.modules.antares_to_atlas.antares_to_atlas import AntaresToAtlas
 from atlas.modules.module_run import ModuleRun
@@ -63,10 +62,8 @@ def run_module_cmd(
 
     try:
         with timer() as t:
-            dataset = AtlasDataset.from_directory(dataset_path)
-            module = module_class()
-            params = cast(AbstractModuleParameters, module.get_parameters_class()).from_file(parameters_path)
-            result = ModuleRun(module, dataset, params).run()
+            params = cast(AbstractModuleParameters, module_class().get_parameters_class()).from_file(parameters_path)
+            result = ModuleRun(module_class, dataset_path, params).run()
 
             if params.output.export_output_dataset:
                 CurrentInputState(result).to_directory(params.get_output_dataset_dir())
