@@ -15,7 +15,7 @@ from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrd
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
-# TODO : placeholder price until fragment-based pricing (water_value + fragment_prices) is implemented
+# TODO : placeholder price until fragment-based pricing (water_value) is implemented
 PLACEHOLDER_PRICE = 0.0
 
 
@@ -32,7 +32,7 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
     The maximum_gradient constraint, when set, limits the available power based on
     the forecasted power evolution between the studied timestep and its neighbors.
 
-    # TODO : fragment-based pricing (water_value + fragment_prices/fragment_volumes) not yet implemented
+    # TODO : fragment-based pricing (water_value) not yet implemented
     # TODO : PHS transition duration constraint not yet implemented
     """
 
@@ -96,7 +96,7 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
                     qmax=qmax_up,
                 )
                 if order is not None:
-                    orders.append(order)
+                    orders.extend(self._build_upward_fragment_orders(time, next_time, qmax_up))
 
             # TODO: Constraint not present in prometheus
             if qmax_down >= 1.0:
@@ -109,7 +109,7 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
                     qmax=qmax_down,
                 )
                 if order is not None:
-                    orders.append(order)
+                    orders.extend(self._build_downward_fragment_orders(time, next_time, qmax_down))
 
         return orders, []
 
@@ -249,3 +249,133 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
 
         daily_power = self.equipment.power.get_forecast(execution_date, current_day_start, current_day_end)
         return daily_power.sum() * (timestep.total_seconds() / 3600)
+
+    def _build_upward_fragment_orders(
+        self,
+        time: DateTime,
+        next_time: DateTime,
+        order_qmax: float,
+    ) -> list[Order]:
+        """
+        Build upward Sell orders split into price/volume fragments.
+
+        :param time: Order start datetime
+        :type time: DateTime
+        :param next_time: Order end datetime
+        :type next_time: DateTime
+        :param order_qmax: Total upward available power, after all constraints
+        :type order_qmax: float
+        :return: List of formulated Sell orders, one per relevant fragment
+        :rtype: list[Order]
+        """
+        max_power_value = self.equipment.maximum_power.get_value(time)
+
+        hydro_volumes = []
+        hydro_sum = 0.0
+        for local_volume in self.equipment.fragment_volumes:
+            hydro_volumes.append(local_volume * max_power_value + hydro_sum)
+            hydro_sum += local_volume * max_power_value
+
+        local_power = self.equipment.power.get_forecast(self.parameters.temporal.execution_date, time, next_time)
+        max_power_output = local_power.max() if len(local_power) > 0 else 0.0
+
+        fragment_qmax: dict[int, float] = {}
+        qmax_sum = 0.0
+        for fragment_index, local_volume in enumerate(hydro_volumes):
+            if local_volume < max_power_output:
+                continue
+
+            fragment_qmax[fragment_index] = local_volume - (max_power_output + qmax_sum)
+            qmax_sum += fragment_qmax[fragment_index]
+
+            if qmax_sum > round(order_qmax):
+                fragment_qmax[fragment_index] -= qmax_sum - round(order_qmax)
+                break
+
+        # TODO : water_value is currently a placeholder until extract_mean_from_scenario is implemented
+        water_value = PLACEHOLDER_PRICE
+
+        orders: list[Order] = []
+        for fragment_index, fragment_qmax_value in fragment_qmax.items():
+            order = self.build_order(
+                order_type=OrderType.Sell,
+                start=time,
+                end=next_time,
+                price=water_value + self.equipment.fragment_prices[fragment_index],
+                qmin=0.0,
+                qmax=fragment_qmax_value,
+                suffix=f"_frag_{fragment_index}",
+            )
+            if order is not None:
+                orders.append(order)
+
+        return orders
+
+    def _build_downward_fragment_orders(
+        self,
+        time: DateTime,
+        next_time: DateTime,
+        order_qmax: float,
+    ) -> list[Order]:
+        """
+        Build downward Buy orders split into price/volume fragments.
+
+        :param time: Order start datetime
+        :type time: DateTime
+        :param next_time: Order end datetime
+        :type next_time: DateTime
+        :param order_qmax: Total downward available power, after all constraints
+        :type order_qmax: float
+        :return: List of formulated Buy orders, one per relevant fragment
+        :rtype: list[Order]
+        """
+        max_power_value = self.equipment.maximum_power.get_value(time)
+
+        down_fragment_prices = list(self.equipment.fragment_prices)
+        down_fragment_prices.append(down_fragment_prices[-1])
+
+        down_fragment_volumes = list(self.equipment.fragment_volumes)
+        down_fragment_volumes.insert(0, 0.0)
+
+        hydro_volumes = []
+        hydro_sum = 0.0
+        for local_volume in down_fragment_volumes:
+            hydro_volumes.append(local_volume * max_power_value + hydro_sum)
+            hydro_sum += local_volume * max_power_value
+
+        local_power = self.equipment.power.get_forecast(self.parameters.temporal.execution_date, time, next_time)
+        min_power_output = local_power.min() if len(local_power) > 0 else 0.0
+
+        fragment_qmax: dict[int, float] = {}
+        qmax_sum = 0.0
+        for reversed_index, local_volume in enumerate(reversed(hydro_volumes)):
+            # TODO: will there be issue with '- reversed_index' ?
+            fragment_index = len(self.equipment.fragment_volumes) - reversed_index
+            if local_volume > min_power_output:
+                continue
+
+            fragment_qmax[fragment_index] = min_power_output - local_volume - qmax_sum
+            qmax_sum += fragment_qmax[fragment_index]
+
+            if qmax_sum > round(order_qmax):
+                fragment_qmax[fragment_index] -= qmax_sum - round(order_qmax)
+                break
+
+        # TODO : water_value is currently a placeholder until extract_mean_from_scenario is implemented
+        water_value = PLACEHOLDER_PRICE
+
+        orders: list[Order] = []
+        for fragment_index, fragment_qmax_value in fragment_qmax.items():
+            order = self.build_order(
+                order_type=OrderType.Buy,
+                start=time,
+                end=next_time,
+                price=water_value + down_fragment_prices[fragment_index],
+                qmin=0.0,
+                qmax=fragment_qmax_value,
+                suffix=f"_frag_{fragment_index}",
+            )
+            if order is not None:
+                orders.append(order)
+
+        return orders
