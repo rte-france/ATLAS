@@ -33,7 +33,6 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
     the forecasted power evolution between the studied timestep and its neighbors.
 
     # TODO : fragment-based pricing (water_value + fragment_prices/fragment_volumes) not yet implemented
-    # TODO : daily energy constraint (has_daily_energy_constraint) not yet implemented
     # TODO : PHS transition duration constraint not yet implemented
     """
 
@@ -82,6 +81,10 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
 
             if self.equipment.maximum_gradient != 0:
                 qmax_up, qmax_down = self._apply_gradient_constraint(forecasted_power, time, qmax_up, qmax_down)
+
+            if self.equipment.has_daily_energy_constraint:
+                qmax_up = self._apply_maximum_daily_energy_constraint(qmax_up)
+                qmax_down = self._apply_minimum_daily_energy_constraint(qmax_down)
 
             if qmax_up >= 1.0:
                 order = self.build_order(
@@ -177,3 +180,72 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
         )
 
         return max(0.0, upward_available), max(0.0, downward_available)
+
+    def _apply_maximum_daily_energy_constraint(self, upward_available: float) -> float:
+        """
+        Apply the maximum_daily_energy constraint to the upward available power.
+
+        Reduces the upward order volume so that the equipment's total energy produced
+        over the day does not exceed maximum_daily_energy. If the daily energy is
+        already at or above the maximum, no upward order can be formulated.
+
+        :param upward_available: Upward available power before the daily energy constraint
+        :type upward_available: float
+        :return: upward_available after the daily energy constraint
+        :rtype: float
+        """
+        start = self.parameters.temporal.start_date
+        local_maximum_daily_energy = self.equipment.maximum_daily_energy.get_value(start)
+        total_daily_energy_produced = self._compute_daily_energy()
+        remaining_margin = local_maximum_daily_energy - total_daily_energy_produced
+
+        if remaining_margin <= 0:
+            return 0.0
+
+        timeframe_hours = (self.parameters.temporal.end_date - start).total_seconds() / 3600
+        upward_available = min(upward_available, remaining_margin / timeframe_hours)
+        return upward_available
+
+    def _apply_minimum_daily_energy_constraint(self, downward_available: float) -> float:
+        """
+        Apply the minimum_daily_energy constraint to the downward available power.
+
+        Reduces the downward order volume so that the equipment's total energy produced
+        over the day does not fall below minimum_daily_energy. If the daily energy is
+        already at or below the minimum, no downward order can be formulated.
+
+        :param downward_available: Downward available power before the daily energy constraint
+        :type downward_available: float
+        :return: downward_available after the daily energy constraint
+        :rtype: float
+        """
+        start = self.parameters.temporal.start_date
+        local_minimum_daily_energy = self.equipment.minimum_daily_energy.get_value(start)
+        total_daily_energy_produced = self._compute_daily_energy()
+        remaining_margin = total_daily_energy_produced - local_minimum_daily_energy
+
+        if remaining_margin <= 0:
+            return 0.0
+
+        timeframe_hours = (self.parameters.temporal.end_date - start).total_seconds() / 3600
+        downward_available = min(downward_available, remaining_margin / timeframe_hours)
+        return downward_available
+
+    def _compute_daily_energy(self) -> float:
+        """
+        Compute the total energy produced by the equipment over the current day.
+
+        # TODO : the original prometheus implementation integrates at a fixed 5-minute
+
+        :return: Total energy produced over the day, in MWh
+        :rtype: float
+        """
+        execution_date = self.parameters.temporal.execution_date
+        start = self.parameters.temporal.start_date
+        timestep = self.parameters.temporal.timestep
+
+        current_day_start = start.start_of("day")
+        current_day_end = current_day_start.end_of("day")
+
+        daily_power = self.equipment.power.get_forecast(execution_date, current_day_start, current_day_end)
+        return daily_power.sum() * (timestep.total_seconds() / 3600)
