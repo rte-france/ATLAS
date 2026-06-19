@@ -29,9 +29,7 @@ class TestTimesAndMode:
 
 
 class TestMarketAreas:
-    def test_each_market_area_links_to_a_known_control_block(
-        self, input_dataset: MarketClearingInputDataset
-    ) -> None:
+    def test_each_market_area_links_to_a_known_control_block(self, input_dataset: MarketClearingInputDataset) -> None:
         for market_area in input_dataset.mc_market_areas.values():
             assert market_area.control_block.name in input_dataset.mc_control_blocks
 
@@ -46,18 +44,14 @@ class TestMarketAreas:
             }
             assert set(market_area.mc_orders) == expected_order_names
 
-    def test_price_bounds_are_consistent_over_horizon(
-        self, input_dataset: MarketClearingInputDataset
-    ) -> None:
+    def test_price_bounds_are_consistent_over_horizon(self, input_dataset: MarketClearingInputDataset) -> None:
         for market_area in input_dataset.mc_market_areas.values():
             for time in input_dataset.times:
                 assert market_area.max_price.get_value(time) > market_area.min_price.get_value(time)
 
 
 class TestOrders:
-    def test_every_order_belongs_to_an_imported_market_area(
-        self, input_dataset: MarketClearingInputDataset
-    ) -> None:
+    def test_every_order_belongs_to_an_imported_market_area(self, input_dataset: MarketClearingInputDataset) -> None:
         known_areas = set(input_dataset.mc_market_areas)
         for order in input_dataset.mc_orders.values():
             assert order.market_area.name in known_areas
@@ -135,17 +129,13 @@ class TestOrderCouplings:
 
 
 class TestMarketBorders:
-    def test_border_endpoints_are_imported_market_areas(
-        self, input_dataset: MarketClearingInputDataset
-    ) -> None:
+    def test_border_endpoints_are_imported_market_areas(self, input_dataset: MarketClearingInputDataset) -> None:
         known_areas = set(input_dataset.mc_market_areas)
         for border in input_dataset.mc_market_borders.values():
             assert border.uphill_market_area.name in known_areas
             assert border.downhill_market_area.name in known_areas
 
-    def test_border_flow_bounds_are_consistent(
-        self, input_dataset: MarketClearingInputDataset
-    ) -> None:
+    def test_border_flow_bounds_are_consistent(self, input_dataset: MarketClearingInputDataset) -> None:
         for border in input_dataset.mc_market_borders.values():
             for time in input_dataset.times:
                 assert border.max_flow.get_value(time) >= border.min_flow.get_value(time)
