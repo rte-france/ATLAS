@@ -44,3 +44,5 @@ The convention is then the following: positive for over-generation, negative for
 **No power update**: Check if `export_result=True`, check if the parameters (notably the dates parameters or the market type) are correct. Note that unsuccesful optimizations, or excluding certain equipments / market areas from optimizations, should still lead to power updates. Indeed, a specific backup is applied in those situations, the `manual_activation` process.
 
 **Zero generation**: Check startup/min generation constraints, fuel costs vs prices, min up/down times
+
+**Large imbalances for the first day of a simulation timeframe**: Portfolios can be significantly imbalanced during the first few hours of a simulation timeframe. This is due to the large startup duration of certain `Base` thermal assets (for instance, nuclear). This issue should disappear during the next days of simulation.
