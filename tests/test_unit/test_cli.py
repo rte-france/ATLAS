@@ -85,9 +85,8 @@ class TestRunCommandModuleMode:
         assert "Unknown module" in result.stdout
 
     @patch("atlas.app.ModuleRun")
-    @patch("atlas.app.AtlasDataset")
     @patch("atlas.app.ModuleRegistry")
-    def test_run_module_with_valid_inputs(self, mock_registry, mock_atlas_dataset, mock_module_run, tmp_path):
+    def test_run_module_with_valid_inputs(self, mock_registry, mock_module_run, tmp_path):
         """Test that run module run succeeds with valid inputs (mocked execution)."""
         mock_module_class = MagicMock()
         mock_module_instance = MagicMock()
@@ -102,7 +101,6 @@ class TestRunCommandModuleMode:
 
         mock_run_instance = MagicMock()
         mock_module_run.return_value = mock_run_instance
-        mock_atlas_dataset.from_directory.return_value = MagicMock()
 
         params_file = tmp_path / "params.yaml"
         params_file.write_text("temporal:\n  start_date: '2028-09-27 00:00:00'")
