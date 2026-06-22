@@ -21,7 +21,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
     Each job processes the output of the previous one, starting from the input dataset."""
 
-    def __init__(self, parameters: WorkflowParameters):
+    def __init__(self, parameters: WorkflowParameters, prefix_job_name: str = ""):
         """Initialize a Workflow instance.
 
         :param parameters: Name of the workflow.
@@ -29,7 +29,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         """
         self.parameters = parameters
         self._jobs: list[WorkflowJob] = []
-        self.build_jobs()
+        self.build_jobs(prefix_job_name)
 
     @classmethod
     def from_file(cls, file_path: str | Path, context: ContextParameters | None = None) -> Workflow:
@@ -40,7 +40,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         parameters._orchestrator_path = file_path.parent
         return cls(parameters=parameters)
 
-    def build_jobs(self):
+    def build_jobs(self, prefix_job_name: str):
         Step.add_index_in_step_name(self.parameters.steps)
 
         for step in self.parameters.steps:
@@ -50,7 +50,11 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
                 .from_file(self.parameters.resolve_path(step.parameters_path), self.parameters.context)
             )
             parameters.output.output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
-            workflow_job = WorkflowJob(step.name, step.module.value, parameters)
+            if prefix_job_name == "":
+                job_name = step.name
+            else:
+                job_name = f"{prefix_job_name} {step.name}"
+            workflow_job = WorkflowJob(f"{job_name!r}", step.module.value, parameters)
             self.add_job(workflow_job)
 
     @property

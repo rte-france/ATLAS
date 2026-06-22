@@ -37,6 +37,7 @@ class ActionPlanJob(AbstractJob):
 
 class TaskIterator(ABC):
     def __init__(self, task: Task):
+        self.current_iteration = 0
         self.task: Task = task
         self._next_execution_date: DateTime = task.from_
 
@@ -53,6 +54,7 @@ class TaskIterator(ABC):
         return self.task.offset_end_date + self.next_execution_date
 
     def __iter__(self):
+        self.current_iteration = 0
         self._next_execution_date = self.task.from_
         return self
 
@@ -60,6 +62,7 @@ class TaskIterator(ABC):
         if self.next_execution_date > self.task.until:
             raise StopIteration()  # Signals the end of iteration
         jobs = self.build_jobs()
+        self.current_iteration += 1
         self._next_execution_date += self.task.frequency
         return jobs
 
@@ -99,7 +102,7 @@ class ModuleTaskIterator(TaskIterator):
         self.root_output_dir = root_output_dir
 
     def build_jobs(self) -> list[AbstractJob]:
-        return [ActionPlanJob("insert_name", self.module, self._build_current_parameters())]
+        return [ActionPlanJob(f"task {self.task.name} iteration {self.current_iteration}", self.module, self._build_current_parameters())]
 
     def _build_current_parameters(self) -> AbstractModuleParameters:
         parameters = copy.deepcopy(self.parameters)
@@ -138,5 +141,5 @@ class WorkflowTaskIterator(TaskIterator):
         return parameters
 
     def build_jobs(self) -> list[AbstractJob]:
-        workflow = Workflow(self._build_current_parameters())
-        return list(workflow.jobs)
+        workflow = Workflow(self._build_current_parameters(), f"task {self.task.name} iteration {self.current_iteration}")
+        return [ActionPlanJob(x) for x in list(workflow.jobs)]
