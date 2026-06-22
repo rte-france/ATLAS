@@ -33,7 +33,6 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         """
         self.parameters = parameters
         self._priority_queue: list[TaskIterator] = []
-        self._jobs_count = 0
         self._build_priority_queue()
 
     def _has_concurrent_task_with(self, task: Task) -> bool:
@@ -48,14 +47,15 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         parameters._orchestrator_path = file_path.parent
         return cls(parameters=parameters)
 
-    def add_task(self, task: Task):
+    def add_task(self, task: Task) -> int:
         root_output_dir = self.parameters.resolve_path(self.parameters.output_dir) / task.name
         if task.module is not None:
-            self._add_task_module(task, root_output_dir)
+            return self._add_task_module(task, root_output_dir)
         elif task.workflow is not None:
-            self._add_task_workflow(task, root_output_dir)
+            return self._add_task_workflow(task, root_output_dir)
+        return 0
 
-    def _add_task_module(self, task: Task, root_output_dir: Path) -> None:
+    def _add_task_module(self, task: Task, root_output_dir: Path) -> int:
         if task.module is None:
             raise ValueError("_add_task_module called without a module")
         if task.module_parameters_path is None:
@@ -66,31 +66,31 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
             .from_file(self.parameters.resolve_path(task.module_parameters_path), self.parameters.context)
         )
         module_iterator = ModuleTaskIterator(task, module_parameters, root_output_dir)
-        self._push_iterator(module_iterator)
+        return self._push_iterator(module_iterator)
 
-    def _add_task_workflow(self, task: Task, root_output_dir: Path) -> None:
+    def _add_task_workflow(self, task: Task, root_output_dir: Path) -> int:
         if isinstance(task.workflow, Path):
             workflow_parameters = WorkflowParameters.from_file(self.parameters.resolve_path(task.workflow))
         elif isinstance(task.workflow, Workflow):
             workflow_parameters = task.workflow.parameters
         workflow_parameters.context.use(self.parameters.context)
         workflow_iterator = WorkflowTaskIterator(task, workflow_parameters, root_output_dir)
-        self._push_iterator(workflow_iterator)
+        return self._push_iterator(workflow_iterator)
 
-    def _push_iterator(self, iterator: TaskIterator):
+    def _push_iterator(self, iterator: TaskIterator) -> int:
         if self._has_concurrent_task_with(iterator.task):
             raise ValueError("Try to add a concurrent task to the Action plan")
-        self._jobs_count += len(iterator)
         heapq.heappush(self._priority_queue, iterator)
+        return len(iterator)
 
     def _pop_iterator(self) -> TaskIterator:
         itr = heapq.heappop(self._priority_queue)
-        self._jobs_count -= len(itr)
         return itr
 
     def _build_priority_queue(self) -> None:
+        self._jobs_count = 0
         for task in self.parameters.tasks:
-            self.add_task(task)
+            self._jobs_count += self.add_task(task)
 
     @property
     def jobs(self) -> Iterator[ActionPlanJob]:
@@ -99,6 +99,8 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
         :return: The list of ActionPlanJob instances.
         """
+        if len(self._priority_queue) == 0:
+            self._build_priority_queue()
         while len(self._priority_queue) > 0:
             priority_task_itr = self._pop_iterator()
             jobs = next(priority_task_itr, None)
