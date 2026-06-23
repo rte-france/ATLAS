@@ -52,12 +52,10 @@ class LoadOrderFormulator(AbstractOrderFormulator):
         max_power = self.equipment.maximum_power_forecast.get_forecast(
             self.parameters.temporal.execution_date, start, end
         )
-        # TODO : Min power is null on Prometheus
         upward_procured, downward_procured = self.compute_procured_power(
             self.parameters.temporal.execution_date, start, end, self.parameters.product_type
         )
 
-        # TODO : Are we sure ?
         upward_available = -forecasted_power - upward_procured
         downward_available = forecasted_power - max_power - downward_procured
 

@@ -33,7 +33,6 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
     the forecasted power evolution between the studied timestep and its neighbors.
 
     # TODO : fragment-based pricing (water_value) not yet implemented
-    # TODO : PHS transition duration constraint not yet implemented
     """
 
     def __init__(
@@ -98,7 +97,7 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
                 if order is not None:
                     orders.extend(self._build_upward_fragment_orders(time, next_time, qmax_up))
 
-            # TODO: Constraint not present in prometheus
+            # TODO: Constraint not present in prometheus : Check with validation
             if qmax_down >= 1.0:
                 order = self.build_order(
                     order_type=OrderType.Buy,
@@ -140,13 +139,13 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
         """
         timestep = self.parameters.temporal.timestep
         execution_date = self.parameters.temporal.execution_date
-        # TODO : 2 multiplication in prometheus
+        # TODO : 2 multiplication in prometheus : Check with validation
         max_grad = self.equipment.maximum_gradient * (timestep.total_seconds() / 60)
 
         previous_time = time.subtract(minutes=int(timestep.total_seconds() // 60))
         next_time = time.add(minutes=int(timestep.total_seconds() // 60))
 
-        # TODO : How is the behavior without value ?
+        # TODO : How is the behavior without value ? = 0 pour les deux
         previous_forecasted_power = self.equipment.power.get_forecast(
             execution_date, previous_time, previous_time
         ).get_value(previous_time)
@@ -248,6 +247,7 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
         current_day_end = current_day_start.end_of("day")
 
         daily_power = self.equipment.power.get_forecast(execution_date, current_day_start, current_day_end)
+        # timestep may not be needed : use frequency of matrix if 15 -> divide by 4, if 30 divide by 2
         return daily_power.sum() * (timestep.total_seconds() / 3600)
 
     def _build_upward_fragment_orders(
