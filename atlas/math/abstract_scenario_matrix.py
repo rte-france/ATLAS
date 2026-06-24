@@ -12,17 +12,15 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Generic, Literal, Self, TypeVar
+from typing import Any, Literal, Self
 
 import pendulum
 import plotly.graph_objects as go
 import polars as pl
 from pydantic_core import core_schema
 
-TBackend = TypeVar("TBackend", pl.DataFrame, pl.LazyFrame)
 
-
-class AbstractScenarioMatrix(ABC, Generic[TBackend]):
+class AbstractScenarioMatrix[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
     """
     Abstract base class for ScenarioMatrix implementations.
 

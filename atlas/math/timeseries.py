@@ -1171,7 +1171,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
             raise IndexError(f"index {index} is out of bounds for timeseries of length {n}")
         return cast(pendulum.DateTime, pendulum.instance(self.timeseries.row(index, named=True)["time"]))
 
-    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
+    def iter_rows(self) -> Generator[tuple[datetime, float]]:
         """
         Iterate over rows of the Timeseries, yielding (time, value) tuples.
 
