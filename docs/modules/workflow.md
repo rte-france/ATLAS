@@ -61,7 +61,13 @@ Possible options for these two types are detailed in the following sections.
 ### CLI
 
 ```bash
-atlas run workflow.yaml --workflow
+atlas workflow run workflow.yaml
+```
+
+To inspect the steps of a workflow file before running it:
+
+```bash
+atlas workflow list workflow.yaml
 ```
 
 ### Python

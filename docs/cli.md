@@ -6,7 +6,10 @@ After installing ATLAS, the `atlas` command is available. Run `atlas --help` at 
 
 | Command | Description |
 |---|---|
-| [`atlas run`](#atlas-run) | Run a module or a workflow |
+| [`atlas module run`](#atlas-module-run) | Run a single module |
+| [`atlas module list`](#atlas-module-list) | List all available modules |
+| [`atlas workflow run`](#atlas-workflow-run) | Run a full workflow |
+| [`atlas workflow list`](#atlas-workflow-list) | List the steps declared in a workflow file |
 | [`atlas version`](#atlas-version) | Print the installed version |
 | [`atlas prometheus-to-atlas run`](#atlas-prometheus-to-atlas-run) | Convert a single Prometheus dataset to Atlas format |
 | [`atlas prometheus-to-atlas batch`](#atlas-prometheus-to-atlas-batch) | Convert multiple Prometheus datasets at once |
@@ -16,57 +19,79 @@ After installing ATLAS, the `atlas` command is available. Run `atlas --help` at 
 
 ---
 
-## `atlas run`
+## `atlas module run`
 
-Runs a single module or a full workflow. The mode is selected via a flag.
-
-### Module mode
+Runs a single Atlas module.
 
 ```bash
-atlas run <parameters.yml> --module <MODULE> --dataset <DATASET_PATH>
+atlas module run <MODULE_NAME> --parameters <PARAMS> --dataset <DATASET_PATH>
 ```
 
 | Argument / Option | Short | Required | Description |
 |---|---|---|---|
-| `parameters.yml` | — | Yes | Path to the module parameters YAML file |
-| `--module` | `-m` | Yes | Module to run |
+| `MODULE_NAME` | — | Yes | Name of the module to run. Use `atlas module list` to see available modules. |
+| `--parameters` | `-p` | Yes | Path to the module parameters YAML file |
 | `--dataset` | `-d` | Yes | Path to the input dataset directory |
-
-Available modules:
-
-| Name | Description |
-|---|---|
-| `DayAheadOrders` | Generate market orders for all equipment types |
-| `MarketClearing` | Clear the market across interconnected areas |
-| `PortfolioOptimisation` | Optimise energy portfolios |
-| `IntradayPriceForecast` | Forecast intraday prices |
 
 **Example:**
 
 ```bash
-atlas run parameters.yml --module DayAheadOrders --dataset ./data/input/
+atlas module run DayAheadOrders -p parameters.yml -d ./data/input/
 ```
 
 See [Run a Module](modules/running-modules.md) for the full execution guide.
 
-### Workflow mode
+---
+
+## `atlas module list`
+
+Lists all modules registered in Atlas.
 
 ```bash
-atlas run <workflow.yml> --workflow
+atlas module list
 ```
 
-| Argument / Option | Short | Required | Description |
-|---|---|---|---|
-| `workflow.yml` | — | Yes | Path to the workflow configuration YAML file |
-| `--workflow` | `-w` | Yes | Flag to enable workflow mode |
+---
+
+## `atlas workflow run`
+
+Runs a full Atlas workflow defined in a YAML file.
+
+```bash
+atlas workflow run <WORKFLOW_FILE>
+```
+
+| Argument | Required | Description |
+|---|---|---|
+| `WORKFLOW_FILE` | Yes | Path to the workflow configuration YAML file |
 
 **Example:**
 
 ```bash
-atlas run workflow.yml --workflow
+atlas workflow run workflow.yaml
 ```
 
 See [Run a Workflow](modules/workflow.md) for the workflow configuration reference.
+
+---
+
+## `atlas workflow list`
+
+Lists the steps declared in a workflow file without executing it.
+
+```bash
+atlas workflow list <WORKFLOW_FILE>
+```
+
+| Argument | Required | Description |
+|---|---|---|
+| `WORKFLOW_FILE` | Yes | Path to the workflow configuration YAML file |
+
+**Example:**
+
+```bash
+atlas workflow list workflow.yaml
+```
 
 ---
 
