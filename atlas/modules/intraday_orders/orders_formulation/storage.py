@@ -13,7 +13,7 @@ from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_orders.input_objects.storage import StorageIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import build_intraday_order
+from atlas.modules.intraday_orders.utils import build_intraday_order, engaged_quantity
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
@@ -28,13 +28,13 @@ def compute_initial_prices(
         return min_sell_price, max_buy_price
 
     price_forecast = equipment.portfolio.market_area.id_price_forecast.get_forecast(
-        parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
+        parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
     )
 
     new_planning = equipment.id_po_for_orders.get_forecast(
-        parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
+        parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
     )
-    previous_planning = equipment.da_cleared_quantity + equipment.total_id_cleared_quantity
+    previous_planning = engaged_quantity(equipment, parameters)
 
     qo = new_planning - previous_planning
 
@@ -109,9 +109,9 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
         final_sell_price, final_buy_price = compute_initial_prices(equipment, orders_timestamps, parameters)
 
         new_planning = equipment.id_po_for_orders.get_forecast(
-            parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
+            parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
         )
-        previous_planning = equipment.da_cleared_quantity + equipment.total_id_cleared_quantity
+        previous_planning = engaged_quantity(equipment, parameters)
 
         cfg.logger.info(f"Formulating storage orders for unit {equipment.name}")
 
@@ -135,7 +135,7 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
                 coupling_orders: list[Order] = []
 
                 if previous_quantity - equipment.minimum_power.get_value(t) > parameters.allowed_round_off_error:
-                    order_name = f"ID_Buy_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}_{equipment.name}_{t.format('YYYY_MM_DD_HH_mm_ss')}"
+                    order_name = f"id_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}_{equipment.name}_{t.format('DD_MM_YYYY_HH_mm_ss')}"
                     order = build_intraday_order(
                         equipment,
                         order_name,
@@ -151,7 +151,7 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
                     buy_submitted_volume.sum_value_at(t, previous_quantity - equipment.minimum_power.get_value(t))
 
                 if equipment.maximum_power.get_value(t) - previous_quantity > parameters.allowed_round_off_error:
-                    order_name = f"ID_Sell_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}_{equipment.name}_{t.format('YYYY_MM_DD_HH_mm_ss')}"
+                    order_name = f"id_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}_{equipment.name}_{t.format('DD_MM_YYYY_HH_mm_ss')}"
                     order = build_intraday_order(
                         equipment,
                         order_name,
@@ -169,7 +169,7 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
                 if coupling_orders:
                     couplings.append(
                         OrderCoupling(
-                            name=f"Complement_for_unit_{equipment.name}_IJ",
+                            name=f"id_complement_for_unit_{equipment.name}_at_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}",
                             coupling_type=CouplingType.COMPLEMENT,
                             complement_energy=0.0,
                             complement_direction=ComplementDirection.EqualTo,
@@ -199,7 +199,7 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
 
                 # Creation of the order with the relevant parameters
                 if q_order > parameters.allowed_round_off_error:
-                    order_name = f"ID_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}_{equipment.name}_{t.format('YYYY_MM_DD_HH_mm_ss')}"
+                    order_name = f"id_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}_{equipment.name}_{t.format('DD_MM_YYYY_HH_mm_ss')}"
                     order = build_intraday_order(equipment, order_name, price, 0.0, q_order, order_type, t, parameters)
                     orders.append(order)
 

@@ -15,7 +15,7 @@ from atlas.modules.intraday_orders.input_objects.solar import SolarIDO
 from atlas.modules.intraday_orders.input_objects.wind import WindIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import build_intraday_order
+from atlas.modules.intraday_orders.utils import build_intraday_order, engaged_quantity
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
@@ -37,14 +37,15 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
         orders: list[Order] = []
 
         production_new_planing = equipment.maximum_power_forecast.get_forecast(
-            parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
+            parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
         )
-        production_engagement = equipment.da_cleared_quantity + equipment.total_id_cleared_quantity
+        production_engagement = engaged_quantity(equipment, parameters)
 
         production_forecast = production_new_planing - production_engagement
 
-        production_available_for_curtailment = production_engagement - production_new_planing * (
-            1 - equipment.maximum_curtailment_ratio
+        curtailment_ratio = equipment.maximum_curtailment_ratio.filter(item=orders_timestamps, inplace=False)
+        production_available_for_curtailment = (
+            production_engagement - production_new_planing + production_new_planing * curtailment_ratio
         )
 
         variable_costs = None
@@ -55,7 +56,7 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
             return orders, []
 
         price_forecast = equipment.portfolio.market_area.id_price_forecast.get_forecast(
-            parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
+            parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
         )
 
         for t in orders_timestamps:
@@ -64,14 +65,14 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
             curtailment_value = production_available_for_curtailment.get_value(t)
 
             bid_name = self.ORDER_NAME_TEMPLATE.format(
-                parameters.temporal.execution_date.format("YYYY_MM_DD_HH_mm_ss"),
+                parameters.temporal.execution_date.format("DD_MM_YYYY_HH_mm_ss"),
                 equipment.name,
-                t.format("YYYY_MM_DD_HH_mm_ss"),
+                t.format("DD_MM_YYYY_HH_mm_ss"),
             )
             curtailment_bid_name = self.CURTAILMENT_ORDER_NAME_TEMPLATE.format(
-                parameters.temporal.execution_date.format("YYYY_MM_DD_HH_mm_ss"),
+                parameters.temporal.execution_date.format("DD_MM_YYYY_HH_mm_ss"),
                 equipment.name,
-                t.format("YYYY_MM_DD_HH_mm_ss"),
+                t.format("DD_MM_YYYY_HH_mm_ss"),
             )
 
             if abs(curtailment_value) >= parameters.allowed_round_off_error:

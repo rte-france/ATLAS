@@ -12,7 +12,7 @@ from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_orders.input_objects.load import LoadIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import build_intraday_order
+from atlas.modules.intraday_orders.utils import build_intraday_order, engaged_quantity
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
@@ -29,11 +29,11 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
         parameters: IntradayOrdersParameters,
     ) -> tuple[list[Order], list[OrderCoupling]]:
         orders: list[Order] = []
-        consumption_engagement = equipment.da_cleared_quantity + equipment.total_id_cleared_quantity
+        consumption_engagement = engaged_quantity(equipment, parameters)
 
         if equipment.load_type == LoadType.POWER_TO_GAS:
             maximum_power = equipment.maximum_power_forecast.get_forecast(
-                parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
+                parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
             )
             available_power = consumption_engagement - maximum_power
 
@@ -67,7 +67,7 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
 
         else:
             consumption_new_planing = equipment.maximum_power_forecast.get_forecast(
-                parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
+                parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
             )
             consumption_forecast = consumption_engagement - consumption_new_planing
 
@@ -97,5 +97,5 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
         time: DateTime,
         parameters: IntradayOrdersParameters,
     ) -> Order:
-        bid_name = f"{order_type.value}_IDOrder_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}_{equipment.name}_{time.format('YYYY_MM_DD_HH_mm_ss')}"
+        bid_name = f"{order_type.value.lower()}_id_order_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}_{equipment.name}_{time.format('DD_MM_YYYY_HH_mm_ss')}"
         return build_intraday_order(equipment, bid_name, price, 0.0, qmax, order_type, time, parameters)

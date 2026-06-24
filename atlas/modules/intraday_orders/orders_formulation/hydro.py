@@ -13,7 +13,7 @@ from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_orders.input_objects.hydro import HydroIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import build_intraday_order
+from atlas.modules.intraday_orders.utils import build_intraday_order, engaged_quantity
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
@@ -87,9 +87,7 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
                 volume_prices.append((v, price))
 
             volume_prices.sort(key=lambda x: x[1])
-            volume_engagement = equipment.da_cleared_quantity.get_value(
-                t
-            ) + equipment.total_id_cleared_quantity.get_value(t)
+            volume_engagement = engaged_quantity(equipment, parameters).get_value(t)
 
             for volume, price in volume_prices:
                 volume_engagement -= volume
@@ -129,5 +127,5 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
     ) -> Order | None:
         if volume <= parameters.allowed_round_off_error:
             return None
-        bid_name = f"ID_hydraulic_{order_type}_fragment_{str(volume)}_at_{time.format('YYYY_MM_DD_HH_mm_ss')}_for_unit_{equipment.name}_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}"
+        bid_name = f"id_hydraulic_{order_type.value.lower()}_fragment_{int(volume)}_at_{time.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{equipment.name}_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}"
         return build_intraday_order(equipment, bid_name, price, 0.0, volume, order_type, time, parameters)

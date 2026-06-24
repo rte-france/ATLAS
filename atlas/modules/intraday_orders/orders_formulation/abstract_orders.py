@@ -66,8 +66,17 @@ class AbstractOrdersFormulator[E](ABC):
             equipment.id_buy_submitted_volume.add(buy_submitted_volume, parameters.temporal.execution_date)
             equipment.id_sell_submitted_volume.add(sell_submitted_volume, parameters.temporal.execution_date)
 
-        equipment.total_id_buy_submitted_volume += buy_submitted_volume
-        equipment.total_id_sell_submitted_volume += sell_submitted_volume
+        # total_id_*_submitted_volume is None until the first intraday session accumulates onto it
+        equipment.total_id_buy_submitted_volume = (
+            buy_submitted_volume
+            if equipment.total_id_buy_submitted_volume is None
+            else equipment.total_id_buy_submitted_volume + buy_submitted_volume
+        )
+        equipment.total_id_sell_submitted_volume = (
+            sell_submitted_volume
+            if equipment.total_id_sell_submitted_volume is None
+            else equipment.total_id_sell_submitted_volume + sell_submitted_volume
+        )
 
         return orders, couplings
 

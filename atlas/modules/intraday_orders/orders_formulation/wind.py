@@ -13,5 +13,5 @@ from atlas.modules.intraday_orders.orders_formulation.abstract_orders_with_curta
 
 class WindOrdersFormulator(AbstractOrdersFormulatorWithCurtailment[WindIDO]):
     EQUIPMENT_TYPE_NAME = "wind"
-    ORDER_NAME_TEMPLATE = "wind_IDOrder_{}_{}_{}"
-    CURTAILMENT_ORDER_NAME_TEMPLATE = "wind_curt_IDOrder_{}_{}_{}"
+    ORDER_NAME_TEMPLATE = "wind_id_order_{}_{}_{}"
+    CURTAILMENT_ORDER_NAME_TEMPLATE = "wind_curt_id_order_{}_{}_{}"

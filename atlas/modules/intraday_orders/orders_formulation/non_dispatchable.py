@@ -12,7 +12,7 @@ from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_orders.input_objects.other_non_dispatchable import OtherNonDispatchableIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import build_intraday_order
+from atlas.modules.intraday_orders.utils import build_intraday_order, engaged_quantity
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
@@ -31,9 +31,9 @@ class NonDispatchableOrdersFormulator(AbstractOrdersFormulator[OtherNonDispatcha
         orders: list[Order] = []
 
         production_new_planing = equipment.maximum_power_forecast.get_forecast(
-            parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
+            parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
         )
-        production_engagement = equipment.da_cleared_quantity + equipment.total_id_cleared_quantity
+        production_engagement = engaged_quantity(equipment, parameters)
         production_forecast = production_new_planing - production_engagement
 
         variable_costs = None
@@ -44,11 +44,11 @@ class NonDispatchableOrdersFormulator(AbstractOrdersFormulator[OtherNonDispatcha
             return orders, []
 
         price_forecast = equipment.portfolio.market_area.id_price_forecast.get_forecast(
-            parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
+            parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
         )
 
         for t in orders_timestamps:
-            bid_name = f"otherND_IDOrder_{parameters.temporal.execution_date.format('YYYY_MM_DD_HH_mm_ss')}_{equipment.name}_{t.format('YYYY_MM_DD_HH_mm_ss')}"
+            bid_name = f"other_nd_id_order_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}_{equipment.name}_{t.format('DD_MM_YYYY_HH_mm_ss')}"
             production_value = production_forecast.get_value(t)
             buy_isp_forecast = price_forecast.get_value(t) * (1.0 + parameters.large_imbalance_penalty)
 

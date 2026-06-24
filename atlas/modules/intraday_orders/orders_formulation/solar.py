@@ -13,5 +13,5 @@ from atlas.modules.intraday_orders.orders_formulation.abstract_orders_with_curta
 
 class SolarOrdersFormulator(AbstractOrdersFormulatorWithCurtailment[SolarIDO]):
     EQUIPMENT_TYPE_NAME = "solar"
-    ORDER_NAME_TEMPLATE = "pv_IDOrder_{}_{}_{}"
-    CURTAILMENT_ORDER_NAME_TEMPLATE = "pv_curt_IDOrder_{}_{}_{}"
+    ORDER_NAME_TEMPLATE = "pv_id_order_{}_{}_{}"
+    CURTAILMENT_ORDER_NAME_TEMPLATE = "pv_curt_id_order_{}_{}_{}"
