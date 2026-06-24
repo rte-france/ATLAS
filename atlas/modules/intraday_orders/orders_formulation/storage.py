@@ -8,12 +8,14 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import Order, OrderCoupling, Timeseries
 from atlas.enums import ComplementDirection, CouplingType, OrderType, StorageType
+from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_orders.input_objects.storage import StorageIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.modules.intraday_orders.utils import build_intraday_order
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
 
 
 def compute_initial_prices(

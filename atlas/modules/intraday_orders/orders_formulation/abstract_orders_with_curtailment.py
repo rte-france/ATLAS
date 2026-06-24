@@ -9,13 +9,15 @@ from typing import TypeVar
 
 from pendulum import DateTime
 
-from atlas import Order, OrderCoupling, Timeseries
 from atlas.enums import OrderType
+from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_orders.input_objects.solar import SolarIDO
 from atlas.modules.intraday_orders.input_objects.wind import WindIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.modules.intraday_orders.utils import build_intraday_order
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
 
 R = TypeVar("R", bound=SolarIDO | WindIDO)
 

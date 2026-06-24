@@ -8,12 +8,14 @@ This file is part of the ATLAS project.
 import pendulum
 from pendulum import DateTime
 
-from atlas import Order, OrderCoupling, Timeseries
 from atlas.enums import OrderType
+from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_orders.input_objects.hydro import HydroIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.modules.intraday_orders.utils import build_intraday_order
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
 
 
 class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):

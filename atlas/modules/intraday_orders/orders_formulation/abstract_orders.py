@@ -7,13 +7,16 @@ This file is part of the ATLAS project.
 
 from abc import ABC
 from dataclasses import dataclass, field
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import Equipment, Order, OrderCoupling, Timeseries
+from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
+from atlas.objects.equipment.equipment import Equipment
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
 
 E = TypeVar("E", bound=Equipment)
 
@@ -24,7 +27,7 @@ class FormulatorResult:
     order_couplings: list[OrderCoupling] = field(default_factory=list)
 
 
-class AbstractOrdersFormulator(ABC, Generic[E]):
+class AbstractOrdersFormulator[E](ABC):
     EQUIPMENT_TYPE_NAME: str
 
     def formulate(

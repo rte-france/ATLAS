@@ -7,9 +7,10 @@ This file is part of the ATLAS project.
 
 from pendulum import DateTime
 
-from atlas import Equipment, Order
 from atlas.enums import OrderType, Product
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
+from atlas.objects.equipment.equipment import Equipment
+from atlas.objects.market.order import Order
 
 
 def build_intraday_order(

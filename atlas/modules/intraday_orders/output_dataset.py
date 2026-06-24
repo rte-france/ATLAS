@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from atlas import Order, OrderCoupling
 from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.enums import ThermalStrategy
 from atlas.modules.intraday_orders.input_objects.hydro import HydroIDO
@@ -27,6 +26,8 @@ from atlas.objects.equipment.solar import Solar
 from atlas.objects.equipment.storage import Storage
 from atlas.objects.equipment.thermal import Thermal
 from atlas.objects.equipment.wind import Wind
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
 from atlas.orchestrator.change_set import AddObject, UpdateObject
 
 if TYPE_CHECKING:

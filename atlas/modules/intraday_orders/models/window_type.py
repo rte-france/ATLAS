@@ -5,10 +5,10 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class WindowType(str, Enum):
+class WindowType(StrEnum):
     BRIDGE_DOWN = "bridge_down"
     BRIDGE_UP = "bridge_up"
     EXTENDED_BEGINNING = "extended_beginning"

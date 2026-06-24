@@ -8,14 +8,16 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import Order, OrderCoupling, Timeseries
 from atlas.enums import CouplingType, OrderType, ThermalStrategy
+from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_orders.input_objects.thermal import ThermalIDO
 from atlas.modules.intraday_orders.models.thermal_order_window import ThermalOrderWindow
 from atlas.modules.intraday_orders.models.window_type import WindowType
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.modules.intraday_orders.utils import build_intraday_order
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
 
 
 def compare_planning(equipment: ThermalIDO, orders_timestamps: list[DateTime], parameters: IntradayOrdersParameters):
