@@ -17,8 +17,8 @@ from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
-ID_ORDERS_INPUT_DIR = Path("tests/dataset/intraday/id_orders_input")
-ID_MARKET_CLEARING_INPUT_DIR = Path("tests/dataset/intraday/id_market_clearing_input")
+ID_ORDERS_INPUT_DIR = Path("tests/dataset/intraday/intraday_orders_input")
+ID_MARKET_CLEARING_INPUT_DIR = Path("tests/dataset/intraday/market_clearing_input")
 
 FORMULATOR_PARAMS_DICT = {
     "temporal": {

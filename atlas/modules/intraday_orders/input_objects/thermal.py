@@ -14,13 +14,8 @@ from atlas.objects.equipment.thermal import Thermal
 class ThermalIDO(Thermal):
     strategy: ThermalStrategy
     da_cleared_quantity: AbstractTimeseries
-    total_id_cleared_quantity: AbstractTimeseries
     id_po_for_orders: ForecastingMatrix | LazyForecastingMatrix
     minimum_power: AbstractTimeseries
     maximum_power: AbstractTimeseries
     startup_cost: AbstractTimeseries
     variable_cost: AbstractTimeseries
-    id_buy_submitted_volume: ForecastingMatrix | LazyForecastingMatrix
-    id_sell_submitted_volume: ForecastingMatrix | LazyForecastingMatrix
-    total_id_buy_submitted_volume: AbstractTimeseries
-    total_id_sell_submitted_volume: AbstractTimeseries

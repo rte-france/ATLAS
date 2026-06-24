@@ -14,8 +14,3 @@ class OtherNonDispatchableIDO(OtherNonDispatchable):
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
     variable_cost: AbstractTimeseries
     da_cleared_quantity: AbstractTimeseries
-    total_id_cleared_quantity: AbstractTimeseries
-    id_buy_submitted_volume: ForecastingMatrix | LazyForecastingMatrix
-    id_sell_submitted_volume: ForecastingMatrix | LazyForecastingMatrix
-    total_id_buy_submitted_volume: AbstractTimeseries
-    total_id_sell_submitted_volume: AbstractTimeseries
