@@ -18,17 +18,17 @@ In this tutorial, you will:
 - A solver installed (OR-Tools comes by default, or [install Xpress](getting_started.md#xpress-optional))
 - Sample dataset (instructions below)
 
-## Understanding the Workflow
+## Understanding the general simulation pattern in ATLAS
 
 Atlas simulations follow a general pattern:
 
 ```
-Input Data → Module Parameters → Simulation → Results
+Input Data → Module Parameters (or Workflow structure in that mode) → Simulation → Results
 ```
 
 Each module processes:
 
-- **AtlasDataset**: Time series data for market prices, demand, generation capacity, etc.
+- **AtlasDataset**: Static and time series data for market prices, demand, generation capacity, etc.
 - **Parameters file**: YAML configuration defining simulation behavior
 - **Output**: Optimized decisions, market outcomes, or generated orders
 
@@ -49,6 +49,7 @@ For a complete parameter reference, see:
 - [Common Parameters](../modules/common-parameters.md)
 - [Portfolio Optimisation Parameters](../modules/portfolio-optimisation/user-guide/parameters.md)
 
+NB: To know the complete set of parameters for a given module, as well as a template for said set of parameters, please refer to the user-guide specific to this module.
 
 ## Step 3: Run the Simulation
 
@@ -63,13 +64,14 @@ atlas run portfolio_params.yaml \
 ### What Happens During Execution
 
 1. **Data Loading**: Atlas reads the input dataset
-2. **Model Building**: Creates optimization model based on parameters
-3. **Solving**: Runs the solver to find optimal decisions
-4. **Output Generation**: Writes results to disk
+2. **Module-specific computations**: The module performs specific tasks. Many modules involve optimization problems (such as Portfolio Optimization). In that case, the computation process is usually divided into two successive steps:
+    1. **Model Building**: Creates optimization model based on parameters and input data
+    2. **Solving**: Runs the solver to find optimal decisions
+3. **Output Generation**: Writes results to disk
 
 ## Step 4: Analyze the Results
 
-Access results programmatically after the run:
+Access results directly in your script or console after the run:
 
 ```python
 from atlas import AtlasDataset
@@ -116,6 +118,8 @@ steps:
     parameters_path: "portfolio_params.yaml"
 
 ```
+
+The order in which steps are written in the yaml is important: it defines the actual chain of modules in the simulation. The name of each module has to correspond to an existing module, however the user can choose whatever he wants in the `name` field.
 
 Run the workflow:
 

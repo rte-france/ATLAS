@@ -26,7 +26,7 @@ Supports Battery, Pumped Hydraulic Storage, and Electric Vehicle types.
 | Field | Type | Description |
 |---|---|---|
 | `maximum_energy` | `AbstractTimeseries` | Maximum energy that can be stored (MWh). |
-| `minimum_power` | `AbstractTimeseries` | Minimum charge/discharge power (MW). |
+| `minimum_power` | `AbstractTimeseries` | Minimum charge/discharge power (MW). By convention, should be negative if the unit is able to withdraw energy from the network. |
 | `maximum_power` | `AbstractTimeseries` | Maximum charge/discharge power (MW). |
 | `storage_initial_level` | `float` | Initial state of charge as a fraction of `maximum_energy`. |
 | `minimum_state_of_charge` | `AbstractTimeseries` | Minimum state-of-charge ratio applied to `maximum_energy`. |
@@ -68,7 +68,7 @@ Supports Battery, Pumped Hydraulic Storage, and Electric Vehicle types.
 | `maximum_energy` | `AbstractTimeseries` | Maximum reservoir energy storage capacity (MWh). |
 | `minimum_energy` | `AbstractTimeseries` | Minimum required reservoir level (MWh). |
 | `initial_level` | `AbstractTimeseries` | Reservoir energy level at the start of the optimization horizon. |
-| `storage_marginal_value` | `AbstractScenarioMatrix` | Water values used to price reservoir depletion (€/MWh). |
+| `storage_marginal_value` | `AbstractScenarioMatrix` | Water values used to estimate the value of the energy currently stored in the reservoir (€/MWh). |
 | `maximum_power` | `AbstractTimeseries` | Maximum generation power (MW). |
 | `fragment_prices` | `list[float]` | Price spreads (one per fragment) applied to water values to build offer prices. |
 | `fragment_volumes` | `list[float]` | Fractional volumes (one per fragment) dividing the power range into order fragments. Must match the length of `fragment_prices`. |

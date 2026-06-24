@@ -31,15 +31,17 @@ uv add rte-atlas
 
 ## Solvers
 
-Atlas uses OR-Tools as the default optimization modeler, You can use any compatible solver. We provide special support for the commercial Xpress solver.
+Atlas uses OR-Tools as the default optimization modeler, you can use any compatible solver. We provide special support for the commercial Xpress solver.
 
-### Default Solver (OR-Tools)
+### Default solvers (included in the basis OR-Tools environment)
 
 OR-Tools is installed automatically with Atlas and works out of the box. No additional configuration needed.
+Several solvers are natively included in OR-Tools (SCIP, CP-SAT, etc.).
+In the Atlas context, the majority of optimization problems are Mixed-Integer Linear Problems. We recommand SCIP for its ability to deal with this type of problems.
 
 ### Xpress (Optional)
 
-For improved performance, you can install the Xpress commercial solver.
+For improved performance, you can install the Xpress commercial solver. The OR-Tools version used in Atlas is compatible with Xpress, meaning that there is no additional task for the user except specifying "XPRESS" as their solver in module parameters.
 
 #### Windows Installation
 

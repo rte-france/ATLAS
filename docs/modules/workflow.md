@@ -22,6 +22,15 @@ steps:
     parameters_path: ./parameters/portfolio_optimisation.yml
 ```
 
+The order in which steps are written in the YAML is important: it defines the actual chain of modules in the simulation. The `module` field has to correspond to an existing module name (cf. the overview of each individual module for its name in the [Modules section](index.md)). For the (optional) `name` field, however, the user can choose whatever is best for clarity purposes.
+
+Additionnaly, two different types of parameters are present in this YAML file:
+
+- Top-level parameters either define global information (such as the workflow name), or are applied to *every* step in the chain.
+- Step parameters are applied to a given step.
+
+Possible options for these two types are detailed in the following sections.
+
 ### Top-level Parameters
 
 | Parameter | Required | Default | Description |

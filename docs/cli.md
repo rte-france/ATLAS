@@ -111,7 +111,12 @@ Atlas version : 0.1.0
 
 ## `atlas prometheus-to-atlas run`
 
-Converts a single Prometheus dataset (HDF5 + timeseries CSV files) to Atlas format.
+Convert a single Prometheus dataset to Atlas format.
+
+!!! info
+    Prometheus is the decommissioned platform on which Atlas was originally developed. This section is only relevant for users wanting to extract a dataset from this original platform and convert it to the new Python model.
+
+**Syntax:**
 
 ```bash
 atlas prometheus-to-atlas run <TIMESERIES_FOLDER> <HDF5_FILE> --output <OUTPUT_DIR>
@@ -142,7 +147,12 @@ atlas prometheus-to-atlas run \
 
 ## `atlas prometheus-to-atlas batch`
 
-Converts all Prometheus datasets found under a root directory. Each sub-directory must contain a `ts/` folder and a single HDF5 file.
+Recursively convert multiple Prometheus datasets to Atlas format. Useful for processing entire directory structures.
+
+!!! info
+    Prometheus is the decommissioned platform on which Atlas was originally developed. This section is only relevant for users wanting to extract a dataset from this original platform and convert it to the new Python model.
+
+**Syntax:**
 
 ```bash
 atlas prometheus-to-atlas batch <ROOT_DIR> --output <OUTPUT_ROOT_DIR>

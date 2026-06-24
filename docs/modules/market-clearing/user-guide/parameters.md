@@ -10,9 +10,9 @@ For common parameters (`temporal`, `solver`, `output`), see [Common Parameters](
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `market` | `Product` | `DayAhead` | Type of clearing to execute. Only orders matching this market name are considered (not case-sensitive). |
+| `market` | `Product` | `DayAhead` | Type of product that should be cleared. Only orders matching this market name are considered (not case-sensitive). |
 | `timestep` | `Duration` | `PT1H` | Time resolution of the studied market. Must be strictly greater than 0. |
-| `execution_datetime_tolerance` | `int` | `5 min` | Tolerance window for overlapping markets (Intraday or Balancing). Must exceed the execution date difference between consecutive order formulation and clearing. |
+| `execution_datetime_tolerance` | `int` | `5 min` | Tolerance window for overlapping markets (notably Intraday or Balancing). Only the orders with an `execution_date` within the range [`clearing_execution_date` - `tolerance`, `clearing_execution_date` + `tolerance`] will be considered. |
 
 ## Market Scope
 
@@ -25,7 +25,7 @@ For common parameters (`temporal`, `solver`, `output`), see [Common Parameters](
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `exchange_constraints_type` | `ExchangeConstraintsType` | `ATC` | `ATC`: Available Transfer Capacity. `FB`: Flow-Based constraints. |
+| `exchange_constraints_type` | `ExchangeConstraintsType` | `ATC` | `ATC`: Available Transfer Capacity. `FB`: Flow-Based constraints. FB requires additional information on CriticalBranches and PTDFs in the input dataset. |
 | `prevent_adverse_flows` | `bool` | `False` | Prevent adverse flows during the pricing phase. Unused in Flow-Based configurations. |
 | `activate_constrained_tso_quantity` | `bool` | `False` | Balancing markets only. Enforces that TSO quantities can only be accepted if sufficient opposite offers exist. |
 
