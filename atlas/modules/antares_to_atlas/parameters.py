@@ -7,13 +7,12 @@ Parameters for Antares to Atlas conversion module.
 
 from enum import Enum
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
 import yaml
 from pendulum import Duration, duration
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
-from typing_extensions import Self
 
 from atlas.enums import ThermalStrategy
 from atlas.io_utils.parameters import Parameters

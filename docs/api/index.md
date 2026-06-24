@@ -2,46 +2,46 @@
 
 Complete API documentation for Atlas core components, data structures, and utilities.
 
-## Core Components
+## :lucide-chart-line: Math Objects
 
-### Math Objects
+Time series and matrix structures for scenario-based and forecasting data.
 
-Mathematical data structures for time series and matrix operations.
+- [:lucide-activity: **Timeseries**](math/timeseries.md) — Time series data structures and operations
+- [:lucide-grid: **Scenario Matrix**](math/scenario_matrix.md) — Matrix for scenario-based data
+- [:lucide-trending-up: **Forecasting Matrix**](math/forecasting_matrix.md) — Matrix for forecasting data
+- [:lucide-layers: **LazyTimeseries**](math/lazy_timeseries.md) — Lazy-evaluated time series
+- [:lucide-layout-grid: **LazyMatrix**](math/lazy_scenario_matrix.md) — Lazy-evaluated scenario matrix
 
-- [**Timeseries**](math/timeseries.md) - Time series data structures and operations
-- [**Scenario Matrix**](math/scenario_matrix.md) - Matrix for scenario-based data
-- [**Forecasting Matrix**](math/forecasting_matrix.md) - Matrix for forecasting data
-- [**LazyTimeseries**](math/lazy_timeseries.md) - Lazy-evaluated time series
-- [**LazyMatrix**](math/lazy_scenario_matrix.md) - Lazy-evaluated matrices
+## :lucide-box: Models
 
-### Model Objects
+Pydantic models for equipment assets, market entities, and network objects.
 
-Pydantic models for equipment and market entities.
+- [:lucide-zap: **Equipment**](models/equipment/equipment.md) — Generation assets: thermal, hydro, solar, wind, storage, load
+- [:lucide-bar-chart-2: **Market**](models/market/market_area.md) — Market areas, borders, orders, and portfolios
+- [:lucide-network: **Network**](models/network/node.md) — Network nodes and control blocks
 
-- [**Equipment**](models/equipment.md) - Models for generation assets (thermal, hydro, solar, wind, storage)
-- [**Market**](models/market.md) - Models for market areas, borders, orders, and portfolios
+## :lucide-hard-drive: I/O
 
-### I/O
+- [:lucide-database: **AtlasDataset**](io/atlas_dataset.md) — Dataset reading and writing utilities
 
-Data input/output and dataset management.
+## :lucide-git-branch: Workflow
 
-- [**AtlasDataset**](io/atlas_dataset.md) - Dataset reading and writing utilities
+- [:lucide-workflow: **Workflow**](workflow/workflow.md) — Main workflow orchestration
+- [:lucide-square: **Workflow Step**](workflow/workflow_step.md) — Individual workflow steps
 
-### Workflows
+## :lucide-refresh-cw: Orchestrator
 
-Workflow orchestration and step management.
+- [:lucide-database: **CurrentInputState**](orchestrator/current_input_state.md) — Shared state passed between modules
+- [:lucide-git-commit: **ChangeSets**](orchestrator/change_set.md) — Immutable state mutations (Add / Update / Delete)
+- [:lucide-layers: **CISHandler**](orchestrator/cis_handler.md) — Apply a batch of ChangeSets with ordering and rollback
+- [:lucide-wrench: **ChangeSetHandler**](orchestrator/change_set_handler.md) — Apply a single ChangeSet with reference resolution
 
-- [**Workflow**](workflow/workflow.md) - Main workflow orchestration
-- [**Workflow Step**](workflow/workflow_step.md) - Individual workflow steps
+## :lucide-cpu: Optimisation
 
-### Optimization
+- [:lucide-sliders: **Solver Interface**](solver/interface.md) — OR-Tools solver interface
+- [:lucide-blocks: **Models**](solver/models.md) — Optimisation model helpers
 
-Solver interfaces and optimization models.
+## :lucide-settings: Utilities
 
-- [**Solver Interface**](solver/interface.md) - Interface for optimization solvers
-- [**Other**](solver/models.md) - Additional solver-related models
-
-### Utilities
-
-- [**Enum**](enum.md) - Enumeration types used across Atlas
-- [**Logging**](logging.md) - Logging configuration and utilities
+- [:lucide-list: **Enum**](enum.md) — Enumeration types used across Atlas
+- [:lucide-file-text: **Logging**](logging.md) — Logging configuration and utilities

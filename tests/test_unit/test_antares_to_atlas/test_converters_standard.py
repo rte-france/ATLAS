@@ -42,8 +42,8 @@ def _make_prepro_df() -> pd.DataFrame:
     """Return a 365-row DataFrame mimicking Antares prepro data columns."""
     return pd.DataFrame(
         {
-            0: [1.0] * 365,   # FODuration
-            1: [1.0] * 365,   # PODuration
+            0: [1.0] * 365,  # FODuration
+            1: [1.0] * 365,  # PODuration
             2: [0.05] * 365,  # FORate
             3: [0.03] * 365,  # PORate
         }

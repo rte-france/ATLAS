@@ -1,6 +1,26 @@
 # Modules
 
-Atlas provides four simulation modules for electricity market modeling. Each can be run independently or chained together in workflows.
+Atlas currently provides four simulation modules for electricity market modeling. Each can be run
+independently or chained together in [workflows](workflow.md). All modules share a common
+set of [parameters](common-parameters.md) and follow the same [module pattern](module-pattern.md).
+
+# Typical market structures
+The usual simulation pattern of a **Day-Ahead market** is the following:
+
+1. [Day-Ahead Orders](day-ahead-orders/index.md)
+2. [Market Clearing](market-clearing/index.md)
+3. [Portfolio Optimization](portfolio-optimisation/index.md)
+
+**Intraday markets** are meant to be executed after a Day-Ahead market, and involve additional steps:
+
+1. [Intraday Price Forecast](intraday-price-forecast/index.md)
+2. [Portfolio Optimization 1](portfolio-optimisation/index.md), in `use_forecast` mode. The aim of this first Portfolio Optimization is to compute updated generation and consumption programs for each unit of the portfolio, at the execution date of the Intraday market. Notably, this optimality may have evolved since the last Day-Ahead market, because of forecast updates.
+3. Intraday Orders (still under development), translating updates of step 2 into market orders.
+4. [Market Clearing](market-clearing/index.md)
+5. [Portfolio Optimization 2](portfolio-optimisation/index.md), to answer intraday market commitments resulting from step 4.
+
+
+## Available Modules
 
 <div class="grid cards" markdown>
 
@@ -54,9 +74,42 @@ Atlas provides four simulation modules for electricity market modeling. Each can
 
 </div>
 
-## Resources
+## Shared Documentation
 
-- [Running Modules](running-modules.md) - Execution methods and CLI usage
-- [Module Pattern](module-pattern.md) - Standard module structure
-- [Common Parameters](common-parameters.md) - Shared parameters
-- [Your First Simulation](../getting_started/first-simulation.md) - Complete tutorial
+Configuration and concepts common to every module:
+
+<div class="grid cards" markdown>
+
+-   :material-tune:{ .lg .middle } **Common Parameters**
+
+    ---
+
+    The `temporal`, `solver`, `output`, and `multiprocessing` sections shared by all modules.
+
+    [:octicons-arrow-right-24: Common parameters](common-parameters.md)
+
+-   :material-play-circle:{ .lg .middle } **Running Modules**
+
+    ---
+
+    Execute a module from Python with `ModuleRun`, or from the command line.
+
+    [:octicons-arrow-right-24: Running modules](running-modules.md)
+
+-   :material-shape-outline:{ .lg .middle } **Module Pattern**
+
+    ---
+
+    The `AbstractModule` lifecycle every module implements: import, validate, execute, export.
+
+    [:octicons-arrow-right-24: Module pattern](module-pattern.md)
+
+-   :material-school:{ .lg .middle } **Your First Simulation**
+
+    ---
+
+    A complete walkthrough running a module end to end on a sample dataset.
+
+    [:octicons-arrow-right-24: First simulation](../getting_started/first-simulation.md)
+
+</div>
