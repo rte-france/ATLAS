@@ -25,7 +25,6 @@ For common parameters (`temporal`, `solver`, `output`, `multiprocessing`), see [
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `imbalance_penalty_offset` | `float` | `10` €/MWh | Offset when forecasting imbalance settlement price. **CURRENTLY DEPRECATED** |
 | `isp_forecast_lower_bound` | `float` | `10` €/MWh | Lower bound of the absolute value of the Imbalance Settlement Price forecast. Recommanded value: 0 €/MWh |
 | `small_imbalance_penalty` | `float` | `0.1` | Penalty coefficient applied to the forecasted ISP for "small" imbalances (this notion is defined by the parameter `small_imbalance_size`). The resulting penalty will be 1+coeff (resp. 1-coeff) for small positive (resp. negative) imbalances |
 | `large_imbalance_penalty` | `float` | `0.2` | Similar to `small_imbalance_penalty`, but for the "large" part of the imbalance (above the `small_imbalance_size`). |

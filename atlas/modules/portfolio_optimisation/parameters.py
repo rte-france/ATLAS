@@ -44,10 +44,6 @@ class PortfolioOptimisationParameters(AbstractModuleParameters):
     electric_vehicle_smoothing_factor: float = Field(
         0.2, description="Smoothing factor for EV power offer/demand curve (0-1)."
     )
-    imbalance_penalty_offset: float = Field(
-        10,
-        description="Offset (euros/MWh) applied when forecasting the imbalance settlement price.",
-    )
     isp_forecast_lower_bound: float = Field(
         10,
         description="Lower bound (euro/MWh) of the absolute value of the Imbalance Settlement Price forecast.",
