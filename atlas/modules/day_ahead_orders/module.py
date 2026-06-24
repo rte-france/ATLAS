@@ -68,7 +68,7 @@ class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrde
         )
 
         if parameters.solver.export_lp:
-            output_path = parameters.get_output_dir() / "lp_export"
+            output_path = parameters.get_lp_dir()
             output_path.mkdir(parents=True, exist_ok=True)
 
         if len(orders_time) == 0:

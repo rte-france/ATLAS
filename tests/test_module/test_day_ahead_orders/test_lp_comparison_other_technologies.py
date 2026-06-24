@@ -11,14 +11,16 @@ against pre-existing reference LP files to ensure the optimization model remains
 import tempfile
 from pathlib import Path
 
+import pendulum
 import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.solver.solver_helper import SolverHelper
+from tests.utils import load_threshold_for_module
 
 # Test data directories
-DAY_AHEAD_INPUT_DIR = Path("tests/dataset/day_ahead_input")
+DAY_AHEAD_INPUT_DIR = Path("tests/dataset/day_ahead/day_ahead_input")
 REFERENCE_LP_DIR = Path(__file__).parent / "lp_files" / "others"
 
 
@@ -61,17 +63,18 @@ def generated_lp_files():
 
         input_data = AtlasDataset.from_directory(DAY_AHEAD_INPUT_DIR)
         module = DayAheadOrdersModule()
-        module.run(input_data, params_dict)
 
-        # Collect all generated LP files
+        start = pendulum.now()
+        module.run(input_data, params_dict)
+        elapsed = (pendulum.now() - start).total_seconds()
+
         lp_files = list((Path(tmpdir) / "lp_export").glob("*.lp"))
 
-        # Read and cache LP file data to avoid keeping tmpdir alive
         lp_data_cache = {}
         for lp_file in lp_files:
             lp_data_cache[lp_file.name] = SolverHelper.read_lp_ortools(str(lp_file))
 
-        yield lp_data_cache
+        yield lp_data_cache, elapsed
 
 
 @pytest.fixture(
@@ -109,18 +112,16 @@ class TestOtherTechnologiesLPComparison:
 
     def test_generated_lp_matches_reference(self, generated_lp_files, other_technology_test_case):
         """Test that generated LP matches the reference LP for storage and thermal intermediate scenarios."""
+        lp_data_cache, _ = generated_lp_files
         asset_name, price_forecast, reference_lp = other_technology_test_case
 
-        # Find the matching LP file from the generated cache
         matching_lp_data = None
-        for lp_filename, lp_data in generated_lp_files.items():
+        for lp_filename, lp_data in lp_data_cache.items():
             if price_forecast:
-                # Check if filename contains both asset name and price forecast
                 if asset_name in lp_filename and price_forecast in lp_filename:
                     matching_lp_data = lp_data
                     break
             else:
-                # Check if filename contains asset name (storage case)
                 if asset_name in lp_filename:
                     matching_lp_data = lp_data
                     break
@@ -151,15 +152,12 @@ class TestOtherTechnologiesLPComparison:
             assert comparison_result["objectives"]["identical_pct"] == 100.0, (
                 f"Objectives mismatch for {test_name}: {comparison_result['objectives']['identical_pct']}% identical"
             )
-
             assert comparison_result["variables"]["identical_pct"] == 100.0, (
                 f"Variables mismatch for {test_name}: {comparison_result['variables']['identical_pct']}% identical"
             )
-
             assert comparison_result["constraints"]["identical_pct"] == 100.0, (
                 f"Constraints mismatch for {test_name}: {comparison_result['constraints']['identical_pct']}% identical"
             )
-
             for category in ["objectives", "variables", "constraints"]:
                 assert comparison_result[category]["modified"] == 0, f"Modified {category} found in {test_name}"
                 assert comparison_result[category]["only_legacy"] == 0, (
@@ -168,3 +166,13 @@ class TestOtherTechnologiesLPComparison:
                 assert comparison_result[category]["only_atlas"] == 0, (
                     f"{category.capitalize()} only in generated LP for {test_name}"
                 )
+
+    def test_execution_time_within_threshold(self, generated_lp_files):
+        """Test that module execution time is within the defined threshold."""
+        _, elapsed = generated_lp_files
+
+        threshold = load_threshold_for_module("DayAheadOrdersTechno")
+        if threshold is None:
+            pytest.skip("No performance threshold defined for DayAheadOrdersTechno")
+
+        assert elapsed <= threshold, f"DayAheadOrders took {elapsed:.2f}s, expected <= {threshold}s"
