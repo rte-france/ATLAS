@@ -14,6 +14,7 @@ import pandas as pd
 import pendulum
 import polars as pl
 
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.objects.business_model import BusinessModel
 
 
@@ -210,6 +211,9 @@ def diff_business_model(
     return field_diffs
 
 
+_TIMESERIES_DIFF_RTOL = 1e-9
+
+
 def diff_on_other_than_business_model(
     val: Any, other_val: Any, _visited: set[tuple[int, int]] | None = None
 ) -> dict[str, Any] | None:
@@ -222,6 +226,18 @@ def diff_on_other_than_business_model(
                 return {"self": val, "other": other_val}
         except Exception:
             return {"self": str(val), "other": str(other_val)}
+    elif isinstance(val, AbstractTimeseries) and isinstance(other_val, AbstractTimeseries):
+        # Timeseries accumulate float ops so use tolerance rather than exact equality.
+        try:
+            df_val = val.dataframe
+            df_other = other_val.dataframe
+            joined = df_val.join(df_other, on="time", suffix="_other")
+            max_diff = (joined["value"] - joined["value_other"]).abs().max() or 0.0
+            ref = joined["value"].abs().max() or 1.0
+            if max_diff > _TIMESERIES_DIFF_RTOL * ref or joined.height != df_val.height:
+                return {"changed": "not-serializable yet"}
+        except Exception:
+            return {"error": "Couldn't check diff"}
     elif hasattr(val, "equals") and hasattr(other_val, "equals"):
         try:
             if not val.equals(other_val):

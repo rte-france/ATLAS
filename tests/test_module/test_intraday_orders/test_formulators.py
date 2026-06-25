@@ -40,8 +40,6 @@ def _orders_time(parameters):
 _SKIP_EQUIPMENT_FIELDS = {
     "id_buy_submitted_volume",
     "id_sell_submitted_volume",
-    "total_id_buy_submitted_volume",
-    "total_id_sell_submitted_volume",
 }
 
 _FLOAT_RTOL = 1e-9

@@ -110,7 +110,7 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
                     )
                     if order is not None:
                         orders.append(order)
-                        sell_submitted_volume.sum_value_at(t, abs(volume))
+                        sell_submitted_volume.sum_value_at(t, abs(volume_engagement))
 
                 elif volume_engagement < 0 and abs(volume_engagement) > volume:
                     order = self.build_offer(volume, price, OrderType.Sell, equipment, t, fragment_idx, parameters)
