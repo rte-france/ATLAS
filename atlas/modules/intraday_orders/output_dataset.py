@@ -55,25 +55,52 @@ class IntradayOrdersOutputDataset(AbstractModuleOutput[IntradayOrdersParameters]
             self.change_sets.append(AddObject.from_object(order_coupling))
 
         for load in self.load:
-            load_dict = {"name": load.name, "id_buy_submitted_volume": load.id_buy_submitted_volume}
+            load_dict = {
+                "name": load.name,
+                "id_sell_submitted_volume": load.id_sell_submitted_volume,
+                "id_buy_submitted_volume": load.id_buy_submitted_volume,
+                "total_id_buy_submitted_volume": load.total_id_buy_submitted_volume,
+                "total_id_sell_submitted_volume": load.total_id_sell_submitted_volume,
+            }
             self.change_sets.append(UpdateObject(load_dict, Load))
 
         for hydro in self.hydro:
-            hydro_dict = {"name": hydro.name, "id_sell_submitted_volume": hydro.id_sell_submitted_volume}
+            hydro_dict = {
+                "name": hydro.name,
+                "id_sell_submitted_volume": hydro.id_sell_submitted_volume,
+                "id_buy_submitted_volume": hydro.id_buy_submitted_volume,
+                "total_id_buy_submitted_volume": hydro.total_id_buy_submitted_volume,
+                "total_id_sell_submitted_volume": hydro.total_id_sell_submitted_volume,
+            }
             self.change_sets.append(UpdateObject(hydro_dict, Hydro))
 
         for solar in self.solar:
-            solar_dict = {"name": solar.name, "id_sell_submitted_volume": solar.id_sell_submitted_volume}
+            solar_dict = {
+                "name": solar.name,
+                "id_sell_submitted_volume": solar.id_sell_submitted_volume,
+                "id_buy_submitted_volume": solar.id_buy_submitted_volume,
+                "total_id_buy_submitted_volume": solar.total_id_buy_submitted_volume,
+                "total_id_sell_submitted_volume": solar.total_id_sell_submitted_volume,
+            }
             self.change_sets.append(UpdateObject(solar_dict, Solar))
 
         for wind in self.wind:
-            wind_dict = {"name": wind.name, "id_sell_submitted_volume": wind.id_sell_submitted_volume}
+            wind_dict = {
+                "name": wind.name,
+                "id_sell_submitted_volume": wind.id_sell_submitted_volume,
+                "id_buy_submitted_volume": wind.id_buy_submitted_volume,
+                "total_id_buy_submitted_volume": wind.total_id_buy_submitted_volume,
+                "total_id_sell_submitted_volume": wind.total_id_sell_submitted_volume,
+            }
             self.change_sets.append(UpdateObject(wind_dict, Wind))
 
         for other_non_dispatchable in self.other_non_dispatchable:
             other_non_dispatchable_dict = {
                 "name": other_non_dispatchable.name,
                 "id_sell_submitted_volume": other_non_dispatchable.id_sell_submitted_volume,
+                "id_buy_submitted_volume": other_non_dispatchable.id_buy_submitted_volume,
+                "total_id_buy_submitted_volume": other_non_dispatchable.total_id_buy_submitted_volume,
+                "total_id_sell_submitted_volume": other_non_dispatchable.total_id_sell_submitted_volume,
             }
             self.change_sets.append(UpdateObject(other_non_dispatchable_dict, OtherNonDispatchable))
 
@@ -81,6 +108,9 @@ class IntradayOrdersOutputDataset(AbstractModuleOutput[IntradayOrdersParameters]
             thermal_dict: dict[str, Any] = {
                 "name": thermal.name,
                 "id_sell_submitted_volume": thermal.id_sell_submitted_volume,
+                "id_buy_submitted_volume": thermal.id_buy_submitted_volume,
+                "total_id_buy_submitted_volume": thermal.total_id_buy_submitted_volume,
+                "total_id_sell_submitted_volume": thermal.total_id_sell_submitted_volume,
             }
             if thermal.strategy == ThermalStrategy.INTERMEDIATE:
                 thermal_dict["state_sequence"] = thermal.state_sequence
@@ -91,6 +121,5 @@ class IntradayOrdersOutputDataset(AbstractModuleOutput[IntradayOrdersParameters]
                 "name": storage.name,
                 "id_sell_submitted_volume": storage.id_sell_submitted_volume,
                 "id_buy_submitted_volume": storage.id_buy_submitted_volume,
-                "variable_cost": storage.variable_cost,
             }
             self.change_sets.append(UpdateObject(storage_dict, Storage))

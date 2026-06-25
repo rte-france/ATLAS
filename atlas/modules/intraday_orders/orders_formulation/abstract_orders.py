@@ -5,7 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TypeVar
 
@@ -80,6 +80,7 @@ class AbstractOrdersFormulator[E](ABC):
 
         return orders, couplings
 
+    @abstractmethod
     def formulate_equipment_orders(
         self,
         equipment: E,
@@ -87,5 +88,4 @@ class AbstractOrdersFormulator[E](ABC):
         buy_submitted_volume: Timeseries,
         sell_submitted_volume: Timeseries,
         parameters: IntradayOrdersParameters,
-    ) -> tuple[list[Order], list[OrderCoupling]]:
-        raise NotImplementedError()
+    ) -> tuple[list[Order], list[OrderCoupling]]: ...
