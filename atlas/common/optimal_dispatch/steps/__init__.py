@@ -17,7 +17,7 @@ T = TypeVar("T")
 P = TypeVar("P", bound="AbstractModuleParameters")
 
 
-class AbstractOptimStep(ABC, Generic[T, P]):
+class AbstractOptimStep[T, P](ABC):
     """
     Abstract base for per-equipment LP/MIP optimisation steps.
 

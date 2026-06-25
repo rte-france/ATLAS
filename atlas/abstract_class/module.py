@@ -10,22 +10,22 @@ Module that implements AbstractModule
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Generic
+from typing import Any
 
 import atlas.config as cfg
-from atlas.abstract_class.dataset import ID, OD
-from atlas.abstract_class.parameters import P
+from atlas.abstract_class.dataset import AbstractDataset, AbstractModuleOutput
+from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 
 
-class AbstractModule(ABC, Generic[P, ID, OD]):
+class AbstractModule[P: AbstractModuleParameters, ID: AbstractDataset, OD: AbstractModuleOutput](ABC):
     """Abstract base class for modules with standard execution lifecycle."""
 
-    def before_execution(self) -> None:
+    def before_execution(self) -> None:  # noqa: B027
         """Hook before execution."""
 
-    def after_execution(self) -> None:
+    def after_execution(self) -> None:  # noqa: B027
         """Hook after execution."""
 
     @abstractmethod

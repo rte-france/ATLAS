@@ -7,7 +7,7 @@ This document outlines the process for creating releases and publishing document
 The Atlas project uses an automated release workflow that:
 
 - Publishes packages to PyPI when version tags are pushed
-- Automatically deploys versioned documentation using MkDocs and Mike
+- Automatically builds and deploys versioned documentation on Read the Docs
 - Maintains both development and stable documentation versions
 
 ## Release Workflow
@@ -40,35 +40,42 @@ The Atlas project uses an automated release workflow that:
 
 ### How It Works
 
-The documentation system uses [Mike](https://github.com/jimporter/mike) for version management:
+The documentation is hosted on [Read the Docs](https://readthedocs.org/), which
+builds the site automatically from the repository (see `.readthedocs.yaml`). The
+build is driven by `zensical` and `uv`; Read the Docs handles hosting, the
+version selector, and the canonical/latest aliases.
 
-- **Development docs** (`dev`): Auto-deployed from `dev` branch
-- **Version docs** (e.g., `0.1.0`, `0.2.0`): Auto-deployed from version tags
-- **Latest alias**: Points to the most recent stable version
+- **Development docs** (`latest`): built automatically on every push to the
+  default branch.
+- **Version docs** (e.g., `0.1.0`, `0.2.0`): built automatically when a version
+  tag is pushed, once the corresponding version is activated in the Read the
+  Docs project.
+- **`stable` alias**: points to the most recent active versioned build.
 
 ### Version Deployment Process
 
-1. **Main Branch Pushes**:
-   - Deploys documentation as `dev` version
-   - Updates `latest` alias to `dev`
+1. **Branch Pushes** (default branch):
+   - Read the Docs rebuilds the `latest` version via the project webhook.
 
 2. **Version Tag Pushes** (e.g., `v0.2.0`):
-   - Extracts version from tag (removes `v` prefix)
-   - Deploys documentation with version number
-   - Updates `latest` alias to new version
+   - The tag appears in the Read the Docs *Versions* dashboard.
+   - Activate the version there (or enable "build new tags automatically") to
+     publish a dedicated, versioned documentation build.
+   - Read the Docs updates the `stable` alias to the latest active version.
 
 ### Manual Documentation Operations
 
+Version management is done from the Read the Docs **Versions** dashboard of the
+project (activate / deactivate / hide versions, set the default version). To
+reproduce a build locally:
+
 ```bash
-# List all deployed versions
-uv run mike list
+# Install the documentation dependency group
+uv sync --group docs
 
-# Deploy a specific version manually
-uv run mike deploy --push --update-aliases 0.2.0 latest
+# Build the static site (output in ./public)
+uv run zensical build 
 
-# Set default version
-uv run mike set-default --push latest
-
-# Delete a version
-uv run mike delete --push old-version
+# Build and serve locally on http://localhost:8000
+uv run zensical serve 
 ```
