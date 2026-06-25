@@ -72,7 +72,9 @@ def compare_planning(equipment: ThermalIDO, orders_timestamps: list[DateTime], p
             delta_planning_values.append(0)  # both power are identical => code 0
 
     # Creation of a time series over orders_time with the comparing code
-    delta_planning = Timeseries()
+    delta_planning = Timeseries.from_index(
+        parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, 0.0
+    )
     for t, delta_planning_value in zip(orders_timestamps, delta_planning_values, strict=False):
         delta_planning.set_value(t, delta_planning_value)
 

@@ -58,6 +58,7 @@ def build_intraday_order(
     order_type: OrderType,
     time: DateTime,
     parameters: IntradayOrdersParameters,
+    is_agent_tso: bool | None = False,
 ) -> Order:
     return Order(
         name=bid_name,
@@ -69,7 +70,7 @@ def build_intraday_order(
         price=price,
         product=Product.Intraday,
         order_type=order_type,
-        is_agent_tso=False,
+        is_agent_tso=is_agent_tso,
         execution_date=parameters.temporal.execution_date,
         start_date=time,  # type: ignore[arg-type]
         end_date=time + parameters.temporal.timestep,  # type: ignore[arg-type]

@@ -57,7 +57,7 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
                     bid_output = self.build_offer(
                         equipment,
                         equipment.variable_cost.get_value(t),
-                        available_up_power,
+                        abs(available_up_power),
                         OrderType.Sell,
                         t,
                         parameters,
@@ -82,7 +82,7 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
                     buy_submitted_volume.sum_value_at(t, abs(consumption_value))
 
                 elif abs(consumption_value) > parameters.allowed_round_off_error:
-                    bid_output = self.build_offer(equipment, 0.0, consumption_value, OrderType.Sell, t, parameters)
+                    bid_output = self.build_offer(equipment, 0.0, abs(consumption_value), OrderType.Sell, t, parameters)
                     orders.append(bid_output)
                     sell_submitted_volume.sum_value_at(t, abs(consumption_value))
 

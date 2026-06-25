@@ -113,11 +113,11 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
                     variable_costs.get_value(t) + buy_isp_forecast,
                     0.0,
                     abs(production_value),
-                    OrderType.Sell,
+                    OrderType.Buy,
                     t,
                     parameters,
                 )
                 orders.append(bid_output)
-                sell_submitted_volume.sum_value_at(t, abs(curtailment_value))
+                buy_submitted_volume.sum_value_at(t, abs(production_value))
 
         return orders, []

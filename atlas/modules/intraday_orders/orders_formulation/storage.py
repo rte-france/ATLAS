@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.enums import ComplementDirection, CouplingType, OrderType, StorageType
+from atlas.enums import OrderType
 from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_orders.input_objects.storage import StorageIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
@@ -125,82 +125,28 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
             previous_quantity = previous_planning.get_value(t)
             new_quantity = new_planning.get_value(t)
 
-            # Identify if a sell or buy order should be created based on the results from the optimization
-            if (
-                equipment.storage_type == StorageType.ELECTRIC_VEHICLE
-                and parameters.electric_vehicles_complement_ordering
-            ):
-                # By default, EVs are assumed to respect their DisplacementEnergy after the DA Clearing (not necessarily the PO)
-                # So the total energy bought / sold in ID should be equal to 0
-                coupling_orders: list[Order] = []
+            if new_quantity > previous_quantity:
+                q_order = new_quantity - previous_quantity
+                price = final_sell_price
+                order_type = OrderType.Sell
+                sell_submitted_volume.sum_value_at(t, q_order)
+                daily_sell_quantity += sell_submitted_volume.get_value(t)
 
-                if previous_quantity - equipment.minimum_power.get_value(t) > parameters.allowed_round_off_error:
-                    order_name = f"id_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}_{equipment.name}_{t.format('DD_MM_YYYY_HH_mm_ss')}"
-                    order = build_intraday_order(
-                        equipment,
-                        order_name,
-                        final_buy_price,
-                        0.0,
-                        previous_quantity - equipment.minimum_power.get_value(t),
-                        OrderType.Buy,
-                        t,
-                        parameters,
-                    )
-                    orders.append(order)
-                    coupling_orders.append(order)
-                    buy_submitted_volume.sum_value_at(t, previous_quantity - equipment.minimum_power.get_value(t))
-
-                if equipment.maximum_power.get_value(t) - previous_quantity > parameters.allowed_round_off_error:
-                    order_name = f"id_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}_{equipment.name}_{t.format('DD_MM_YYYY_HH_mm_ss')}"
-                    order = build_intraday_order(
-                        equipment,
-                        order_name,
-                        final_sell_price,
-                        0.0,
-                        equipment.maximum_power.get_value(t) - previous_quantity,
-                        OrderType.Sell,
-                        t,
-                        parameters,
-                    )
-                    orders.append(order)
-                    coupling_orders.append(order)
-                    sell_submitted_volume.sum_value_at(t, equipment.maximum_power.get_value(t) - previous_quantity)
-
-                if coupling_orders:
-                    couplings.append(
-                        OrderCoupling(
-                            name=f"id_complement_for_unit_{equipment.name}_at_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}",
-                            coupling_type=CouplingType.COMPLEMENT,
-                            complement_energy=0.0,
-                            complement_direction=ComplementDirection.EqualTo,
-                            orders=coupling_orders,
-                        )
-                    )
+            elif previous_quantity > new_quantity:
+                q_order = previous_quantity - new_quantity
+                price = final_buy_price
+                order_type = OrderType.Buy
+                buy_submitted_volume.sum_value_at(t, q_order)
+                daily_buy_quantity += buy_submitted_volume.get_value(t)
 
             else:
-                if new_quantity > previous_quantity:
-                    q_order = new_quantity - previous_quantity
-                    price = final_sell_price
-                    order_type = OrderType.Sell
+                continue
 
-                    sell_submitted_volume.sum_value_at(t, new_quantity - previous_quantity)
-                    daily_sell_quantity += sell_submitted_volume.get_value(t)
-
-                elif previous_quantity > new_quantity:
-                    q_order = previous_quantity - new_quantity
-                    price = final_buy_price
-                    order_type = OrderType.Buy
-
-                    buy_submitted_volume.sum_value_at(t, new_quantity - previous_quantity)
-                    daily_buy_quantity += buy_submitted_volume.get_value(t)
-
-                else:
-                    continue
-
-                # Creation of the order with the relevant parameters
-                if q_order > parameters.allowed_round_off_error:
-                    order_name = f"id_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}_{equipment.name}_{t.format('DD_MM_YYYY_HH_mm_ss')}"
-                    order = build_intraday_order(equipment, order_name, price, 0.0, q_order, order_type, t, parameters)
-                    orders.append(order)
+            if q_order > parameters.allowed_round_off_error:
+                order_name = f"id_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}_{equipment.name}_{t.format('DD_MM_YYYY_HH_mm_ss')}"
+                order = build_intraday_order(
+                    equipment, order_name, price, 0.0, q_order, order_type, t, parameters, is_agent_tso=None
+                )
+                orders.append(order)
 
         return orders, couplings

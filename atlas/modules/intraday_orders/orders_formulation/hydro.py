@@ -89,27 +89,31 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
             volume_prices.sort(key=lambda x: x[1])
             volume_engagement = engaged_quantity(equipment, parameters).get_value(t)
 
-            for volume, price in volume_prices:
+            for fragment_idx, (volume, price) in enumerate(volume_prices, start=1):
                 volume_engagement -= volume
 
                 if volume_engagement > 0:
-                    order = self.build_offer(volume, price, OrderType.Buy, equipment, t, parameters)
+                    order = self.build_offer(volume, price, OrderType.Buy, equipment, t, fragment_idx, parameters)
                     if order is not None:
                         orders.append(order)
                         buy_submitted_volume.sum_value_at(t, abs(volume))
 
                 elif volume_engagement < 0 and abs(volume_engagement) < volume:
-                    order = self.build_offer(volume + volume_engagement, price, OrderType.Buy, equipment, t, parameters)
+                    order = self.build_offer(
+                        volume + volume_engagement, price, OrderType.Buy, equipment, t, fragment_idx, parameters
+                    )
                     if order is not None:
                         orders.append(order)
                         buy_submitted_volume.sum_value_at(t, abs(volume + volume_engagement))
-                    order = self.build_offer(abs(volume_engagement), price, OrderType.Sell, equipment, t, parameters)
+                    order = self.build_offer(
+                        abs(volume_engagement), price, OrderType.Sell, equipment, t, fragment_idx, parameters
+                    )
                     if order is not None:
                         orders.append(order)
                         sell_submitted_volume.sum_value_at(t, abs(volume))
 
                 elif volume_engagement < 0 and abs(volume_engagement) > volume:
-                    order = self.build_offer(volume, price, OrderType.Sell, equipment, t, parameters)
+                    order = self.build_offer(volume, price, OrderType.Sell, equipment, t, fragment_idx, parameters)
                     if order is not None:
                         orders.append(order)
                         sell_submitted_volume.sum_value_at(t, abs(volume))
@@ -123,9 +127,10 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
         order_type: OrderType,
         equipment: HydroIDO,
         time: DateTime,
+        fragment_idx: int,
         parameters: IntradayOrdersParameters,
     ) -> Order | None:
         if volume <= parameters.allowed_round_off_error:
             return None
-        bid_name = f"id_hydraulic_{order_type.value.lower()}_fragment_{int(volume)}_at_{time.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{equipment.name}_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}"
+        bid_name = f"id_hydraulic_{order_type.value.lower()}_fragment_{fragment_idx}_at_{time.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{equipment.name}_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}"
         return build_intraday_order(equipment, bid_name, price, 0.0, volume, order_type, time, parameters)
