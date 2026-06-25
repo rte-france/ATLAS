@@ -104,7 +104,7 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
                     parameters,
                 )
                 orders.append(bid_output)
-                sell_submitted_volume.sum_value_at(t, abs(curtailment_value))
+                sell_submitted_volume.sum_value_at(t, abs(production_value))
 
             if production_value < 0:
                 bid_output = build_intraday_order(
