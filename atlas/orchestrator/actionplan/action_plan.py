@@ -14,7 +14,6 @@ from typing import cast
 
 from atlas import WorkflowParameters
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
-from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.actionplan.job import ActionPlanJob, ModuleTaskIterator, TaskIterator, WorkflowTaskIterator
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, Task
 from atlas.orchestrator.workflow.workflow import Workflow
@@ -39,7 +38,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         return any(Task.are_concurrent(itr.task, task) for itr in self._priority_queue)
 
     def add_task(self, task: Task) -> int:
-        """ Add a task to the action plan and return the number of jobs added
+        """Add a task to the action plan and return the number of jobs added
         :param task: task to add
         :type task: Task
         """
@@ -51,7 +50,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         return 0
 
     def _add_task_module(self, task: Task, root_output_dir: Path) -> int:
-        """ Add a task, that run a module, to the action plan and return the number of job add
+        """Add a task, that run a module, to the action plan and return the number of job add
         :param task: task that run a module
         :type task: Task
         :param root_output_dir: path to the root output directory used for the task
@@ -70,7 +69,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         return self._push_iterator(module_iterator)
 
     def _add_task_workflow(self, task: Task, root_output_dir: Path) -> int:
-        """ Add a task, that run a workflow, to the action plan and return the number of job add
+        """Add a task, that run a workflow, to the action plan and return the number of job add
         :param task: task that run a workflow
         :type task: Task
         :param root_output_dir: path to the root output directory used for the task
@@ -85,7 +84,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         return self._push_iterator(workflow_iterator)
 
     def _push_iterator(self, iterator: TaskIterator) -> int:
-        """ Add an iterator to the priority queue and return the number of jobs added
+        """Add an iterator to the priority queue and return the number of jobs added
         :param iterator: iterator to add
         :type iterator: TaskIterator
         """
@@ -95,12 +94,12 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         return len(iterator)
 
     def _pop_iterator(self) -> TaskIterator:
-        """ Remove and return the next iterator in the priority queue """
+        """Remove and return the next iterator in the priority queue"""
         itr = heapq.heappop(self._priority_queue)
         return itr
 
     def _build_priority_queue(self) -> None:
-        """ Build the priority queue and update the number of jobs in the action plan. """
+        """Build the priority queue and update the number of jobs in the action plan."""
         self._jobs_count = 0
         for task in self.parameters.tasks:
             self._jobs_count += self.add_task(task)

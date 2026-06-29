@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from pendulum import Duration
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator, AliasChoices, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
@@ -72,7 +72,7 @@ class Task(BaseModel):
     workflow: Workflow | Path | None = None
     module_parameters_path: Path | None = None
     priority: int = 0
-    from_: DateTime = Field(validation_alias=AliasChoices('from'))
+    from_: DateTime = Field(validation_alias=AliasChoices("from"))
     until: DateTime
     frequency: Duration
     offset_start_date: Duration

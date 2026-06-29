@@ -8,10 +8,8 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 from collections.abc import Iterator
-from pathlib import Path
 
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
-from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.orchestrator.workflow.parameters import Step, WorkflowParameters
 
