@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from atlas import Timeseries
-from atlas.modules.intraday_orders.models.window_type import WindowType
+from atlas.modules.intraday_orders.models.enums import WindowType
 
 
 class ThermalOrderWindow(Timeseries):

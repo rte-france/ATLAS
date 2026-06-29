@@ -36,17 +36,21 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
     ) -> tuple[list[Order], list[OrderCoupling]]:
         orders: list[Order] = []
 
-        production_new_planing = equipment.maximum_power_forecast.get_forecast(
+        new_production_plan = equipment.maximum_power_forecast.get_forecast(
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
         )
-        production_engagement = engaged_quantity(equipment, parameters)
+        cleared_position = engaged_quantity(equipment, parameters)
 
-        production_forecast = production_new_planing - production_engagement
+        # production_delta > 0: more production planned than cleared → sell the surplus.
+        # production_delta < 0: less production planned than cleared → buy back the shortfall.
+        production_delta = new_production_plan - cleared_position
 
         curtailment_ratio = equipment.maximum_curtailment_ratio.filter(item=orders_timestamps, inplace=False)
-        production_available_for_curtailment = (
-            production_engagement - production_new_planing + production_new_planing * curtailment_ratio
-        )
+
+        # curtailment_delta = cleared_position - new_plan + new_plan * curtailment_ratio
+        # < 0: curtailment margin available → sell (offer to reduce production at price 0)
+        # > 0: committed to more curtailment than available → buy back the over-curtailed volume
+        curtailment_delta = cleared_position - new_production_plan + new_production_plan * curtailment_ratio
 
         variable_costs = None
         if equipment.variable_cost is not None:
@@ -60,9 +64,11 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
         )
 
         for t in orders_timestamps:
-            buy_isp_forecast = price_forecast.get_value(t) * (1.0 + parameters.large_imbalance_penalty)
-            production_value = production_forecast.get_value(t)
-            curtailment_value = production_available_for_curtailment.get_value(t)
+            # Imbalance penalty price: the cost of being caught short on the balancing market,
+            # used to motivate buying back a shortfall even above marginal cost.
+            imbalance_penalty_price = price_forecast.get_value(t) * (1.0 + parameters.large_imbalance_penalty)
+            production_value = production_delta.get_value(t)
+            curtailment_value = curtailment_delta.get_value(t)
 
             bid_name = self.ORDER_NAME_TEMPLATE.format(
                 parameters.temporal.execution_date.format("DD_MM_YYYY_HH_mm_ss"),
@@ -77,23 +83,25 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
 
             if abs(curtailment_value) >= parameters.allowed_round_off_error:
                 if curtailment_value < 0:
-                    curtailment_bid_output = build_intraday_order(
+                    # curtailment_delta < 0: curtailment margin available → sell (reduce production at price 0)
+                    curtailment_bid = build_intraday_order(
                         equipment, curtailment_bid_name, 0.0, 0.0, abs(curtailment_value), OrderType.Sell, t, parameters
                     )
-                    orders.append(curtailment_bid_output)
+                    orders.append(curtailment_bid)
                     sell_submitted_volume.sum_value_at(t, abs(curtailment_value))
                 else:
-                    curtailment_bid_output = build_intraday_order(
+                    # curtailment_delta > 0: over-curtailed → buy back the committed volume
+                    curtailment_bid = build_intraday_order(
                         equipment, curtailment_bid_name, 0.0, 0.0, abs(curtailment_value), OrderType.Buy, t, parameters
                     )
-                    orders.append(curtailment_bid_output)
+                    orders.append(curtailment_bid)
                     buy_submitted_volume.sum_value_at(t, abs(curtailment_value))
 
             if abs(production_value) <= parameters.allowed_round_off_error:
                 continue
 
             if production_value > 0:
-                bid_output = build_intraday_order(
+                bid = build_intraday_order(
                     equipment,
                     bid_name,
                     variable_costs.get_value(t),
@@ -103,21 +111,21 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
                     t,
                     parameters,
                 )
-                orders.append(bid_output)
+                orders.append(bid)
                 sell_submitted_volume.sum_value_at(t, abs(production_value))
 
             if production_value < 0:
-                bid_output = build_intraday_order(
+                bid = build_intraday_order(
                     equipment,
                     bid_name,
-                    variable_costs.get_value(t) + buy_isp_forecast,
+                    variable_costs.get_value(t) + imbalance_penalty_price,
                     0.0,
                     abs(production_value),
                     OrderType.Buy,
                     t,
                     parameters,
                 )
-                orders.append(bid_output)
+                orders.append(bid)
                 buy_submitted_volume.sum_value_at(t, abs(production_value))
 
         return orders, []

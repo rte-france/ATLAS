@@ -32,63 +32,71 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
         consumption_engagement = engaged_quantity(equipment, parameters)
 
         if equipment.load_type == LoadType.POWER_TO_GAS:
-            maximum_power = equipment.maximum_power_forecast.get_forecast(
+            # POWER_TO_GAS loads can flex their consumption between zero and maximum_power_forecast.
+            # Selling means reducing consumption (freeing up power on the grid).
+            # Buying means increasing consumption (absorbing surplus power).
+            new_consumption_plan = equipment.maximum_power_forecast.get_forecast(
                 parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
             )
-            available_power = consumption_engagement - maximum_power
+            consumption_headroom = consumption_engagement - new_consumption_plan
 
             for t in orders_timestamps:
-                available_down_power = available_power.get_value(t)
-                available_up_power = consumption_engagement.get_value(t)
+                # Positive headroom: engagement > plan → can increase consumption further (buy).
+                expandable_consumption = consumption_headroom.get_value(t)
+                # Current engagement: the committed consumption that can be reduced (sell).
+                reducible_consumption = consumption_engagement.get_value(t)
 
-                if available_down_power > parameters.allowed_round_off_error:
-                    bid_output = self.build_offer(
+                if expandable_consumption > parameters.allowed_round_off_error:
+                    bid = self._build_offer(
                         equipment,
                         equipment.variable_cost.get_value(t),
-                        available_down_power,
+                        expandable_consumption,
                         OrderType.Buy,
                         t,
                         parameters,
                     )
-                    orders.append(bid_output)
-                    buy_submitted_volume.sum_value_at(t, abs(available_down_power))
+                    orders.append(bid)
+                    buy_submitted_volume.sum_value_at(t, abs(expandable_consumption))
 
-                if abs(available_up_power) > parameters.allowed_round_off_error:
-                    bid_output = self.build_offer(
+                if abs(reducible_consumption) > parameters.allowed_round_off_error:
+                    bid = self._build_offer(
                         equipment,
                         equipment.variable_cost.get_value(t),
-                        abs(available_up_power),
+                        abs(reducible_consumption),
                         OrderType.Sell,
                         t,
                         parameters,
                     )
-                    orders.append(bid_output)
-                    sell_submitted_volume.sum_value_at(t, abs(available_up_power))
+                    orders.append(bid)
+                    sell_submitted_volume.sum_value_at(t, abs(reducible_consumption))
 
         else:
-            consumption_new_planing = equipment.maximum_power_forecast.get_forecast(
+            # Standard load: compare cleared engagement to the new consumption forecast.
+            # consumption_delta > 0: consuming more than planned → buy the extra.
+            # consumption_delta < 0: consuming less than planned → sell back the surplus.
+            new_consumption_plan = equipment.maximum_power_forecast.get_forecast(
                 parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
             )
-            consumption_forecast = consumption_engagement - consumption_new_planing
+            consumption_delta = consumption_engagement - new_consumption_plan
 
             for t in orders_timestamps:
-                consumption_value = consumption_forecast.get_value(t)
+                consumption_value = consumption_delta.get_value(t)
 
                 if consumption_value > parameters.allowed_round_off_error:
-                    bid_output = self.build_offer(
+                    bid = self._build_offer(
                         equipment, parameters.consumption_price, consumption_value, OrderType.Buy, t, parameters
                     )
-                    orders.append(bid_output)
+                    orders.append(bid)
                     buy_submitted_volume.sum_value_at(t, abs(consumption_value))
 
                 elif abs(consumption_value) > parameters.allowed_round_off_error:
-                    bid_output = self.build_offer(equipment, 0.0, abs(consumption_value), OrderType.Sell, t, parameters)
-                    orders.append(bid_output)
+                    bid = self._build_offer(equipment, 0.0, abs(consumption_value), OrderType.Sell, t, parameters)
+                    orders.append(bid)
                     sell_submitted_volume.sum_value_at(t, abs(consumption_value))
 
         return orders, []
 
-    def build_offer(
+    def _build_offer(
         self,
         equipment: LoadIDO,
         price: float,

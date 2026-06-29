@@ -31,96 +31,113 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
     ) -> tuple[list[Order], list[OrderCoupling]]:
         orders: list[Order] = []
 
-        delta_wu: dict[float, tuple[float, float]] = {}
-        for category in range(len(equipment.fragment_volumes)):
-            delta_wu[category] = (equipment.fragment_volumes[category], equipment.fragment_prices[category])
+        # Each fragment captures a slice of total capacity with its own price delta.
+        # Fragments are sorted by price at formulation time so the cheapest capacity is offered first.
+        fragment_specs = list(zip(equipment.fragment_volumes, equipment.fragment_prices, strict=True))
 
+        # Determine the current reservoir energy level to interpolate the marginal value curve.
         forecast_horizon: DateTime = parameters.temporal.start_date - parameters.temporal.timestep
-
         if equipment.stored_energy is not None:
             energy_forecast = equipment.stored_energy.get_forecast(
                 parameters.temporal.execution_date,
                 forecast_horizon,
                 forecast_horizon,
             )
-            if len(energy_forecast) > 0:
-                energy_level = energy_forecast.get_value(forecast_horizon)
-            else:
-                energy_level = equipment.initial_level.get_value(parameters.temporal.start_date)
+            energy_level = (
+                energy_forecast.get_value(forecast_horizon)
+                if len(energy_forecast) > 0
+                else equipment.initial_level.get_value(parameters.temporal.start_date)
+            )
         else:
             energy_level = equipment.initial_level.get_value(parameters.temporal.start_date)
 
-        xmin = filter(lambda x: int(x) <= energy_level, equipment.storage_marginal_value.index)
-        xmax = filter(lambda x: int(x) > energy_level, equipment.storage_marginal_value.index)
+        # Find the two marginal-value curve points bracketing the current energy level
+        # for linear interpolation of the water value.
+        levels_below = [x for x in equipment.storage_marginal_value.index if int(x) <= energy_level]
+        levels_above = [x for x in equipment.storage_marginal_value.index if int(x) > energy_level]
 
-        if xmin:
-            xpmin = max(xmin, key=lambda x: int(x))
-            level_inf = equipment.storage_marginal_value.select(xpmin).upsample(frequency=pendulum.Duration(hours=1))
-        if xmax:
-            xpmax = min(xmax, key=lambda x: int(x))
-            level_sup = equipment.storage_marginal_value.select(xpmax).upsample(frequency=pendulum.Duration(hours=1))
-        if xmin and xmax:
-            weight_inf = (int(xpmax) - energy_level) / (int(xpmax) - int(xpmin))
-            weight_sup = (energy_level - int(xpmin)) / (int(xpmax) - int(xpmin))
+        if levels_below:
+            level_inf = max(levels_below, key=lambda x: int(x))
+            marginal_value_lower = equipment.storage_marginal_value.select(level_inf).upsample(
+                frequency=pendulum.Duration(hours=1)
+            )
+        if levels_above:
+            level_sup = min(levels_above, key=lambda x: int(x))
+            marginal_value_upper = equipment.storage_marginal_value.select(level_sup).upsample(
+                frequency=pendulum.Duration(hours=1)
+            )
+        if levels_below and levels_above:
+            weight_lower = (int(level_sup) - energy_level) / (int(level_sup) - int(level_inf))
+            weight_upper = (energy_level - int(level_inf)) / (int(level_sup) - int(level_inf))
 
         for t in orders_timestamps:
             capacity = equipment.maximum_power.get_value(t)
-            volumes = {key: capacity * vu[0] for key, vu in delta_wu.items()}
 
-            normal_volumes = {key: v for key, v in volumes.items() if v >= parameters.hydraulic_minimal_fragment_size}
-            minor_volumes = {key: v for key, v in volumes.items() if v < parameters.hydraulic_minimal_fragment_size}
+            # Scale fragment volumes to actual capacity and drop fragments too small to be meaningful.
+            volumes = {k: capacity * vol_frac for k, (vol_frac, _) in enumerate(fragment_specs)}
+            normal_volumes = {k: v for k, v in volumes.items() if v >= parameters.hydraulic_minimal_fragment_size}
+            minor_volumes = {k: v for k, v in volumes.items() if v < parameters.hydraulic_minimal_fragment_size}
 
             if sum(minor_volumes.values()) > 0:
+                # Redistribute dropped fragment capacity proportionally among the remaining fragments.
                 reduced_capacity = sum(normal_volumes.values())
-                volumes = {key: capacity * v / reduced_capacity for (key, v) in normal_volumes.items()}
+                volumes = {k: capacity * v / reduced_capacity for k, v in normal_volumes.items()}
 
+            # Compute water value at current energy level via interpolation.
             volume_prices = []
             for k, v in volumes.items():
-                if not xmin:
-                    price = level_sup.get_value(t) + delta_wu[k][1]
-                elif not xmax:
-                    price = level_inf.get_value(t) + delta_wu[k][1]
+                _, price_delta = fragment_specs[k]
+                if not levels_below:
+                    price = marginal_value_upper.get_value(t) + price_delta
+                elif not levels_above:
+                    price = marginal_value_lower.get_value(t) + price_delta
                 else:
-                    pmin = level_inf.get_value(t)
-                    pmax = level_sup.get_value(t)
-                    price = weight_inf * pmin + weight_sup * pmax + delta_wu[k][1]
+                    water_value = weight_lower * marginal_value_lower.get_value(
+                        t
+                    ) + weight_upper * marginal_value_upper.get_value(t)
+                    price = water_value + price_delta
                 volume_prices.append((v, price))
 
             volume_prices.sort(key=lambda x: x[1])
-            volume_engagement = engaged_quantity(equipment, parameters).get_value(t)
+
+            # Walk through fragments from cheapest to most expensive.
+            # remaining_engagement tracks how much of the cleared engagement is still "above" us:
+            # > 0 → still within the buy zone (need to acquire more than we've sold)
+            # straddling 0 → this fragment crosses the engagement boundary (split buy/sell)
+            # < 0 → past the engagement boundary (into the sell zone)
+            remaining_engagement = engaged_quantity(equipment, parameters).get_value(t)
 
             for fragment_idx, (volume, price) in enumerate(volume_prices, start=1):
-                volume_engagement -= volume
+                remaining_engagement -= volume
 
-                if volume_engagement > 0:
-                    order = self.build_offer(volume, price, OrderType.Buy, equipment, t, fragment_idx, parameters)
+                if remaining_engagement > 0:
+                    order = self._build_offer(volume, price, OrderType.Buy, equipment, t, fragment_idx, parameters)
                     if order is not None:
                         orders.append(order)
                         buy_submitted_volume.sum_value_at(t, abs(volume))
 
-                elif volume_engagement < 0 and abs(volume_engagement) < volume:
-                    order = self.build_offer(
-                        volume + volume_engagement, price, OrderType.Buy, equipment, t, fragment_idx, parameters
-                    )
-                    if order is not None:
-                        orders.append(order)
-                        buy_submitted_volume.sum_value_at(t, abs(volume + volume_engagement))
-                    order = self.build_offer(
-                        abs(volume_engagement), price, OrderType.Sell, equipment, t, fragment_idx, parameters
-                    )
-                    if order is not None:
-                        orders.append(order)
-                        sell_submitted_volume.sum_value_at(t, abs(volume_engagement))
+                elif remaining_engagement < 0 and abs(remaining_engagement) < volume:
+                    # Fragment straddles the engagement boundary: split into buy and sell parts.
+                    buy_volume = volume + remaining_engagement
+                    sell_volume = abs(remaining_engagement)
+                    for frag_volume, frag_type in ((buy_volume, OrderType.Buy), (sell_volume, OrderType.Sell)):
+                        order = self._build_offer(frag_volume, price, frag_type, equipment, t, fragment_idx, parameters)
+                        if order is not None:
+                            orders.append(order)
+                            if frag_type == OrderType.Buy:
+                                buy_submitted_volume.sum_value_at(t, abs(frag_volume))
+                            else:
+                                sell_submitted_volume.sum_value_at(t, abs(frag_volume))
 
-                elif volume_engagement < 0 and abs(volume_engagement) > volume:
-                    order = self.build_offer(volume, price, OrderType.Sell, equipment, t, fragment_idx, parameters)
+                elif remaining_engagement < 0 and abs(remaining_engagement) > volume:
+                    order = self._build_offer(volume, price, OrderType.Sell, equipment, t, fragment_idx, parameters)
                     if order is not None:
                         orders.append(order)
                         sell_submitted_volume.sum_value_at(t, abs(volume))
 
         return orders, []
 
-    def build_offer(
+    def _build_offer(
         self,
         volume: float,
         price: float,
