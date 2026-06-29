@@ -31,15 +31,6 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         self._jobs: list[WorkflowJob] = []
         self.build_jobs(prefix_job_name)
 
-    @classmethod
-    def from_file(cls, file_path: str | Path, context: ContextParameters | None = None) -> Workflow:
-        file_path = Path(file_path)
-        parameters = WorkflowParameters.from_file(file_path=file_path)
-        if context is not None:
-            parameters.context.use(context)
-        parameters._orchestrator_path = file_path.parent
-        return cls(parameters=parameters)
-
     def build_jobs(self, prefix_job_name: str):
         Step.add_index_in_step_name(self.parameters.steps)
 

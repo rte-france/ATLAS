@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Generic
 
 from atlas.abstract_class.dataset import AbstractDataset
@@ -9,6 +10,7 @@ from atlas.abstract_class.job import AbstractJob, J
 from atlas.abstract_class.orchestrator_parameters import PO
 from atlas.config import logger
 from atlas.custom_errors import WorkflowJobError
+from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.timing import timer
@@ -33,6 +35,21 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
         """
         Return the number of jobs to execute.
         """
+
+    @classmethod
+    def from_file(cls, file_path: str | Path, context: ContextParameters | None = None) -> AbstractOrchestrator:
+        """
+        :param file_path: path to the config file
+        :type: str | Path
+        :param context: context parameters to merge with the context from config file, this context parameters will
+        take priority over the one existing in the config file.
+        """
+        file_path = Path(file_path)
+        parameters = type[PO].from_file(file_path=file_path)
+        if context is not None:
+            parameters.context.use(context)
+        parameters._orchestrator_path = file_path.parent
+        return cls(parameters=parameters)
 
     def get_output_dataset(self) -> AbstractDataset | None:
         """

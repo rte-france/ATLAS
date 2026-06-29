@@ -38,15 +38,6 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
     def _has_concurrent_task_with(self, task: Task) -> bool:
         return any(Task.are_concurrent(itr.task, task) for itr in self._priority_queue)
 
-    @classmethod
-    def from_file(cls, file_path: str | Path, context: ContextParameters | None = None) -> ActionPlan:
-        file_path = Path(file_path)
-        parameters = ActionPlanParameters.from_file(file_path=file_path)
-        if context is not None:
-            parameters.context.use(context)
-        parameters._orchestrator_path = file_path.parent
-        return cls(parameters=parameters)
-
     def add_task(self, task: Task) -> int:
         """ Add a task to the action plan and return the number of jobs added
         :param task: task to add
