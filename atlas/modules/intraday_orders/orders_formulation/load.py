@@ -24,11 +24,11 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
         self,
         equipment: LoadIDO,
         orders_timestamps: list[DateTime],
-        buy_submitted_volume: Timeseries,
-        sell_submitted_volume: Timeseries,
         parameters: IntradayOrdersParameters,
-    ) -> tuple[list[Order], list[OrderCoupling]]:
+    ) -> tuple[list[Order], list[OrderCoupling], Timeseries, Timeseries]:
         orders: list[Order] = []
+        sell_values: list[float] = [0.0] * len(orders_timestamps)
+        buy_values: list[float] = [0.0] * len(orders_timestamps)
         consumption_engagement = engaged_quantity(equipment, parameters)
 
         if equipment.load_type == LoadType.POWER_TO_GAS:
@@ -40,7 +40,7 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
             )
             consumption_headroom = consumption_engagement - new_consumption_plan
 
-            for t in orders_timestamps:
+            for i, t in enumerate(orders_timestamps):
                 # Positive headroom: engagement > plan → can increase consumption further (buy).
                 expandable_consumption = consumption_headroom.get_value(t)
                 # Current engagement: the committed consumption that can be reduced (sell).
@@ -56,7 +56,7 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
                         parameters,
                     )
                     orders.append(bid)
-                    buy_submitted_volume.sum_value_at(t, abs(expandable_consumption))
+                    buy_values[i] += abs(expandable_consumption)
 
                 if abs(reducible_consumption) > parameters.allowed_round_off_error:
                     bid = self._build_offer(
@@ -68,7 +68,7 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
                         parameters,
                     )
                     orders.append(bid)
-                    sell_submitted_volume.sum_value_at(t, abs(reducible_consumption))
+                    sell_values[i] += abs(reducible_consumption)
 
         else:
             # Standard load: compare cleared engagement to the new consumption forecast.
@@ -79,7 +79,7 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
             )
             consumption_delta = consumption_engagement - new_consumption_plan
 
-            for t in orders_timestamps:
+            for i, t in enumerate(orders_timestamps):
                 consumption_value = consumption_delta.get_value(t)
 
                 if consumption_value > parameters.allowed_round_off_error:
@@ -87,14 +87,20 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
                         equipment, parameters.consumption_price, consumption_value, OrderType.Buy, t, parameters
                     )
                     orders.append(bid)
-                    buy_submitted_volume.sum_value_at(t, abs(consumption_value))
+                    buy_values[i] += abs(consumption_value)
 
                 elif abs(consumption_value) > parameters.allowed_round_off_error:
                     bid = self._build_offer(equipment, 0.0, abs(consumption_value), OrderType.Sell, t, parameters)
                     orders.append(bid)
-                    sell_submitted_volume.sum_value_at(t, abs(consumption_value))
+                    sell_values[i] += abs(consumption_value)
 
-        return orders, []
+        sell_submitted_volume = Timeseries.from_index(
+            parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, sell_values
+        )
+        buy_submitted_volume = Timeseries.from_index(
+            parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, buy_values
+        )
+        return orders, [], sell_submitted_volume, buy_submitted_volume
 
     def _build_offer(
         self,

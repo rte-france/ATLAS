@@ -25,11 +25,11 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
         self,
         equipment: HydroIDO,
         orders_timestamps: list[DateTime],
-        buy_submitted_volume: Timeseries,
-        sell_submitted_volume: Timeseries,
         parameters: IntradayOrdersParameters,
-    ) -> tuple[list[Order], list[OrderCoupling]]:
+    ) -> tuple[list[Order], list[OrderCoupling], Timeseries, Timeseries]:
         orders: list[Order] = []
+        sell_values: list[float] = [0.0] * len(orders_timestamps)
+        buy_values: list[float] = [0.0] * len(orders_timestamps)
 
         # Each fragment captures a slice of total capacity with its own price delta.
         # Fragments are sorted by price at formulation time so the cheapest capacity is offered first.
@@ -70,7 +70,9 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
             weight_lower = (int(level_sup) - energy_level) / (int(level_sup) - int(level_inf))
             weight_upper = (energy_level - int(level_inf)) / (int(level_sup) - int(level_inf))
 
-        for t in orders_timestamps:
+        cleared_position = engaged_quantity(equipment, parameters)
+
+        for i, t in enumerate(orders_timestamps):
             capacity = equipment.maximum_power.get_value(t)
 
             # Scale fragment volumes to actual capacity and drop fragments too small to be meaningful.
@@ -105,7 +107,7 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
             # > 0 → still within the buy zone (need to acquire more than we've sold)
             # straddling 0 → this fragment crosses the engagement boundary (split buy/sell)
             # < 0 → past the engagement boundary (into the sell zone)
-            remaining_engagement = engaged_quantity(equipment, parameters).get_value(t)
+            remaining_engagement = cleared_position.get_value(t)
 
             for fragment_idx, (volume, price) in enumerate(volume_prices, start=1):
                 remaining_engagement -= volume
@@ -114,7 +116,7 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
                     order = self._build_offer(volume, price, OrderType.Buy, equipment, t, fragment_idx, parameters)
                     if order is not None:
                         orders.append(order)
-                        buy_submitted_volume.sum_value_at(t, abs(volume))
+                        buy_values[i] += abs(volume)
 
                 elif remaining_engagement < 0 and abs(remaining_engagement) < volume:
                     # Fragment straddles the engagement boundary: split into buy and sell parts.
@@ -125,17 +127,23 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
                         if order is not None:
                             orders.append(order)
                             if frag_type == OrderType.Buy:
-                                buy_submitted_volume.sum_value_at(t, abs(frag_volume))
+                                buy_values[i] += abs(frag_volume)
                             else:
-                                sell_submitted_volume.sum_value_at(t, abs(frag_volume))
+                                sell_values[i] += abs(frag_volume)
 
                 elif remaining_engagement < 0 and abs(remaining_engagement) > volume:
                     order = self._build_offer(volume, price, OrderType.Sell, equipment, t, fragment_idx, parameters)
                     if order is not None:
                         orders.append(order)
-                        sell_submitted_volume.sum_value_at(t, abs(volume))
+                        sell_values[i] += abs(volume)
 
-        return orders, []
+        sell_submitted_volume = Timeseries.from_index(
+            parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, sell_values
+        )
+        buy_submitted_volume = Timeseries.from_index(
+            parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, buy_values
+        )
+        return orders, [], sell_submitted_volume, buy_submitted_volume
 
     def _build_offer(
         self,

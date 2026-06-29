@@ -95,10 +95,8 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
         self,
         equipment: StorageIDO,
         orders_timestamps: list[DateTime],
-        buy_submitted_volume: Timeseries,
-        sell_submitted_volume: Timeseries,
         parameters: IntradayOrdersParameters,
-    ) -> tuple[list[Order], list[OrderCoupling]]:
+    ) -> tuple[list[Order], list[OrderCoupling], Timeseries, Timeseries]:
         sell_price, buy_price = compute_efficiency_adjusted_prices(equipment, orders_timestamps, parameters)
 
         new_planning = equipment.id_po_for_orders.get_forecast(
@@ -108,8 +106,10 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
 
         orders: list[Order] = []
         couplings: list[OrderCoupling] = []
+        sell_values: list[float] = [0.0] * len(orders_timestamps)
+        buy_values: list[float] = [0.0] * len(orders_timestamps)
 
-        for t in orders_timestamps:
+        for i, t in enumerate(orders_timestamps):
             previous_quantity = previous_planning.get_value(t)
             new_quantity = new_planning.get_value(t)
 
@@ -117,13 +117,13 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
                 q_order = new_quantity - previous_quantity
                 price = sell_price
                 order_type = OrderType.Sell
-                sell_submitted_volume.sum_value_at(t, q_order)
+                sell_values[i] += q_order
 
             elif previous_quantity > new_quantity:
                 q_order = previous_quantity - new_quantity
                 price = buy_price
                 order_type = OrderType.Buy
-                buy_submitted_volume.sum_value_at(t, q_order)
+                buy_values[i] += q_order
 
             else:
                 continue
@@ -135,4 +135,10 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
                 )
                 orders.append(order)
 
-        return orders, couplings
+        sell_submitted_volume = Timeseries.from_index(
+            parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, sell_values
+        )
+        buy_submitted_volume = Timeseries.from_index(
+            parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, buy_values
+        )
+        return orders, couplings, sell_submitted_volume, buy_submitted_volume

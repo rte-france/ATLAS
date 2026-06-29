@@ -659,6 +659,9 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         """
         dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
 
+        if dt not in self.dataframe["time"]:
+            raise ValueError(f"Could not set value at {dt} because timestamp is not in the Timeseries")
+
         df = self.timeseries.with_columns(
             pl.when(pl.col("time") == dt).then(pl.col("value") + value).otherwise(pl.col("value")).alias("value")
         )
@@ -688,6 +691,9 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :rtype: Timeseries
         """
         dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
+
+        if dt not in self.dataframe["time"]:
+            raise ValueError(f"Could not set value at {dt} because timestamp is not in the Timeseries")
 
         df = self.timeseries.with_columns(
             pl.when(pl.col("time") == dt).then(pl.col("value") * value).otherwise(pl.col("value")).alias("value")

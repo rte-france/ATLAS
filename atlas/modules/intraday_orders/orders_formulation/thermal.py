@@ -206,28 +206,33 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
         self,
         equipment: ThermalIDO,
         orders_timestamps: list[DateTime],
-        buy_submitted_volume: Timeseries,
-        sell_submitted_volume: Timeseries,
         parameters: IntradayOrdersParameters,
-    ) -> tuple[list[Order], list[OrderCoupling]]:
+    ) -> tuple[list[Order], list[OrderCoupling], Timeseries, Timeseries]:
         if equipment.strategy in (ThermalStrategy.BASE, ThermalStrategy.INTERMEDIATE):
-            return self._formulate_base_intermediate(
-                equipment, orders_timestamps, buy_submitted_volume, sell_submitted_volume, parameters
+            orders, couplings, sell_values, buy_values = self._formulate_base_intermediate(
+                equipment, orders_timestamps, parameters
             )
         elif equipment.strategy == ThermalStrategy.PEAK:
-            return self._formulate_peak(
-                equipment, orders_timestamps, buy_submitted_volume, sell_submitted_volume, parameters
+            orders, couplings, sell_values, buy_values = self._formulate_peak(equipment, orders_timestamps, parameters)
+        else:
+            zero = Timeseries.from_index(
+                parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, 0.0
             )
-        return [], []
+            return [], [], zero, zero
+        sell_submitted_volume = Timeseries.from_index(
+            parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, sell_values
+        )
+        buy_submitted_volume = Timeseries.from_index(
+            parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, buy_values
+        )
+        return orders, couplings, sell_submitted_volume, buy_submitted_volume
 
     def _formulate_base_intermediate(
         self,
         equipment: ThermalIDO,
         orders_timestamps: list[DateTime],
-        buy_submitted_volume: Timeseries,
-        sell_submitted_volume: Timeseries,
         parameters: IntradayOrdersParameters,
-    ) -> tuple[list[Order], list[OrderCoupling]]:
+    ) -> tuple[list[Order], list[OrderCoupling], list[float], list[float]]:
         """Formulate orders for BASE and INTERMEDIATE thermal units.
 
         Strategy: compare the new ID planning to the cleared engagement, identify windows of
@@ -236,6 +241,9 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
         """
         orders: list[Order] = []
         couplings: list[OrderCoupling] = []
+        sell_values: list[float] = [0.0] * len(orders_timestamps)
+        buy_values: list[float] = [0.0] * len(orders_timestamps)
+        t_to_idx: dict = {t: i for i, t in enumerate(orders_timestamps)}
 
         planning_delta = compute_planning_delta(equipment, orders_timestamps, parameters)
         order_windows = build_order_windows(equipment, planning_delta, orders_timestamps, parameters)
@@ -302,17 +310,17 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                     q_max_flexible = new_p - previous_p if config.order_type == OrderType.Sell else previous_p - new_p
                     q_inflexible = 0.0
                     if config.order_type == OrderType.Sell:
-                        sell_submitted_volume.sum_value_at(t, q_max_flexible)
+                        sell_values[t_to_idx[t]] += q_max_flexible
                     else:
-                        buy_submitted_volume.sum_value_at(t, q_max_flexible)
+                        buy_values[t_to_idx[t]] += q_max_flexible
                 elif config.order_type == OrderType.Sell:
                     q_max_flexible = new_p - pmin
                     q_inflexible = pmin - previous_p
-                    sell_submitted_volume.sum_value_at(t, q_max_flexible + q_inflexible)
+                    sell_values[t_to_idx[t]] += q_max_flexible + q_inflexible
                 else:
                     q_max_flexible = previous_p - pmin
                     q_inflexible = previous_p
-                    buy_submitted_volume.sum_value_at(t, q_inflexible)
+                    buy_values[t_to_idx[t]] += q_inflexible
 
                 # TODO: subtract intraday ISP imbalance adjustment from base_price once implemented
                 base_price = equipment.variable_cost.get_value(t)
@@ -377,16 +385,14 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                         )
                     )
 
-        return orders, couplings
+        return orders, couplings, sell_values, buy_values
 
     def _formulate_peak(
         self,
         equipment: ThermalIDO,
         orders_timestamps: list[DateTime],
-        buy_submitted_volume: Timeseries,
-        sell_submitted_volume: Timeseries,
         parameters: IntradayOrdersParameters,
-    ) -> tuple[list[Order], list[OrderCoupling]]:
+    ) -> tuple[list[Order], list[OrderCoupling], list[float], list[float]]:
         """Formulate orders for PEAK thermal units.
 
         PEAK units are offered independently per timestep (no window grouping):
@@ -397,9 +403,11 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
         """
         orders: list[Order] = []
         couplings: list[OrderCoupling] = []
+        sell_values: list[float] = [0.0] * len(orders_timestamps)
+        buy_values: list[float] = [0.0] * len(orders_timestamps)
         cleared_position = engaged_quantity(equipment, parameters)
 
-        for t in orders_timestamps:
+        for i, t in enumerate(orders_timestamps):
             minimum_power = equipment.minimum_power.get_value(t)
             maximum_power = equipment.maximum_power.get_value(t)
 
@@ -429,7 +437,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                     equipment, inflexible_bid_name, price, minimum_power, minimum_power, OrderType.Sell, t, parameters
                 )
                 orders.append(inflexible_bid)
-                sell_submitted_volume.sum_value_at(t, minimum_power)
+                sell_values[i] += minimum_power
 
                 q_max = maximum_power - minimum_power
                 if q_max > parameters.allowed_round_off_error:
@@ -445,7 +453,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                         parameters,
                     )
                     orders.append(flexible_bid)
-                    sell_submitted_volume.sum_value_at(t, q_max)
+                    sell_values[i] += q_max
                     couplings.append(
                         OrderCoupling(
                             name=f"pc_id_inflex_flex_s_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}_{equipment.name}_{t.format('DD_MM_YYYY_HH_mm_ss')}",
@@ -469,7 +477,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                         parameters,
                     )
                     orders.append(flexible_bid)
-                    sell_submitted_volume.sum_value_at(t, q_max)
+                    sell_values[i] += q_max
 
             # If unit is over-committed above Pmin, offer a flexible buy to reduce output.
             if pow_t != 0.0 and pow_t != minimum_power:
@@ -487,6 +495,6 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                         parameters,
                     )
                     orders.append(flexible_bid)
-                    buy_submitted_volume.sum_value_at(t, q_max)
+                    buy_values[i] += q_max
 
-        return orders, couplings
+        return orders, couplings, sell_values, buy_values

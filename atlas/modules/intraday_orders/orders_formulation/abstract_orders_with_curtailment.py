@@ -30,11 +30,11 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
         self,
         equipment: R,
         orders_timestamps: list[DateTime],
-        buy_submitted_volume: Timeseries,
-        sell_submitted_volume: Timeseries,
         parameters: IntradayOrdersParameters,
-    ) -> tuple[list[Order], list[OrderCoupling]]:
+    ) -> tuple[list[Order], list[OrderCoupling], Timeseries, Timeseries]:
         orders: list[Order] = []
+        sell_values: list[float] = [0.0] * len(orders_timestamps)
+        buy_values: list[float] = [0.0] * len(orders_timestamps)
 
         new_production_plan = equipment.maximum_power_forecast.get_forecast(
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
@@ -57,13 +57,16 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
             variable_costs = equipment.variable_cost.filter(item=orders_timestamps, inplace=False)
 
         if equipment.portfolio.market_area.id_price_forecast is None:
-            return orders, []
+            zero = Timeseries.from_index(
+                parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, 0.0
+            )
+            return orders, [], zero, zero
 
         price_forecast = equipment.portfolio.market_area.id_price_forecast.get_forecast(
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
         )
 
-        for t in orders_timestamps:
+        for i, t in enumerate(orders_timestamps):
             # Imbalance penalty price: the cost of being caught short on the balancing market,
             # used to motivate buying back a shortfall even above marginal cost.
             imbalance_penalty_price = price_forecast.get_value(t) * (1.0 + parameters.large_imbalance_penalty)
@@ -88,14 +91,14 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
                         equipment, curtailment_bid_name, 0.0, 0.0, abs(curtailment_value), OrderType.Sell, t, parameters
                     )
                     orders.append(curtailment_bid)
-                    sell_submitted_volume.sum_value_at(t, abs(curtailment_value))
+                    sell_values[i] += abs(curtailment_value)
                 else:
                     # curtailment_delta > 0: over-curtailed → buy back the committed volume
                     curtailment_bid = build_intraday_order(
                         equipment, curtailment_bid_name, 0.0, 0.0, abs(curtailment_value), OrderType.Buy, t, parameters
                     )
                     orders.append(curtailment_bid)
-                    buy_submitted_volume.sum_value_at(t, abs(curtailment_value))
+                    buy_values[i] += abs(curtailment_value)
 
             if abs(production_value) <= parameters.allowed_round_off_error:
                 continue
@@ -112,7 +115,7 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
                     parameters,
                 )
                 orders.append(bid)
-                sell_submitted_volume.sum_value_at(t, abs(production_value))
+                sell_values[i] += abs(production_value)
 
             if production_value < 0:
                 bid = build_intraday_order(
@@ -126,6 +129,12 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
                     parameters,
                 )
                 orders.append(bid)
-                buy_submitted_volume.sum_value_at(t, abs(production_value))
+                buy_values[i] += abs(production_value)
 
-        return orders, []
+        sell_submitted_volume = Timeseries.from_index(
+            parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, sell_values
+        )
+        buy_submitted_volume = Timeseries.from_index(
+            parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, buy_values
+        )
+        return orders, [], sell_submitted_volume, buy_submitted_volume

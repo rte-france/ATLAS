@@ -49,15 +49,8 @@ class AbstractOrdersFormulator[E: Equipment](ABC):
         orders_timestamps: list[DateTime],
         parameters: IntradayOrdersParameters,
     ) -> tuple[list[Order], list[OrderCoupling]]:
-        sell_submitted_volume = Timeseries.from_index(
-            parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, 0
-        )
-        buy_submitted_volume = Timeseries.from_index(
-            parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, 0
-        )
-
-        orders, couplings = self.formulate_equipment_orders(
-            equipment, orders_timestamps, buy_submitted_volume, sell_submitted_volume, parameters
+        orders, couplings, sell_submitted_volume, buy_submitted_volume = self.formulate_equipment_orders(
+            equipment, orders_timestamps, parameters
         )
         exec_date = parameters.temporal.execution_date
         for attr, ts in (
@@ -92,7 +85,5 @@ class AbstractOrdersFormulator[E: Equipment](ABC):
         self,
         equipment: E,
         orders_timestamps: list[DateTime],
-        buy_submitted_volume: Timeseries,
-        sell_submitted_volume: Timeseries,
         parameters: IntradayOrdersParameters,
-    ) -> tuple[list[Order], list[OrderCoupling]]: ...
+    ) -> tuple[list[Order], list[OrderCoupling], Timeseries, Timeseries]: ...
