@@ -1,4 +1,5 @@
 import copy
+from abc import abstractmethod
 from collections.abc import Iterator
 from typing import Self
 from unittest.mock import MagicMock
@@ -56,6 +57,10 @@ class ConcreteOrchestrator(AbstractOrchestrator[ConcreteOrchestratorParameters, 
     @property
     def jobs_count(self) -> int:
         return len(self._jobs)
+
+    @classmethod
+    def get_param_class(cls) -> ConcreteOrchestratorParameters:
+        return ConcreteOrchestratorParameters
 
 
 class MockOutPutBuilder:

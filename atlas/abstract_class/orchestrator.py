@@ -21,6 +21,15 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
 
     parameters: PO
     final_dataset: AbstractDataset | None = None
+    PARAMETERS_CLASS: type[PO]
+
+    def __init__(self, parameters: PO):
+        """Initialize a Orchestrator instance.
+
+        :param parameters: orchestrator parameters
+        :type parameters: AbstractOrchestratorParameters
+        """
+        self.parameters = parameters
 
     @property
     @abstractmethod
@@ -37,6 +46,13 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
         """
 
     @classmethod
+    @abstractmethod
+    def get_param_class(cls) -> PO:
+        """
+        Return the parameter class
+        """
+
+    @classmethod
     def from_file(cls, file_path: str | Path, context: ContextParameters | None = None) -> AbstractOrchestrator:
         """
         :param file_path: path to the config file
@@ -45,10 +61,10 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
         take priority over the one existing in the config file.
         """
         file_path = Path(file_path)
-        parameters = type[PO].from_file(file_path=file_path)
+        parameters = cls.get_param_class().from_file(file_path)
         if context is not None:
             parameters.context.use(context)
-        parameters._orchestrator_path = file_path.parent
+        parameters.orchestrator_path = file_path.parent
         return cls(parameters=parameters)
 
     def get_output_dataset(self) -> AbstractDataset | None:

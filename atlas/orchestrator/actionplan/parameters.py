@@ -72,7 +72,7 @@ class Task(BaseModel):
     workflow: Workflow | Path | None = None
     module_parameters_path: Path | None = None
     priority: int = 0
-    from_: DateTime = Field(validation_alias=AliasChoices("from"))
+    from_: DateTime = Field(validation_alias=AliasChoices("from", "from_"))
     until: DateTime
     frequency: Duration
     offset_start_date: Duration

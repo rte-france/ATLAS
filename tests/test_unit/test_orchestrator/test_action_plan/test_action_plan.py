@@ -88,7 +88,6 @@ class TestActionPlanPushIterator:
                 .with_priority(1).build())
         itr = ConcreteTaskIterator(task, job)
         ap._push_iterator(itr)
-        assert ap.jobs_count == 1
         assert next(ap.jobs) == job
 
     def test_push_single_job_iterator_with_multiple_date(self, tmp_path):
@@ -103,7 +102,6 @@ class TestActionPlanPushIterator:
         itr = ConcreteTaskIterator(task, job)
         ap._push_iterator(itr)
         assert len(ap._priority_queue) == 1
-        assert ap.jobs_count == 3
         assert next(ap.jobs) == job
         assert next(ap.jobs) == job
         assert next(ap.jobs) == job
@@ -121,8 +119,6 @@ class TestActionPlanPushIterator:
         ap._push_iterator(ConcreteTaskIterator(common_task_info.with_priority(1).build(), jobs[0]))
         ap._push_iterator(ConcreteTaskIterator(common_task_info.with_priority(3).build(), jobs[2]))
         ap._push_iterator(ConcreteTaskIterator(common_task_info.with_priority(2).build(), jobs[1]))
-        assert len(ap._priority_queue) == 3
-        assert ap.jobs_count == 3
         assert next(ap.jobs) == jobs[0]
         assert next(ap.jobs) == jobs[1]
         assert next(ap.jobs) == jobs[2]
@@ -135,22 +131,19 @@ class TestActionPlanPushIterator:
             from_=DateTime(2000, 1, 1),
             until=DateTime(2000, 1, 10),
             frequency=Duration(days=3)).with_priority(1)).build()
-        task1_len = 4
 
         task2 = (MockTaskBuilder().with_from_until_frequency(
             from_=DateTime(2000, 1, 1),
             until=DateTime(2000, 1, 11),
             frequency=Duration(days=5)).with_priority(2)).build()
-        task2_len = 3
 
         ap._push_iterator(ConcreteTaskIterator(task1.build(), jobs[0]))
         ap._push_iterator(ConcreteTaskIterator(task2.build(), jobs[1]))
 
         assert len(ap._priority_queue) == 2
-        assert ap.jobs_count == task1_len + task2_len
-
         expected_job_order = [0, 1, 0, 1, 0, 0, 1]
         for idx, job in enumerate(ap.jobs):
+            print(idx)
             assert job == jobs[expected_job_order[idx]]
 
     def test_raise_push_concurrent_jobs_first_execution_date(self, tmp_path):

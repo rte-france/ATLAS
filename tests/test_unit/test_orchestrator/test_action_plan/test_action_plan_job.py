@@ -43,12 +43,10 @@ class TestTaskIterator:
         expected_next_execution_date =(
             [build_datetime("2016-09-01 00:00:00"),
              build_datetime("2016-09-02 00:00:00"),
-             build_datetime("2016-09-03 00:00:00"),
-             build_datetime("2016-09-04 00:00:00")])
+             build_datetime("2016-09-03 00:00:00")])
 
-        task_iterator.next_execution_date == expected_next_execution_date[0]
         for idx, _ in enumerate(task_iterator):
-            assert task_iterator.next_execution_date == expected_next_execution_date[idx+1]
+            assert task_iterator.next_execution_date == expected_next_execution_date[idx]
 
 
     def test_next_start_date(self, task):
@@ -57,11 +55,10 @@ class TestTaskIterator:
         expected_next_start_date = (
             [build_datetime("2016-09-01 03:07:00"),
             build_datetime("2016-09-02 03:07:00"),
-            build_datetime("2016-09-03 03:07:00"),
-            build_datetime("2016-09-04 03:07:00")])
+            build_datetime("2016-09-03 03:07:00")])
 
         for idx, _ in enumerate(task_iterator):
-            assert task_iterator.next_start_date == expected_next_start_date[idx+1]
+            assert task_iterator.next_start_date == expected_next_start_date[idx]
 
 
 
@@ -71,11 +68,10 @@ class TestTaskIterator:
         expected_next_end_date = (
             [build_datetime("2016-09-01 05:11:00"),
             build_datetime("2016-09-02 05:11:00"),
-            build_datetime("2016-09-03 05:11:00"),
-            build_datetime("2016-09-04 05:11:00")])
+            build_datetime("2016-09-03 05:11:00")])
 
         for idx, _ in enumerate(task_iterator):
-            assert task_iterator.next_end_date == expected_next_end_date[idx+1]
+            assert task_iterator.next_end_date == expected_next_end_date[idx]
 
     def test_iter_reset_iterator(self, task):
         task_iterator = ConcreteTaskIterator(task)

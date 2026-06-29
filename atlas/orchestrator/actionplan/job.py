@@ -10,6 +10,7 @@ from __future__ import annotations
 import copy
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import cast
 
 from pydantic_extra_types.pendulum_dt import DateTime
 
@@ -59,11 +60,13 @@ class TaskIterator(ABC):
         return self
 
     def __next__(self) -> list[AbstractJob]:
+        if self.current_iteration != 0:
+            self._next_execution_date += self.task.frequency
+
         if self.next_execution_date > self.task.until:
             raise StopIteration()  # Signals the end of iteration
         jobs = self.build_jobs()
         self.current_iteration += 1
-        self._next_execution_date += self.task.frequency
         return jobs
 
     @abstractmethod
@@ -154,4 +157,4 @@ class WorkflowTaskIterator(TaskIterator):
         workflow = Workflow(
             self._build_current_parameters(), f"task {self.task.name} iteration {self.current_iteration}"
         )
-        return [ActionPlanJob(x) for x in list(workflow.jobs)]
+        return [cast(ActionPlanJob, x) for x in list(workflow.jobs)]

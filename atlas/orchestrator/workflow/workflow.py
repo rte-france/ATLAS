@@ -19,13 +19,19 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
     Each job processes the output of the previous one, starting from the input dataset."""
 
+    PARAMETERS_CLASS: type[WorkflowParameters]
+
+    @classmethod
+    def get_param_class(cls) -> WorkflowParameters:
+        return WorkflowParameters
+
     def __init__(self, parameters: WorkflowParameters, prefix_job_name: str = ""):
         """Initialize a Workflow instance.
 
         :param parameters: Name of the workflow.
         :type parameters: WorkflowParameters
         """
-        self.parameters = parameters
+        super().__init__(parameters)
         self._jobs: list[WorkflowJob] = []
         self.build_jobs(prefix_job_name)
 

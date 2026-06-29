@@ -24,13 +24,17 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
     Each job processes the output of the previous one, starting from the input dataset."""
 
+    @classmethod
+    def get_param_class(cls):
+        return ActionPlanParameters
+
     def __init__(self, parameters: ActionPlanParameters):
         """Initialize a Workflow instance.
 
         :param parameters: Name of the workflow.
         :type parameters: WorkflowParameters
         """
-        self.parameters = parameters
+        super().__init__(parameters)
         self._priority_queue: list[TaskIterator] = []
         self._build_priority_queue()
 
