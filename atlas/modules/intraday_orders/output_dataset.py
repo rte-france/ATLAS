@@ -7,10 +7,9 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from atlas.abstract_class.dataset import AbstractModuleOutput
-from atlas.enums import ThermalStrategy
 from atlas.modules.intraday_orders.input_objects.hydro import HydroIDO
 from atlas.modules.intraday_orders.input_objects.load import LoadIDO
 from atlas.modules.intraday_orders.input_objects.other_non_dispatchable import OtherNonDispatchableIDO
@@ -105,15 +104,13 @@ class IntradayOrdersOutputDataset(AbstractModuleOutput[IntradayOrdersParameters]
             self.change_sets.append(UpdateObject(other_non_dispatchable_dict, OtherNonDispatchable))
 
         for thermal in self.thermal:
-            thermal_dict: dict[str, Any] = {
+            thermal_dict = {
                 "name": thermal.name,
                 "id_sell_submitted_volume": thermal.id_sell_submitted_volume,
                 "id_buy_submitted_volume": thermal.id_buy_submitted_volume,
                 "total_id_buy_submitted_volume": thermal.total_id_buy_submitted_volume,
                 "total_id_sell_submitted_volume": thermal.total_id_sell_submitted_volume,
             }
-            if thermal.strategy == ThermalStrategy.INTERMEDIATE:
-                thermal_dict["state_sequence"] = thermal.state_sequence
             self.change_sets.append(UpdateObject(thermal_dict, Thermal))
 
         for storage in self.storage:
@@ -121,5 +118,7 @@ class IntradayOrdersOutputDataset(AbstractModuleOutput[IntradayOrdersParameters]
                 "name": storage.name,
                 "id_sell_submitted_volume": storage.id_sell_submitted_volume,
                 "id_buy_submitted_volume": storage.id_buy_submitted_volume,
+                "total_id_buy_submitted_volume": storage.total_id_buy_submitted_volume,
+                "total_id_sell_submitted_volume": storage.total_id_sell_submitted_volume,
             }
             self.change_sets.append(UpdateObject(storage_dict, Storage))

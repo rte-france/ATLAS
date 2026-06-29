@@ -51,7 +51,6 @@ FORMULATOR_PARAMS_DICT = {
     "hydraulic_minimal_fragment_size": 150.0,
     "large_imbalance_penalty": 0.2,
     "allowed_round_off_error": 0.001,
-    "electric_vehicles_complement_ordering": True,
 }
 
 

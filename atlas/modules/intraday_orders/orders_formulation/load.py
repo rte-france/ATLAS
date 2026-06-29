@@ -29,22 +29,22 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
         orders: list[Order] = []
         sell_values: list[float] = [0.0] * len(orders_timestamps)
         buy_values: list[float] = [0.0] * len(orders_timestamps)
-        consumption_engagement = engaged_quantity(equipment, parameters)
+        cleared_engagement = engaged_quantity(equipment, parameters)
 
         if equipment.load_type == LoadType.POWER_TO_GAS:
             # POWER_TO_GAS loads can flex their consumption between zero and maximum_power_forecast.
             # Selling means reducing consumption (freeing up power on the grid).
             # Buying means increasing consumption (absorbing surplus power).
-            new_consumption_plan = equipment.maximum_power_forecast.get_forecast(
+            target_planning = equipment.maximum_power_forecast.get_forecast(
                 parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
             )
-            consumption_headroom = consumption_engagement - new_consumption_plan
+            consumption_headroom = cleared_engagement - target_planning
 
             for i, t in enumerate(orders_timestamps):
                 # Positive headroom: engagement > plan → can increase consumption further (buy).
                 expandable_consumption = consumption_headroom.get_value(t)
                 # Current engagement: the committed consumption that can be reduced (sell).
-                reducible_consumption = consumption_engagement.get_value(t)
+                reducible_consumption = cleared_engagement.get_value(t)
 
                 if expandable_consumption > parameters.allowed_round_off_error:
                     bid = self._build_offer(
@@ -74,10 +74,10 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
             # Standard load: compare cleared engagement to the new consumption forecast.
             # consumption_delta > 0: consuming more than planned → buy the extra.
             # consumption_delta < 0: consuming less than planned → sell back the surplus.
-            new_consumption_plan = equipment.maximum_power_forecast.get_forecast(
+            target_planning = equipment.maximum_power_forecast.get_forecast(
                 parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
             )
-            consumption_delta = consumption_engagement - new_consumption_plan
+            consumption_delta = cleared_engagement - target_planning
 
             for i, t in enumerate(orders_timestamps):
                 consumption_value = consumption_delta.get_value(t)

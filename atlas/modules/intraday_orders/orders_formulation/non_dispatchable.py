@@ -30,11 +30,11 @@ class NonDispatchableOrdersFormulator(AbstractOrdersFormulator[OtherNonDispatcha
         sell_values: list[float] = [0.0] * len(orders_timestamps)
         buy_values: list[float] = [0.0] * len(orders_timestamps)
 
-        production_new_planing = equipment.maximum_power_forecast.get_forecast(
+        target_planning = equipment.maximum_power_forecast.get_forecast(
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
         )
-        production_engagement = engaged_quantity(equipment, parameters)
-        production_forecast = production_new_planing - production_engagement
+        cleared_engagement = engaged_quantity(equipment, parameters)
+        production_delta = target_planning - cleared_engagement
 
         variable_costs = None
         if equipment.variable_cost is not None:
@@ -52,7 +52,7 @@ class NonDispatchableOrdersFormulator(AbstractOrdersFormulator[OtherNonDispatcha
 
         for i, t in enumerate(orders_timestamps):
             bid_name = f"other_nd_id_order_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}_{equipment.name}_{t.format('DD_MM_YYYY_HH_mm_ss')}"
-            production_value = production_forecast.get_value(t)
+            production_value = production_delta.get_value(t)
             buy_isp_forecast = price_forecast.get_value(t) * (1.0 + parameters.large_imbalance_penalty)
 
             if abs(production_value) <= parameters.allowed_round_off_error:

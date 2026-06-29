@@ -70,7 +70,7 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
             weight_lower = (int(level_sup) - energy_level) / (int(level_sup) - int(level_inf))
             weight_upper = (energy_level - int(level_inf)) / (int(level_sup) - int(level_inf))
 
-        cleared_position = engaged_quantity(equipment, parameters)
+        cleared_engagement = engaged_quantity(equipment, parameters)
 
         for i, t in enumerate(orders_timestamps):
             capacity = equipment.maximum_power.get_value(t)
@@ -107,7 +107,7 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
             # > 0 → still within the buy zone (need to acquire more than we've sold)
             # straddling 0 → this fragment crosses the engagement boundary (split buy/sell)
             # < 0 → past the engagement boundary (into the sell zone)
-            remaining_engagement = cleared_position.get_value(t)
+            remaining_engagement = cleared_engagement.get_value(t)
 
             for fragment_idx, (volume, price) in enumerate(volume_prices, start=1):
                 remaining_engagement -= volume

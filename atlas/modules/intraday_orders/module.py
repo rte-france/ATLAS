@@ -50,17 +50,17 @@ class IntradayOrdersModule(
             cfg.logger.warning("The time window to formulate orders is empty.")
             return dataset
 
-        formulators: list[tuple[str, AbstractOrdersFormulator, list]] = [
-            ("hydro", HydroOrdersFormulator(), input_dataset.hydro),
-            ("load", LoadOrdersFormulator(), input_dataset.load),
-            ("non-dispatchable", NonDispatchableOrdersFormulator(), input_dataset.other_non_dispatchable),
-            ("solar", SolarOrdersFormulator(), input_dataset.solar),
-            ("storage", StorageOrdersFormulator(), input_dataset.storage),
-            ("thermal", ThermalOrdersFormulator(), input_dataset.thermal),
-            ("wind", WindOrdersFormulator(), input_dataset.wind),
+        formulators: list[tuple[AbstractOrdersFormulator, list]] = [
+            (HydroOrdersFormulator(), input_dataset.hydro),
+            (LoadOrdersFormulator(), input_dataset.load),
+            (NonDispatchableOrdersFormulator(), input_dataset.other_non_dispatchable),
+            (SolarOrdersFormulator(), input_dataset.solar),
+            (StorageOrdersFormulator(), input_dataset.storage),
+            (ThermalOrdersFormulator(), input_dataset.thermal),
+            (WindOrdersFormulator(), input_dataset.wind),
         ]
 
-        for _name, formulator, equipments in formulators:
+        for formulator, equipments in formulators:
             result = formulator.formulate(equipments, orders_timestamps, parameters)
             dataset.order.extend(result.orders)
             dataset.order_coupling.extend(result.order_couplings)

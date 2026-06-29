@@ -36,21 +36,21 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
         sell_values: list[float] = [0.0] * len(orders_timestamps)
         buy_values: list[float] = [0.0] * len(orders_timestamps)
 
-        new_production_plan = equipment.maximum_power_forecast.get_forecast(
+        target_planning = equipment.maximum_power_forecast.get_forecast(
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
         )
-        cleared_position = engaged_quantity(equipment, parameters)
+        cleared_engagement = engaged_quantity(equipment, parameters)
 
         # production_delta > 0: more production planned than cleared → sell the surplus.
         # production_delta < 0: less production planned than cleared → buy back the shortfall.
-        production_delta = new_production_plan - cleared_position
+        production_delta = target_planning - cleared_engagement
 
         curtailment_ratio = equipment.maximum_curtailment_ratio.filter(item=orders_timestamps, inplace=False)
 
-        # curtailment_delta = cleared_position - new_plan + new_plan * curtailment_ratio
+        # curtailment_delta = cleared_engagement - target_planning + target_planning * curtailment_ratio
         # < 0: curtailment margin available → sell (offer to reduce production at price 0)
         # > 0: committed to more curtailment than available → buy back the over-curtailed volume
-        curtailment_delta = cleared_position - new_production_plan + new_production_plan * curtailment_ratio
+        curtailment_delta = cleared_engagement - target_planning + target_planning * curtailment_ratio
 
         variable_costs = None
         if equipment.variable_cost is not None:

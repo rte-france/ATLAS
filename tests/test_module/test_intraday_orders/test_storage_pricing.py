@@ -12,7 +12,10 @@ import pytest
 
 from atlas.enums import StorageType
 from atlas.modules.intraday_orders.input_objects.storage import StorageIDO
-from atlas.modules.intraday_orders.orders_formulation.storage import compute_efficiency_adjusted_prices
+from atlas.modules.intraday_orders.orders_formulation.storage import (
+    StorageOrdersFormulator,
+    compute_efficiency_adjusted_prices,
+)
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.timing import generate_datetimes
@@ -133,7 +136,9 @@ class TestComputeEfficiencyAdjustedPrices:
         # Break-even invariant: sell × η_d × η_c == buy
         assert sell_price * 0.9 * 0.9 == pytest.approx(buy_price, rel=1e-6)
 
-    def test_no_id_price_forecast_returns_inf_sell_zero_buy(self):
+    def test_no_id_price_forecast_yields_no_orders(self):
+        # Without a price forecast the formulator cannot price orders, so it must emit none
+        # (never orders priced at +inf). The pricing helper itself requires a forecast.
         params = _params()
         market_area = make_market_area(id_price_forecast=None)
         portfolio = Portfolio(name="ptf", control_block=make_control_block(), market_area=market_area)
@@ -151,6 +156,14 @@ class TestComputeEfficiencyAdjustedPrices:
             variable_cost=_ts(0.0),
         )
         timestamps = generate_datetimes(START, params.penultimate_date, STEP)
-        sell_price, buy_price = compute_efficiency_adjusted_prices(storage, timestamps, params)
-        assert sell_price == float("inf")
-        assert buy_price == 0.0
+
+        orders, couplings, sell_volume, buy_volume = StorageOrdersFormulator().formulate_equipment_orders(
+            storage, timestamps, params
+        )
+        assert orders == []
+        assert couplings == []
+        assert all(sell_volume.get_value(t) == 0.0 for t in timestamps)
+        assert all(buy_volume.get_value(t) == 0.0 for t in timestamps)
+
+        with pytest.raises(AssertionError):
+            compute_efficiency_adjusted_prices(storage, timestamps, params)

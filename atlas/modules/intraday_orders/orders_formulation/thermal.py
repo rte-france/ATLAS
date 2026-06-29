@@ -72,8 +72,8 @@ def compute_planning_delta(
     :param parameters: Intraday orders parameters.
     :return: Timeseries of integer PlanningDelta codes over the order window.
     """
-    cleared_position = engaged_quantity(equipment, parameters)
-    new_planning = equipment.id_po_for_orders.get_forecast(
+    cleared_engagement = engaged_quantity(equipment, parameters)
+    target_planning = equipment.id_po_for_orders.get_forecast(
         parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
     )
 
@@ -81,21 +81,21 @@ def compute_planning_delta(
         parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, 0.0
     )
     for t in orders_timestamps:
-        previous_p = cleared_position.get_value(t)
-        new_p = new_planning.get_value(t)
+        cleared_power = cleared_engagement.get_value(t)
+        target_power = target_planning.get_value(t)
         pmin = equipment.minimum_power.get_value(t)
 
-        if new_p > previous_p:
-            if previous_p >= pmin:
+        if target_power > cleared_power:
+            if cleared_power >= pmin:
                 code = PlanningDelta.MODULATION_UP
-            elif new_p >= pmin:
+            elif target_power >= pmin:
                 code = PlanningDelta.STARTUP
             else:
                 code = PlanningDelta.NO_CHANGE
-        elif new_p < previous_p:
-            if new_p >= pmin:
+        elif target_power < cleared_power:
+            if target_power >= pmin:
                 code = PlanningDelta.MODULATION_DOWN
-            elif previous_p >= pmin:
+            elif cleared_power >= pmin:
                 code = PlanningDelta.SHUTDOWN
             else:
                 code = PlanningDelta.NO_CHANGE
@@ -113,7 +113,7 @@ def build_order_windows(
     """Group consecutive timesteps sharing the same PlanningDelta code into labelled order windows.
 
     Each window is classified (NEW_START, BRIDGE_UP, EXTENDED_END, etc.) based on the delta code
-    and whether the unit was running immediately before and after the window in the previous planning.
+    and whether the unit was running immediately before and after the window in the cleared engagement.
     This classification drives the order type and coupling strategy in the formulation step.
 
     :param equipment: Thermal unit being processed.
@@ -122,7 +122,7 @@ def build_order_windows(
     :param parameters: Intraday orders parameters.
     :return: List of classified ThermalOrderWindows ready for order formulation.
     """
-    cleared_position = engaged_quantity(equipment, parameters)
+    cleared_engagement = engaged_quantity(equipment, parameters)
 
     if len(orders_time) > 2:
         for k in range(1, len(orders_time) - 1):
@@ -147,36 +147,36 @@ def build_order_windows(
         elif code == PlanningDelta.MODULATION_DOWN:
             modulation_down_at.append(t)
 
-    # Build interval bounds: consecutive timestamps with the same code belong to the same window.
-    intervals: list[DateTime] = []
-    for delta_at_t in [startup_at, shutdown_at, modulation_up_at, modulation_down_at]:
-        if delta_at_t:
-            intervals.append(delta_at_t[0])
-            if len(delta_at_t) >= 2:
-                for i in range(len(delta_at_t) - 1):
-                    if (
-                        not (delta_at_t[i + 1] - delta_at_t[i]).total_minutes()
-                        == parameters.temporal.timestep.in_minutes()
-                    ):
-                        intervals.append(delta_at_t[i])
-                        intervals.append(delta_at_t[i + 1])
-            intervals.append(delta_at_t[-1])
+    # A window is a maximal run of consecutive timesteps sharing the same delta code.
+    # Split each code's timestamps wherever a gap (more than one timestep) breaks the run.
+    step_minutes = parameters.temporal.timestep.in_minutes()
+
+    def split_into_runs(timestamps: list[DateTime]) -> list[tuple[DateTime, DateTime]]:
+        runs: list[tuple[DateTime, DateTime]] = []
+        if not timestamps:
+            return runs
+        run_start = timestamps[0]
+        for previous, current in zip(timestamps, timestamps[1:], strict=False):
+            if (current - previous).total_minutes() != step_minutes:
+                runs.append((run_start, previous))
+                run_start = current
+        runs.append((run_start, timestamps[-1]))
+        return runs
+
+    windows: list[tuple[DateTime, DateTime]] = []
+    for delta_at_t in (startup_at, shutdown_at, modulation_up_at, modulation_down_at):
+        windows.extend(split_into_runs(delta_at_t))
 
     order_windows: list[ThermalOrderWindow] = []
-    if not intervals:
-        return order_windows
-
-    for i in range(int(len(intervals) / 2)):
-        window_start = intervals[2 * i]
-        window_end = intervals[2 * i + 1]
+    for window_start, window_end in windows:
         sliced_delta = planning_delta.slice(window_start, window_end)
 
         # Whether the unit was running in the *previous* planning just before/after this window
         # determines whether we are extending an existing run, bridging a gap, or starting fresh.
         t_before = window_start.add(minutes=-parameters.temporal.timestep.in_minutes())
         t_after = window_end.add(minutes=parameters.temporal.timestep.in_minutes())
-        was_running_before = cleared_position.get_value(t_before) >= equipment.minimum_power.get_value(t_before)
-        is_running_after = cleared_position.get_value(t_after) >= equipment.minimum_power.get_value(t_after)
+        was_running_before = cleared_engagement.get_value(t_before) >= equipment.minimum_power.get_value(t_before)
+        is_running_after = cleared_engagement.get_value(t_after) >= equipment.minimum_power.get_value(t_after)
 
         code = PlanningDelta(int(planning_delta.get_value(window_start)))
         if code == PlanningDelta.STARTUP and was_running_before:
@@ -248,8 +248,8 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
         planning_delta = compute_planning_delta(equipment, orders_timestamps, parameters)
         order_windows = build_order_windows(equipment, planning_delta, orders_timestamps, parameters)
 
-        cleared_position = engaged_quantity(equipment, parameters)
-        new_planning = equipment.id_po_for_orders.get_forecast(
+        cleared_engagement = engaged_quantity(equipment, parameters)
+        target_planning = equipment.id_po_for_orders.get_forecast(
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
         )
 
@@ -266,12 +266,12 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
 
             # Startup cost amortised per MW over the inflexible blocks of this window.
             # Sell windows: spread over Pmin (the committed minimum output).
-            # Buy windows: spread over the new planning power (the capacity being re-acquired).
+            # Buy windows: spread over the target planning power (the capacity being re-acquired).
             startup_cost_per_mw = 0.0
             if config.startup_cost_sign != 0:
                 total_startup_cost = config.startup_cost_sign * equipment.startup_cost.get_value(window.first_date())
                 if config.order_type == OrderType.Buy:
-                    q = sum(new_planning.get_value(t) for t in window.index)
+                    q = sum(target_planning.get_value(t) for t in window.index)
                 else:
                     q = sum(equipment.minimum_power.get_value(t) for t in window.index)
 
@@ -280,7 +280,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                         f"Null Pmin for unit {equipment.name}. Start up cost is either null or neglected."
                     )
                 elif q == 0.0 and config.order_type == OrderType.Buy:
-                    # Fallback: spread over Pmin when new planning is zero (conservative estimate)
+                    # Fallback: spread over Pmin when the target planning is zero (conservative estimate)
                     pmin_total = sum(equipment.minimum_power.get_value(t) for t in window.index)
                     if pmin_total == 0:
                         cfg.logger.warning(
@@ -297,8 +297,8 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
             for _ in range(number_of_indexes):
                 t = t.add(minutes=parameters.temporal.timestep.in_minutes() * direction)
 
-                previous_p = cleared_position.get_value(t)
-                new_p = new_planning.get_value(t)
+                cleared_power = cleared_engagement.get_value(t)
+                target_power = target_planning.get_value(t)
                 pmin = equipment.minimum_power.get_value(t)
 
                 # Volumes offered depend on the window type:
@@ -307,19 +307,23 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                 # - Buy (shutdown/shortening): flexible down to Pmin + inflexible at full previous power.
                 #   (inflexible and flexible are EXCLUSION-coupled, so submitted volume = inflexible)
                 if is_modulation:
-                    q_max_flexible = new_p - previous_p if config.order_type == OrderType.Sell else previous_p - new_p
+                    q_max_flexible = (
+                        target_power - cleared_power
+                        if config.order_type == OrderType.Sell
+                        else cleared_power - target_power
+                    )
                     q_inflexible = 0.0
                     if config.order_type == OrderType.Sell:
                         sell_values[t_to_idx[t]] += q_max_flexible
                     else:
                         buy_values[t_to_idx[t]] += q_max_flexible
                 elif config.order_type == OrderType.Sell:
-                    q_max_flexible = new_p - pmin
-                    q_inflexible = pmin - previous_p
+                    q_max_flexible = target_power - pmin
+                    q_inflexible = pmin - cleared_power
                     sell_values[t_to_idx[t]] += q_max_flexible + q_inflexible
                 else:
-                    q_max_flexible = previous_p - pmin
-                    q_inflexible = previous_p
+                    q_max_flexible = cleared_power - pmin
+                    q_inflexible = cleared_power
                     buy_values[t_to_idx[t]] += q_inflexible
 
                 # TODO: subtract intraday ISP imbalance adjustment from base_price once implemented
@@ -405,7 +409,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
         couplings: list[OrderCoupling] = []
         sell_values: list[float] = [0.0] * len(orders_timestamps)
         buy_values: list[float] = [0.0] * len(orders_timestamps)
-        cleared_position = engaged_quantity(equipment, parameters)
+        cleared_engagement = engaged_quantity(equipment, parameters)
 
         for i, t in enumerate(orders_timestamps):
             minimum_power = equipment.minimum_power.get_value(t)
@@ -417,7 +421,7 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
                 )
                 continue
 
-            pow_t = 0.0 if cleared_position is None else cleared_position.get_value(t)
+            pow_t = 0.0 if cleared_engagement is None else cleared_engagement.get_value(t)
             unit_is_off = pow_t == 0.0
             has_minimum_power = minimum_power > 0
 

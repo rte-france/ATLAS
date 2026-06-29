@@ -34,18 +34,19 @@ def compute_efficiency_adjusted_prices(
     min_sell_price = float("inf")
     max_buy_price = 0.0
 
-    if equipment.portfolio.market_area.id_price_forecast is None:
-        return min_sell_price, max_buy_price
+    # The caller guarantees a price forecast exists; asserted here so a None can never
+    # silently produce orders priced at +inf.
+    assert equipment.portfolio.market_area.id_price_forecast is not None
 
     price_forecast = equipment.portfolio.market_area.id_price_forecast.get_forecast(
         parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
     )
 
-    new_planning = equipment.id_po_for_orders.get_forecast(
+    target_planning = equipment.id_po_for_orders.get_forecast(
         parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
     )
-    previous_planning = engaged_quantity(equipment, parameters)
-    planning_delta = new_planning - previous_planning
+    cleared_engagement = engaged_quantity(equipment, parameters)
+    planning_delta = target_planning - cleared_engagement
 
     sell_timestamps: list[DateTime] = []
     buy_timestamps: list[DateTime] = []
@@ -82,10 +83,11 @@ def compute_efficiency_adjusted_prices(
 
     # Round-trip efficiency adjustment: sell price is raised and buy price is lowered symmetrically
     # so that a full charge-discharge cycle remains profitable after efficiency losses (η_d × η_c).
-    a = (equipment.discharge_efficiency * equipment.charge_efficiency * min_sell_price - max_buy_price) / (
-        equipment.discharge_efficiency * equipment.charge_efficiency * min_sell_price + max_buy_price
+    round_trip_efficiency = equipment.discharge_efficiency * equipment.charge_efficiency
+    spread_compression = (round_trip_efficiency * min_sell_price - max_buy_price) / (
+        round_trip_efficiency * min_sell_price + max_buy_price
     )
-    return min_sell_price * (1.0 - a), max_buy_price * (1.0 + a)
+    return min_sell_price * (1.0 - spread_compression), max_buy_price * (1.0 + spread_compression)
 
 
 class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
@@ -97,12 +99,18 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
         orders_timestamps: list[DateTime],
         parameters: IntradayOrdersParameters,
     ) -> tuple[list[Order], list[OrderCoupling], Timeseries, Timeseries]:
+        if equipment.portfolio.market_area.id_price_forecast is None:
+            zero = Timeseries.from_index(
+                parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, 0.0
+            )
+            return [], [], zero, zero
+
         sell_price, buy_price = compute_efficiency_adjusted_prices(equipment, orders_timestamps, parameters)
 
-        new_planning = equipment.id_po_for_orders.get_forecast(
+        target_planning = equipment.id_po_for_orders.get_forecast(
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
         )
-        previous_planning = engaged_quantity(equipment, parameters)
+        cleared_engagement = engaged_quantity(equipment, parameters)
 
         orders: list[Order] = []
         couplings: list[OrderCoupling] = []
@@ -110,17 +118,17 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
         buy_values: list[float] = [0.0] * len(orders_timestamps)
 
         for i, t in enumerate(orders_timestamps):
-            previous_quantity = previous_planning.get_value(t)
-            new_quantity = new_planning.get_value(t)
+            cleared_quantity = cleared_engagement.get_value(t)
+            target_quantity = target_planning.get_value(t)
 
-            if new_quantity > previous_quantity:
-                q_order = new_quantity - previous_quantity
+            if target_quantity > cleared_quantity:
+                q_order = target_quantity - cleared_quantity
                 price = sell_price
                 order_type = OrderType.Sell
                 sell_values[i] += q_order
 
-            elif previous_quantity > new_quantity:
-                q_order = previous_quantity - new_quantity
+            elif cleared_quantity > target_quantity:
+                q_order = cleared_quantity - target_quantity
                 price = buy_price
                 order_type = OrderType.Buy
                 buy_values[i] += q_order
