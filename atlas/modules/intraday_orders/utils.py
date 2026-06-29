@@ -46,7 +46,7 @@ def engaged_quantity(equipment: Equipment, parameters: IntradayOrdersParameters)
         parameters.temporal.start_date, parameters.penultimate_date, parameters.temporal.timestep
     )
     filtered = engagement.filter(order_window, inplace=False)
-    return baseline if filtered.dataframe.height == 0 else baseline + filtered
+    return baseline if len(filtered) == 0 else baseline + filtered
 
 
 def build_intraday_order(

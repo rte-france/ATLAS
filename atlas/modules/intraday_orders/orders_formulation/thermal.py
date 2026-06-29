@@ -154,7 +154,10 @@ def build_order_windows(
             intervals.append(delta_at_t[0])
             if len(delta_at_t) >= 2:
                 for i in range(len(delta_at_t) - 1):
-                    if not (delta_at_t[i + 1] - delta_at_t[i]).total_minutes() == parameters.temporal.timestep:
+                    if (
+                        not (delta_at_t[i + 1] - delta_at_t[i]).total_minutes()
+                        == parameters.temporal.timestep.in_minutes()
+                    ):
                         intervals.append(delta_at_t[i])
                         intervals.append(delta_at_t[i + 1])
             intervals.append(delta_at_t[-1])

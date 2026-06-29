@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TypeVar
 
 from pendulum import DateTime
 
@@ -19,8 +18,6 @@ from atlas.objects.equipment.equipment import Equipment
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
-E = TypeVar("E", bound=Equipment)
-
 
 @dataclass
 class FormulatorResult:
@@ -28,7 +25,7 @@ class FormulatorResult:
     order_couplings: list[OrderCoupling] = field(default_factory=list)
 
 
-class AbstractOrdersFormulator[E](ABC):
+class AbstractOrdersFormulator[E: Equipment](ABC):
     EQUIPMENT_TYPE_NAME: str
 
     def formulate(

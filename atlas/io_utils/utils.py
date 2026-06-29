@@ -232,6 +232,10 @@ def diff_on_other_than_business_model(
         try:
             df_val = val.dataframe
             df_other = other_val.dataframe
+            if isinstance(df_val, pl.LazyFrame):
+                df_val = df_val.collect()
+            if isinstance(df_other, pl.LazyFrame):
+                df_other = df_other.collect()
             joined = df_val.join(df_other, on="time", suffix="_other")
             max_diff = (joined["value"] - joined["value_other"]).abs().max() or 0.0
             ref = joined["value"].abs().max() or 1.0
@@ -246,6 +250,10 @@ def diff_on_other_than_business_model(
         try:
             df_val = val.dataframe
             df_other = other_val.dataframe
+            if isinstance(df_val, pl.LazyFrame):
+                df_val = df_val.collect()
+            if isinstance(df_other, pl.LazyFrame):
+                df_other = df_other.collect()
             val_cols = [c for c in df_val.columns if c != "time"]
             other_cols = set(df_other.columns)
             missing = [c for c in val_cols if c not in other_cols]
