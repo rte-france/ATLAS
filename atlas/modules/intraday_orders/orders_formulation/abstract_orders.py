@@ -35,13 +35,12 @@ class AbstractOrdersFormulator[E: Equipment](ABC):
         parameters: IntradayOrdersParameters,
     ) -> FormulatorResult:
         result = FormulatorResult()
-        message = f"Formulation of the intraday {self.EQUIPMENT_TYPE_NAME} orders"
-        cfg.logger.info(f"{message} [start]")
         for equipment in equipments:
+            cfg.logger.info(f"Formulating intraday {self.EQUIPMENT_TYPE_NAME} orders for {equipment.name}")
             orders, couplings = self.process_equipment(equipment, orders_timestamps, parameters)
             result.orders.extend(orders)
             result.order_couplings.extend(couplings)
-        cfg.logger.info(f"{message} [end]")
+        cfg.logger.info(f"Intraday {self.EQUIPMENT_TYPE_NAME} orders formulated ({len(equipments)} units)")
         return result
 
     def process_equipment(

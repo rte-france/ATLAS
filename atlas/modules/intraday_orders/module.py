@@ -31,7 +31,7 @@ class IntradayOrdersModule(
         return IntradayOrdersParameters
 
     def import_data(self, input_data: AtlasDataset, parameters: IntradayOrdersParameters) -> IntradayOrdersInputDataset:
-        return IntradayOrdersInputDataset(input_data)
+        return IntradayOrdersInputDataset(input_data.set_frequency_all(parameters.temporal.timestep, inplace=True))
 
     def validate_data(self, parameters: IntradayOrdersParameters, input_dataset: IntradayOrdersInputDataset) -> bool:
         # TODO: ask POs if something is required here

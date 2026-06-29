@@ -106,8 +106,6 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
         )
         previous_planning = engaged_quantity(equipment, parameters)
 
-        cfg.logger.info(f"Formulating storage orders for unit {equipment.name}")
-
         orders: list[Order] = []
         couplings: list[OrderCoupling] = []
 

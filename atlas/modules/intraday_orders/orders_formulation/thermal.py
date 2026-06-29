@@ -245,8 +245,6 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
         )
 
-        cfg.logger.info(f"Formulating thermal orders for unit {equipment.name}")
-
         for window in order_windows:
             cfg.logger.info(
                 f"Formulating thermal orders for unit {equipment.name} between {window.first_date()} and {window.last_date()} for case {window.window_type.value}"
