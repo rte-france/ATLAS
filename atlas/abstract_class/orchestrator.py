@@ -40,7 +40,11 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
         """
         return self.final_dataset
 
-    def use_context(self, context):
+    def use_context(self, context: ContextParameters) -> None:
+        """
+        :param context: add this context parameters to the existing one, overwriting any parameters if it exists.
+        :type context: ContextParameters
+        """
         self.parameters.context.use(context)
 
     def execute(self) -> CurrentInputState:

@@ -102,9 +102,11 @@ class ModuleTaskIterator(TaskIterator):
         self.root_output_dir = root_output_dir
 
     def build_jobs(self) -> list[AbstractJob]:
+        """ Build and return the list of ActionPlanJob with execution date value as the current value of self.next_execution_date."""
         return [ActionPlanJob(f"task {self.task.name} iteration {self.current_iteration}", self.module, self._build_current_parameters())]
 
     def _build_current_parameters(self) -> AbstractModuleParameters:
+        """ Build and return parameters to use for the module with execution date value as the current value of self.next_execution_date."""
         parameters = copy.deepcopy(self.parameters)
         if parameters.output is not None:
             parameters.output.output_dir = self.root_output_dir / str(self.next_execution_date.isoformat())
@@ -123,6 +125,7 @@ class WorkflowTaskIterator(TaskIterator):
         self.root_output_dir = root_output_dir
 
     def _build_current_parameters(self) -> WorkflowParameters:
+        """ Build and return parameters to use for the action plan with execution date value as the current value of self.next_execution_date."""
         parameters = copy.deepcopy(self.parameters)
         deep_update(
             parameters.context.forced,
@@ -141,5 +144,6 @@ class WorkflowTaskIterator(TaskIterator):
         return parameters
 
     def build_jobs(self) -> list[AbstractJob]:
+        """ Build and return the list of ActionPlanJob with execution date value as the current value of self.next_execution_date."""
         workflow = Workflow(self._build_current_parameters(), f"task {self.task.name} iteration {self.current_iteration}")
         return [ActionPlanJob(x) for x in list(workflow.jobs)]

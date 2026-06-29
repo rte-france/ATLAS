@@ -149,6 +149,8 @@ class ContextParameters(BaseModel):
     def use(self, context: ContextParameters):
         """
         Override any value in this context that are also present in given context.
+        :param context: context to use for this parameter
+        :type context: ContextParameters
         """
         deep_update(self.default, context.default, True)
         deep_update(self.forced, context.forced, True)
@@ -159,6 +161,10 @@ class ContextParameters(BaseModel):
         return a deepcopy if inplace is False.
         Any default value in this context will be added if not present in the dictionary.
         Override any forced value from this context that are also present in given dict.
+        :param base: dictionary to use as base result
+        :type base: dict
+        :param inplace: If True, modifies objects in place. If False, returns a deep copy with modified frequencies.
+        :type inplace: bool
         """
         updated_dict = base if inplace else copy.deepcopy(base)
         deep_update(updated_dict, self.default, False)
