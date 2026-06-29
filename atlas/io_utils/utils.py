@@ -14,6 +14,7 @@ import pandas as pd
 import pendulum
 import polars as pl
 
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.objects.business_model import BusinessModel
 
@@ -236,6 +237,26 @@ def diff_on_other_than_business_model(
             ref = joined["value"].abs().max() or 1.0
             if max_diff > _TIMESERIES_DIFF_RTOL * ref or joined.height != df_val.height:
                 return {"changed": "not-serializable yet"}
+        except Exception:
+            return {"error": "Couldn't check diff"}
+    elif isinstance(val, AbstractScenarioMatrix) and isinstance(other_val, AbstractScenarioMatrix):
+        # ForecastingMatrix columns accumulate float ops — use tolerance.
+        # val's columns must be a subset of other_val's columns (other_val may have extra
+        # historical columns from prior sessions that val doesn't have yet).
+        try:
+            df_val = val.dataframe
+            df_other = other_val.dataframe
+            val_cols = [c for c in df_val.columns if c != "time"]
+            other_cols = set(df_other.columns)
+            missing = [c for c in val_cols if c not in other_cols]
+            if missing:
+                return {"changed": "not-serializable yet"}
+            for col in val_cols:
+                diff = (df_val[col].fill_null(0.0) - df_other[col].fill_null(0.0)).abs()
+                max_diff = diff.max() or 0.0
+                ref = df_val[col].fill_null(0.0).abs().max() or 1.0
+                if max_diff > _TIMESERIES_DIFF_RTOL * ref:
+                    return {"changed": "not-serializable yet"}
         except Exception:
             return {"error": "Couldn't check diff"}
     elif hasattr(val, "equals") and hasattr(other_val, "equals"):

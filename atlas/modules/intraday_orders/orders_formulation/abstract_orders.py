@@ -12,6 +12,7 @@ from typing import TypeVar
 from pendulum import DateTime
 
 import atlas.config as cfg
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.objects.equipment.equipment import Equipment
@@ -62,9 +63,19 @@ class AbstractOrdersFormulator[E](ABC):
         orders, couplings = self.formulate_equipment_orders(
             equipment, orders_timestamps, buy_submitted_volume, sell_submitted_volume, parameters
         )
-        if equipment.id_buy_submitted_volume and equipment.id_sell_submitted_volume:
-            equipment.id_buy_submitted_volume.add(buy_submitted_volume, parameters.temporal.execution_date)
-            equipment.id_sell_submitted_volume.add(sell_submitted_volume, parameters.temporal.execution_date)
+        exec_date = parameters.temporal.execution_date
+        for attr, ts in (
+            ("id_buy_submitted_volume", buy_submitted_volume),
+            ("id_sell_submitted_volume", sell_submitted_volume),
+        ):
+            fm = getattr(equipment, attr)
+            if fm is None:
+                fm = ForecastingMatrix()
+                setattr(equipment, attr, fm)
+            if exec_date in fm:
+                fm.replace(exec_date, ts)
+            else:
+                fm.add(ts, exec_date)
 
         # total_id_*_submitted_volume is None until the first intraday session accumulates onto it
         equipment.total_id_buy_submitted_volume = (

@@ -35,25 +35,17 @@ def _orders_time(parameters):
     )
 
 
-# These fields are mutated during formulation; the expected fixture equipment objects don't carry
-# the same state, so comparing them is meaningless.
-_SKIP_EQUIPMENT_FIELDS = {
-    "id_buy_submitted_volume",
-    "id_sell_submitted_volume",
-}
-
 _FLOAT_RTOL = 1e-9
 
 
-def _drop_skip_fields(d: dict) -> dict:
+def _filter_diff(d: dict) -> dict:
+    """Recursively remove float diffs within relative tolerance (accumulated float-op noise)."""
     cleaned = {}
     for k, v in d.items():
-        if k in _SKIP_EQUIPMENT_FIELDS:
-            continue
         if not isinstance(v, dict):
             cleaned[k] = v
         elif v.get("type") == "nested":
-            inner = _drop_skip_fields(v.get("diffs", {}))
+            inner = _filter_diff(v.get("diffs", {}))
             if inner:
                 cleaned[k] = {**v, "diffs": inner}
         elif "self" in v and "other" in v:
@@ -63,7 +55,7 @@ def _drop_skip_fields(d: dict) -> dict:
                     continue
             cleaned[k] = v
         else:
-            inner = _drop_skip_fields(v)
+            inner = _filter_diff(v)
             if inner:
                 cleaned[k] = inner
     return cleaned
@@ -71,7 +63,7 @@ def _drop_skip_fields(d: dict) -> dict:
 
 def _meaningful_diff(obj, other) -> dict:
     raw = {k: v for k, v in diff_business_model(obj, other).items() if k != "name"}
-    return _drop_skip_fields(raw)
+    return _filter_diff(raw)
 
 
 def _assert_orders_match(result: FormulatorResult, expected: Container[Order], equipment_names: set[str]) -> None:
