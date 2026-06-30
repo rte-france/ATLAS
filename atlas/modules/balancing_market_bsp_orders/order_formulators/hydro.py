@@ -9,14 +9,70 @@ Module that implements HydraulicOrderFormulator.
 from pendulum import DateTime
 
 from atlas.enums import OrderType
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.modules.balancing_market_bsp_orders.input_objects.hydro import BalancingHydro
 from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
-# TODO : placeholder price until fragment-based pricing (water_value) is implemented
-PLACEHOLDER_PRICE = 0.0
+
+def extract_mean_from_scenario(
+    scenario_matrix: AbstractScenarioMatrix,
+    index_input: float,
+    time_input: DateTime,
+) -> float:
+    """
+    Extract a linearly interpolated value from a ScenarioMatrix.
+
+    Interpolates between the scenario index value preceding index_input and the one
+    following it, at the given time_input. The scenario_matrix indexes are assumed to
+    represent numeric values (e.g. storage levels) and are sorted by increasing value.
+    If index_input falls outside the index range, it is clamped to the nearest bound.
+
+    :param scenario_matrix: Matrix of timeseries indexed by numeric scenario values
+    :type scenario_matrix: AbstractScenarioMatrix
+    :param index_input: The numeric value to interpolate between scenario indexes
+    :type index_input: float
+    :param time_input: The datetime at which to read the interpolated value
+    :type time_input: DateTime
+    :return: The interpolated value, or 0.0 if the matrix has no indexes
+    :rtype: float
+    """
+    # Map numeric value -> original column name, to avoid reformatting mismatches
+    index_by_value = {float(index_name): index_name for index_name in scenario_matrix.index}
+    scenario_values = sorted(index_by_value)
+
+    if not scenario_values:
+        return 0.0
+
+    if index_input <= scenario_values[0]:
+        preceding_value_key = following_value_key = scenario_values[0]
+    elif index_input >= scenario_values[-1]:
+        preceding_value_key = following_value_key = scenario_values[-1]
+    else:
+        preceding_value_key = scenario_values[0]
+        following_value_key = scenario_values[-1]
+        for scenario_value in scenario_values:
+            if scenario_value == index_input:
+                preceding_value_key = following_value_key = scenario_value
+                break
+            if scenario_value < index_input:
+                preceding_value_key = scenario_value
+            else:
+                following_value_key = scenario_value
+                break
+
+    preceding_value = scenario_matrix.select(index_by_value[preceding_value_key]).get_value(time_input)
+
+    if preceding_value_key == following_value_key:
+        return preceding_value
+
+    following_value = scenario_matrix.select(index_by_value[following_value_key]).get_value(time_input)
+
+    return preceding_value + (following_value - preceding_value) * (index_input - preceding_value_key) / (
+        following_value_key - preceding_value_key
+    )
 
 
 class HydraulicOrderFormulator(AbstractOrderFormulator):
@@ -31,8 +87,6 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
 
     The maximum_gradient constraint, when set, limits the available power based on
     the forecasted power evolution between the studied timestep and its neighbors.
-
-    # TODO : fragment-based pricing (water_value) not yet implemented
     """
 
     def __init__(
@@ -85,30 +139,20 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
                 qmax_up = self._apply_maximum_daily_energy_constraint(qmax_up)
                 qmax_down = self._apply_minimum_daily_energy_constraint(qmax_down)
 
+            water_value = extract_mean_from_scenario(
+                self.equipment.storage_marginal_value,
+                self.equipment.stored_energy.get_forecast(
+                    self.parameters.temporal.execution_date, time, time
+                ).get_value(time),
+                time,
+            )
+
             if qmax_up >= 1.0:
-                order = self.build_order(
-                    order_type=OrderType.Sell,
-                    start=time,
-                    end=next_time,
-                    price=PLACEHOLDER_PRICE,
-                    qmin=0.0,
-                    qmax=qmax_up,
-                )
-                if order is not None:
-                    orders.extend(self._build_upward_fragment_orders(time, next_time, qmax_up))
+                orders.extend(self._build_upward_fragment_orders(time, next_time, qmax_up, water_value))
 
             # TODO: Constraint not present in prometheus : Check with validation
             if qmax_down >= 1.0:
-                order = self.build_order(
-                    order_type=OrderType.Buy,
-                    start=time,
-                    end=next_time,
-                    price=PLACEHOLDER_PRICE,
-                    qmin=0.0,
-                    qmax=qmax_down,
-                )
-                if order is not None:
-                    orders.extend(self._build_downward_fragment_orders(time, next_time, qmax_down))
+                orders.extend(self._build_downward_fragment_orders(time, next_time, qmax_down, water_value))
 
         return orders, []
 
@@ -265,6 +309,7 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
         time: DateTime,
         next_time: DateTime,
         order_qmax: float,
+        water_value: float,
     ) -> list[Order]:
         """
         Build upward Sell orders split into price/volume fragments.
@@ -275,6 +320,8 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
         :type next_time: DateTime
         :param order_qmax: Total upward available power, after all constraints
         :type order_qmax: float
+        :param water_value: Marginal water value extracted from the storage scenario matrix
+        :type water_value: float
         :return: List of formulated Sell orders, one per relevant fragment
         :rtype: list[Order]
         """
@@ -302,9 +349,6 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
                 fragment_qmax[fragment_index] -= qmax_sum - round(order_qmax)
                 break
 
-        # TODO : water_value is currently a placeholder until extract_mean_from_scenario is implemented
-        water_value = PLACEHOLDER_PRICE
-
         orders: list[Order] = []
         for fragment_index, fragment_qmax_value in fragment_qmax.items():
             order = self.build_order(
@@ -326,6 +370,7 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
         time: DateTime,
         next_time: DateTime,
         order_qmax: float,
+        water_value: float,
     ) -> list[Order]:
         """
         Build downward Buy orders split into price/volume fragments.
@@ -336,6 +381,8 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
         :type next_time: DateTime
         :param order_qmax: Total downward available power, after all constraints
         :type order_qmax: float
+        :param water_value: Marginal water value extracted from the storage scenario matrix
+        :type water_value: float
         :return: List of formulated Buy orders, one per relevant fragment
         :rtype: list[Order]
         """
@@ -370,9 +417,6 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
             if qmax_sum > round(order_qmax):
                 fragment_qmax[fragment_index] -= qmax_sum - round(order_qmax)
                 break
-
-        # TODO : water_value is currently a placeholder until extract_mean_from_scenario is implemented
-        water_value = PLACEHOLDER_PRICE
 
         orders: list[Order] = []
         for fragment_index, fragment_qmax_value in fragment_qmax.items():
