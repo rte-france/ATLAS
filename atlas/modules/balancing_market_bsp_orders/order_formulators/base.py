@@ -180,7 +180,7 @@ class AbstractOrderFormulator(ABC):
         :return: Standardised order name
         :rtype: str
         """
-        direction = "U" if order_type == OrderType.Sell else "D"
+        direction = "U" if order_type == OrderType.sell else "D"
         market_short = self._market_short_name()
         return (
             f"{self.equipment.name}_{market_short}_{direction}_"
@@ -212,3 +212,80 @@ class AbstractOrderFormulator(ABC):
         :rtype: str
         """
         return dt.strftime("%H_%M")
+
+    def _apply_gradient_constraint(
+        self,
+        forecasted_power,
+        time: DateTime,
+        upward_available: float,
+        downward_available: float,
+    ) -> tuple[float, float]:
+        """
+        Apply the maximum_gradient constraint to the available upward and downward power at a given timestep.
+
+        Limits the available power based on the forecasted power evolution between the
+        studied timestep and its previous/next neighbor, so that the equipment's power
+        trajectory never exceeds maximum_gradient per timestep.
+
+        :param forecasted_power: Forecasted power timeseries over the balancing time frame
+        :type forecasted_power: Timeseries
+        :param time: The timestep being evaluated
+        :type time: DateTime
+        :param upward_available: Upward available power before the gradient constraint
+        :type upward_available: float
+        :param downward_available: Downward available power before the gradient constraint
+        :type downward_available: float
+        :return: Tuple of (upward_available, downward_available) after the gradient constraint
+        :rtype: tuple[float, float]
+        """
+        timestep = self.parameters.temporal.timestep
+        execution_date = self.parameters.temporal.execution_date
+        max_grad = self.equipment.maximum_gradient * (timestep.total_seconds() / 60)
+
+        previous_time = time.subtract(minutes=int(timestep.total_seconds() // 60))
+        next_time = time.add(minutes=int(timestep.total_seconds() // 60))
+
+        try:
+            previous_forecasted_power = self.equipment.power.get_forecast(
+                execution_date, previous_time, previous_time
+            ).get_value(previous_time)
+            if previous_forecasted_power is None:
+                previous_forecasted_power = 0.0
+        except (KeyError, ValueError):
+            previous_forecasted_power = 0.0
+
+        try:
+            next_forecasted_power = self.equipment.power.get_forecast(execution_date, next_time, next_time).get_value(
+                next_time
+            )
+            if next_forecasted_power is None:
+                next_forecasted_power = 0.0
+        except (KeyError, ValueError):
+            next_forecasted_power = 0.0
+
+        if previous_forecasted_power > 0:
+            previous_upward_evolution = max(forecasted_power.get_value(time) - previous_forecasted_power, 0)
+            previous_downward_evolution = max(previous_forecasted_power - forecasted_power.get_value(time), 0)
+        else:
+            previous_upward_evolution = 0.0
+            previous_downward_evolution = 0.0
+
+        if next_forecasted_power > 0:
+            next_upward_evolution = max(next_forecasted_power - forecasted_power.get_value(time), 0)
+            next_downward_evolution = max(forecasted_power.get_value(time) - next_forecasted_power, 0)
+        else:
+            next_upward_evolution = 0.0
+            next_downward_evolution = 0.0
+
+        upward_available = min(
+            upward_available,
+            max_grad - previous_upward_evolution,
+            max_grad - next_downward_evolution,
+        )
+        downward_available = min(
+            downward_available,
+            max_grad - previous_downward_evolution,
+            max_grad - next_upward_evolution,
+        )
+
+        return max(0.0, upward_available), max(0.0, downward_available)
