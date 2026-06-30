@@ -10,8 +10,6 @@ Each test exercises the model conversion function directly with a mocked Study.
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-import pytest
-
 from antares.craft.model.st_storage import STStorageGroup
 
 from atlas.math.timeseries import Timeseries
@@ -22,7 +20,6 @@ from atlas.modules.antares_to_atlas.models.storage.battery import convert_batter
 from atlas.modules.antares_to_atlas.models.storage.phs_closed import convert_phs_closed_units
 from atlas.modules.antares_to_atlas.models.system_structure.link import convert_links
 from atlas.modules.antares_to_atlas.models.thermal.thermal import convert_thermal_units
-
 from tests.test_unit.test_antares_to_atlas.conftest import make_area_dataset, make_params
 
 _THERMAL_MODULE = "atlas.modules.antares_to_atlas.models.thermal.thermal"
