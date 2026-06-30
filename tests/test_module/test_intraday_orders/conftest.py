@@ -47,7 +47,7 @@ FORMULATOR_PARAMS_DICT = {
         "end_date": "2028-09-28 00:00:00",
         "timestep": "PT1H",
     },
-    "consumption_price": 3000.0,
+    "load_price": 3000.0,
     "hydraulic_minimal_fragment_size": 150.0,
     "large_imbalance_penalty": 0.2,
     "allowed_round_off_error": 0.001,

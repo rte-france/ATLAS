@@ -84,7 +84,7 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
 
                 if consumption_value > parameters.allowed_round_off_error:
                     bid = self._build_offer(
-                        equipment, parameters.consumption_price, consumption_value, OrderType.Buy, t, parameters
+                        equipment, parameters.load_price, consumption_value, OrderType.Buy, t, parameters
                     )
                     orders.append(bid)
                     buy_values[i] += abs(consumption_value)

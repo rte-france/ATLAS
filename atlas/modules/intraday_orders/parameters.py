@@ -20,7 +20,7 @@ class IntradayOrdersParameters(AbstractModuleParameters):
         0.001,
         description="Threshold, in MW, below which the value of accepted power is considered equal to 0. Typical values: 0.001, 0.0001 or 0.00001.",
     )
-    consumption_price: float = Field(3000.0, description="Price of all consumption orders, in euros/MWh.")
+    load_price: float = Field(3000.0, description="Price of all consumption orders, in euros/MWh.")
     hydraulic_minimal_fragment_size: float = Field(
         150.0,
         description="Minimal amount of power for an offer to be formulated. If for one particular time-step, the quantity Qmax of an offer is less than this threshold, the associated fragment is removed. Then the Qmax values of the other fragments are renormalized.",
