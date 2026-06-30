@@ -5,11 +5,13 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import math
+from __future__ import annotations
 
-from pendulum import DateTime
+import math
+from typing import TYPE_CHECKING
 
 import atlas.config as cfg
+from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue
 from atlas.enums import ComplementDirection, CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.hydro import HydroDAO
@@ -18,6 +20,9 @@ from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCou
 from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractBiddingStep
 from atlas.modules.day_ahead_orders.steps.result import BiddingResult
 from atlas.timing import generate_datetimes
+
+if TYPE_CHECKING:
+    from atlas.objects.equipment.hydro import FragmentData
 
 
 class HydraulicBidding(AbstractBiddingStep):
@@ -37,9 +42,7 @@ class HydraulicBidding(AbstractBiddingStep):
         )
 
         for equipment in hydraulic_units:
-            delta_wu: dict[float, tuple[float, float]] = {}
-            for category in range(len(equipment.fragment_volumes)):
-                delta_wu[category] = (equipment.fragment_volumes[category], equipment.fragment_prices[category])
+            fragments = equipment.fragment_data
 
             submitted_volumes = Timeseries.from_index(
                 self.parameters.temporal.start_date,
@@ -54,7 +57,7 @@ class HydraulicBidding(AbstractBiddingStep):
                 continue
 
             energy_level = self._get_current_energy_level(equipment)
-            marginal_weights = self._calculate_marginal_weights(equipment, energy_level)
+            marginal_value = InterpolatedMarginalValue.at_level(equipment.storage_marginal_value, energy_level)
             minimum_energy = equipment.minimum_energy.slice(
                 self.parameters.temporal.start_date, self.parameters.temporal.end_date, "both", False
             )
@@ -69,29 +72,16 @@ class HydraulicBidding(AbstractBiddingStep):
             coupling_orders = []
             for t in self.orders_time:
                 capacity = equipment.maximum_power.get_value(t)
-                volumes = {key: capacity * v[0] for key, v in delta_wu.items()}
+                volumes = self._fragment_volumes(fragments, capacity)
 
-                normal_volumes = {
-                    key: v for key, v in volumes.items() if v >= self.parameters.hydraulic_minimal_fragment_size
-                }
-                minor_volumes = {
-                    key: v for key, v in volumes.items() if v < self.parameters.hydraulic_minimal_fragment_size
-                }
-                if sum(minor_volumes.values()) > 0:
-                    reduced_capacity = sum(normal_volumes.values())
-                    if reduced_capacity != 0:
-                        volumes = {key: capacity * v / reduced_capacity for (key, v) in normal_volumes.items()}
-                    else:
-                        volumes = {math.ceil(len(equipment.fragment_prices) / 2): capacity}
-
-                for k, v in volumes.items():
-                    if v != 0:
+                for category, volume in volumes.items():
+                    if volume != 0:
                         bid_output = OrderDAO(
-                            name=f"hydraulic_order_fragment_{str(k)}_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{equipment.name}",
+                            name=f"hydraulic_order_fragment_{str(category)}_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{equipment.name}",
                             market_area=equipment.portfolio.market_area,
                             portfolio=equipment.portfolio,
                             equipment=equipment,
-                            qmax=v,
+                            qmax=volume,
                             qmin=0,
                             product=Product.DayAhead,
                             order_type=OrderType.Sell,
@@ -99,16 +89,16 @@ class HydraulicBidding(AbstractBiddingStep):
                             execution_date=self.parameters.temporal.execution_date,
                             start_date=t,  # type: ignore [arg-type]
                             end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
-                            price=self._calculate_fragment_price(delta_wu[k][1], marginal_weights, t),
+                            price=fragments[category].price + marginal_value.value_at(t),
                         )
 
                         result.orders.append(bid_output)
                         coupling_orders.append(bid_output)
 
                         if t in submitted_volumes:
-                            submitted_volumes.set_value(t, submitted_volumes.get_value(t) + v)
+                            submitted_volumes.set_value(t, submitted_volumes.get_value(t) + volume)
                         else:
-                            submitted_volumes.add_index(t, v)
+                            submitted_volumes.add_index(t, volume)
 
             result.order_couplings.append(
                 OrderCouplingDAO(
@@ -126,6 +116,27 @@ class HydraulicBidding(AbstractBiddingStep):
 
         return result
 
+    def _fragment_volumes(self, fragments: dict[int, FragmentData], capacity: float) -> dict[int, float]:
+        """Volume offered per fragment at *capacity*, dropping fragments too small to bid.
+
+        Each fragment's nominal volume is its share of *capacity*. Fragments below
+        ``hydraulic_minimal_fragment_size`` are discarded and their volume redistributed
+        proportionally over the remaining fragments, so the offered total still equals
+        *capacity*. If no fragment clears the threshold, the whole capacity is placed on
+        the median fragment.
+        """
+        minimal_size = self.parameters.hydraulic_minimal_fragment_size
+        volumes = {category: capacity * fragment.volume for category, fragment in fragments.items()}
+
+        if sum(volume for volume in volumes.values() if volume < minimal_size) <= 0:
+            return volumes
+
+        normal_volumes = {category: volume for category, volume in volumes.items() if volume >= minimal_size}
+        normal_capacity = sum(normal_volumes.values())
+        if normal_capacity == 0:
+            return {math.ceil(len(fragments) / 2): capacity}
+        return {category: capacity * volume / normal_capacity for category, volume in normal_volumes.items()}
+
     def _get_current_energy_level(self, equipment: HydroDAO) -> float:
         if equipment.stored_energy is not None:
             energy_forecast = equipment.stored_energy.get_forecast(
@@ -138,47 +149,3 @@ class HydraulicBidding(AbstractBiddingStep):
                     self.parameters.temporal.start_date - self.parameters.temporal.timestep
                 )
         return equipment.initial_level.get_value(self.parameters.temporal.start_date)
-
-    def _calculate_marginal_weights(self, equipment, energy_level: float) -> dict:
-        storage_indices = equipment.storage_marginal_value.index
-
-        x_min_candidates = [x for x in storage_indices if int(x) <= energy_level]
-        x_max_candidates = [x for x in storage_indices if int(x) > energy_level]
-
-        weights = {
-            "has_min": bool(x_min_candidates),
-            "has_max": bool(x_max_candidates),
-            "weight_inf": 0.0,
-            "weight_sup": 0.0,
-            "level_inf": None,
-            "level_sup": None,
-        }
-
-        if x_min_candidates:
-            xp_min = max(x_min_candidates, key=lambda x: int(x))
-            weights["level_inf"] = equipment.storage_marginal_value.select(xp_min)
-
-        if x_max_candidates:
-            xp_max = min(x_max_candidates, key=lambda x: int(x))
-            weights["level_sup"] = equipment.storage_marginal_value.select(xp_max)
-
-        if weights["has_min"] and weights["has_max"]:
-            range_diff = int(xp_max) - int(xp_min)
-            weights["weight_inf"] = (int(xp_max) - energy_level) / range_diff
-            weights["weight_sup"] = (energy_level - int(xp_min)) / range_diff
-
-        return weights
-
-    def _calculate_fragment_price(self, fragment_price: float, marginal_weights: dict, time: DateTime) -> float:
-        if not marginal_weights["has_min"] and marginal_weights["has_max"]:
-            marginal_adjustment = marginal_weights["level_sup"].get_value(time)
-        elif marginal_weights["has_min"] and not marginal_weights["has_max"]:
-            marginal_adjustment = marginal_weights["level_inf"].get_value(time)
-        elif marginal_weights["has_min"] and marginal_weights["has_max"]:
-            p_min = marginal_weights["level_inf"].get_value(time)
-            p_max = marginal_weights["level_sup"].get_value(time)
-            marginal_adjustment = marginal_weights["weight_inf"] * p_min + marginal_weights["weight_sup"] * p_max
-        else:
-            marginal_adjustment = 0.0
-
-        return fragment_price + marginal_adjustment
