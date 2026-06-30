@@ -145,13 +145,23 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
         previous_time = time.subtract(minutes=int(timestep.total_seconds() // 60))
         next_time = time.add(minutes=int(timestep.total_seconds() // 60))
 
-        # TODO : How is the behavior without value ? = 0 pour les deux
-        previous_forecasted_power = self.equipment.power.get_forecast(
-            execution_date, previous_time, previous_time
-        ).get_value(previous_time)
-        next_forecasted_power = self.equipment.power.get_forecast(execution_date, next_time, next_time).get_value(
-            next_time
-        )
+        try:
+            previous_forecasted_power = self.equipment.power.get_forecast(
+                execution_date, previous_time, previous_time
+            ).get_value(previous_time)
+            if previous_forecasted_power is None:
+                previous_forecasted_power = 0.0
+        except (KeyError, ValueError):
+            previous_forecasted_power = 0.0
+
+        try:
+            next_forecasted_power = self.equipment.power.get_forecast(execution_date, next_time, next_time).get_value(
+                next_time
+            )
+            if next_forecasted_power is None:
+                next_forecasted_power = 0.0
+        except (KeyError, ValueError):
+            next_forecasted_power = 0.0
 
         if previous_forecasted_power > 0:
             previous_upward_evolution = max(forecasted_power.get_value(time) - previous_forecasted_power, 0)
