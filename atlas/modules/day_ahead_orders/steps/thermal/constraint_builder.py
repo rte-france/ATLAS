@@ -821,7 +821,7 @@ class ThermalConstraintBuilder:
     def _add_fill_up_constraints(self) -> None:
         """eqs. (41) and (42) — upward and downward fill-up constraints."""
         m = self._m
-        eps = m.parameters.epsilon
+        eps = m.parameters.allowed_round_off_error
         for t in m.time_frame:
             up_sum = (
                 m.q.get_value(t)

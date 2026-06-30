@@ -23,16 +23,16 @@ def test_default_parameters():
     assert params.automated_unprocured_reserves_penalty == 10000
     assert params.battery_smoothing_factor == 0.1
     assert params.ev_energy_coef == 1.5
-    assert params.ev_smoothing_factor == 0.1
-    assert params.epsilon == 0.001
+    assert params.electric_vehicle_smoothing_factor == 0.1
+    assert params.allowed_round_off_error == 0.001
     assert params.hydraulic_minimal_fragment_size == 100
     assert params.load_price == 3000
     assert params.manual_unprocured_reserves_penalty == 100
-    assert params.phs_smoothing_factor == 0.2
+    assert params.pumped_hydraulic_smoothing_factor == 0.2
     assert params.solver.duality_gap == 0.0001
     assert params.battery_nb_fragments == 3
-    assert params.ev_nb_fragments == 3
-    assert params.phs_nb_fragments == 3
+    assert params.electric_vehicle_nb_fragments == 3
+    assert params.pumped_hydraulic_nb_fragments == 3
     assert params.solver.timeout == Duration(minutes=4)
     assert params.temporal.timestep == Duration(hours=1)
     assert params.price_forecasts_types == ["Medium", "High", "Low"]
@@ -51,31 +51,31 @@ def test_custom_parameters():
         automated_unprocured_reserves_penalty=1000,
         battery_smoothing_factor=0.2,
         ev_energy_coef=1.1,
-        ev_smoothing_factor=0.2,
-        epsilon=0.01,
+        electric_vehicle_smoothing_factor=0.2,
+        allowed_round_off_error=0.01,
         hydraulic_minimal_fragment_size=10,
         load_price=300,
         manual_unprocured_reserves_penalty=10,
-        phs_smoothing_factor=0.3,
+        pumped_hydraulic_smoothing_factor=0.3,
         battery_nb_fragments=2,
-        ev_nb_fragments=2,
-        phs_nb_fragments=2,
+        electric_vehicle_nb_fragments=2,
+        pumped_hydraulic_nb_fragments=2,
         price_forecasts_types=["Medium"],
     )
     assert params.temporal.timestep == Duration(minutes=15)
     assert params.automated_unprocured_reserves_penalty == 1000
     assert params.battery_smoothing_factor == 0.2
     assert params.ev_energy_coef == 1.1
-    assert params.ev_smoothing_factor == 0.2
-    assert params.epsilon == 0.01
+    assert params.electric_vehicle_smoothing_factor == 0.2
+    assert params.allowed_round_off_error == 0.01
     assert params.hydraulic_minimal_fragment_size == 10
     assert params.load_price == 300
     assert params.manual_unprocured_reserves_penalty == 10
-    assert params.phs_smoothing_factor == 0.3
+    assert params.pumped_hydraulic_smoothing_factor == 0.3
     assert params.solver.duality_gap == 0.001
     assert params.battery_nb_fragments == 2
-    assert params.ev_nb_fragments == 2
-    assert params.phs_nb_fragments == 2
+    assert params.electric_vehicle_nb_fragments == 2
+    assert params.pumped_hydraulic_nb_fragments == 2
     assert params.solver.timeout == Duration(minutes=1)
     assert params.price_forecasts_types == ["Medium"]
 
