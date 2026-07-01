@@ -7,8 +7,9 @@ Structure tests for antares_to_atlas: Converter base class, ConverterRegistry,
 AntaresToAtlas orchestrator, and AntaresToAtlasParameters.
 """
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.antares_to_atlas import AntaresToAtlas
@@ -20,7 +21,6 @@ from atlas.modules.antares_to_atlas.parameters import (
     ConvertersTags,
     HypothesisEnum,
 )
-
 from tests.test_unit.test_antares_to_atlas.conftest import make_params
 
 # ── Minimal concrete converters used across multiple test classes ──────────────

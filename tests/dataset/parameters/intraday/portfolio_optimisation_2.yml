@@ -14,7 +14,7 @@ small_imbalance_penalty: 0.05
 battery_smoothing_factor: 0.1
 small_imbalance_size: 0.15
 isp_forecast_lower_bound: 0
-electric_vehicle_number_of_fragments: 3
-pumped_hydraulic_number_of_fragments: 3
-excluded_thermal_strategy:
+electric_vehicle_nb_fragments: 3
+pumped_hydraulic_nb_fragments: 3
+excluded_thermal_strategies:
   - "Base"
