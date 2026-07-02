@@ -40,14 +40,14 @@ class RenewableStep(AbstractOptimStep[WindPO | SolarPO, "PortfolioOptimisationPa
         eq = self.equipment
         self._dispatch.setup(model, parameters)
         self._reserves.setup(model)
-        for time in eq.optimisation_time_window:
+        for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding variables for renewable unit {eq.name} at time {time}")
             self._dispatch.add_variables(time)
             self._reserves.add_variables(time, self._dispatch.max_power(time), self._dispatch.min_power(time))
 
     def add_constraints(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
-        for time in eq.optimisation_time_window:
+        for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding constraints for renewable unit {eq.name} at time {time}")
             self._dispatch.add_constraints(model, time)
             self._reserves.add_automated_capacity_constraints(time)
@@ -58,7 +58,7 @@ class RenewableStep(AbstractOptimStep[WindPO | SolarPO, "PortfolioOptimisationPa
     ):
         eq = self.equipment
         dt_h = parameters.temporal.timestep.total_hours()
-        for time in eq.optimisation_time_window:
+        for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding objective for renewable unit {eq.name} at time {time}")
             power_level_var = self._dispatch.power_level_var.get_value(time)
             model.add_objective(get_variable_cost(eq, time) * power_level_var * dt_h)

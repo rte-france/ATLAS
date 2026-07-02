@@ -42,7 +42,7 @@ class StoragePOStep(AbstractOptimStep[StoragePO, "PortfolioOptimisationParameter
         self._dispatch.setup(model, parameters, nbr_fragment)
         self._reserves.setup(model)
 
-        for time in eq.optimisation_time_window:
+        for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding variables for storage unit {eq.name} at time {time}")
             max_power = eq.maximum_power.get_value(time)
             min_power = eq.minimum_power.get_value(time)
@@ -57,7 +57,8 @@ class StoragePOStep(AbstractOptimStep[StoragePO, "PortfolioOptimisationParameter
             cfg.logger.debug(f"Skipping constraints for storage unit {eq.name} - maximum energy is 0")
             return
 
-        for time in eq.optimisation_time_window:
+        window = parameters.equipment_time_window(eq)
+        for time in window:
             cfg.logger.debug(f"Adding constraints for storage unit {eq.name} at time {time}")
 
             max_power = eq.maximum_power.get_value(time)
@@ -83,14 +84,14 @@ class StoragePOStep(AbstractOptimStep[StoragePO, "PortfolioOptimisationParameter
                 parameters.battery_automated_reserve_duration.total_hours(),
             )
 
-            if time not in parameters.target_times:
+            if time not in parameters.portfolio_time_window:
                 self._dispatch.add_fragment_sum_constraints(
                     time,
                     self._dispatch.power_level_sell_var.get_value(time),
                     self._dispatch.power_level_buy_var.get_value(time),
                 )
 
-        self._dispatch.add_cycle_balance_constraint(model, list(eq.optimisation_time_window))
+        self._dispatch.add_cycle_balance_constraint(model, window)
 
     def add_objective(
         self, model: OptimisationModel, parameters: PortfolioOptimisationParameters, price_forecasts: dict | None = None
@@ -102,7 +103,7 @@ class StoragePOStep(AbstractOptimStep[StoragePO, "PortfolioOptimisationParameter
             cfg.logger.debug(f"Skipping objective for storage unit {eq.name} - maximum energy is 0")
             return
 
-        for time in eq.optimisation_time_window:
+        for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding objective for storage unit {eq.name} at time {time}")
             price_forecast = price_forecasts.get(time, 0.0)
             power_level_sell_var = self._dispatch.power_level_sell_var.get_value(time)
@@ -113,7 +114,7 @@ class StoragePOStep(AbstractOptimStep[StoragePO, "PortfolioOptimisationParameter
                 * parameters.temporal.timestep.total_hours()
             )
 
-            if time not in parameters.target_times:
+            if time not in parameters.portfolio_time_window:
                 smoothing_factor = parameters.storage_mapping[eq.storage_type]["smoothing_factor"]
                 nb_fragment = parameters.storage_mapping[eq.storage_type]["nb_fragment"]
 

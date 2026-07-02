@@ -40,7 +40,7 @@ class ThermalStep(AbstractOptimStep[ThermalPO, "PortfolioOptimisationParameters"
         self._reserves.setup(model)
 
         eq = self.equipment
-        for time in eq.optimisation_time_window:
+        for time in parameters.equipment_time_window(eq):
             self._dispatch.add_variables(time)
             self._reserves.add_variables(
                 time,
@@ -52,8 +52,9 @@ class ThermalStep(AbstractOptimStep[ThermalPO, "PortfolioOptimisationParameters"
         eq = self.equipment
         d = self._dispatch
         ts = parameters.temporal.timestep
+        window = parameters.equipment_time_window(eq)
 
-        for time in eq.optimisation_time_window:
+        for time in window:
             cfg.logger.debug(f"Adding constraints combination {d.combination} for {eq.name}")
             d.add_constraints(model, time, parameters)
             self._reserves.add_fill_up_constraints(
@@ -66,10 +67,10 @@ class ThermalStep(AbstractOptimStep[ThermalPO, "PortfolioOptimisationParameters"
             self._reserves.add_relaxed_reserve_constraint(time, eq.minimum_power.get_value(time))
             self._reserves.add_capacity_constraints(time, eq.maximum_power.get_value(time))
 
-            if time in eq.optimisation_time_window[:-2]:
+            if time in window[:-2]:
                 d.add_dd_and_gradient_constraints(model, time, time - ts)
 
-        self._dispatch.add_daily_energy_constraint(model, self.equipment.optimisation_time_window, ts)
+        self._dispatch.add_daily_energy_constraint(model, window, ts)
 
     def add_objective(
         self,
@@ -80,13 +81,13 @@ class ThermalStep(AbstractOptimStep[ThermalPO, "PortfolioOptimisationParameters"
         if price_forecasts is None:
             price_forecasts = {}
         eq = self.equipment
-        for time in eq.optimisation_time_window:
+        for time in parameters.equipment_time_window(eq):
             price_forecast = price_forecasts.get(time, 0.0)
             variable_cost = eq.variable_cost.get_value(time)
             power_level_var = self._dispatch.power_level_var.get_value(time)
             model.add_objective(variable_cost * power_level_var * parameters.temporal.timestep.total_hours())
 
-            if time > max(parameters.target_times):
+            if time > max(parameters.portfolio_time_window):
                 model.add_objective(-price_forecast * power_level_var * parameters.temporal.timestep.total_hours())
 
             if eq.startup_cost is not None:

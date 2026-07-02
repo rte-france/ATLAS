@@ -17,7 +17,6 @@ class StoragePO(StorageDispatchInput):
     maximum_fcr: float
     maximum_afrr: float
 
-    optimisation_time_window: list[DateTime] = []
     _cached_energy_forecast: Timeseries | None = None
     _cached_energy_forecat_initial: Timeseries | None = None
 

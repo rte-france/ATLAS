@@ -6,7 +6,6 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pendulum import DateTime
 from pydantic import model_validator
 
 from atlas.common.optimal_dispatch.input_objects.thermal import ThermalDispatchInput
@@ -23,7 +22,6 @@ class ThermalPO(ThermalDispatchInput):
     variable_cost: AbstractTimeseries
     maximum_gradient: float = 0.0
     has_daily_energy_constraint: bool = False
-    optimisation_time_window: list[DateTime] = []
 
     @model_validator(mode="after")
     def validate_minimum_stable_power_duration(self) -> ThermalPO:

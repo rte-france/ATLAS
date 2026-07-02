@@ -18,7 +18,6 @@ class HydroPO(HydroDispatchInput):
     maximum_afrr: float
     storage_marginal_value: AbstractScenarioMatrix
 
-    optimisation_time_window: list[DateTime] = []
     _cached_energy_forecast: Timeseries | None = None
 
     def prefetch_forecasts(self, execution_date: DateTime, timestep: Duration, start_date: DateTime):

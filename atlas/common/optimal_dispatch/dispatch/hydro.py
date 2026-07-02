@@ -30,7 +30,7 @@ class HydroDispatch:
       bid segment (defined by ``equipment.fragment_data``), bounded by the segment volume.
 
     Provides the energy-balance constraint (``stored_energy = previous + inflow − Σ fragments × Δt``),
-    which the caller invokes only at the dates when balance applies (e.g. PO target times).
+    which the caller invokes only at the dates when balance applies (e.g. PO portfolio_time_window).
 
     Does **not** handle reserves, storage-level reserve coupling, marginal-value pricing,
     or the objective function — those are handled by :class:`HydroReserveHandler` and
@@ -42,7 +42,7 @@ class HydroDispatch:
         dispatch.setup(model, parameters)
         for time in time_window:
             dispatch.add_variables(time)
-        for time in target_times:
+        for time in portfolio_time_window:
             dispatch.add_energy_balance(model, time, parameters)
     """
 
@@ -92,7 +92,7 @@ class HydroDispatch:
         At ``t = start_date``, ``stored_energy[t − Δt]`` is replaced by ``initial_level``.
         Inflow uses the timestep's *day* fraction since the source series is daily.
 
-        Should be invoked only at the timesteps where balance applies (e.g. PO target_times).
+        Should be invoked only at the timesteps where balance applies (e.g. PO portfolio_time_window).
         """
         eq = self._eq
         n = eq.name
