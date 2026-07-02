@@ -27,15 +27,15 @@ For common parameters (`temporal`, `solver`, `output`, `multiprocessing`), see [
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `phs_nb_fragments` | `int` | `3` | See similar parameter for batteries. |
-| `phs_smoothing_factor` | `float` | `0.2` | See similar parameter for batteries. |
+| `pumped_hydraulic_nb_fragments` | `int` | `3` | See similar parameter for batteries. |
+| `pumped_hydraulic_smoothing_factor` | `float` | `0.2` | See similar parameter for batteries. |
 
 ### Electric Vehicle
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `ev_nb_fragments` | `int` | `3` | See similar parameter for batteries. |
-| `ev_smoothing_factor` | `float` | `0.1` | See similar parameter for batteries. |
+| `electric_vehicle_nb_fragments` | `int` | `3` | See similar parameter for batteries. |
+| `electric_vehicle_smoothing_factor` | `float` | `0.1` | See similar parameter for batteries. |
 | `ev_energy_coef` | `float` | `1.5` | Multiplier on `DisplacementEnergy` delta to generate enough Buy offers over the full EV horizon. |
 
 ## Other Equipment
@@ -73,11 +73,11 @@ automated_unprocured_reserves_penalty: 10000
 manual_unprocured_reserves_penalty: 100
 battery_nb_fragments: 3
 battery_smoothing_factor: 0.1
-phs_nb_fragments: 3
-phs_smoothing_factor: 0.2
+pumped_hydraulic_nb_fragments: 3
+pumped_hydraulic_smoothing_factor: 0.2
 hydraulic_minimal_fragment_size: 100
-ev_nb_fragments: 3
-ev_smoothing_factor: 0.1
+electric_vehicle_nb_fragments: 3
+electric_vehicle_smoothing_factor: 0.1
 ev_energy_coef: 1.5
 load_price: 3000
 epsilon: 0.001

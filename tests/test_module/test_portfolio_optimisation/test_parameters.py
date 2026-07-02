@@ -151,7 +151,7 @@ class TestPortfolioOptimisationParametersExcludedThermalStrategies:
         """Test excluded_thermal_strategies when None."""
         params = PortfolioOptimisationParameters(
             temporal=make_date(),
-            excluded_thermal_strategy=None,
+            excluded_thermal_strategies=None,
         )
 
         assert params.excluded_thermal_strategies == []
@@ -160,7 +160,7 @@ class TestPortfolioOptimisationParametersExcludedThermalStrategies:
         """Test excluded_thermal_strategies when ['none']."""
         params = PortfolioOptimisationParameters(
             temporal=make_date(),
-            excluded_thermal_strategy=["none"],
+            excluded_thermal_strategies=["none"],
         )
 
         assert params.excluded_thermal_strategies == []
@@ -169,7 +169,7 @@ class TestPortfolioOptimisationParametersExcludedThermalStrategies:
         """Test excluded_thermal_strategies when ['all']."""
         params = PortfolioOptimisationParameters(
             temporal=make_date(),
-            excluded_thermal_strategy=["all"],
+            excluded_thermal_strategies=["all"],
         )
 
         assert params.excluded_thermal_strategies == [
@@ -182,7 +182,7 @@ class TestPortfolioOptimisationParametersExcludedThermalStrategies:
         """Test excluded_thermal_strategies with specific strategies."""
         params = PortfolioOptimisationParameters(
             temporal=make_date(),
-            excluded_thermal_strategy=["Base", "Peak"],
+            excluded_thermal_strategies=["Base", "Peak"],
         )
 
         assert params.excluded_thermal_strategies == [ThermalStrategy.BASE, ThermalStrategy.PEAK]
@@ -323,11 +323,11 @@ class TestPortfolioOptimisationParametersStorageMapping:
                 end_date=pendulum.datetime(2024, 1, 2),
                 execution_date=pendulum.datetime(2024, 1, 1),
             ),
-            battery_number_of_fragments=5,
+            battery_nb_fragments=5,
             battery_smoothing_factor=0.3,
-            pumped_hydraulic_number_of_fragments=4,
+            pumped_hydraulic_nb_fragments=4,
             pumped_hydraulic_smoothing_factor=0.25,
-            electric_vehicle_number_of_fragments=6,
+            electric_vehicle_nb_fragments=6,
             electric_vehicle_smoothing_factor=0.15,
         )
 

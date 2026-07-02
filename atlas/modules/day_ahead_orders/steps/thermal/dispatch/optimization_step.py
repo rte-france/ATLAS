@@ -175,7 +175,7 @@ class ThermalDAOStep(AbstractOptimStep[ThermalDAO, DayAheadOrdersParameters]):
                 self._dispatch.power_level_var.get_value(t),
                 self.equipment.maximum_power.get_value(t),
                 self.equipment.minimum_power.get_value(t),
-                parameters.epsilon,
+                parameters.allowed_round_off_error,
             )
             self._reserves.add_relaxed_reserve_constraint(t, self.equipment.minimum_power.get_value(t))
             self._reserves.add_capacity_constraints(t, self.equipment.maximum_power.get_value(t))

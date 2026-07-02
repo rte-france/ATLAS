@@ -298,9 +298,9 @@ class StorageOrders:
     def _fragment_config(self, storage: StorageDAO) -> tuple[int, float]:
         storage_type = storage.storage_type
         if storage_type == StorageType.ELECTRIC_VEHICLE:
-            return self._parameters.ev_nb_fragments, self._parameters.ev_smoothing_factor
+            return self._parameters.electric_vehicle_nb_fragments, self._parameters.electric_vehicle_smoothing_factor
         if storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-            return self._parameters.phs_nb_fragments, self._parameters.phs_smoothing_factor
+            return self._parameters.pumped_hydraulic_nb_fragments, self._parameters.pumped_hydraulic_smoothing_factor
         return self._parameters.battery_nb_fragments, self._parameters.battery_smoothing_factor
 
     # ------------------------------------------------------------------ #
