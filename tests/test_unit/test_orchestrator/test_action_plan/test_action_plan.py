@@ -123,29 +123,6 @@ class TestActionPlanPushIterator:
         assert next(ap.jobs) == jobs[1]
         assert next(ap.jobs) == jobs[2]
 
-    def test_push_various_single_job_iterator_with_multiple_date(self, tmp_path):
-        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        jobs = [MockJobBuilder().with_name("job1").build(),
-                MockJobBuilder().with_name("job2").build()]
-        task1 = (MockTaskBuilder().with_from_until_frequency(
-            from_=DateTime(2000, 1, 1),
-            until=DateTime(2000, 1, 10),
-            frequency=Duration(days=3)).with_priority(1)).build()
-
-        task2 = (MockTaskBuilder().with_from_until_frequency(
-            from_=DateTime(2000, 1, 1),
-            until=DateTime(2000, 1, 11),
-            frequency=Duration(days=5)).with_priority(2)).build()
-
-        ap._push_iterator(ConcreteTaskIterator(task1.build(), jobs[0]))
-        ap._push_iterator(ConcreteTaskIterator(task2.build(), jobs[1]))
-
-        assert len(ap._priority_queue) == 2
-        expected_job_order = [0, 1, 0, 1, 0, 0, 1]
-        for idx, job in enumerate(ap.jobs):
-            print(idx)
-            assert job == jobs[expected_job_order[idx]]
-
     def test_raise_push_concurrent_jobs_first_execution_date(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
         jobs = [MockJobBuilder().with_name("job1").build(),
@@ -317,6 +294,7 @@ class TestActionPlanAddTask:
     def test_add_various_task(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
         task1 = Task(
+                name="1",
                 module="PortfolioOptimisation",
                 module_parameters_path=ModuleConfigBuilder().build(tmp_path),
                 priority=1,
@@ -327,6 +305,7 @@ class TestActionPlanAddTask:
                 offset_end_date=Duration(days=2),
         )
         task2 = Task(
+                name="2",
                 module="PortfolioOptimisation",
                 module_parameters_path=ModuleConfigBuilder().build(tmp_path),
                 priority=2,
@@ -337,6 +316,7 @@ class TestActionPlanAddTask:
                 offset_end_date=Duration(days=2),
         )
         task3 = Task(
+                name="3",
                 module="PortfolioOptimisation",
                 module_parameters_path=ModuleConfigBuilder().build(tmp_path),
                 priority=3,
@@ -358,6 +338,48 @@ class TestActionPlanAddTask:
         assert len(ap._priority_queue) == 2
         ap.add_task(task3)
         assert len(ap._priority_queue) == 3
+        expected_job_order = ["task 1 iteration 0",
+                              "task 2 iteration 0",
+                              "task 3 iteration 0"]
+        for idx, job in enumerate(ap.jobs):
+            assert job.name == expected_job_order[idx]
+
+    def test_add_various_task_with_multiple_date(self, tmp_path):
+        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
+        task1 = Task(
+            name="1",
+            module="PortfolioOptimisation",
+            module_parameters_path=ModuleConfigBuilder().build(tmp_path),
+            priority=1,
+            from_=DateTime(2000, 1, 1),
+            until=DateTime(2000, 1, 10),
+            frequency=Duration(days=3),
+            offset_start_date=Duration(days=1),
+            offset_end_date=Duration(days=2),
+        )
+
+        task2 = Task(
+            name="2",
+            module="PortfolioOptimisation",
+            module_parameters_path=ModuleConfigBuilder().build(tmp_path),
+            priority=2,
+            from_=DateTime(2000, 1, 1),
+            until=DateTime(2000, 1, 11),
+            frequency=Duration(days=5),
+            offset_start_date=Duration(days=1),
+            offset_end_date=Duration(days=2),
+        )
+        assert ap.add_task(task1) == 4
+        assert ap.add_task(task2) == 3
+        expected_job_order = ["task 1 iteration 0",
+                              "task 2 iteration 0",
+                              "task 1 iteration 1",
+                              "task 2 iteration 1",
+                              "task 1 iteration 2",
+                              "task 1 iteration 3",
+                              "task 2 iteration 2"]
+        for idx, job in enumerate(ap.jobs):
+            assert job.name == expected_job_order[idx]
 
 
 class TestActionPlanFromFile:

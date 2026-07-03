@@ -104,6 +104,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
     def _build_priority_queue(self) -> None:
         """Build the priority queue and update the number of jobs in the action plan."""
+        self._priority_queue= []
         self._jobs_count = 0
         for task in self.parameters.tasks:
             self._jobs_count += self.add_task(task)

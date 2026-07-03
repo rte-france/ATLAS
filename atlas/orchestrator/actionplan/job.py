@@ -60,14 +60,15 @@ class TaskIterator(ABC):
         return self
 
     def __next__(self) -> list[AbstractJob]:
-        if self.current_iteration != 0:
-            self._next_execution_date += self.task.frequency
-
-        if self.next_execution_date > self.task.until:
+        if not self.has_next_execution_date():
             raise StopIteration()  # Signals the end of iteration
         jobs = self.build_jobs()
         self.current_iteration += 1
+        self._next_execution_date += self.task.frequency
         return jobs
+
+    def has_next_execution_date(self) -> bool:
+        return self.next_execution_date <= self.task.until
 
     @abstractmethod
     def build_jobs(self) -> list[AbstractJob]:
