@@ -9,7 +9,6 @@ from pendulum import DateTime
 from atlas.common.optimal_dispatch.input_objects.storage import StorageDispatchInput
 from atlas.enums import StorageType
 from atlas.math.timeseries import Timeseries
-from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
 class StoragePO(StorageDispatchInput):
@@ -19,20 +18,6 @@ class StoragePO(StorageDispatchInput):
 
     _cached_energy_forecast: Timeseries | None = None
     _cached_energy_forecat_initial: Timeseries | None = None
-
-    def get_initial_stock(self, parameters: PortfolioOptimisationParameters) -> float:
-        default_energy = (
-            self.maximum_energy.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
-            * self.storage_initial_level
-        )
-
-        if self.stored_energy is None or not self._cached_energy_forecat_initial:
-            return default_energy
-
-        if self._cached_energy_forecast:
-            return self._cached_energy_forecast.dataframe.select("time").head(1).item()
-
-        return default_energy
 
     def prefetch_forecasts(self, execution_date: DateTime, init_battery_time: DateTime):
         """
