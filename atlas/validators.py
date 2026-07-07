@@ -6,12 +6,59 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 
 import pendulum
+from pydantic import BeforeValidator
 
+from atlas.enums import ThermalStrategy
 from atlas.objects.business_model import BusinessModel
 from atlas.timing import parse_frequency
+
+
+def normalize_exclusion(v: list[str] | None) -> list[str]:
+    """Normalize None/none → [], all → ["all"], pass-through otherwise."""
+    if v is None:
+        return []
+    if len(v) == 1 and v[0].lower() == "none":
+        return []
+    if len(v) == 1 and v[0].lower() == "all":
+        return ["all"]
+    return v
+
+
+def normalize_inclusion(v: str | list[str] | None) -> list[str] | Literal["all"]:
+    """Normalize all/All → "all", "[a, b]" string → list, pass-through lists."""
+    if isinstance(v, str) and v.lower() == "all":
+        return "all"
+    if isinstance(v, list):
+        return v
+    if isinstance(v, str):
+        v = v.strip()
+        if v.startswith("[") and v.endswith("]"):
+            content = v[1:-1].strip()
+            if not content:
+                return []
+            return [item.strip() for item in content.split(",")]
+    raise ValueError(f"Invalid inclusion value: {v!r}")
+
+
+def normalize_thermal_strategy_list(v: list[str] | None) -> list[ThermalStrategy]:
+    """Normalize None/none → [], all → full list, coerce strings to ThermalStrategy."""
+    from atlas.enums import ThermalStrategy
+
+    if v is None:
+        return []
+    if len(v) == 1 and v[0].lower() == "none":
+        return []
+    if len(v) == 1 and v[0].lower() == "all":
+        return list(ThermalStrategy)
+    return [ThermalStrategy(s) for s in v]
+
+
+ExclusionList = Annotated[list[str], BeforeValidator(normalize_exclusion)]
+InclusionList = Annotated[list[str] | Literal["all"], BeforeValidator(normalize_inclusion)]
+ThermalStrategyList = Annotated[list[ThermalStrategy], BeforeValidator(normalize_thermal_strategy_list)]
 
 
 def parse_list_float(value: Any) -> list[float] | None:

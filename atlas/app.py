@@ -10,7 +10,6 @@ from rich.table import Table
 import atlas
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.config import logger
-from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
 from atlas.modules.antares_to_atlas.antares_to_atlas import AntaresToAtlas
 from atlas.modules.module_run import ModuleRun
@@ -25,83 +24,124 @@ _PROFILING_LEVELS = ["workflow", "module"]
 
 app = typer.Typer()
 
+module_app = typer.Typer(help="Module operations.")
+app.add_typer(module_app, name="module")
 
-@app.command()
-def run(
-    config_path: Path = typer.Argument(help="Workflow config YAML (--workflow) or module parameters YAML (default)"),
-    workflow: bool = typer.Option(False, "--workflow", "-w", help="Run a workflow instead of a single module"),
-    module_name: str | None = typer.Option(
-        None,
-        "--module",
-        "-m",
-        help=f"Module name. Valid modules: {', '.join(ModuleRegistry.get_names())}",
-    ),
-    dataset_path: Path | None = typer.Option(None, "--dataset", "-d", help="Path to the Atlas input dataset directory"),
+workflow_app = typer.Typer(help="Workflow operations.")
+app.add_typer(workflow_app, name="workflow")
+
+
+@module_app.command("run")
+def run_module_cmd(
+    module_name: str = typer.Argument(help="Module name. Run atlas module list to list availables modules."),
+    parameters_path: Path = typer.Option(..., "--parameters", "-p", help="Path to the module parameters YAML"),
+    dataset_path: Path = typer.Option(..., "--dataset", "-d", help="Path to the Atlas input dataset directory"),
 ) -> None:
-    """Run an Atlas module or workflow.
+    """Run a single Atlas module.
 
     \b
-    Module mode (default):
-      atlas run parameters.yaml --module PortfolioOptimisation --dataset ./data/
-
-    \b
-    Workflow mode:
-      atlas run workflow.yaml --workflow
+      atlas module run PortfolioOptimisation -p params.yaml -d ./data/
     """
-    if workflow:
-        if not config_path.exists():
-            rprint(f"[bold red]Error[/bold red]: Workflow configuration file not found: {config_path}")
-            raise typer.Exit(code=1)
+    if not dataset_path.exists() or not dataset_path.is_dir():
+        rprint(f"Error: Dataset directory not found: {dataset_path}")
+        raise typer.Exit(code=1)
 
-        logger.info(f"Running workflow: {config_path}")
+    if not parameters_path.exists():
+        rprint(f"Error: Parameters file not found: {parameters_path}")
+        raise typer.Exit(code=1)
+
+    try:
+        module_class = ModuleRegistry.get(module_name)
+    except ValueError as e:
+        rprint(f"Error: {e}")
+        raise typer.Exit(code=1) from e
+
+    logger.info(f"Running module: {module_name}")
+    logger.info(f"  Dataset   : {dataset_path}")
+    logger.info(f"  Parameters: {parameters_path}")
+
+    try:
         with timer() as t:
-            wf = Workflow.from_file(config_path)
-            wf.execute()
-        logger.info(f"Workflow completed in {t()} seconds")
-        logger.info("✓ Workflow completed successfully.")
+            params = cast(AbstractModuleParameters, module_class().get_parameters_class()).from_file(parameters_path)
+            result = ModuleRun(module_class, dataset_path, params).run()
 
-    else:
-        if module_name is None:
-            rprint("Error: --module is required in module mode.")
-            raise typer.Exit(code=1)
+            if params.output.export_output_dataset:
+                CurrentInputState(result).to_directory(params.get_output_dataset_dir())
 
-        if dataset_path is None:
-            rprint("Error: --dataset is required in module mode.")
-            raise typer.Exit(code=1)
+        logger.info(f"Module '{module_name}' completed in {t()} seconds")
+        rprint(f"[bold green]✓[/bold green] Module '{module_name}' completed successfully.")
+    except Exception as e:
+        logger.exception(f"✗ Module '{module_name}' failed: {e}")
+        raise typer.Exit(code=1) from e
 
-        if not dataset_path.exists() or not dataset_path.is_dir():
-            rprint(f"Error: Dataset directory not found: {dataset_path}")
-            raise typer.Exit(code=1)
 
-        if not config_path.exists():
-            rprint(f"Error: Parameters file not found: {config_path}")
-            raise typer.Exit(code=1)
+@module_app.command("list")
+def list_modules() -> None:
+    """List all available Atlas modules.
 
-        try:
-            module_class = ModuleRegistry.get(module_name)
-        except ValueError as e:
-            rprint(f"Error: {e}")
-            raise typer.Exit(code=1) from e
+    \b
+      atlas module list
+    """
+    names = ModuleRegistry.get_names()
+    table = Table(title=f"Available modules ({len(names)})", show_lines=False)
+    table.add_column("#", style="dim", width=4)
+    table.add_column("Module", style="bold")
+    for i, name in enumerate(names, 1):
+        table.add_row(str(i), name)
+    rprint(table)
 
-        logger.info(f"Running module: {module_name}")
-        logger.info(f"  Dataset   : {dataset_path}")
-        logger.info(f"  Parameters: {config_path}")
 
-        try:
-            with timer() as t:
-                dataset = AtlasDataset.from_directory(dataset_path)
-                module = module_class()
-                parameters = cast(AbstractModuleParameters, module.get_parameters_class()).from_file(config_path)
-                result = ModuleRun(module, dataset, parameters).run()
+@workflow_app.command("run")
+def run_workflow_cmd(
+    parameters_path: Path = typer.Argument(help="Path to the workflow configuration YAML"),
+) -> None:
+    """Run an Atlas workflow.
 
-                if parameters.output.export_output_dataset:
-                    CurrentInputState(result).to_directory(parameters.get_output_dataset_dir())
+    \b
+      atlas workflow run workflow.yaml
+    """
+    if not parameters_path.exists():
+        rprint(f"[bold red]Error[/bold red]: Workflow configuration file not found: {parameters_path}")
+        raise typer.Exit(code=1)
 
-            logger.info(f"Module '{module_name}' completed in {t()} seconds")
-            rprint(f"[bold green]✓[/bold green] Module '{module_name}' completed successfully.")
-        except Exception as e:
-            logger.exception(f"✗ Module '{module_name}' failed: {e}")
-            raise typer.Exit(code=1) from e
+    logger.info(f"Running workflow: {parameters_path}")
+    with timer() as t:
+        wf = Workflow.from_file(parameters_path)
+        wf.execute()
+    logger.info(f"Workflow completed in {t()} seconds")
+    logger.info("✓ Workflow completed successfully.")
+
+
+@workflow_app.command("list")
+def list_workflow(
+    parameters_path: Path = typer.Argument(help="Path to the workflow configuration YAML"),
+) -> None:
+    """List the steps declared in a workflow file.
+
+    \b
+      atlas workflow list workflow.yaml
+    """
+    from atlas.orchestrator.workflow.parameters import WorkflowParameters
+
+    if not parameters_path.exists():
+        rprint(f"[bold red]Error[/bold red]: Workflow configuration file not found: {parameters_path}")
+        raise typer.Exit(code=1)
+
+    try:
+        params = WorkflowParameters.from_file(parameters_path)
+    except Exception as e:
+        rprint(f"[bold red]Error[/bold red]: Failed to load workflow: {e}")
+        raise typer.Exit(code=1) from e
+
+    title = f"Workflow: {params.name or parameters_path.stem}  —  {len(params.steps)} step(s)"
+    table = Table(title=title, show_lines=False)
+    table.add_column("#", style="dim", width=4)
+    table.add_column("Step name", style="bold")
+    table.add_column("Module")
+    table.add_column("Parameters file", style="dim")
+    for i, step in enumerate(params.steps, 1):
+        table.add_row(str(i), step.name or "", step.module.name, str(step.parameters_path))
+    rprint(table)
 
 
 @app.command()

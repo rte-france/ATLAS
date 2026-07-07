@@ -4,11 +4,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import Field, field_validator
+from pydantic import Field
 
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.enums import Enum, Product
 from atlas.io_utils.parameters import SolverParameters
+from atlas.validators import InclusionList
 
 
 class ExchangeConstraintsType(str, Enum):
@@ -152,8 +153,8 @@ class MarketClearingParameters(AbstractModuleParameters):
         "the order formulation of the previous market and the current Clearing : must be superior to 0, "
         "default value is 5",
     )
-    control_block_names: str | list[str] = Field(
-        "All",
+    control_block_names: InclusionList = Field(
+        "all",
         description="Custom selection of control blocks to be included in the computation or string 'All' to select "
         "all control block. the default value is 'All'",
     )
@@ -167,8 +168,8 @@ class MarketClearingParameters(AbstractModuleParameters):
         description="Name of the market to be considered. Only orders matching the entered market name will be "
         "considered (not case sensitive) : Default value is 'DayAhead'",
     )
-    market_area_names: str | list[str] = Field(
-        "All",
+    market_area_names: InclusionList = Field(
+        "all",
         description="Custom selection of market areas to be included in the computation or string 'All' to select all "
         "market area. the default value is 'All'",
     )
@@ -180,29 +181,3 @@ class MarketClearingParameters(AbstractModuleParameters):
         -int(1e8),
         description="Min price : default value is - 100 000 000",
     )
-
-    @field_validator("market_area_names", "control_block_names", mode="before")
-    @classmethod
-    def parse_included_objects(cls, v):
-        # case default
-        if isinstance(v, str) and v.lower() == "all":
-            return v.lower()
-
-        # already a list
-        if isinstance(v, list):
-            return v
-
-        # string like "[es, fr]"
-        if isinstance(v, str):
-            v = v.strip()
-
-            if not (v.startswith("[") and v.endswith("]")):
-                raise ValueError("market_area_names must be 'All' or a list like [es, fr]")
-
-            content = v[1:-1].strip()
-            if not content:
-                return []
-
-            return [item.strip() for item in content.split(",")]
-
-        raise ValueError("Invalid value for market_area_names")

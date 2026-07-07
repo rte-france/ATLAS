@@ -91,7 +91,7 @@ def pendulum_to_datetime(fmt: str) -> str:
 
 
 @contextmanager
-def timer() -> Generator[Callable[[], str], None, None]:
+def timer() -> Generator[Callable[[], str]]:
     """Context manager to measure elapsed time with milliseconds precision."""
     start = pendulum.now()
     yield lambda: f"{(pendulum.now() - start).total_seconds():.3f}s"

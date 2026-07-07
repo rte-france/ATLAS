@@ -187,6 +187,7 @@ data/
 *.pickle
 *.pkl
 *.yaml
+!.readthedocs.yaml
 *.txt
 
 # Notebooks

@@ -183,8 +183,10 @@ def _optimize_ev(
         storage,
         solvers_options,
     )
-    model.create_decision_variables(parameters.ev_nb_fragments)
-    model.create_objective_function(parameters.ev_nb_fragments, parameters.ev_smoothing_factor, "maximize")
+    model.create_decision_variables(parameters.electric_vehicle_nb_fragments)
+    model.create_objective_function(
+        parameters.electric_vehicle_nb_fragments, parameters.electric_vehicle_smoothing_factor, "maximize"
+    )
     model.create_constraints(initial_stock)
 
     if parameters.solver.export_lp:
@@ -217,8 +219,8 @@ def _optimize_battery(
         smoothing_factor = parameters.battery_smoothing_factor
         power_fragments = parameters.battery_nb_fragments
     elif storage.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-        smoothing_factor = parameters.phs_smoothing_factor
-        power_fragments = parameters.phs_nb_fragments
+        smoothing_factor = parameters.pumped_hydraulic_smoothing_factor
+        power_fragments = parameters.pumped_hydraulic_nb_fragments
     else:
         cfg.logger.error(
             f"equipment {storage.name} isn't {StorageType.BATTERY} nor {StorageType.PUMPED_HYDRAULIC_STORAGE}"

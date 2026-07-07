@@ -123,6 +123,30 @@ class TestAbstractTimeseries:
         collected = result.collect()
         assert collected.values == [1.2, 2.6, 3.9, 4.1, 5.8]
 
+    def test_neg_timeseries(self, sample_timeseries):
+        """Test that __neg__ negates all values on Timeseries."""
+        result = -sample_timeseries
+        assert isinstance(result, Timeseries)
+        assert result.values == [-1.0, -2.0, -3.0, -4.0, -5.0]
+
+    def test_neg_timeseries_does_not_modify_original(self, sample_timeseries):
+        """Test that __neg__ does not modify the original Timeseries."""
+        original_values = sample_timeseries.values[:]
+        _ = -sample_timeseries
+        assert sample_timeseries.values == original_values
+
+    def test_neg_lazy_timeseries(self, sample_lazy_timeseries):
+        """Test that __neg__ negates all values on LazyTimeseries."""
+        result = -sample_lazy_timeseries
+        assert isinstance(result, LazyTimeseries)
+        assert result.collect().values == [-1.0, -2.0, -3.0, -4.0, -5.0]
+
+    def test_neg_lazy_timeseries_does_not_modify_original(self, sample_lazy_timeseries):
+        """Test that __neg__ does not modify the original LazyTimeseries."""
+        original_values = sample_lazy_timeseries.values[:]
+        _ = -sample_lazy_timeseries
+        assert sample_lazy_timeseries.values == original_values
+
 
 class TestClip:
     """Tests for the clip() method on Timeseries."""
