@@ -29,12 +29,24 @@ for order in result.orders:
 
 ## Key Outputs
 
-- **Market clearing prices**: Price per market area and timestep (stored in `market_area.da_price`)
+- **Market clearing prices**: Price per market area and timestep (stored in `market_area.da_price` when `market` == "DayAhead", for instance)
 - **Accepted quantities**: Accepted portion of each order (stored in `order.accepted_quantity`)
 - **Cross-border flows**: Power exchanges between market areas (stored in `market_border.exchange`)
 
 ## Troubleshooting
 
-**No accepted orders**: Verify that orders exist in the input dataset (run Day-Ahead Orders first).
+**No accepted orders**:
 
-**Infeasible clearing**: Check that market area capacities and transmission limits are consistent with the order quantities.
+- Verify that orders exist in the input dataset (run Day-Ahead Orders first).
+- Check that the temporal parameters are correct (`start_date`, `end_date` and `execution_date`)
+- Check the parameters `market_area_names` and `control_block_names`, to ensure that there is no error on filters applied to areas.
+
+**Infeasible clearing**:
+
+- Look for errors in market order characteristics (i.e. `qmin` > `qmax`, or `qmax` = 0).
+- Look for coupling links that may be infeasible.
+
+**Prices at the upper price cap (3000€/MWh for instance)**:
+
+- This may indicate that input power system is not correctly designed, with a lack of generation / excess of consumption.
+- Check transmission line (or critical branches) capacities to see whether exchanges between areas are possible or not.

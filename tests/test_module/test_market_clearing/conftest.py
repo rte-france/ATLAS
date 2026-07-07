@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 
 from pathlib import Path
 
+import pendulum
 import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
@@ -64,12 +65,15 @@ def output_dataset(
     market_clearing_module: MarketClearingModule,
     atlas_data: AtlasDataset,
     parameters: MarketClearingParameters,
-) -> MarketClearingOutputDataset:
-    return market_clearing_module.run(atlas_data, parameters)
+) -> tuple[MarketClearingOutputDataset, float]:
+    start = pendulum.now()
+    result = market_clearing_module.run(atlas_data, parameters)
+    elapsed = (pendulum.now() - start).total_seconds()
+    return result, elapsed
 
 
 @pytest.fixture(scope="session")
-def generated_lp_dir(output_dataset: MarketClearingOutputDataset, lp_export_dir: Path) -> Path:
+def generated_lp_dir(output_dataset: tuple[MarketClearingOutputDataset, float], lp_export_dir: Path) -> Path:
     return lp_export_dir / "lp_export"
 
 
@@ -111,10 +115,13 @@ def output_dataset_id(
     market_clearing_module: MarketClearingModule,
     atlas_data_id: AtlasDataset,
     parameters_id: MarketClearingParameters,
-) -> MarketClearingOutputDataset:
-    return market_clearing_module.run(atlas_data_id, parameters_id)
+) -> tuple[MarketClearingOutputDataset, float]:
+    start = pendulum.now()
+    result = market_clearing_module.run(atlas_data_id, parameters_id)
+    elapsed = (pendulum.now() - start).total_seconds()
+    return result, elapsed
 
 
 @pytest.fixture(scope="session")
-def generated_lp_dir_id(output_dataset_id: MarketClearingOutputDataset, lp_export_id_dir: Path) -> Path:
+def generated_lp_dir_id(output_dataset_id: tuple[MarketClearingOutputDataset, float], lp_export_id_dir: Path) -> Path:
     return lp_export_id_dir / "lp_export"

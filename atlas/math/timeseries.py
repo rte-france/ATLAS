@@ -10,7 +10,7 @@ This module provides a Timeseries class for handling Timeseries data using Polar
 from __future__ import annotations
 
 import pickle
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -86,7 +86,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         cls,
         start_date: str | datetime | pendulum.DateTime,
         frequency: str | timedelta | pendulum.Duration,
-        values: list[float],
+        values: Sequence[float] | pd.Series | pl.Series,
         date_format="YYYY-MM-DD HH:mm:ss",
         timezone: str = "UTC",
     ) -> Timeseries:
@@ -997,6 +997,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
                     raise ValueError(f"Could not read existing file for concatenation: {e}") from e
 
         # Write the file
+        Path(path_str).parent.mkdir(parents=True, exist_ok=True)
         if file_format_lower == "csv":
             df_to_write.write_csv(path_str, separator=separator)
         elif file_format_lower == "parquet":
@@ -1170,7 +1171,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
             raise IndexError(f"index {index} is out of bounds for timeseries of length {n}")
         return cast(pendulum.DateTime, pendulum.instance(self.timeseries.row(index, named=True)["time"]))
 
-    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
+    def iter_rows(self) -> Generator[tuple[datetime, float]]:
         """
         Iterate over rows of the Timeseries, yielding (time, value) tuples.
 

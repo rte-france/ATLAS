@@ -1,0 +1,283 @@
+[project]
+site_name = "ATLAS"
+site_url = "https://rte-atlas.readthedocs.io/"
+site_description = "Power market simulator for day-ahead, intraday, and reserve markets."
+site_author = "Artelys for RTE"
+copyright = "Copyright © 2026 Artelys & RTE"
+docs_dir = "docs"
+site_dir = "public"
+repo_url = "https://github.com/rte-france/ATLAS"
+repo_name = "rte-france/ATLAS"
+edit_uri = "edit/main/docs/"
+extra_css = ["stylesheets/extra.css"]
+extra_javascript = [
+    "javascripts/mathjax.js",
+    "https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js",
+]
+nav = [
+    { "Home" = "index.md" },
+    { "Getting Started" = [
+        { "Installation" = "getting_started/getting_started.md" },
+        { "Quickstart (5 min)" = "getting_started/quickstart.md" },
+        { "Your First Simulation" = "getting_started/first-simulation.md" },
+    ]},
+    { "User Guide" = [
+        { "Command Line" = "cli.md" },
+        { "Run a Module" = "modules/running-modules.md" },
+        { "Run a Workflow" = "modules/workflow.md" },
+        { "Antares Integration" = [
+            { "Overview" = "antares-integration/index.md" },
+            { "User Guide" = "antares-integration/user-guide.md" },
+        ]},
+        { "Examples" = [
+            { "AtlasDataset" = "examples/atlas_dataset.md" },
+            { "Timeseries" = "examples/timeseries.md" },
+            { "Matrix" = "examples/matrix.md" },
+            { "OptimisationModel" = "examples/optimisation_model.md" },
+        ]},
+    ]},
+    { "Modules" = [
+        "modules/index.md",
+        { "Common Parameters" = "modules/common-parameters.md" },
+        { "Day-Ahead Orders" = [
+            { "Overview" = "modules/day-ahead-orders/index.md" },
+            { "User Guide" = [
+                { "Overview" = "modules/day-ahead-orders/user-guide/overview.md" },
+                { "Parameters" = "modules/day-ahead-orders/user-guide/parameters.md" },
+                { "Input Objects" = "modules/day-ahead-orders/user-guide/input-objects.md" },
+                { "Results" = "modules/day-ahead-orders/user-guide/results.md" },
+            ]},
+        ]},
+        { "Market Clearing" = [
+            { "Overview" = "modules/market-clearing/index.md" },
+            { "User Guide" = [
+                { "Overview" = "modules/market-clearing/user-guide/overview.md" },
+                { "Parameters" = "modules/market-clearing/user-guide/parameters.md" },
+                { "Input Objects" = "modules/market-clearing/user-guide/input-objects.md" },
+                { "Results" = "modules/market-clearing/user-guide/results.md" },
+            ]},
+        ]},
+        { "Portfolio Optimisation" = [
+            { "Overview" = "modules/portfolio-optimisation/index.md" },
+            { "User Guide" = [
+                { "Overview" = "modules/portfolio-optimisation/user-guide/overview.md" },
+                { "Parameters" = "modules/portfolio-optimisation/user-guide/parameters.md" },
+                { "Input Objects" = "modules/portfolio-optimisation/user-guide/input-objects.md" },
+                { "Results" = "modules/portfolio-optimisation/user-guide/results.md" },
+                { "Examples" = "modules/portfolio-optimisation/user-guide/examples.md" },
+            ]},
+        ]},
+        { "Intraday Price Forecast" = [
+            { "Overview" = "modules/intraday-price-forecast/index.md" },
+            { "User Guide" = [
+                { "Overview" = "modules/intraday-price-forecast/user-guide/overview.md" },
+                { "Parameters" = "modules/intraday-price-forecast/user-guide/parameters.md" },
+                { "Input Objects" = "modules/intraday-price-forecast/user-guide/input-objects.md" },
+                { "Results" = "modules/intraday-price-forecast/user-guide/results.md" },
+            ]},
+        ]},
+    ]},
+    { "Developer Guide" = [
+        { "Architecture" = [
+            { "Data Model" = "data-model.md" },
+            { "Data Flow & Orchestration" = "data-flow.md" },
+        ]},
+        { "Module Development" = [
+            { "Module Pattern" = "modules/module-pattern.md" },
+            { "Implementing a Module" = "implementing-a-module.md" },
+            { "Module Architecture" = [
+                { "Day-Ahead Orders" = "modules/day-ahead-orders/developer/architecture.md" },
+                { "Market Clearing" = "modules/market-clearing/developer/architecture.md" },
+                { "Portfolio Optimisation" = "modules/portfolio-optimisation/developer/architecture.md" },
+                { "Intraday Price Forecast" = "modules/intraday-price-forecast/developer/architecture.md" },
+            ]},
+        ]},
+        { "Contributing" = [
+            { "Contributing Guide" = "contributing.md" },
+            { "Release Process" = "release_process.md" },
+            { "Profiling" = "profiling.md" },
+        ]},
+    ]},
+    { "API Reference" = [
+        { "Overview" = "api/index.md" },
+        { "Math Objects" = [
+            { "Timeseries" = "api/math/timeseries.md" },
+            { "Scenario Matrix" = "api/math/scenario_matrix.md" },
+            { "Forecasting Matrix" = "api/math/forecasting_matrix.md" },
+            { "LazyTimeseries" = "api/math/lazy_timeseries.md" },
+            { "LazyMatrix" = "api/math/lazy_scenario_matrix.md" },
+        ]},
+        { "I/O" = [
+            { "AtlasDataset" = "api/io/atlas_dataset.md" },
+        ]},
+        { "Models" = [
+            { "Equipment" = [
+                { "Equipment" = "api/models/equipment/equipment.md" },
+                { "Thermal" = "api/models/equipment/thermal.md" },
+                { "Hydro" = "api/models/equipment/hydro.md" },
+                { "Solar" = "api/models/equipment/solar.md" },
+                { "Wind" = "api/models/equipment/wind.md" },
+                { "Storage" = "api/models/equipment/storage.md" },
+                { "Load" = "api/models/equipment/load.md" },
+                { "OtherNonDispatchable" = "api/models/equipment/other_non_dispatchable.md" },
+            ]},
+            { "Market" = [
+                { "MarketArea" = "api/models/market/market_area.md" },
+                { "MarketBorder" = "api/models/market/market_border.md" },
+                { "Order" = "api/models/market/order.md" },
+                { "OrderCoupling" = "api/models/market/order_coupling.md" },
+                { "CriticalBranch" = "api/models/market/critical_branch.md" },
+                { "MarketAreaPtdf" = "api/models/market/market_area_ptdf.md" },
+                { "NodePtdf" = "api/models/market/node_ptdf.md" },
+            ]},
+            { "Market Operator" = [
+                { "Portfolio" = "api/models/market_operator/portfolio.md" },
+            ]},
+            { "Network" = [
+                { "Node" = "api/models/network/node.md" },
+            ]},
+            { "Network Operator" = [
+                { "ControlBlock" = "api/models/network_operator/control_block.md" },
+            ]},
+        ]},
+        { "Workflow" = [
+            { "Workflow" = "api/workflow/workflow.md" },
+            { "Workflow Step" = "api/workflow/workflow_step.md" },
+        ]},
+        { "Orchestrator" = [
+            { "CurrentInputState" = "api/orchestrator/current_input_state.md" },
+            { "ChangeSets" = "api/orchestrator/change_set.md" },
+            { "CISHandler" = "api/orchestrator/cis_handler.md" },
+            { "ChangeSetHandler" = "api/orchestrator/change_set_handler.md" },
+        ]},
+        { "Optimisation" = [
+            { "Solver Interface" = "api/solver/interface.md" },
+            { "Models" = "api/solver/models.md" },
+        ]},
+        { "Utilities" = [
+            { "Enum" = "api/enum.md" },
+            { "Logging" = "api/logging.md" },
+        ]},
+    ]},
+    { "Changelog" = "changelog.md" },
+    { "Authors" = "authors.md" },
+]
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/rte-france/ATLAS"
+name = "ATLAS on GitHub"
+
+[project.validation]
+unresolved_references = false
+
+[project.theme]
+variant = "modern"
+language = "en"
+features = [
+    "navigation.tabs",
+    "navigation.sections",
+    "navigation.indexes",
+    "navigation.path",
+    "navigation.instant",
+    "navigation.instant.prefetch",
+    "navigation.instant.progress",
+    "navigation.tracking",
+    "navigation.top",
+    "navigation.footer",
+    "toc.follow",
+    "search.highlight",
+    "content.code.copy",
+    "content.code.annotate",
+    "content.tooltips",
+    "content.footnote.tooltips",
+]
+
+[project.theme.icon]
+repo = "fontawesome/brands/github"
+
+[[project.theme.palette]]
+scheme = "default"
+primary = "custom"
+accent = "custom"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+primary = "custom"
+accent = "custom"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to light mode"
+
+[project.plugins.mkdocstrings.handlers.python]
+inventories = [
+    "https://docs.python.org/3/objects.inv",
+    "https://docs.pydantic.dev/latest/objects.inv",
+]
+paths = ["atlas"]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+docstring_style = "sphinx"
+separate_signature = true
+show_source = true
+show_root_heading = true
+heading_level = 2
+show_signature_annotations = true
+show_if_no_docstring = true
+merge_init_into_class = true
+signature_crossrefs = true
+show_symbol_type_heading = true
+show_symbol_type_toc = true
+inherited_members = true
+unwrap_annotated = true
+
+[project.plugins.autorefs]
+
+[project.plugins.mkdocs-jupyter]
+execute = false
+allow_errors = false
+
+[project.markdown_extensions.admonition]
+[project.markdown_extensions.pymdownx.details]
+
+[project.markdown_extensions.pymdownx.emoji]
+emoji_index = "zensical.extensions.emoji.twemoji"
+emoji_generator = "zensical.extensions.emoji.to_svg"
+
+[project.markdown_extensions.pymdownx.superfences]
+custom_fences = [
+    { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+
+[project.markdown_extensions.pymdownx.tabbed]
+alternate_style = true
+
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+
+[project.markdown_extensions.pymdownx.inlinehilite]
+
+[project.markdown_extensions.pymdownx.keys]
+[project.markdown_extensions.pymdownx.caret]
+[project.markdown_extensions.pymdownx.mark]
+[project.markdown_extensions.pymdownx.tilde]
+
+[project.markdown_extensions.toc]
+toc_depth = 3
+permalink = true
+
+[project.markdown_extensions.md_in_html]
+[project.markdown_extensions.footnotes]
+[project.markdown_extensions.tables]
+[project.markdown_extensions.def_list]
+[project.markdown_extensions.abbr]
+[project.markdown_extensions.attr_list]
+
+[project.markdown_extensions.pymdownx.arithmatex]
+generic = true
+
+[project.markdown_extensions.pymdownx.tasklist]
+custom_checkbox = true

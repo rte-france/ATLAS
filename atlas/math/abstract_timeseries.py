@@ -10,10 +10,10 @@ This module provides AbstractTimeseries base class for Timeseries and LazyTimese
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Generic, Literal, Self, TypeVar
+from typing import Any, Literal, Self
 
 import pandas as pd
 import pendulum
@@ -24,10 +24,8 @@ from pydantic_core import core_schema
 
 from atlas.timing import build_datetime, generate_datetimes, get_duration
 
-TBackend = TypeVar("TBackend", pl.DataFrame, pl.LazyFrame)
 
-
-class AbstractTimeseries(ABC, Generic[TBackend]):
+class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
     """
     Abstract base class for Timeseries implementations.
 
@@ -87,7 +85,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         cls,
         start_date: str | datetime | pendulum.DateTime,
         frequency: str | timedelta | pendulum.Duration,
-        values: list[float],
+        values: Sequence[float] | pd.Series | pl.Series,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
         timezone: str = "UTC",
     ) -> Self:
@@ -751,7 +749,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         ...
 
     @abstractmethod
-    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
+    def iter_rows(self) -> Generator[tuple[datetime, float]]:
         """
         Iterate over rows of the Timeseries, yielding (time, value) tuples.
 
@@ -798,6 +796,15 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
     def __sub__(self, other: Any) -> Self:
         """Subtract all numeric columns by a scalar or timeseries."""
         ...
+
+    def __neg__(self) -> Self:
+        """
+        Negate all numeric values in the Timeseries.
+
+        :return: The Timeseries where all numeric values are negated
+        :rtype: Self
+        """
+        return self * -1
 
     @abstractmethod
     def __truediv__(self, other: Any) -> Self:

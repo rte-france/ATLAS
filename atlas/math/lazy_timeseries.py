@@ -9,7 +9,7 @@ This module provides LazyTimeseries.
 
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -174,7 +174,7 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         cls,
         start_date: str | datetime | pendulum.DateTime,
         frequency: str | timedelta | pendulum.Duration,
-        values: list[float],
+        values: Sequence[float] | pd.Series | pl.Series,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
         timezone: str = "UTC",
     ) -> LazyTimeseries:
@@ -471,7 +471,7 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
     def get_time_by_index(self, index: int) -> pendulum.DateTime:
         return pendulum.instance(self._row_at(index)["time"])
 
-    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
+    def iter_rows(self) -> Generator[tuple[datetime, float]]:
         """
         Iterate over rows of the LazyTimeseries, yielding (time, value) tuples.
 

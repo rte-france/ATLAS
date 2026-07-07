@@ -48,7 +48,7 @@ multiprocessing: # Parallel execution (optional, has defaults)
 |-----------|------|---------|-------------|
 | `export_result` | boolean | `false` | Write results back to business model objects |
 | `export_output_dataset` | boolean | `false` | Export the output dataset to disk |
-| `output_dir` | path | `""` | Directory where outputs are written |
+| `output_dir` | path | `"output"` | Directory where outputs are written |
 
 ---
 
@@ -90,19 +90,22 @@ multiprocessing:
 
 ## Parameter Formats
 
-Parameters can be provided as a **YAML file**, a **JSON file**, or a **Python dictionary**:
+Parameters can be provided as a **YAML file**, a **JSON file**, or a **Python dictionary**,
+through the `parameters` argument of `ModuleRun`:
 ```python
+from atlas.modules.module_run import ModuleRun
+
 # Dictionary
-module.run(input_data, {
+ModuleRun(module, input_data, parameters={
     "temporal": {
         "start_date": "2028-09-27 00:00:00",
         "end_date": "2028-09-28 00:00:00",
         "execution_date": "2028-09-26 12:00:00",
     }
-})
+}).run()
 
 # File
-module.run(input_data, "parameters.yml")
+ModuleRun(module, input_data, parameters="parameters.yml").run()
 ```
 
 ---

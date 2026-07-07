@@ -2,7 +2,7 @@
 
 ## Overview
 
-Determines market equilibrium by matching supply and demand across multiple market areas while respecting economic and network constraints.
+Determines market equilibrium by matching supply and demand across multiple market areas while respecting economic and network constraints. Can be used for different types of product (wholesale energy markets, reserve procurement or reserve activation).
 
 ## Quick Start
 
@@ -30,14 +30,16 @@ See [Running Modules](../running-modules.md) for execution details.
 ## Key Features
 
 - **Multi-area support**: Handles multiple interconnected market areas
-- **Network constraints**: Respects transmission capacity limits
-- **Economic optimization**: Maximizes social welfare
+- **Network constraints**: Respects transmission capacity limits, in both ATC and Flow-Based modes
+- **Economic optimization**: Maximizes social welfare, while respecting constraints on market orders and their coupling links
+- **Sequential process**: Similarly to actual Market Clearing algorithms (Euphemia on the day-ahead market for instance), the module is divided in several steps (welfare maximization, exchange fixing, price determination, marginal volume fixing).
 
 ## Documentation
 
 ### User Guide
 - [Overview](user-guide/overview.md): Module-specific introduction
 - [Parameters](user-guide/parameters.md): Module-specific parameters
+- [Input Objects](user-guide/input-objects.md): Required input data and attributes
 - [Results](user-guide/results.md): Accessing outputs
 
 ### Common Documentation

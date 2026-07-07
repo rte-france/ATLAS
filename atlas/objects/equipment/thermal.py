@@ -75,7 +75,7 @@ class Thermal(Equipment):
     )
     outage_mean_duration: Duration | None = Field(None)
     outage_probability: float | None = Field(None, ge=0, le=1)
-    scheduled_shutdown_mean_duration: float | None = Field(None)
+    scheduled_shutdown_mean_duration: Duration | None = Field(None)
     scheduled_shutdown_probability: float | None = Field(None, ge=0, le=1)
     shutdown_duration: Duration | None = Field(
         None, description="Shutdown duration in hours (will be converted to Duration)"
@@ -97,6 +97,7 @@ class Thermal(Equipment):
         "outage_mean_duration",
         "shutdown_duration",
         "startup_duration",
+        "scheduled_shutdown_mean_duration",
         mode="before",
     )
     @classmethod

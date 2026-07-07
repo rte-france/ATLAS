@@ -13,7 +13,6 @@ from typing import cast
 from pyinstrument import Profiler
 
 from atlas.abstract_class.parameters import AbstractModuleParameters
-from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.module_run import ModuleRun
 from atlas.orchestrator.module_registry import ModuleRegistry
 
@@ -24,10 +23,8 @@ def run(config_path: Path, module_name: str, dataset_path: Path, output: Path | 
     stats_output = stem.parent / (stem.name + "_stats.txt")
 
     module_class = ModuleRegistry.get(module_name)
-    module = module_class()
-    parameters = cast(AbstractModuleParameters, module.get_parameters_class()).from_file(config_path)
-    dataset = AtlasDataset.from_directory(dataset_path)
-    module_run = ModuleRun(module, dataset, parameters)
+    parameters = cast(AbstractModuleParameters, module_class().get_parameters_class()).from_file(config_path)
+    module_run = ModuleRun(module_name, dataset_path, parameters)
 
     profiler = Profiler()
     c_profile = cProfile.Profile()

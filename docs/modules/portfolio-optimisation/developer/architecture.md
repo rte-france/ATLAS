@@ -99,7 +99,7 @@ export_results() → update equipment.power, portfolio.imbalance
 
 For common ATLAS patterns (module lifecycle, Pydantic models, solver interface), see [Module Pattern](../../module-pattern.md).
 
-**Multiprocessing**: Portfolios can be optimized in parallel when `use_multiprocessing=true`
+**Multiprocessing**: Portfolios can be optimized in parallel when `multiprocessing.enable=true`
 
 **Equipment Models**: Each asset type (thermal, hydro, etc.) has a specialized model implementing optimization variables, constraints, and objectives
 

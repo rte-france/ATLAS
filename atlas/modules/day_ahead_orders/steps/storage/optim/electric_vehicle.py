@@ -42,16 +42,16 @@ class ElectricVehicleModel(StorageModel):
         :return: None
         """
         for t in self.time_frame:
-            for i in range(self.parameters.ev_nb_fragments):
+            for i in range(self.parameters.electric_vehicle_nb_fragments):
                 self.add_constraint(
                     self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, i))
-                    * self.parameters.ev_nb_fragments
+                    * self.parameters.electric_vehicle_nb_fragments
                     <= self.storage.maximum_power.get_value(t),
                     f"Respect_of_sale_power_fragment_{i}_limit_at_{t}",
                 )
                 self.add_constraint(
                     self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i))
-                    * self.parameters.ev_nb_fragments
+                    * self.parameters.electric_vehicle_nb_fragments
                     <= abs(self.storage.minimum_power.get_value(t)),
                     f"Respect_of_purchase_power_fragment_{i}_limit_at_{t}",
                 )
@@ -61,7 +61,7 @@ class ElectricVehicleModel(StorageModel):
                 self.get_variable(StorageModel.sold_at_key(t))
                 == sum(
                     self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, i))
-                    for i in range(self.parameters.ev_nb_fragments)
+                    for i in range(self.parameters.electric_vehicle_nb_fragments)
                 ),
                 f"Evaluation_of_quantity_sold_at_{t}",
             )
@@ -69,7 +69,7 @@ class ElectricVehicleModel(StorageModel):
                 self.get_variable(StorageModel.purchased_at_key(t))
                 == sum(
                     self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i))
-                    for i in range(self.parameters.ev_nb_fragments)
+                    for i in range(self.parameters.electric_vehicle_nb_fragments)
                 ),
                 f"Evaluation_of_quantity_purchased_at_{t}",
             )
