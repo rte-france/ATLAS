@@ -1082,14 +1082,28 @@ class TestFromValues:
         assert len(lt) == 3
         assert lt.get_time_by_index(0) == start
 
-    def test_from_values_too_few_values(self):
-        """from_values raises ValueError when fewer than 2 values are provided."""
-        with pytest.raises(ValueError, match="at least 2 values"):
+    def test_from_values_no_values(self):
+        """from_values raises ValueError when no values are provided."""
+        with pytest.raises(ValueError, match="at least 1 value"):
             LazyTimeseries.from_values(
                 start_date="2023-01-01 00:00:00",
                 frequency="1h",
-                values=[42.0],
+                values=[],
             )
+
+    def test_from_values_single_value(self):
+        """from_values duplicates a single value onto a second timestamp."""
+        lt = LazyTimeseries.from_values(
+            start_date="2023-01-01 00:00:00",
+            frequency="1h",
+            values=[42.0],
+        )
+        assert len(lt) == 2
+        assert lt.values == [42.0, 42.0]
+        assert lt.index == [
+            pendulum.datetime(2023, 1, 1, 0, 0, tz="UTC"),
+            pendulum.datetime(2023, 1, 1, 1, 0, tz="UTC"),
+        ]
 
     def test_from_values_correct_timestamps(self):
         """from_values generates the correct timestamps based on frequency."""

@@ -280,6 +280,22 @@ class TestTimeseriesInit:
 
         assert ts.timestep == pendulum.duration(hours=1)
 
+    def test_timeseries_from_values_no_values(self):
+        with pytest.raises(ValueError, match="at least 1 value"):
+            Timeseries.from_values("2025-01-01 00:00:00", "1h", [], timezone="UTC")
+
+    def test_timeseries_from_values_single_value(self):
+        ts = Timeseries.from_values("2025-01-01 00:00:00", "1h", [42.0], timezone="UTC")
+        assert isinstance(ts, Timeseries)
+        assert len(ts) == 2
+        assert ts["value"] == [42.0, 42.0]
+        expected_times = [
+            pendulum.datetime(2025, 1, 1, 0, 0, 0, tz="UTC"),
+            pendulum.datetime(2025, 1, 1, 1, 0, 0, tz="UTC"),
+        ]
+        assert ts.index == expected_times
+        assert ts.timestep == pendulum.duration(hours=1)
+
 
 class TestTimeseriesBasicOperations:
     """Test basic operations of the Timeseries class."""
