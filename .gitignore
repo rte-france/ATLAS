@@ -176,6 +176,9 @@ cython_debug/
 # VS Code settings
 .vscode/
 
+# Zed settings
+.zed/
+
 # Atlas site dir
 public/
 
@@ -184,6 +187,7 @@ data/
 *.pickle
 *.pkl
 *.yaml
+!.readthedocs.yaml
 *.txt
 
 # Notebooks

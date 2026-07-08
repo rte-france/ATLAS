@@ -228,10 +228,6 @@ def test_compute_consumption_delta(module, test_parameters, test_input_dataset):
     market_area = test_input_dataset.market_area[0]
     loads, solars, winds = module._filter_assets_by_market_area(market_area, test_input_dataset)
 
-    time_window = generate_datetimes(
-        test_parameters.temporal.start_date, test_parameters.penultimate_date, test_parameters.temporal.timestep
-    )
-
     delta = module._compute_consumption_delta(loads, solars, winds, test_parameters)
 
     assert isinstance(delta, Timeseries)

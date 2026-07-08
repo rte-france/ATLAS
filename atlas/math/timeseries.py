@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pickle
 from collections.abc import Generator
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -24,7 +24,7 @@ import polars as pl
 
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
+from atlas.timing import build_datetime, check_timezone, get_duration, infer_frequency
 from atlas.type import TimeseriesDict
 
 
@@ -80,98 +80,6 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         """
 
         return cls(read_data_file(file_path, filters, separator), timezone)
-
-    @classmethod
-    def from_values(
-        cls,
-        start_date: str | datetime | pendulum.DateTime,
-        frequency: str | timedelta | pendulum.Duration,
-        values: list[float],
-        date_format="YYYY-MM-DD HH:mm:ss",
-        timezone: str = "UTC",
-    ) -> Timeseries:
-        """
-        Create a Timeseries from start date, frequency and a list of values.
-
-        :param start_date: Start date of the timeseries
-        :type start_date: str or datetime or pendulum.DateTime
-        :param frequency: Frequency of the timeseries (e.g., "1h", "15m")
-        :type frequency: str or pendulum.Duration
-        :param values: List of values corresponding to the time intervals
-        :type values: list[float]
-        :param timezone: Timezone string, defaults to "UTC"
-        :type timezone: str, optional
-        :raises ValueError: If file there is no value to insert in the Timeseries
-        :return: A Timeseries object with the specified parameters
-        :rtype: Timeseries
-        """
-        if len(values) < 2:
-            raise ValueError("Timeseries must contains at least 2 values")
-
-        start = build_datetime(start_date, date_format).in_tz(timezone)
-        end = build_datetime(start + (len(values) - 1) * get_duration(frequency)).in_tz(timezone)
-
-        datetimes = generate_datetimes(start, end, frequency, timezone)
-
-        df = pl.DataFrame(
-            {"time": datetimes, "value": values},
-            schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
-        )
-
-        return cls(df, timezone)
-
-    @classmethod
-    def from_index(
-        cls,
-        start_date: str | datetime | pendulum.DateTime,
-        frequency: str | timedelta | pendulum.Duration,
-        end_date: str | datetime | pendulum.DateTime,
-        default_value: list[float] | float = 0,
-        date_format="YYYY-MM-DD HH:mm:ss",
-        timezone: str = "UTC",
-    ) -> Timeseries:
-        """
-        Create a Timeseries from a time range and a default value or list of values.
-
-        :param start_date: Start date of the timeseries
-        :type start_date: str or datetime or pendulum.DateTime
-        :param frequency: Frequency of the timeseries (e.g., "1h", "15m")
-        :type frequency: str or pendulum.Duration
-        :param end_date: End date of the timeseries
-        :type end_date: str or datetime or pendulum.DateTime
-        :param default_value: A scalar value or a list of values to fill the timeseries
-        :type default_value: list[float] or float, optional
-        :param date_format: Format to interpret date strings, defaults to "YYYY-MM-DD HH:mm:ss"
-        :type date_format: str, optional
-        :param timezone: Timezone string, defaults to "UTC"
-        :type timezone: str, optional
-        :raises ValueError: If default_value is a list with length mismatch
-        :return: A Timeseries object with the specified index and values
-        :rtype: Timeseries
-        """
-
-        start = build_datetime(start_date, date_format).in_tz(timezone)
-        end = build_datetime(end_date, date_format).in_tz(timezone)
-
-        datetimes = generate_datetimes(start, end, frequency, timezone)
-
-        if isinstance(default_value, list):
-            if len(default_value) != len(datetimes):
-                raise ValueError(
-                    f"Values  passed is of size {len(default_value)} when datetimes generated is of size {len(datetimes)}"
-                )
-            else:
-                df = pl.DataFrame(
-                    {"time": datetimes, "value": default_value},
-                    schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
-                )
-        elif isinstance(default_value, float | int):
-            df = pl.DataFrame(
-                {"time": datetimes, "value": [default_value] * len(datetimes)},
-                schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
-            )
-
-        return cls(df, timezone)
 
     @classmethod
     def from_timeseries(cls, timeseries: AbstractTimeseries, default_value: float | None = None) -> Timeseries:
@@ -997,6 +905,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
                     raise ValueError(f"Could not read existing file for concatenation: {e}") from e
 
         # Write the file
+        Path(path_str).parent.mkdir(parents=True, exist_ok=True)
         if file_format_lower == "csv":
             df_to_write.write_csv(path_str, separator=separator)
         elif file_format_lower == "parquet":
@@ -1170,7 +1079,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
             raise IndexError(f"index {index} is out of bounds for timeseries of length {n}")
         return cast(pendulum.DateTime, pendulum.instance(self.timeseries.row(index, named=True)["time"]))
 
-    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
+    def iter_rows(self) -> Generator[tuple[datetime, float]]:
         """
         Iterate over rows of the Timeseries, yielding (time, value) tuples.
 

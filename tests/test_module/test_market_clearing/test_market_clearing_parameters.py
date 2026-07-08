@@ -32,8 +32,8 @@ def test_default_parameters():
     assert params.allowed_round_off_error == 0.001
     assert params.exchange_constraints_type == ExchangeConstraintsType.ATC
     assert params.market == Product.DayAhead
-    assert params.control_block_names == "All"
-    assert params.market_area_names == "All"
+    assert params.control_block_names == "all"
+    assert params.market_area_names == "all"
     assert params.initial_max_price == 1e8
     assert params.initial_min_price == -1e8
     assert not params.prevent_adverse_flows
