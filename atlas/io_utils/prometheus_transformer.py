@@ -439,6 +439,12 @@ class PrometheusToAtlasDataParser:
     def _read_and_parse_csv(self, csv_file: str) -> pl.DataFrame:
         """Read CSV file and parse the TimeStep column.
 
+        Forecasting matrix columns are often very sparse (only a handful of
+        non-null values across thousands of rows). Schema inference is done
+        on the full file (``infer_schema_length=None``) so a column whose
+        first non-null value appears after the default 100-row sample isn't
+        misdetected as ``String`` and silently dropped downstream.
+
         Args:
             csv_file: Path to the CSV file
 
@@ -446,7 +452,7 @@ class PrometheusToAtlasDataParser:
             Parsed DataFrame with datetime TimeStep column
         """
         return (
-            pl.read_csv(csv_file, separator=CSV_SEPARATOR)
+            pl.read_csv(csv_file, separator=CSV_SEPARATOR, infer_schema_length=None)
             .with_columns(
                 pl.col("TimeStep").str.strptime(pl.Datetime(), pendulum_to_datetime(self.date_format_timestep))
             )

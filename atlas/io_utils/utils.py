@@ -17,11 +17,22 @@ import polars as pl
 from atlas.objects.business_model import BusinessModel
 
 
+def _drop_all_null_columns(df: pl.DataFrame) -> pl.DataFrame:
+    """Drop columns that are entirely null.
+
+    Useful after filtering a dataset by attribute: files that stack several
+    attributes in the same table (e.g. via a diagonal concat) can leave
+    columns that only belonged to another attribute, all-null once filtered.
+    """
+    return df.select([col for col in df.columns if df[col].null_count() < df.height])
+
+
 def read_data_file(
     file_path: str | Path,
     filters: tuple[str, str] | None = None,
     separator: str = ";",
     use_lazy: bool = True,
+    drop_null_columns: bool = False,
 ) -> pl.DataFrame:
     """Read a dataframe from csv or parquet with optional lazy scanning for better performance"""
     if isinstance(file_path, str):
@@ -38,7 +49,7 @@ def read_data_file(
 
         # Apply filter lazily and collect
         df = df.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
-        return df.collect()
+        df_eager = df.collect()
 
     else:
         if file_path.suffix == ".csv":
@@ -51,7 +62,10 @@ def read_data_file(
         if filters:
             df_eager = df_eager.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
 
-        return df_eager
+    if filters and drop_null_columns:
+        df_eager = _drop_all_null_columns(df_eager)
+
+    return df_eager
 
 
 def scan_data_file(

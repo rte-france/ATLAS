@@ -20,7 +20,7 @@ IDPF_OUTPUT_REFERENCE_DIR = Path("tests/dataset/intraday/portfolio_optimisation_
 
 PARAMS_DICT = {
     "temporal": {
-        "start_date": "2028-09-26 00:00:00",
+        "start_date": "2028-09-27 00:00:00",
         "execution_date": "2028-09-26 22:00:00",
         "end_date": "2028-09-28 00:00:00",
         "timestep": "PT1H",
