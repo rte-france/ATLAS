@@ -27,6 +27,17 @@ def _drop_all_null_columns(df: pl.DataFrame) -> pl.DataFrame:
     return df.select([col for col in df.columns if df[col].null_count() < df.height])
 
 
+def _drop_all_null_columns_lazy(df: pl.LazyFrame) -> pl.LazyFrame:
+    """Lazy equivalent of :func:`_drop_all_null_columns`.
+
+    Computes non-null counts per column in a single pass, then re-selects
+    the columns that have at least one non-null value.
+    """
+    columns = df.collect_schema().names()
+    non_null_counts = df.select(pl.col(col).count().alias(col) for col in columns).collect()
+    return df.select([col for col in columns if non_null_counts[col][0] > 0])
+
+
 def read_data_file(
     file_path: str | Path,
     filters: tuple[str, str] | None = None,
@@ -72,7 +83,8 @@ def scan_data_file(
     file_path: str | Path,
     filters: tuple[str, str] | None = None,
     separator: str = ";",
-):
+    drop_null_columns: bool = False,
+) -> pl.LazyFrame:
     """Scan a dataframe from csv or parquet"""
     if isinstance(file_path, str):
         file_path = Path(file_path)
@@ -84,6 +96,9 @@ def scan_data_file(
         raise NotImplementedError("Atlas file should be a csv or parquet.")
     if filters:
         df = df.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
+
+        if drop_null_columns:
+            df = _drop_all_null_columns_lazy(df)
 
     return df
 

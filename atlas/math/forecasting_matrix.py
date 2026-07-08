@@ -92,8 +92,8 @@ class ForecastingMatrix(ScenarioMatrix):
         timezone: str = "UTC",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
-        date_format: str = "YYYY-MM-DD HH:mm:ss",
         drop_null_columns: bool = False,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> ForecastingMatrix:
         """
         Load a ForecastingMatrix from a file.
@@ -455,6 +455,7 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
         timezone: str = "UTC",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
+        drop_null_columns: bool = False,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> LazyForecastingMatrix:
         """
@@ -464,6 +465,10 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
         :type file_path: str | Path
         :param timezone: Timezone to apply
         :type timezone: str
+        :param drop_null_columns: If True, drop forecast columns that are entirely null once
+            ``filters`` is applied. Files stacking several attributes in the same table can
+            leave columns that only belonged to another attribute, all-null after filtering.
+        :type drop_null_columns: bool
         :return: LazyForecastingMatrix instance
         :rtype: LazyForecastingMatrix
         """
@@ -473,6 +478,7 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
                 timezone=timezone,
                 filters=filters,
                 separator=separator,
+                drop_null_columns=drop_null_columns,
             ),
             timezone,
             date_format,
