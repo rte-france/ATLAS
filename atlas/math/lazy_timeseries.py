@@ -9,8 +9,8 @@ This module provides LazyTimeseries.
 
 from __future__ import annotations
 
-from collections.abc import Generator, Sequence
-from datetime import datetime, timedelta
+from collections.abc import Generator
+from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -21,7 +21,7 @@ import polars as pl
 from atlas.io_utils.utils import get_metadata_from_frame, scan_data_file
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
-from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
+from atlas.timing import build_datetime, check_timezone, infer_frequency
 
 
 class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
@@ -35,18 +35,21 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
 
     def __init__(
         self,
-        timeseries: pl.LazyFrame | LazyTimeseries | Any | None = None,
+        timeseries: pl.LazyFrame | pl.DataFrame | LazyTimeseries | Any | None = None,
         timezone: str = "UTC",
     ) -> None:
         """
         :param timeseries: The input time series data
-        :type timeseries: pl.LazyFrame or LazyTimeseries or Timeseries
+        :type timeseries: pl.LazyFrame or pl.DataFrame or LazyTimeseries or Timeseries
         :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
         :type timezone: str, optional
         """
 
         check_timezone(timezone)
         self.timezone: str = timezone
+
+        if isinstance(timeseries, pl.DataFrame):
+            timeseries = timeseries.lazy()
 
         if timeseries is None:
             self.timeseries: pl.LazyFrame = pl.LazyFrame(
@@ -79,7 +82,7 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
             )
 
         else:
-            raise ValueError("LazyTimeseries requires a LazyFrame or another Timeseries object")
+            raise ValueError("LazyTimeseries requires a LazyFrame, DataFrame, or another Timeseries object")
 
     def _get_data(self) -> pl.LazyFrame:
         """Return the underlying LazyFrame."""
@@ -170,91 +173,6 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         return cls(scan_data_file(file_path, filters, separator), timezone)
 
     @classmethod
-    def from_values(
-        cls,
-        start_date: str | datetime | pendulum.DateTime,
-        frequency: str | timedelta | pendulum.Duration,
-        values: Sequence[float] | pd.Series | pl.Series,
-        date_format: str = "YYYY-MM-DD HH:mm:ss",
-        timezone: str = "UTC",
-    ) -> LazyTimeseries:
-        """
-        Create a LazyTimeseries from start date, frequency and a list of values.
-
-        :param start_date: Start date of the timeseries
-        :param frequency: Frequency of the timeseries (e.g., "1h", "15m")
-        :param values: List of values corresponding to the time intervals
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
-        :param timezone: Timezone string, defaults to "UTC"
-        :return: A LazyTimeseries object with the specified parameters
-        :rtype: LazyTimeseries
-        """
-
-        if len(values) == 0:
-            raise ValueError("Timeseries must contains at least 1 value")
-
-        if len(values) == 1:
-            values = [values[0], values[0]]
-
-        start = build_datetime(start_date, date_format).in_tz(timezone)
-        end = build_datetime(start + (len(values) - 1) * get_duration(frequency)).in_tz(timezone)
-
-        datetimes = generate_datetimes(start, end, frequency, timezone)
-
-        df = pl.DataFrame(
-            {"time": datetimes, "value": values},
-            schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
-        )
-
-        return cls(df.lazy(), timezone)
-
-    @classmethod
-    def from_index(
-        cls,
-        start_date: str | datetime | pendulum.DateTime,
-        frequency: str | timedelta | pendulum.Duration,
-        end_date: str | datetime | pendulum.DateTime,
-        default_value: list[float] | float = 0,
-        date_format: str = "YYYY-MM-DD HH:mm:ss",
-        timezone: str = "UTC",
-    ) -> LazyTimeseries:
-        """
-        Create a LazyTimeseries from a time range and a default value or list of values.
-
-        :param start_date: Start date of the timeseries
-        :param frequency: Frequency of the timeseries (e.g., "1h", "15m")
-        :param end_date: End date of the timeseries
-        :param default_value: A scalar value or a list of values to fill the timeseries
-        :param date_format: Format to interpret date strings, defaults to "YYYY-MM-DD HH:mm:ss"
-        :param timezone: Timezone string, defaults to "UTC"
-        :return: A LazyTimeseries object with the specified index and values
-        :rtype: LazyTimeseries
-        """
-
-        start = build_datetime(start_date, date_format).in_tz(timezone)
-        end = build_datetime(end_date, date_format).in_tz(timezone)
-
-        datetimes = generate_datetimes(start, end, frequency, timezone)
-
-        if isinstance(default_value, list):
-            if len(default_value) != len(datetimes):
-                raise ValueError(
-                    f"Values  passed is of size {len(default_value)} when datetimes generated is of size {len(datetimes)}"
-                )
-            else:
-                df = pl.DataFrame(
-                    {"time": datetimes, "value": default_value},
-                    schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
-                )
-        elif isinstance(default_value, float | int):
-            df = pl.DataFrame(
-                {"time": datetimes, "value": [default_value] * len(datetimes)},
-                schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
-            )
-
-        return cls(df.lazy(), timezone)
-
-    @classmethod
     def from_timeseries(cls, timeseries: Any, default_value: float | None = None) -> LazyTimeseries:
         """Create a LazyTimeseries from another timeseries, using its structure.
 
@@ -296,12 +214,10 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         :return: The LazyTimeseries instantiated from the dataframe-like object
         :rtype: LazyTimeseries
         """
-        if isinstance(dataframe, pl.LazyFrame):
+        if isinstance(dataframe, pl.LazyFrame | pl.DataFrame):
             return cls(dataframe, timezone)
-        elif isinstance(dataframe, pl.DataFrame):
-            return cls(dataframe.lazy(), timezone)
         elif isinstance(dataframe, pd.DataFrame):
-            return cls(pl.from_pandas(dataframe).lazy(), timezone)
+            return cls(pl.from_pandas(dataframe), timezone)
         else:
             raise TypeError("Input has to be a dataframe-like object.")
 

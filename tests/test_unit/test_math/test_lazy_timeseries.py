@@ -173,14 +173,28 @@ def test_from_file_invalid_format(tmp_path):
         LazyTimeseries.from_file(file_path)
 
 
-def test_init_invalid_type(sample_df_invalid_schema):
-    with pytest.raises(ValueError, match="LazyTimeseries requires a LazyFrame or another Timeseries object"):
-        LazyTimeseries(sample_df_invalid_schema)
+def test_init_invalid_type():
+    with pytest.raises(ValueError, match="LazyTimeseries requires a LazyFrame, DataFrame, or another Timeseries"):
+        LazyTimeseries([1, 2, 3])
+
+
+def test_init_from_eager_dataframe(sample_df):
+    """A plain eager pl.DataFrame is accepted and wrapped lazily."""
+    lt = LazyTimeseries(sample_df)
+    assert isinstance(lt, LazyTimeseries)
+    assert isinstance(lt.dataframe, pl.LazyFrame)
+    assert lt.values == sample_df["value"].to_list()
 
 
 def test_init_invalid_schema(sample_df_invalid_schema):
     with pytest.raises(ValueError, match="Timeseries must have exactly one datetime column"):
         LazyTimeseries(sample_df_invalid_schema.lazy())
+
+
+def test_init_invalid_schema_from_eager_dataframe(sample_df_invalid_schema):
+    """Schema validation applies the same way to a plain eager pl.DataFrame."""
+    with pytest.raises(ValueError, match="Timeseries must have exactly one datetime column"):
+        LazyTimeseries(sample_df_invalid_schema)
 
 
 def test_collect_returns_timeseries(sample_ts):
