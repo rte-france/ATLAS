@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from pendulum import DateTime
 
 from atlas.enums import MarketType, OrderType, Product
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
 from atlas.objects.market.order import Order
@@ -48,6 +49,31 @@ class AbstractOrderFormulator(ABC):
         :rtype: tuple[list[Order], list]
         """
 
+    def _get_forecast_or_zero(
+        self,
+        matrix: ForecastingMatrix | LazyForecastingMatrix | None,
+        execution_date: DateTime,
+        start: DateTime,
+        end: DateTime,
+    ) -> Timeseries:
+        """
+        Extract a forecast from a ForecastingMatrix, or return a zero Timeseries if None.
+
+        :param matrix: ForecastingMatrix to extract from, or None
+        :type matrix: ForecastingMatrix | LazyForecastingMatrix | None
+        :param execution_date: Execution date for forecast extraction
+        :type execution_date: DateTime
+        :param start: Start of the time frame
+        :type start: DateTime
+        :param end: End of the time frame
+        :type end: DateTime
+        :return: Extracted Timeseries, or a zero-valued Timeseries over [start, end]
+        :rtype: Timeseries
+        """
+        if matrix is None:
+            return Timeseries.from_index(start, self.parameters.temporal.timestep, end, default_value=0.0)
+        return matrix.get_forecast(execution_date, start, end)
+
     def compute_procured_power(
         self,
         execution_date: DateTime,
@@ -73,19 +99,23 @@ class AbstractOrderFormulator(ABC):
         :rtype: tuple[Timeseries, Timeseries]
         """
 
-        upward = self.equipment.fcr_up_procured.get_forecast(
-            execution_date, start, end
-        ) + self.equipment.afrr_up_procured.get_forecast(execution_date, start, end)
-        downward = self.equipment.fcr_down_procured.get_forecast(
-            execution_date, start, end
-        ) + self.equipment.afrr_down_procured.get_forecast(execution_date, start, end)
+        upward = self._get_forecast_or_zero(
+            self.equipment.fcr_up_procured, execution_date, start, end
+        ) + self._get_forecast_or_zero(self.equipment.afrr_up_procured, execution_date, start, end)
+        downward = self._get_forecast_or_zero(
+            self.equipment.fcr_down_procured, execution_date, start, end
+        ) + self._get_forecast_or_zero(self.equipment.afrr_down_procured, execution_date, start, end)
 
         if product_type == MarketType.rr_activation:
-            upward = upward + self.equipment.mfrr_up_procured.get_forecast(execution_date, start, end)
-            downward = downward + self.equipment.mfrr_down_procured.get_forecast(execution_date, start, end)
+            upward = upward + self._get_forecast_or_zero(self.equipment.mfrr_up_procured, execution_date, start, end)
+            downward = downward + self._get_forecast_or_zero(
+                self.equipment.mfrr_down_procured, execution_date, start, end
+            )
         elif product_type == MarketType.mfrr_activation:
-            upward = upward + self.equipment.rr_up_procured.get_forecast(execution_date, start, end)
-            downward = downward + self.equipment.rr_down_procured.get_forecast(execution_date, start, end)
+            upward = upward + self._get_forecast_or_zero(self.equipment.rr_up_procured, execution_date, start, end)
+            downward = downward + self._get_forecast_or_zero(
+                self.equipment.rr_down_procured, execution_date, start, end
+            )
 
         return upward, downward
 
@@ -180,7 +210,7 @@ class AbstractOrderFormulator(ABC):
         :return: Standardised order name
         :rtype: str
         """
-        direction = "U" if order_type == OrderType.sell else "D"
+        direction = "U" if order_type == OrderType.Sell else "D"
         market_short = self._market_short_name()
         return (
             f"{self.equipment.name}_{market_short}_{direction}_"
