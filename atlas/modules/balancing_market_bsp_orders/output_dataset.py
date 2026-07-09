@@ -10,6 +10,7 @@ from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
+from atlas.orchestrator.change_set import AddObject
 
 
 class BSPBalancingOrdersOutputDataset(AbstractModuleOutput[BSPBalancingOrdersParameters]):
@@ -25,8 +26,7 @@ class BSPBalancingOrdersOutputDataset(AbstractModuleOutput[BSPBalancingOrdersPar
     couplings: list[OrderCoupling] = []
 
     def build_change_sets(self) -> None:
-        """Populate self.change_sets with the ChangeSet objects produced by this module.
-
-        To be implemented when order formulators are in place.
-        """
-        pass
+        for order in self.orders:
+            self.change_sets.append(AddObject.from_object(order))
+        for order_coupling in self.couplings:
+            self.change_sets.append(AddObject.from_object(order_coupling))
