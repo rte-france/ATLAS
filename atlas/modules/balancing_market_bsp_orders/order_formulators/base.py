@@ -216,7 +216,7 @@ class AbstractOrderFormulator(ABC):
             f"{self.equipment.name}_{market_short}_{direction}_"
             f"{self._fmt_time(start)}_{self._fmt_time(end)}_"
             f"at_{self._fmt_time(self.parameters.temporal.execution_date)}{suffix}"
-        )
+        ).lower()
 
     def _market_short_name(self) -> str:
         """
