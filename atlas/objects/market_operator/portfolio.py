@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 
 from pydantic import field_serializer
 
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.objects.business_model import BusinessModel
@@ -52,6 +53,12 @@ class Portfolio(BusinessModel):
     :type rr_up_procured: Timeseries
     :param total_id_cleared_quantity: Cumulative sum of all cleared quantities for equipment in this portfolio across all Intraday Market Clearings
     :type total_id_cleared_quantity: Timeseries
+    :param baseline_generation: Minimum quantity that should be produced per technology type (or per fuel type for thermal equipments), in MW.
+    :type baseline_generation: ScenarioMatrix
+    :param ceiling_generation: Maximum quantity that should be produced per technology type (or per fuel type for thermal equipments), in MW.
+    :type ceiling_generation: ScenarioMatrix
+    :param optimal_dispatch_volume: Stores generation and consumption outputs from the module OptimalDispatch, aggregated at the Portfolio level (MW).
+    :type optimal_dispatch_volume: ScenarioMatrix
     """
 
     control_block: ControlBlock
@@ -72,6 +79,9 @@ class Portfolio(BusinessModel):
     rr_down_procured: AbstractTimeseries | None = None
     rr_up_procured: AbstractTimeseries | None = None
     total_id_cleared_quantity: AbstractTimeseries | None = None
+    baseline_generation: AbstractScenarioMatrix | None = None
+    ceiling_generation: AbstractScenarioMatrix | None = None
+    optimal_dispatch_volume: AbstractScenarioMatrix | None = None
 
     @field_serializer("control_block", "market_area", mode="plain")
     def serializer_bmo(self, value: BusinessModel | None) -> str | None:

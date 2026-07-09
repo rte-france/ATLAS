@@ -48,6 +48,10 @@ class Storage(Equipment):
     :param minimum_state_of_charge: Coefficient applied to MaximumEnergy, to represent the minimum energy that can be
     stored
     :type minimum_state_of_charge: Timeseries
+    :param automated_reserve_duration: To be clarified
+    :type automated_reserve_duration: int
+    :param manual_reserve_duration: To be clarified
+    :type manual_reserve_duration: int
 
     """
 
@@ -62,11 +66,7 @@ class Storage(Equipment):
         description="Discharge efficiency (must be positive)",
     )
     is_v2g: bool | None = None
-    storage_initial_level: float | None = Field(
-        None,
-        ge=0,
-        description="Initial storage level (positive or zero)",
-    )
+    storage_initial_level: AbstractTimeseries | None = None
     storage_type: StorageType | None = None
     transition_duration: Duration | None = Field(
         None,
@@ -82,6 +82,8 @@ class Storage(Equipment):
     maximum_power: AbstractTimeseries | None = None
     minimum_power: AbstractTimeseries | None = None
     minimum_state_of_charge: AbstractTimeseries | None = None
+    automated_reserve_duration: int | None = None
+    manual_reserve_duration: int | None = None
 
     @field_validator(
         "transition_duration",

@@ -57,6 +57,8 @@ class Thermal(Equipment):
     :type minimum_power: Timeseries
     :param co2_emission_factor: CO2 emissions per MWh
     :type co2_emission_factor: float
+    :param fuel: type of fuel used by the thermal equipment
+    :type fuel: str
     """
 
     installed_capacity: float | None = Field(
@@ -89,6 +91,8 @@ class Thermal(Equipment):
     da_sell_submitted_volume: AbstractTimeseries | None = None
     maximum_power: AbstractTimeseries | None = None
     minimum_power: AbstractTimeseries | None = None
+
+    fuel: str | None = None
 
     @field_validator(
         "minimum_stable_power_duration",

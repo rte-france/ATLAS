@@ -48,8 +48,6 @@ class Hydro(Equipment):
     :type maximum_power: AbstractTimeseries
     :param minimum_power: Minimum power
     :type minimum_power: AbstractTimeseries
-    :param inflow_frequency: Frequency of inflow data. Possible values: 'Monthly', 'Daily'
-    :type inflow_frequency: InflowFrequency
     :param energy_target_frequency: Frequency of energy target data. Possible values: 'Monthly', 'Daily'
     :type energy_target_frequency: InflowFrequency
     """
@@ -64,7 +62,6 @@ class Hydro(Equipment):
 
     da_sell_submitted_volume: AbstractTimeseries | None = None
     energy_target: AbstractTimeseries | None = None
-    inflow_frequency: InflowFrequency | None = Field(None, description="Possible values: 'Monthly', 'Daily'")
     energy_target_frequency: InflowFrequency | None = Field(
         None,
         description="Possible values: 'Monthly', 'Daily'",

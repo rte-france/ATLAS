@@ -4,8 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import Duration
-from pydantic import Field, field_serializer, field_validator
+from pydantic import Field, field_serializer
 
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
@@ -13,7 +12,7 @@ from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatr
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
-from atlas.validators import convert_to_duration, serializer_business_model
+from atlas.validators import serializer_business_model
 
 
 class Equipment(BusinessModel):
@@ -106,6 +105,12 @@ class Equipment(BusinessModel):
     :type total_id_sell_submitted_volume: Timeseries
     :param variable_cost: Variable cost
     :type variable_cost: AbstractTimeseries
+    :param long_term_markets_commitment: Generation or consumption sold in long term markets (MW)
+    :type long_term_markets_commitment: Timeseries
+    :param antares_min_gen: Minimum generation level imposed within the Antares simulation (MW)
+    :type antares_min_gen: Timeseries
+    :param antares_dispatch: Output dispatch of an Antares simulation (MW)
+    :type antares_dispatch: Timeseries
     """
 
     node: Node
@@ -149,15 +154,15 @@ class Equipment(BusinessModel):
     total_id_cleared_quantity: AbstractTimeseries | None = None
     total_id_sell_submitted_volume: AbstractTimeseries | None = None
     variable_cost: AbstractTimeseries | None = None
-    additional_hours: Duration | None = None
+    long_term_markets_commitment: AbstractTimeseries | None = None
+    antares_min_gen: AbstractTimeseries | None = None
+    antares_dispatch: AbstractTimeseries | None = None
+
+    # FC: question, what is best for optimization additional hours?
+    # Probably some sort of dict instead of a scenario matrix
+    optimization_additional_hours: AbstractScenarioMatrix | None = None
 
     @field_serializer("node", "portfolio", mode="plain")
     def serializer_bmo(self, value: BusinessModel | None) -> str | None:
         """Serialize BusinessModel attributes to string."""
         return serializer_business_model(value)
-
-    @field_validator("additional_hours", mode="before")
-    @classmethod
-    def parse_additional_hours(cls, v):
-        """Convert various duration formats to Duration objects (hours default)."""
-        return convert_to_duration(v)
