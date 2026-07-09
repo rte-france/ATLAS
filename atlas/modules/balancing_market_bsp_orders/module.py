@@ -9,7 +9,9 @@ Module that implements BSPBalancingOrdersModule.
 from atlas.abstract_class.module import AbstractModule
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.balancing_market_bsp_orders.input_dataset import BSPBalancingOrdersInputDataset
+from atlas.modules.balancing_market_bsp_orders.order_formulators.hydro import HydraulicOrderFormulator
 from atlas.modules.balancing_market_bsp_orders.order_formulators.load import LoadOrderFormulator
+from atlas.modules.balancing_market_bsp_orders.order_formulators.storage import StorageOrderFormulator
 from atlas.modules.balancing_market_bsp_orders.order_formulators.wind_solar import WindPvOrderFormulator
 from atlas.modules.balancing_market_bsp_orders.output_dataset import BSPBalancingOrdersOutputDataset
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
@@ -74,6 +76,14 @@ class BSPBalancingOrdersModule(
 
         for solar in input_dataset.solar_equipments.values():
             orders, _ = WindPvOrderFormulator(solar, input_dataset.time_index, parameters).formulate()
+            output_dataset.orders.extend(orders)
+
+        for storage in input_dataset.storage_equipments.values():
+            orders, _ = StorageOrderFormulator(storage, input_dataset.time_index, parameters).formulate()
+            output_dataset.orders.extend(orders)
+
+        for hydro in input_dataset.hydro_equipments.values():
+            orders, _ = HydraulicOrderFormulator(hydro, input_dataset.time_index, parameters).formulate()
             output_dataset.orders.extend(orders)
 
         return output_dataset
