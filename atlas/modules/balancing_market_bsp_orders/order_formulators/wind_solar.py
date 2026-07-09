@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 Module that implements WindPvOrderFormulator.
 """
 
+import atlas.config as cfg
 from atlas.enums import OrderType
 from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator
 from atlas.objects.market.order import Order
@@ -39,7 +40,7 @@ class WindPvOrderFormulator(AbstractOrderFormulator):
         :rtype: tuple[list[Order], list[OrderCoupling]]
         """
         start = self.parameters.temporal.start_date
-        end = self.parameters.temporal.end_date
+        end = self.parameters.temporal.end_date - self.parameters.temporal.timestep
         execution_date = self.parameters.temporal.execution_date
         timestep_minutes = int(self.parameters.temporal.timestep.total_seconds() // 60)
 
@@ -53,7 +54,7 @@ class WindPvOrderFormulator(AbstractOrderFormulator):
         upward_available = max_power - forecasted_power - upward_procured
 
         # Minimum power = maximum_power_forecast * (1 - maximum_curtailment_ratio)
-        min_power = max_power - max_power * self.equipment.maximum_curtailment_ratio
+        min_power = max_power - max_power * self.equipment.maximum_curtailment_ratio.slice(start, end)
         downward_available = forecasted_power - min_power - downward_procured
 
         orders: list[Order] = []
@@ -117,4 +118,5 @@ class WindPvOrderFormulator(AbstractOrderFormulator):
             if order is not None:
                 orders.append(order)
 
+        cfg.logger.info(f"Formulation of orders on equipment {self.equipment.name} completed")
         return orders, []

@@ -8,6 +8,7 @@ Module that implements HydraulicOrderFormulator.
 
 from pendulum import DateTime
 
+import atlas.config as cfg
 from atlas.enums import OrderType
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.modules.balancing_market_bsp_orders.input_objects.hydro import BalancingHydro
@@ -106,13 +107,13 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
         :rtype: tuple[list[Order], list[OrderCoupling]]
         """
         start = self.parameters.temporal.start_date
-        end = self.parameters.temporal.end_date
+        end = self.parameters.temporal.end_date - self.parameters.temporal.timestep
         execution_date = self.parameters.temporal.execution_date
         timestep_minutes = int(self.parameters.temporal.timestep.total_seconds() // 60)
 
         forecasted_power = self.equipment.power.get_forecast(execution_date, start, end)
-        max_power = self.equipment.maximum_power
-        min_power = self.equipment.minimum_power
+        max_power = self.equipment.maximum_power.slice(start, end)
+        min_power = self.equipment.minimum_power.slice(start, end)
 
         upward_procured, downward_procured = self.compute_procured_power(
             execution_date, start, end, self.parameters.product_type
@@ -354,4 +355,5 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
             if order is not None:
                 orders.append(order)
 
+        cfg.logger.info(f"Formulation of orders on equipment {self.equipment.name} completed")
         return orders

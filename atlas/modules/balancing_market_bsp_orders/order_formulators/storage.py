@@ -8,6 +8,7 @@ Module that implements StorageOrderFormulator.
 
 from pendulum import DateTime
 
+import atlas.config as cfg
 from atlas.enums import OrderType, StorageType
 from atlas.modules.balancing_market_bsp_orders.input_objects.storage import BalancingStorage
 from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator
@@ -141,18 +142,17 @@ class StorageOrderFormulator(AbstractOrderFormulator):
         :rtype: tuple[list[Order], list[OrderCoupling]]
         """
         start = self.parameters.temporal.start_date
-        end = self.parameters.temporal.end_date
+        end = self.parameters.temporal.end_date - self.parameters.temporal.timestep
         execution_date = self.parameters.temporal.execution_date
         timestep_minutes = int(self.parameters.temporal.timestep.total_seconds() // 60)
 
         forecasted_power = self.equipment.power.get_forecast(execution_date, start, end)
-        max_power = self.equipment.maximum_power
-        min_power = self.equipment.minimum_power
+        max_power = self.equipment.maximum_power.slice(start, end)
+        min_power = self.equipment.minimum_power.slice(start, end)
 
         upward_procured, downward_procured = self.compute_procured_power(
             execution_date, start, end, self.parameters.product_type
         )
-
         upward_available = max_power - forecasted_power - upward_procured
         downward_available = forecasted_power - min_power - downward_procured
 
@@ -177,7 +177,7 @@ class StorageOrderFormulator(AbstractOrderFormulator):
                 qmax_down, storage_constraint_end_date
             )
 
-            if self.equipment.storage_type == StorageType.PumpedHydraulicStorage:
+            if self.equipment.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
                 qmax_up, upward_valid = self._apply_phs_transition_constraint(
                     forecasted_power, time, qmax_up, upward_valid, is_upward=True
                 )
@@ -211,6 +211,7 @@ class StorageOrderFormulator(AbstractOrderFormulator):
                 if order is not None:
                     orders.append(order)
 
+        cfg.logger.info(f"Formulation of orders on equipment {self.equipment.name} completed")
         return orders, []
 
     def _compute_storage_constraint_end_date(self) -> DateTime:

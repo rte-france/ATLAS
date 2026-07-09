@@ -45,7 +45,7 @@ class LoadOrderFormulator(AbstractOrderFormulator):
         :rtype: tuple[list[Order], list[OrderCoupling]]
         """
         start = self.parameters.temporal.start_date
-        end = self.parameters.temporal.end_date
+        end = self.parameters.temporal.end_date - self.parameters.temporal.timestep
 
         # Extract the timeseries containing the forecasted power from the Power ForecastMatrix.
         forecasted_power = self.equipment.power.get_forecast(self.parameters.temporal.execution_date, start, end)
