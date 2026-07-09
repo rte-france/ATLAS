@@ -38,7 +38,6 @@ BalancingEquipment = (
 )
 
 # Load types that cannot provide balancing reserves
-# TODO : No power to gas ?
 _NON_DISPATCHABLE_LOAD_TYPES = {LoadType.BASE_LOAD, LoadType.OTHER_NON_DISPATCHABLE_LOAD}
 
 

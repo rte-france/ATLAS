@@ -119,10 +119,6 @@ class StorageOrderFormulator(AbstractOrderFormulator):
     Order prices are the average of all previous market clearing prices on the
     equipment's market area, adjusted when the daily activated balancing energy
     exceeds storage_price_threshold.
-
-    # TODO : equipment.rr_activated / mfrr_activated / afrr_activated / fcr_activated /
-    # specific_activated_power must be added as non-Optional fields on BalancingStorage
-    # (input_objects/storage.py), mirroring the pattern used for other required fields.
     """
 
     def __init__(
