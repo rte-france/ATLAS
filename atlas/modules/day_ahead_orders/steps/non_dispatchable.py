@@ -32,6 +32,13 @@ class NonDispatchableStep(AbstractOrderStep):
                     unit.da_sell_submitted_volume += production_forecast
 
                 for t in self.orders_time:
+                    if production_forecast.get_value(t) >= 0:
+                        order_type = OrderType.Sell
+                        price = -500
+                    else:
+                        order_type = OrderType.Buy
+                        price = 3000
+
                     result.orders.append(
                         OrderDAO(
                             name=f"other_nd_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
@@ -40,9 +47,9 @@ class NonDispatchableStep(AbstractOrderStep):
                             equipment=unit,
                             qmax=production_forecast.get_value(t),
                             qmin=0,
-                            price=0.0 if unit.variable_cost is None else unit.variable_cost.get_value(t),
+                            price=price,
                             product=Product.DayAhead,
-                            order_type=OrderType.Sell,
+                            order_type=order_type,
                             is_agent_tso=False,
                             execution_date=self.parameters.temporal.execution_date,
                             start_date=t,  # type: ignore [arg-type]

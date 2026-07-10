@@ -180,4 +180,4 @@ class HydraulicStep(AbstractOrderStep):
         else:
             marginal_adjustment = 0.0
 
-        return fragment_price + marginal_adjustment
+        return fragment_price * marginal_adjustment

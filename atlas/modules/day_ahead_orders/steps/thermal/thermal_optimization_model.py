@@ -170,11 +170,12 @@ class ThermalOptimizationModel(OptimisationModel):
         # Power gradients
         # Definition of the gradients_time_frame : starts at start_date - time_step and goes until T-1
         # Gradients are defined on a "shifted" time frame.
+        add_hours = thermal_unit.optimization_additional_hours.select("DayAhead").get_value(
+            self.parameters.temporal.start_date
+        )
         self.gradients_time_frame = generate_datetimes(
             self.parameters.temporal.start_date - self.parameters.temporal.timestep,
-            self.parameters.temporal.end_date
-            + self.thermal_unit.additional_hours
-            - 2 * self.parameters.temporal.timestep,
+            self.parameters.temporal.end_date + add_hours - 2 * self.parameters.temporal.timestep,
             self.parameters.temporal.timestep,
         )
 
@@ -321,7 +322,8 @@ class ThermalOptimizationModel(OptimisationModel):
 
     def _build_time_frames(self) -> None:
         temporal = self.parameters.temporal
-        end_date = temporal.end_date + self.thermal_unit.additional_hours - temporal.timestep
+        add_hours = self.thermal_unit.optimization_additional_hours.select("DayAhead").get_value(temporal.start_date)
+        end_date = temporal.end_date + add_hours - temporal.timestep
         self.time_frame = generate_datetimes(temporal.start_date, end_date, temporal.timestep)
 
     def _setup_bounds(self) -> None:
@@ -332,7 +334,8 @@ class ThermalOptimizationModel(OptimisationModel):
 
     def _setup_reserves(self) -> None:
         unit = self.thermal_unit
-        end = unit.additional_hours + self.parameters.temporal.end_date
+        add_hours = unit.optimization_additional_hours.select("DayAhead").get_value(self.parameters.temporal.start_date)
+        end = add_hours + self.parameters.temporal.end_date
 
         fcr_up = self._load_reserve_forecast(unit.fcr_up_procured, end)
         fcr_down = self._load_reserve_forecast(unit.fcr_down_procured, end)
@@ -427,11 +430,12 @@ class ThermalOptimizationModel(OptimisationModel):
         # and variables to constrain the gradient U[t], D[t] and tilde_U[t], tilde_D[t] (defined in sec 6.2.4.)
         if self.T_stable >= 1:
             # Define the time_frame_union_minus_one which includes the start_date_minus_one time step.
+            add_hours = self.thermal_unit.optimization_additional_hours.select("DayAhead").get_value(
+                self.parameters.temporal.start_date
+            )
             self.time_frame_union_minus_one = generate_datetimes(
                 self.parameters.temporal.start_date - self.parameters.temporal.timestep,
-                self.parameters.temporal.end_date
-                + self.thermal_unit.additional_hours
-                - self.parameters.temporal.timestep,
+                self.parameters.temporal.end_date + add_hours - self.parameters.temporal.timestep,
                 self.parameters.temporal.timestep,
             )
 
