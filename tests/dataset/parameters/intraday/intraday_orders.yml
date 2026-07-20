@@ -3,4 +3,3 @@ temporal:
   execution_date: "2028-09-26 22:00:00"
   end_date: "2028-09-28 00:00:00"
   timestep: "PT1H"
-electric_vehicles_complement_ordering: false

@@ -76,6 +76,15 @@ nav = [
                 { "Results" = "modules/intraday-price-forecast/user-guide/results.md" },
             ]},
         ]},
+        { "Intraday Orders" = [
+            { "Overview" = "modules/intraday-orders/index.md" },
+            { "User Guide" = [
+                { "Overview" = "modules/intraday-orders/user-guide/overview.md" },
+                { "Parameters" = "modules/intraday-orders/user-guide/parameters.md" },
+                { "Input Objects" = "modules/intraday-orders/user-guide/input-objects.md" },
+                { "Results" = "modules/intraday-orders/user-guide/results.md" },
+            ]},
+        ]},
     ]},
     { "Developer Guide" = [
         { "Architecture" = [
@@ -90,6 +99,7 @@ nav = [
                 { "Market Clearing" = "modules/market-clearing/developer/architecture.md" },
                 { "Portfolio Optimisation" = "modules/portfolio-optimisation/developer/architecture.md" },
                 { "Intraday Price Forecast" = "modules/intraday-price-forecast/developer/architecture.md" },
+                { "Intraday Orders" = "modules/intraday-orders/developer/architecture.md" },
             ]},
         ]},
         { "Contributing" = [

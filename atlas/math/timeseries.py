@@ -568,15 +568,11 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
 
         if dt not in self.dataframe["time"]:
-            raise ValueError(f"Could not add value at {dt} because timestamp is not in the Timeseries")
+            raise ValueError(f"Could not set value at {dt} because timestamp is not in the Timeseries")
 
-        old_value = self.get_value(dt)
-        df = self.timeseries.filter(pl.col("time") != dt)
-        new_row = pl.DataFrame({"time": [dt], "value": [old_value + value]}).with_columns(
-            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
-            pl.col("value").cast(pl.Float64()),
+        df = self.timeseries.with_columns(
+            pl.when(pl.col("time") == dt).then(pl.col("value") + value).otherwise(pl.col("value")).alias("value")
         )
-        df = pl.concat([df, new_row])
 
         return self._return(df, inplace)
 
@@ -605,15 +601,11 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
 
         if dt not in self.dataframe["time"]:
-            raise ValueError(f"Could not add value at {dt} because timestamp is not in the Timeseries")
+            raise ValueError(f"Could not set value at {dt} because timestamp is not in the Timeseries")
 
-        old_value = self.get_value(dt)
-        df = self.timeseries.filter(pl.col("time") != dt)
-        new_row = pl.DataFrame({"time": [dt], "value": [old_value * value]}).with_columns(
-            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
-            pl.col("value").cast(pl.Float64()),
+        df = self.timeseries.with_columns(
+            pl.when(pl.col("time") == dt).then(pl.col("value") * value).otherwise(pl.col("value")).alias("value")
         )
-        df = pl.concat([df, new_row])
 
         return self._return(df, inplace)
 
