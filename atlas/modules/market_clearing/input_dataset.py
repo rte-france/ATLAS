@@ -4,13 +4,11 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import Any, cast
+from typing import cast
 
 import pendulum
-from pydantic import BaseModel
 
 from atlas.abstract_class.dataset import AbstractDataset
-from atlas.config import logger
 from atlas.enums import CouplingType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.market_clearing.input_objects.critical_branch import CriticalBranchMC
@@ -28,6 +26,23 @@ from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.timing import generate_datetimes
+
+# IDENTICAL_VOLUME, IDENTICAL_RATIO and COMPLEMENT couplings all link their orders' surplus the
+# same way in Pricing; only EXCLUSION and PARENT_CHILDREN set distinct flags.
+_LINKING_COUPLING_TYPES = (CouplingType.IDENTICAL_VOLUME, CouplingType.IDENTICAL_RATIO, CouplingType.COMPLEMENT)
+
+
+def _apply_coupling_flags(mc_order: OrderMC, order_coupling: OrderCouplingMC) -> None:
+    if order_coupling.coupling_type == CouplingType.EXCLUSION:
+        mc_order.requires_status_variable = True
+        mc_order.is_mutually_excluding = True
+    elif order_coupling.coupling_type in _LINKING_COUPLING_TYPES:
+        mc_order.is_linked = True
+        mc_order.link_id = order_coupling.name
+    elif order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
+        mc_order.is_in_parent_child_coupling = True
+        mc_order.requires_status_variable = True
+        mc_order.parent_child_id = order_coupling.name
 
 
 class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
@@ -70,7 +85,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         mc_critical_branches = {}
         for critical_branch in critical_branches:
             critical_branch_dump = {
-                **MarketClearingInputDataset.shallow_dump(critical_branch),
+                **dict(critical_branch),
                 "timestep": self.parameters.temporal.timestep,
                 "times": self.times,
             }
@@ -89,13 +104,13 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 if control_block.name in self.parameters.control_block_names
             ]
         # filter by the present market_area
+        present_control_block_names = {
+            mc_market_area.control_block.name for mc_market_area in self.mc_market_areas.values()
+        }
         control_blocks_mc = {}
         for control_block in control_blocks_to_keep:
-            for mc_market_area in self.mc_market_areas.values():
-                if control_block == mc_market_area.control_block:
-                    control_block_dump = MarketClearingInputDataset.shallow_dump(control_block)
-                    mc_control_block = ControlBlock.model_validate(control_block_dump)
-                    control_blocks_mc[control_block.name] = mc_control_block
+            if control_block.name in present_control_block_names:
+                control_blocks_mc[control_block.name] = ControlBlock.model_validate(dict(control_block))
         return control_blocks_mc
 
     def get_market_areas(
@@ -115,7 +130,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 if mc_order.market_area.name == market_area.name
             }
             market_area_dump = {
-                **MarketClearingInputDataset.shallow_dump(market_area),
+                **dict(market_area),
                 "timestep": self.parameters.temporal.timestep,
                 "times": self.times,
                 "mc_orders": market_area_orders,
@@ -128,59 +143,33 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
     def get_orders(self, orders: list[Order], order_couplings: dict[str, OrderCouplingMC]) -> dict[str, OrderMC]:
         mc_orders = {}
         for order in orders:
-            if OrderMC.is_feasible(order, self.times, self.parameters):
-                requires_status_variable = (
-                    True if order.qmin and order.qmin > self.parameters.allowed_round_off_error else False
-                )
-                order_dump = {
-                    **MarketClearingInputDataset.shallow_dump(order),
-                    "timestep": self.parameters.temporal.timestep,
-                    "requires_status_variable": requires_status_variable,
-                }
-                mc_order = OrderMC.model_validate(order_dump)
-                # Add time_index attribute -> use in pricing and output
-                time_index = None
-                for candidate_time_index, time in enumerate(self.times):
-                    if time == mc_order.start_date:
-                        time_index = candidate_time_index
-                        break
-                if time_index is None:
-                    logger.debug(f"Order {order.name} is ignored : The start date is not an optimization timestep.")
-                    continue
-                mc_order.time_index = time_index
-                mc_orders[order.name] = mc_order
+            if not OrderMC.is_feasible(order, self.times, self.parameters):
+                continue
+            requires_status_variable = (
+                True if order.qmin and order.qmin > self.parameters.allowed_round_off_error else False
+            )
+            order_dump = {
+                **dict(order),
+                "timestep": self.parameters.temporal.timestep,
+                "requires_status_variable": requires_status_variable,
+            }
+            mc_order = OrderMC.model_validate(order_dump)
+            # is_feasible already checked start_date is on the optimization grid, so it's always found:
+            mc_order.time_index = self.times.index(mc_order.start_date)
+            mc_orders[order.name] = mc_order
 
         for order_coupling in order_couplings.values():
             for order in order_coupling.orders:
                 if order.name not in mc_orders:
                     continue
-                mc_order = mc_orders[order.name]
-                if order_coupling.coupling_type == CouplingType.EXCLUSION:
-                    mc_order.requires_status_variable = True
-                    mc_order.is_mutually_excluding = True
-                if order_coupling.coupling_type == CouplingType.IDENTICAL_VOLUME:
-                    mc_order.is_linked = True
-                    mc_order.link_id = order_coupling.name
-                if order_coupling.coupling_type == CouplingType.IDENTICAL_RATIO:
-                    mc_order.is_linked = True
-                    mc_order.link_id = order_coupling.name
-                # Uncomment to enforce the PC constraint
-                if order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
-                    mc_order.is_in_parent_child_coupling = True
-                    mc_order.requires_status_variable = True
-                    mc_order.parent_child_id = order_coupling.name
-                if order_coupling.coupling_type == CouplingType.COMPLEMENT:
-                    mc_order.is_linked = True
-                    mc_order.link_id = order_coupling.name
-            if order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
-                if len(order_coupling.orders) > 0:
-                    order = order_coupling.orders[0]
-                    mc_orders[order.name].is_parent = True
-                    parent_ids = mc_orders[order.name].order_coupling_parent_ids
-                    if parent_ids is None:
-                        parent_ids = []
-                    parent_ids.append(order_coupling.name)
-                    mc_orders[order.name].order_coupling_parent_ids = parent_ids
+                _apply_coupling_flags(mc_orders[order.name], order_coupling)
+            if order_coupling.coupling_type == CouplingType.PARENT_CHILDREN and order_coupling.orders:
+                parent_order = order_coupling.orders[0]
+                mc_parent = mc_orders[parent_order.name]
+                mc_parent.is_parent = True
+                parent_ids = mc_parent.order_coupling_parent_ids or []
+                parent_ids.append(order_coupling.name)
+                mc_parent.order_coupling_parent_ids = parent_ids
 
         return mc_orders
 
@@ -188,7 +177,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         mc_order_couplings = {}
         for order_coupling in order_couplings:
             if self.is_order_coupling_feasible(order_coupling):
-                order_coupling_dump = MarketClearingInputDataset.shallow_dump(order_coupling)
+                order_coupling_dump = dict(order_coupling)
                 mc_order_coupling = OrderCouplingMC.model_validate(order_coupling_dump)
                 mc_order_couplings[order_coupling.name] = mc_order_coupling
         return mc_order_couplings
@@ -199,10 +188,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         order_names = [
             order.name for order in order_coupling.orders if OrderMC.is_feasible(order, self.times, self.parameters)
         ]
-        if len(order_names) < 2:
-            return False
-        else:
-            return True
+        return len(order_names) >= 2
 
     def get_market_borders(self, market_borders: list[MarketBorder]) -> dict[str, MarketBorderMC]:
         mc_market_borders = {}
@@ -219,7 +205,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 ):
                     continue
             market_border_dump = {
-                **MarketClearingInputDataset.shallow_dump(market_border),
+                **dict(market_border),
                 "timestep": self.parameters.temporal.timestep,
                 "times": self.times,
             }
@@ -231,17 +217,10 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         mc_market_area_ptdfs = {}
         for market_area_ptdf in market_area_ptdfs:
             market_area_ptdf_dump = {
-                **MarketClearingInputDataset.shallow_dump(market_area_ptdf),
+                **dict(market_area_ptdf),
                 "timestep": self.parameters.temporal.timestep,
                 "times": self.times,
             }
             mc_market_area_ptdf = MarketAreaPtdfMC.model_validate(market_area_ptdf_dump)
             mc_market_area_ptdfs[market_area_ptdf.name] = mc_market_area_ptdf
         return mc_market_area_ptdfs
-
-    @staticmethod
-    def shallow_dump(model: BaseModel) -> dict[str, Any]:
-        result = {}
-        for name, value in model.__dict__.items():
-            result[name] = value
-        return result
