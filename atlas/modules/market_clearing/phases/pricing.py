@@ -148,13 +148,13 @@ class Pricing(OptimisationModel):
         self.build_third_constraints(opposite_delta_p_dict)
         self.build_third_objective(opposite_delta_p_dict)
 
-    def build_third_variables(self, opposite_delta_p_dict: dict[int, float]):
+    def build_third_variables(self, opposite_delta_p_dict: dict[int, float | None]):
         """Create all variables for the third pricing phase model"""
         self.create_delta_price_lo_variables()
         self.create_delta_price_pc_variables(opposite_delta_p_dict)
         self.create_delta_price_order_variables()
 
-    def build_third_constraints(self, opposite_delta_p_dict: dict[int, float]):
+    def build_third_constraints(self, opposite_delta_p_dict: dict[int, float | None]):
         """Create all constraints for the third pricing phase model"""
         self.deactivate_positive_surplus_lo_constraints()
         self.deactivate_negative_surplus_pc_constraints()
@@ -164,7 +164,7 @@ class Pricing(OptimisationModel):
         self.create_paradoxical_delta_price_pc_constraints(opposite_delta_p_dict)
         self.create_paradoxical_delta_price_order_constraints()
 
-    def build_third_objective(self, opposite_delta_p_dict: dict[int, float]):
+    def build_third_objective(self, opposite_delta_p_dict: dict[int, float | None]):
         """Create objective function for the third pricing phase model"""
         self.create_paradoxical_lo_objective()
         self.create_paradoxical_pc_objective(opposite_delta_p_dict)
@@ -403,7 +403,7 @@ class Pricing(OptimisationModel):
             for critical_branch_name in self.input_dataset.mc_critical_branches:
                 shadow_price = self.get_variable(constants.shadow_price_variable_name(critical_branch_name, time_index))
                 saturated_critical_branch = self.saturated_critical_branch[critical_branch_name, time_index]
-                if saturated_critical_branch > 0.01:
+                if saturated_critical_branch > self.parameters.allowed_round_off_error:
                     self.add_constraint(
                         saturated_critical_branch * shadow_price == 0.0,
                         constants.shadow_price_constraint_name(critical_branch_name, time_index),
@@ -465,7 +465,7 @@ class Pricing(OptimisationModel):
                 branch_load = price - other_price
                 if self.parameters.fb_branch_load_slack_penalty:
                     positive_slack = self.get_variable(
-                        constants.negative_slack_branch_load_constraint_name(group_i.id, group_j.id, time_index)
+                        constants.positive_slack_branch_load_constraint_name(group_i.id, group_j.id, time_index)
                     )
                     negative_slack = self.get_variable(
                         constants.negative_slack_branch_load_constraint_name(group_i.id, group_j.id, time_index)
@@ -647,10 +647,10 @@ class Pricing(OptimisationModel):
         return self.add_objective(sum(objective))
 
     # Pricing 3
-    def create_opposite_delta_p(self) -> dict[int, float]:
-        opposite_delta_p_dict = {}
+    def create_opposite_delta_p(self) -> dict[int, float | None]:
+        opposite_delta_p_dict: dict[int, float | None] = {}
         for index_pc, (parent_orders, children_orders) in self.dict_parent_child_orders.items():
-            opposite_delta_p = 0.0
+            opposite_delta_p = None
             for order in parent_orders + children_orders:
                 mc_order = self.input_dataset.mc_orders[order.name]
                 time_index = mc_order.time_index
@@ -664,7 +664,8 @@ class Pricing(OptimisationModel):
 
                 # If order is accepted, add its delta P to the overall paradoxical delta P of this group of linked orders
                 if local_cleared_power > self.parameters.allowed_round_off_error:
-                    opposite_delta_p += coeff_sale * (mc_order.price - local_price)
+                    delta = coeff_sale * (mc_order.price - local_price)
+                    opposite_delta_p = delta if opposite_delta_p is None else opposite_delta_p + delta
             opposite_delta_p_dict[index_pc] = opposite_delta_p
         return opposite_delta_p_dict
 
@@ -672,9 +673,9 @@ class Pricing(OptimisationModel):
         for index_lo in self.dict_linked_orders:
             self.add_continuous_variable(constants.delta_p_lo(index_lo), 0, float("inf"))
 
-    def create_delta_price_pc_variables(self, opposite_delta_p_dict: dict[int, float]):
+    def create_delta_price_pc_variables(self, opposite_delta_p_dict: dict[int, float | None]):
         for index_pc in self.dict_parent_child_orders:
-            if not isinstance(opposite_delta_p_dict[index_pc], int):
+            if opposite_delta_p_dict[index_pc] is not None:
                 self.add_continuous_variable(constants.delta_p_pc(index_pc), 0, float("inf"))
 
     def create_delta_price_order_variables(self):
@@ -763,10 +764,10 @@ class Pricing(OptimisationModel):
             objective.append(self.parameters.paradoxically_accepted_penalty_M * delta_p)
         return self.add_objective(sum(objective))
 
-    def create_paradoxical_pc_objective(self, opposite_delta_p_dict: dict[int, float]):
+    def create_paradoxical_pc_objective(self, opposite_delta_p_dict: dict[int, float | None]):
         objective = []
         for index_pc in self.dict_parent_child_orders:
-            if not isinstance(opposite_delta_p_dict[index_pc], int):
+            if opposite_delta_p_dict[index_pc] is not None:
                 delta_p = self.get_variable(constants.delta_p_pc(index_pc))
                 objective.append(self.parameters.paradoxically_accepted_penalty_M * delta_p)
         return self.add_objective(sum(objective))
@@ -787,9 +788,9 @@ class Pricing(OptimisationModel):
                     objective.append(self.parameters.paradoxically_accepted_penalty_M * delta_p)
         return self.add_objective(sum(objective))
 
-    def create_paradoxical_delta_price_pc_constraints(self, opposite_delta_p_dict: dict[int, float]):
+    def create_paradoxical_delta_price_pc_constraints(self, opposite_delta_p_dict: dict[int, float | None]):
         for index_pc in self.dict_parent_child_orders:
-            if not isinstance(opposite_delta_p_dict[index_pc], int):
+            if opposite_delta_p_dict[index_pc] is not None:
                 paradoxical_delta_p = self.get_variable(constants.delta_p_pc(index_pc))
                 self.add_constraint(
                     paradoxical_delta_p >= opposite_delta_p_dict[index_pc],
@@ -1159,11 +1160,16 @@ class Pricing(OptimisationModel):
                 idr_idv_order_couplings,
             )
 
-            if mc_order.circular_pc_id is not None:
-                circularly_linked_bids.extend(self.dict_circular_children_bids[mc_order.circular_PC_id])
-                # This circular set has already been reassigned to a global linked set,
-                # we can delete it from the initial dictionary
-                del self.dict_circular_children_bids[mc_order.circular_pc_id]
+            for linked_order in linked_bids + block_idv_idr_bids:
+                linked_mc_order = self.input_dataset.mc_orders[linked_order.name]
+                if (
+                    linked_mc_order.circular_pc_id is not None
+                    and linked_mc_order.circular_pc_id in self.dict_circular_children_bids
+                ):
+                    circularly_linked_bids.extend(self.dict_circular_children_bids[linked_mc_order.circular_pc_id])
+                    # This circular set has already been reassigned to a global linked set,
+                    # we can delete it from the initial dictionary
+                    del self.dict_circular_children_bids[linked_mc_order.circular_pc_id]
 
             # Add circular parent-child orders and block identical volume (idv)
             #     and identical ratio (idr) orders

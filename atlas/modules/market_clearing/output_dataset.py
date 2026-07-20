@@ -506,7 +506,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
             new_forecast_obj.add(other, self.input_dataset.parameters.temporal.execution_date)
             return new_forecast_obj
         else:
-            if isinstance(forecast_obj, LazyTimeseries):
+            if isinstance(forecast_obj, LazyForecastingMatrix):
                 forecast_obj = forecast_obj.collect()
             forecast_obj.add(other, self.input_dataset.parameters.temporal.execution_date)
             return forecast_obj

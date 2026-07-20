@@ -325,11 +325,11 @@ class Clearing(OptimisationModel):
                 if exchange.Ub():
                     self.add_constraint(
                         nus * exchange.Ub() <= xsis,
-                        constants.constraint_3_6_1f_min_constraint_name(border_name, time_index),
+                        constants.constraint_3_6_1f_max_constraint_name(border_name, time_index),
                     )
                     self.add_constraint(
                         (1 - nus) * exchange.Ub() >= _export - xsis,
-                        constants.constraint_3_6_1g_min_constraint_name(border_name, time_index),
+                        constants.constraint_3_6_1g_max_constraint_name(border_name, time_index),
                     )
 
     def create_absolute_exchange_constraints(self):
@@ -574,14 +574,14 @@ class Clearing(OptimisationModel):
                 objective.append(border_pos_exchanges - border_neg_exchanges)
         return self.add_objective(-lambda2 * sum(objective))
 
-    def add_max_exchanges_objective(self, lambda4: float) -> dict:
+    def add_max_exchanges_objective(self, lambda3: float) -> dict:
         objective = {}
         constant = 0.0
         for time_index, _ in enumerate(self.input_dataset.times):
             for border_name in self.input_dataset.mc_market_borders.keys():
                 border_exchange = self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
-                objective[border_exchange] = lambda4
-                constant -= lambda4 * border_exchange.Lb()
+                objective[border_exchange] = lambda3
+                constant -= lambda3 * border_exchange.Lb()
         return objective
 
     def add_min_exchanges_objective(self, lambda4: float) -> dict:
