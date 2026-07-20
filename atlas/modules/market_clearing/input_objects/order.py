@@ -36,12 +36,8 @@ class OrderMC(Order):
     time_index: int | None = None
     is_in_parent_child_coupling: bool = False
     parent_child_id: str | None = None
-    full_link_id: int | None = None
-    full_pc_id: int | None = None
-    child_id: str | None = None
     is_parent: bool = False
     order_coupling_parent_ids: list[str] | None = None
-    circular_pc_id: int | None = None
 
     # Attributes from market clearing parameter
     timestep: Duration

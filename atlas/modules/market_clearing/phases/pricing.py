@@ -8,15 +8,14 @@ import json
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
-from atlas.enums import ComplementDirection, CouplingType, SolverStatus
+from atlas.enums import SolverStatus
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
 from atlas.modules.market_clearing.input_objects.market_border import MarketBorderMC
-from atlas.modules.market_clearing.input_objects.order_coupling import OrderCouplingMC
+from atlas.modules.market_clearing.order_links import OrderLinkResolver
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases._helpers import count_saturated, iter_group_pairs
 from atlas.modules.market_clearing.price_group import PriceGroup
-from atlas.objects.market.order import Order
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -41,9 +40,10 @@ class Pricing(OptimisationModel):
         self.clearing_local_balances = clearing_local_balances
         self.clearing_accepted_powers = clearing_accepted_powers
         self.price_groups = self.create_price_groups()
-        self.dict_circular_children_bids = self.get_circular_parent_child_sets()
-        self.dict_linked_orders = self.compute_linked_bids_sets()
-        self.dict_parent_child_orders = self.compute_parent_child_sets()
+        order_links = OrderLinkResolver(self.input_dataset.mc_orders, self.input_dataset.mc_order_couplings).resolve()
+        self.dict_linked_orders = order_links.linked_orders
+        self.dict_parent_child_orders = order_links.parent_child_orders
+        self._full_link_id_by_order = order_links.full_link_id_by_order
 
     def compute(self):
         self.build_first()
@@ -353,7 +353,7 @@ class Pricing(OptimisationModel):
 
     def create_pos_surplus_order_constraints(self):
         for mc_order in self.input_dataset.mc_orders.values():
-            if mc_order.full_link_id is None and mc_order.parent_child_id is None:
+            if mc_order.name not in self._full_link_id_by_order and mc_order.parent_child_id is None:
                 time_index = mc_order.time_index
 
                 local_price = self.get_variable(
@@ -373,7 +373,7 @@ class Pricing(OptimisationModel):
 
     def create_null_marginal_order_constraints(self):
         for mc_order in self.input_dataset.mc_orders.values():
-            if mc_order.full_link_id is None and mc_order.parent_child_id is None:
+            if mc_order.name not in self._full_link_id_by_order and mc_order.parent_child_id is None:
                 time_index = mc_order.time_index
 
                 local_price = self.get_variable(
@@ -589,7 +589,7 @@ class Pricing(OptimisationModel):
 
     def deactivate_null_marginal_order_constraint(self):
         for mc_order in self.input_dataset.mc_orders.values():
-            if mc_order.full_link_id is None and mc_order.parent_child_id is None:
+            if mc_order.name not in self._full_link_id_by_order and mc_order.parent_child_id is None:
                 time_index = mc_order.time_index
 
                 local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
@@ -680,7 +680,7 @@ class Pricing(OptimisationModel):
 
     def create_delta_price_order_variables(self):
         for mc_order in self.input_dataset.mc_orders.values():
-            if mc_order.full_link_id is None and mc_order.parent_child_id is None:
+            if mc_order.name not in self._full_link_id_by_order and mc_order.parent_child_id is None:
                 if mc_order.requires_status_variable is None or mc_order.parent_child_id is not None:
                     continue
                 time_index = mc_order.time_index
@@ -723,7 +723,7 @@ class Pricing(OptimisationModel):
 
     def deactivate_positive_surplus_order_constraints(self):
         for mc_order in self.input_dataset.mc_orders.values():
-            if mc_order.full_link_id is None and mc_order.parent_child_id is None:
+            if mc_order.name not in self._full_link_id_by_order and mc_order.parent_child_id is None:
                 if mc_order.requires_status_variable is not None and mc_order.parent_child_id is None:
                     local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
 
@@ -737,7 +737,7 @@ class Pricing(OptimisationModel):
 
     def create_paradoxical_delta_price_order_constraints(self):
         for mc_order in self.input_dataset.mc_orders.values():
-            if mc_order.full_link_id is None and mc_order.parent_child_id is None:
+            if mc_order.name not in self._full_link_id_by_order and mc_order.parent_child_id is None:
                 if mc_order.requires_status_variable is not None and mc_order.parent_child_id is None:
                     local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
                     if local_cleared_power > self.parameters.allowed_round_off_error:
@@ -775,7 +775,7 @@ class Pricing(OptimisationModel):
     def create_paradoxical_order_objective(self):
         objective = []
         for mc_order in self.input_dataset.mc_orders.values():
-            if mc_order.full_link_id is None and mc_order.parent_child_id is None:
+            if mc_order.name not in self._full_link_id_by_order and mc_order.parent_child_id is None:
                 if mc_order.requires_status_variable is None or mc_order.parent_child_id is not None:
                     continue
                 time_index = mc_order.time_index
@@ -1013,52 +1013,6 @@ class Pricing(OptimisationModel):
                         if mc_order.time_index == price_group.time_index:
                             mc_order.group_index = price_group.id
 
-    # Defines the global circular parent_child sets and stores them in a dictionary
-    def get_circular_parent_child_sets(self):
-        dict_circular_children_bids = {}
-        index_pc_t = 0
-
-        # Step 1 - Filling the dictionary with unique circular PC linked sets
-        for mc_order_coupling in self.input_dataset.mc_order_couplings.values():
-            if mc_order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
-                list_children = [mc_order_coupling.orders[0]]
-                circular_orders = self.get_circular_children(mc_order_coupling, list_children, [])
-                if len(circular_orders) > 1:
-                    if circular_orders not in dict_circular_children_bids.values():
-                        dict_circular_children_bids[index_pc_t] = circular_orders
-                        index_pc_t += 1
-
-        # Step 2 - Attributing this unique ID to each order present within a set
-        for index_pc_t, orders in dict_circular_children_bids.items():
-            for order in orders:
-                mc_order = self.input_dataset.mc_orders[order.name]
-                if mc_order.circular_pc_id is None:
-                    mc_order.circular_pc_id = index_pc_t
-
-        logger.debug(f"'Circular parent child bids sets are : {dict_circular_children_bids}")
-        return dict_circular_children_bids
-
-    # Recursively gets all the children from circular parent_child couplings
-    def get_circular_children(
-        self, mc_order_coupling: OrderCouplingMC, orders: list[Order], processed_order_couplings: list[str]
-    ):
-        parent_order, child_order = mc_order_coupling.orders[:2]
-        child_mc_order = self.input_dataset.mc_orders[child_order.name]
-        processed_order_couplings.append(mc_order_coupling.name)
-        order_coupling_parent_ids = child_mc_order.order_coupling_parent_ids
-
-        # A parent/child link is considered transitive when the child is also a parent elsewhere
-        if child_mc_order.is_parent and order_coupling_parent_ids:
-            orders.append(child_order)
-            for mc_order_coupling_name in order_coupling_parent_ids:
-                if mc_order_coupling_name not in processed_order_couplings:
-                    self.get_circular_children(mc_order_coupling, orders, processed_order_couplings)
-
-            return orders
-        # The child is not a parent, the transitive parent/child link stops here
-        else:
-            return orders
-
     def update_price_bound(self):
         for price_group_list in self.price_groups.values():
             for price_group in price_group_list:
@@ -1074,215 +1028,6 @@ class Pricing(OptimisationModel):
                 )
                 price_group_variable.SetLb(price_group.min_price)
                 price_group_variable.SetUb(price_group.max_price)
-
-    def get_idv_idr_block_sets_fast(
-        self,
-        order_coupling,
-        block_idv_idr_bids,
-        treated_order_couplings,
-        index_lo,
-        idr_idv_coupling_infos,
-        idr_idv_order_couplings,
-    ):
-        for order_name in idr_idv_coupling_infos[order_coupling.name]:
-            mc_order = self.input_dataset.mc_orders[order_name]
-            block_idv_idr_bids.append(mc_order)
-            mc_order.full_link_id = index_lo
-
-            if order_name in idr_idv_order_couplings:
-                for linked_order_coupling_name in idr_idv_order_couplings[order_name]:
-                    if linked_order_coupling_name in treated_order_couplings:
-                        continue
-                    treated_order_couplings.append(linked_order_coupling_name)
-                    linked_order_coupling = self.input_dataset.mc_order_couplings[linked_order_coupling_name]
-                    block_idv_idr_bids, treated_order_couplings = self.get_idv_idr_block_sets_fast(
-                        linked_order_coupling,
-                        block_idv_idr_bids,
-                        treated_order_couplings,
-                        index_lo,
-                        idr_idv_coupling_infos,
-                        idr_idv_order_couplings,
-                    )
-
-        return block_idv_idr_bids, treated_order_couplings
-
-    # Defining linked bids sets
-    # Finds global links between orders (including circular parent_child links), defines the resulting sets and stores
-    # them in a dictionary
-    def compute_linked_bids_sets(self):
-        dict_linked_bids = {}
-        index_lo = 0
-        treated_order_couplings = []
-
-        # FC: Improvement test for performance purposes
-        # Begin by creating two dicts:
-        # _ a dict containing, for each IDR or IDV coupling, associated order ids
-        # _ a dict containing, for each order, ids of all associated IDR or IDV couplings
-        complement_coupling_list = []
-        idr_idv_coupling_infos = {}
-        idr_idv_order_couplings = {}
-        for mc_order_coupling in self.input_dataset.mc_order_couplings.values():
-            if mc_order_coupling.coupling_type == CouplingType.COMPLEMENT:
-                complement_coupling_list.append(mc_order_coupling)
-                continue
-            elif not (
-                mc_order_coupling.coupling_type == CouplingType.IDENTICAL_VOLUME
-                or mc_order_coupling.coupling_type == CouplingType.IDENTICAL_RATIO
-            ):
-                continue
-
-            idr_idv_coupling_infos[mc_order_coupling.name] = []
-            for order in mc_order_coupling.orders:
-                mc_order = self.input_dataset.mc_orders[order.name]
-                idr_idv_coupling_infos[mc_order_coupling.name].append(order.name)
-                if order.name in idr_idv_order_couplings:
-                    idr_idv_order_couplings[order.name].append(mc_order_coupling.name)
-                else:
-                    idr_idv_order_couplings[order.name] = [mc_order_coupling.name]
-
-        for order_coupling_name in idr_idv_coupling_infos:
-            mc_order_coupling = self.input_dataset.mc_order_couplings[order_coupling_name]
-            # Check if we have already treated this order coupling
-            # (Could be the case in a idv or idr block)
-            if order_coupling_name in treated_order_couplings:
-                continue
-            treated_order_couplings.append(order_coupling_name)
-            linked_bids = mc_order_coupling.orders
-            circularly_linked_bids = []
-            block_idv_idr_bids = []
-            mc_order_coupling = self.input_dataset.mc_order_couplings[order_coupling_name]
-            block_idv_idr_bids, treated_order_couplings = self.get_idv_idr_block_sets_fast(
-                mc_order_coupling,
-                block_idv_idr_bids,
-                treated_order_couplings,
-                index_lo,
-                idr_idv_coupling_infos,
-                idr_idv_order_couplings,
-            )
-
-            for linked_order in linked_bids + block_idv_idr_bids:
-                linked_mc_order = self.input_dataset.mc_orders[linked_order.name]
-                if (
-                    linked_mc_order.circular_pc_id is not None
-                    and linked_mc_order.circular_pc_id in self.dict_circular_children_bids
-                ):
-                    circularly_linked_bids.extend(self.dict_circular_children_bids[linked_mc_order.circular_pc_id])
-                    # This circular set has already been reassigned to a global linked set,
-                    # we can delete it from the initial dictionary
-                    del self.dict_circular_children_bids[linked_mc_order.circular_pc_id]
-
-            # Add circular parent-child orders and block identical volume (idv)
-            #     and identical ratio (idr) orders
-            linked_bids.extend(circularly_linked_bids)
-            linked_bids.extend(block_idv_idr_bids)
-
-            order_names = list(dict.fromkeys(order.name for order in linked_bids))
-            dict_linked_bids[index_lo] = [self.input_dataset.mc_orders[order_name] for order_name in order_names]
-            index_lo += 1
-
-        for mc_order_coupling in complement_coupling_list:
-            list_order_direction = []
-            for order in mc_order_coupling.orders:
-                mc_order = self.input_dataset.mc_orders[order.name]
-                if mc_order.is_sale:
-                    list_order_direction.append(-1)
-                else:
-                    list_order_direction.append(1)
-            order_direction = list(set(list_order_direction))
-
-            if len(order_direction) > 1 or mc_order_coupling.complement_direction == ComplementDirection.EqualTo:
-                dict_linked_bids[index_lo] = mc_order_coupling.orders
-                index_lo += 1
-
-            if len(order_direction) == 1:
-                bool_is_buy = order_direction[0]
-                if bool_is_buy * mc_order_coupling.complement_energy >= 0:
-                    if bool_is_buy == -1 and mc_order_coupling.complement_direction == ComplementDirection.LesserThan:
-                        dict_linked_bids[index_lo] = mc_order_coupling.orders
-                        index_lo += 1
-                    if bool_is_buy == 1 and mc_order_coupling.complement_direction == ComplementDirection.GreaterThan:
-                        dict_linked_bids[index_lo] = mc_order_coupling.orders
-                        index_lo += 1
-
-        # Step 2 - Add the circular sets that have not yet been reassigned to a global LINK
-        if len(self.dict_circular_children_bids) > 0:
-            for index_pc_t in self.dict_circular_children_bids:
-                dict_linked_bids[index_lo] = list(self.dict_circular_children_bids[index_pc_t])
-                index_lo += 1
-
-        # Step 3 - Instantiating full_link_id on concerned orders
-        for index_lo in dict_linked_bids:
-            for order in dict_linked_bids[index_lo]:
-                mc_order = self.input_dataset.mc_orders[order.name]
-                if mc_order.full_link_id is None:
-                    mc_order.full_link_id = index_lo
-        logger.debug("Dict linked bids before instantiating parent_child links : ")
-        for key, values in dict_linked_bids.items():
-            logger.debug(f"{key} : {values}")
-
-        return dict_linked_bids
-
-    # Defining global parent_child sets
-    # Gets all the children from a parent set containing several parent orders
-    def get_children(self, parent_orders: list[Order]) -> list[Order]:
-        list_children = []
-        for order in parent_orders:
-            mc_order = self.input_dataset.mc_orders[order.name]
-            for mc_order_coupling in self.input_dataset.mc_order_couplings.values():
-                if mc_order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
-                    market_area_name = self.input_dataset.mc_orders[mc_order_coupling.orders[0].name].market_area.name
-                    if mc_order.market_area.name == market_area_name and order.name == mc_order_coupling.orders[0].name:
-                        if mc_order_coupling.orders[1] not in parent_orders:
-                            list_children.append(mc_order_coupling.orders[1])
-        return list_children
-
-    # Finds global parent_child links between orders (including the links between parents to merge them as a single parent),
-    # defines the resulting sets and stores them in a dictionary
-    def compute_parent_child_sets(self):
-        dict_parent_child_orders = {}
-        index_pc = 0
-        for mc_order_coupling in self.input_dataset.mc_order_couplings.values():
-            if mc_order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
-                parent_order, child_order = mc_order_coupling.orders[:2]
-                parent_mc_order = self.input_dataset.mc_orders[parent_order.name]
-
-                # Check if the parent is linked to other bids to consider them as parent as well
-                if parent_mc_order.full_link_id is not None:
-                    if parent_mc_order.full_link_id in self.dict_linked_orders:
-                        parent_link_orders = self.dict_linked_orders[parent_mc_order.full_link_id]
-                        child_orders = self.get_children(parent_link_orders)
-                        dict_parent_child_orders[index_pc] = (parent_link_orders, child_orders)
-                        # The initial parent set is removed from global linked sets
-                        # as it is now part of a global parent/child link
-                        self.dict_linked_orders.pop(parent_mc_order.full_link_id)
-                    else:
-                        # One parent has already been browsed and enabled to gather all the parent orders into one set
-                        continue
-                else:
-                    parent_orders = [parent_order]
-                    dict_parent_child_orders[index_pc] = (parent_orders, [child_order])
-                index_pc += 1
-
-        for index_pc in dict_parent_child_orders:
-            parent_orders = dict_parent_child_orders[index_pc][0]
-            children_orders = dict_parent_child_orders[index_pc][1]
-            for order in parent_orders:
-                mc_order = self.input_dataset.mc_orders[order.name]
-                if mc_order.full_pc_id is None:
-                    mc_order.full_pc_id = index_pc
-            id_child = 0
-            for order in children_orders:
-                mc_order = self.input_dataset.mc_orders[order.name]
-                if mc_order.full_pc_id is None:
-                    mc_order.full_pc_id = index_pc
-                if mc_order.child_id is None:
-                    mc_order.child_id = str(id_child)
-                    id_child += 1
-
-        logger.debug(f"Final linked bids dict : {self.dict_linked_orders}")
-        logger.debug(f"Final parent_child bids dict : {dict_parent_child_orders}")
-
-        return dict_parent_child_orders
 
     def compute_min_max_rejected_sale_buy(self):
         for time_index, price_groups in self.price_groups.items():
