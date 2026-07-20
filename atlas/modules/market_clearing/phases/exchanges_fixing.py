@@ -8,7 +8,7 @@ import json
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases import _border_variables
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
@@ -40,7 +40,7 @@ class ExchangesFixing:
 
     def build_variables(self):
         """Create all variables for the exchange fixing phase model"""
-        is_atc = self.input_dataset.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
+        is_atc = self.input_dataset.is_atc
         self.create_border_exchange_variables(is_atc)
         self.create_border_pos_exchanges_variables(is_atc)
         self.create_border_neg_exchanges_variables(is_atc)
@@ -53,7 +53,7 @@ class ExchangesFixing:
 
     def build_constraints(self, clearing_local_balances: dict[tuple[str, int], float]):
         """Create all constraints for the exchange fixing phase model"""
-        is_atc = self.input_dataset.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
+        is_atc = self.input_dataset.is_atc
         self.create_exchanges_constraints(is_atc, clearing_local_balances)
         self.create_absolute_timed_exchanges_constraints(is_atc)
         if is_atc and self.get_n_borders_with_losses():

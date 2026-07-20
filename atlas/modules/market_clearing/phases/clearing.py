@@ -15,7 +15,7 @@ from atlas.modules.market_clearing.input_dataset import MarketClearingInputDatas
 from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
 from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.input_objects.order_coupling import OrderCouplingMC
-from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases import _border_variables
 from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.solver.models import SolverOptions
@@ -75,7 +75,7 @@ class Clearing:
 
     def build_variables(self):
         """Create all variables for the clearing phase model"""
-        is_atc = self.input_dataset.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
+        is_atc = self.input_dataset.is_atc
         self.create_border_exchange_variables(is_atc)
         if self.input_dataset.parameters.flow_penalty_lambda_2 != 0.0:
             self.create_border_pos_exchanges_variables(is_atc)
@@ -93,7 +93,7 @@ class Clearing:
 
     def build_constraints(self):
         """Create all constraints for the clearing phase model"""
-        is_atc = self.input_dataset.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
+        is_atc = self.input_dataset.is_atc
         self.create_limited_accepted_power_constraints()
         self.create_order_couplings_constraints()
         self.create_local_balances_constraints()
@@ -115,7 +115,7 @@ class Clearing:
         self.add_accepted_powers_objective(self.parameters.price_modifier_lambda_1)
         if self.parameters.flow_penalty_lambda_2 != 0.0:
             self.add_global_exchanges_objective(self.parameters.flow_penalty_lambda_2)
-        if self.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC:
+        if self.input_dataset.is_atc:
             exchange_objective_dict = {}
             if self.parameters.flow_penalty_lambda_3 != 0.0:
                 for key, value in self.build_max_exchange_coefficients(self.parameters.flow_penalty_lambda_3).items():
