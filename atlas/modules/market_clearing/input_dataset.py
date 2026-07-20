@@ -129,11 +129,13 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         mc_orders = {}
         for order in orders:
             if OrderMC.is_feasible(order, self.times, self.parameters):
-                id_with_status = True if order.qmin and order.qmin > self.parameters.allowed_round_off_error else False
+                requires_status_variable = (
+                    True if order.qmin and order.qmin > self.parameters.allowed_round_off_error else False
+                )
                 order_dump = {
                     **MarketClearingInputDataset.shallow_dump(order),
                     "timestep": self.parameters.temporal.timestep,
-                    "id_with_status": id_with_status,
+                    "requires_status_variable": requires_status_variable,
                 }
                 mc_order = OrderMC.model_validate(order_dump)
                 # Add time_index attribute -> use in pricing and output
@@ -154,7 +156,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                     continue
                 mc_order = mc_orders[order.name]
                 if order_coupling.coupling_type == CouplingType.EXCLUSION:
-                    mc_order.id_with_status = True
+                    mc_order.requires_status_variable = True
                     mc_order.is_mutually_excluding = True
                 if order_coupling.coupling_type == CouplingType.IDENTICAL_VOLUME:
                     mc_order.is_linked = True
@@ -164,8 +166,8 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                     mc_order.link_id = order_coupling.name
                 # Uncomment to enforce the PC constraint
                 if order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
-                    mc_order.is_parent_children = True
-                    mc_order.id_with_status = True
+                    mc_order.is_in_parent_child_coupling = True
+                    mc_order.requires_status_variable = True
                     mc_order.parent_child_id = order_coupling.name
                 if order_coupling.coupling_type == CouplingType.COMPLEMENT:
                     mc_order.is_linked = True

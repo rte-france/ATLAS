@@ -59,15 +59,12 @@ class Clearing(OptimisationModel):
             output_path.mkdir(parents=True, exist_ok=True)
             self.export_model(str(output_path / "clearing_model.lp"))
             with open(output_path / "clearing_accepted_powers.json", "w") as f:
-                json.dump([[ma, o, val] for (ma, o), val in self.retrieve_accepted_powers().items()], f)
+                json.dump([[ma, o, val] for (ma, o), val in self.get_accepted_powers().items()], f)
             with open(output_path / "clearing_local_balances.json", "w") as f:
-                json.dump([[ma, t, val] for (ma, t), val in self.retrieve_local_balances().items()], f)
+                json.dump([[ma, t, val] for (ma, t), val in self.get_local_balances().items()], f)
             with open(output_path / "clearing_saturated_critical_branches.json", "w") as f:
                 json.dump(
-                    [
-                        [cb, time_index, val]
-                        for (cb, time_index), val in self.retrieve_saturated_critical_branch().items()
-                    ],
+                    [[cb, time_index, val] for (cb, time_index), val in self.get_saturated_critical_branch().items()],
                     f,
                 )
 
@@ -121,10 +118,10 @@ class Clearing(OptimisationModel):
         if self.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC:
             exchange_objective_dict = {}
             if self.parameters.flow_penalty_lambda_3 != 0.0:
-                for key, value in self.add_max_exchanges_objective(self.parameters.flow_penalty_lambda_3).items():
+                for key, value in self.build_max_exchange_coefficients(self.parameters.flow_penalty_lambda_3).items():
                     exchange_objective_dict[key.name()] = value
             if self.parameters.flow_penalty_lambda_4 != 0.0:
-                for key, value in self.add_min_exchanges_objective(self.parameters.flow_penalty_lambda_4).items():
+                for key, value in self.build_min_exchange_coefficients(self.parameters.flow_penalty_lambda_4).items():
                     if key.name() not in exchange_objective_dict:
                         exchange_objective_dict[key.name()] = value
                     else:
@@ -189,7 +186,7 @@ class Clearing(OptimisationModel):
         for mc_market_area in self.input_dataset.mc_market_areas.values():
             for mc_order in mc_market_area.mc_orders.values():
                 mc_order = self.input_dataset.mc_orders[mc_order.name]
-                if mc_order.id_with_status:
+                if mc_order.requires_status_variable:
                     self.add_boolean_variable(constants.order_status_variable_name(mc_market_area.name, mc_order.name))
 
     ##################################
@@ -302,11 +299,12 @@ class Clearing(OptimisationModel):
                     constants.constraint_3_6_1b_constraint_name(border_name, time_index),
                 )
 
-                tmp_rhs = ((1.0 - mc_border.loss_factor) - 1.0 / (1.0 - mc_border.loss_factor)) * xsis + _export / (
-                    1.0 - mc_border.loss_factor
-                )
+                import_after_losses = (
+                    (1.0 - mc_border.loss_factor) - 1.0 / (1.0 - mc_border.loss_factor)
+                ) * xsis + _export / (1.0 - mc_border.loss_factor)
                 self.add_constraint(
-                    _import == tmp_rhs, constants.constraint_3_6_1c_constraint_name(border_name, time_index)
+                    _import == import_after_losses,
+                    constants.constraint_3_6_1c_constraint_name(border_name, time_index),
                 )
                 self.add_constraint(
                     xsis >= 0.5 * _export, constants.constraint_3_6_1d_constraint_name(border_name, time_index)
@@ -370,7 +368,7 @@ class Clearing(OptimisationModel):
             for mc_order in mc_market_area.mc_orders.values():
                 # Compute the constraints limiting the accepted powers of combined,
                 # indivisible and/or mutually excluding orders and linked orders (3.4):
-                if mc_order.id_with_status:
+                if mc_order.requires_status_variable:
                     order_status = self.get_variable(
                         constants.order_status_variable_name(mc_market_area.name, mc_order.name)
                     )
@@ -574,24 +572,24 @@ class Clearing(OptimisationModel):
                 objective.append(border_pos_exchanges - border_neg_exchanges)
         return self.add_objective(-lambda2 * sum(objective))
 
-    def add_max_exchanges_objective(self, lambda3: float) -> dict:
+    def build_max_exchange_coefficients(self, penalty: float) -> dict:
         objective = {}
         constant = 0.0
         for time_index, _ in enumerate(self.input_dataset.times):
             for border_name in self.input_dataset.mc_market_borders.keys():
                 border_exchange = self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
-                objective[border_exchange] = lambda3
-                constant -= lambda3 * border_exchange.Lb()
+                objective[border_exchange] = penalty
+                constant -= penalty * border_exchange.Lb()
         return objective
 
-    def add_min_exchanges_objective(self, lambda4: float) -> dict:
+    def build_min_exchange_coefficients(self, penalty: float) -> dict:
         objective = {}
         constant = 0.0
         for time_index, _ in enumerate(self.input_dataset.times):
             for border_name in self.input_dataset.mc_market_borders.keys():
                 border_exchange = self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
-                objective[border_exchange] = -lambda4
-                constant += lambda4 * border_exchange.Lb()
+                objective[border_exchange] = -penalty
+                constant += penalty * border_exchange.Lb()
         return objective
 
     def get_tso_sold_power(self, time: int, control_block: ControlBlock):
@@ -635,7 +633,7 @@ class Clearing(OptimisationModel):
                 n_borders_with_losses += 1
         return n_borders_with_losses
 
-    def retrieve_local_balances(self) -> dict[tuple[str, int], float]:
+    def get_local_balances(self) -> dict[tuple[str, int], float]:
         """Retrieve the power balance for each market area at each timestep
 
         :rtype: dict[tuple[str, str], float]
@@ -647,7 +645,7 @@ class Clearing(OptimisationModel):
                 local_balances[market_area_name, time_index] = self.get_variable(accepted_power_name).solution_value()
         return local_balances
 
-    def retrieve_accepted_powers(self) -> dict[tuple[str, str], float]:
+    def get_accepted_powers(self) -> dict[tuple[str, str], float]:
         """Retrieve the accepted powers of each order per area
 
         :rtype: dict[tuple[str, str], float]
@@ -661,7 +659,7 @@ class Clearing(OptimisationModel):
                 ).solution_value()
         return accepted_powers
 
-    def retrieve_saturated_critical_branch(self) -> dict[tuple[str, int], float]:
+    def get_saturated_critical_branch(self) -> dict[tuple[str, int], float]:
         """Retrieve the slack value of each critical branch at each timestep
 
         :rtype: dict[tuple[str, int], float]

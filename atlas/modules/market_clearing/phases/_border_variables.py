@@ -28,9 +28,9 @@ class _BorderVariableModel(Protocol):
 
 def create_border_exchange_variables(model: _BorderVariableModel, is_atc: bool) -> None:
     for border_name, mc_border in model.input_dataset.mc_market_borders.items():
-        for time_index, _time in enumerate(model.input_dataset.times):
-            relative_max_flow = mc_border.max_flow.get_value(_time) if is_atc else float("inf")
-            relative_min_flow = mc_border.min_flow.get_value(_time) if is_atc else float("-inf")
+        for time_index, time in enumerate(model.input_dataset.times):
+            relative_max_flow = mc_border.max_flow.get_value(time) if is_atc else float("inf")
+            relative_min_flow = mc_border.min_flow.get_value(time) if is_atc else float("-inf")
             model.add_continuous_variable(
                 constants.border_exchange_variable_name(border_name, time_index),
                 relative_min_flow,
@@ -40,8 +40,8 @@ def create_border_exchange_variables(model: _BorderVariableModel, is_atc: bool) 
 
 def create_border_pos_exchanges_variables(model: _BorderVariableModel, is_atc: bool) -> None:
     for border_name, mc_border in model.input_dataset.mc_market_borders.items():
-        for time_index, _time in enumerate(model.input_dataset.times):
-            relative_max_flow = mc_border.max_flow.get_value(_time) if is_atc else DEFAULT_MAX_FLOW
+        for time_index, time in enumerate(model.input_dataset.times):
+            relative_max_flow = mc_border.max_flow.get_value(time) if is_atc else DEFAULT_MAX_FLOW
             model.add_continuous_variable(
                 constants.border_pos_exchange_variable_name(border_name, time_index), 0.0, relative_max_flow
             )
@@ -49,8 +49,8 @@ def create_border_pos_exchanges_variables(model: _BorderVariableModel, is_atc: b
 
 def create_border_neg_exchanges_variables(model: _BorderVariableModel, is_atc: bool) -> None:
     for border_name, mc_border in model.input_dataset.mc_market_borders.items():
-        for time_index, _time in enumerate(model.input_dataset.times):
-            relative_min_flow = mc_border.min_flow.get_value(_time) if is_atc else DEFAULT_MIN_FLOW
+        for time_index, time in enumerate(model.input_dataset.times):
+            relative_min_flow = mc_border.min_flow.get_value(time) if is_atc else DEFAULT_MIN_FLOW
             model.add_continuous_variable(
                 constants.border_neg_exchange_variable_name(border_name, time_index), relative_min_flow, 0.0
             )

@@ -2,6 +2,18 @@
 See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
+
+Abbreviations used throughout this file's identifiers and the LP names they generate:
+
+- lo: linked orders (an IDENTICAL_VOLUME/IDENTICAL_RATIO/COMPLEMENT/circular-PC group)
+- pc: parent-child (an order coupling of type PARENT_CHILDREN)
+- idv / idr: identical volume / identical ratio (order coupling types)
+- compl: complement (the COMPLEMENT order coupling type)
+- qo: quantity of an order (its accepted power)
+- rej: rejected
+- mkt: market
+- o_n / g_n: order name / (order coupling) group name
+- xsis / nus: xi / nu, the auxiliary variables from the loss-factor formulation in the spec
 """
 
 import pendulum
@@ -34,7 +46,7 @@ def accepted_power_variable_name(market_area_name: str, order_name: str) -> str:
 
 
 def order_status_variable_name(market_area_name: str, order_name: str) -> str:
-    return f"stats_{market_area_name}_{order_name}"
+    return f"status_{market_area_name}_{order_name}"
 
 
 def border_import_variable_name(border_name: str, time_index: int) -> str:
@@ -231,11 +243,11 @@ def absolute_price_group_constraint_name(id: int, time: pendulum.DateTime) -> st
     return f"Price_pos_neg_group_{id}_t_{time.format('DD_MM_YYYY_HH_mm_ss')}"
 
 
-def positive_slack_branch_load_constraint_name(id: int, other_id: int, time_index: int) -> str:
+def positive_slack_branch_load_variable_name(id: int, other_id: int, time_index: int) -> str:
     return f"Pos_slack_branch_load_btw_{id}_{other_id}_at_{time_index}"
 
 
-def negative_slack_branch_load_constraint_name(id: int, other_id: int, time_index: int) -> str:
+def negative_slack_branch_load_variable_name(id: int, other_id: int, time_index: int) -> str:
     return f"Neg_slack_branch_load_btw_{id}_{other_id}_at_{time_index}"
 
 

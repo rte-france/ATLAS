@@ -28,13 +28,13 @@ class OrderMC(Order):
     qmin: float
 
     # Attributes that will be set later (while creating coupling groups):
-    id_with_status: bool = False
+    requires_status_variable: bool = False
     is_mutually_excluding: bool = False
     is_linked: bool = False
     link_id: str | None = None
     group_index: int | None = None
     time_index: int | None = None
-    is_parent_children: bool = False
+    is_in_parent_child_coupling: bool = False
     parent_child_id: str | None = None
     full_link_id: int | None = None
     full_pc_id: int | None = None
@@ -69,10 +69,6 @@ class OrderMC(Order):
     @cached_property
     def end_date_processed(self) -> DateTime:
         return self.start_date + self.duration
-
-    @cached_property
-    def end_datetime(self) -> DateTime:
-        return self.end_date_processed
 
     @staticmethod
     def is_feasible(order: Order, times: list[pendulum.DateTime], parameters: MarketClearingParameters) -> bool:

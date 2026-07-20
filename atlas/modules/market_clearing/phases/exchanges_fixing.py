@@ -31,9 +31,7 @@ class ExchangesFixing(OptimisationModel):
             self.export_model(str(output_path / "exchanges_fixing_model.lp"))
 
             with open(output_path / "exchanges_fixing_border_exchanges.json", "w") as f:
-                json.dump(
-                    [[b, time_index, val] for (b, time_index), val in self.retrieve_border_exchanges().items()], f
-                )
+                json.dump([[b, time_index, val] for (b, time_index), val in self.get_border_exchanges().items()], f)
 
     def build(self, clearing_local_balances: dict[tuple[str, int], float]):
         self.build_variables()
@@ -188,12 +186,12 @@ class ExchangesFixing(OptimisationModel):
                     )
 
     def create_borders_constraints(self):
-        for time_index, _time in enumerate(self.input_dataset.times):
+        for time_index, time in enumerate(self.input_dataset.times):
             for border_name, mc_border in self.input_dataset.mc_market_borders.items():
                 if mc_border.loss_factor <= 0.0:
                     continue
-                relative_max_flow = mc_border.max_flow.get_value(_time)
-                relative_min_flow = mc_border.min_flow.get_value(_time)
+                relative_max_flow = mc_border.max_flow.get_value(time)
+                relative_min_flow = mc_border.min_flow.get_value(time)
                 timed_export = self.get_variable(constants.border_export_variable_name(border_name, time_index))
                 timed_import = self.get_variable(constants.border_import_variable_name(border_name, time_index))
                 timed_xsis = self.get_variable(constants.border_xsis_variable_name(border_name, time_index))
@@ -208,11 +206,12 @@ class ExchangesFixing(OptimisationModel):
                     constants.constraint_4_4a_max_constraint_name(border_name, time_index),
                 )
 
-                tmp_rhs = (
+                import_after_losses = (
                     (1.0 - mc_border.loss_factor) - 1.0 / (1.0 - mc_border.loss_factor)
                 ) * timed_xsis + timed_export / (1.0 - mc_border.loss_factor)
                 self.add_constraint(
-                    timed_import >= tmp_rhs, constants.constraint_4_3a_constraint_name(border_name, time_index)
+                    timed_import >= import_after_losses,
+                    constants.constraint_4_3a_constraint_name(border_name, time_index),
                 )
 
                 self.add_constraint(
@@ -240,7 +239,7 @@ class ExchangesFixing(OptimisationModel):
                 n_borders_with_losses += 1
         return n_borders_with_losses
 
-    def retrieve_border_exchanges(self) -> dict[tuple[str, int], float]:
+    def get_border_exchanges(self) -> dict[tuple[str, int], float]:
         """
         :rtype: dict[tuple[str, str], float]
         """
