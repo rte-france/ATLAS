@@ -13,9 +13,9 @@ import os
 import shutil
 import tempfile
 from concurrent.futures import ProcessPoolExecutor
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, get_args
+from typing import Any, cast, get_args
 
 import h5py  # type: ignore[import-untyped]
 import numpy as np
@@ -525,7 +525,7 @@ class PrometheusToAtlasDataParser:
             DataFrame with regular frequency
         """
         times = df["TimeStep"]
-        min_delta = times.sort().diff().drop_nulls().min()
+        min_delta = cast(timedelta, times.sort().diff().drop_nulls().min())
         timestep = pendulum.duration(seconds=int(min_delta.total_seconds()))
         return df.upsample(time_column="TimeStep", every=timestep).fill_null(strategy="forward").sort("TimeStep")
 

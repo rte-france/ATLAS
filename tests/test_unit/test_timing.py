@@ -8,7 +8,6 @@ from atlas.timing import (
     build_datetime,
     datetime_to_pendulum,
     generate_datetimes,
-    get_most_frequent_timestep,
     infer_frequency,
     parse_frequency,
     pendulum_to_datetime,
