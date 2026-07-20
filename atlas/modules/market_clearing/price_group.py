@@ -12,3 +12,5 @@ class PriceGroup:
         self.market_area_names: list[str] = []
         self.max_price = float("inf")
         self.min_price = -float("inf")
+        self.min_rejected_sale = float("inf")
+        self.max_rejected_buy = -float("inf")

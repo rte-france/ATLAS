@@ -21,7 +21,6 @@ class ExchangesFixing(OptimisationModel):
         super().__init__(parameters.solver.solver_name, options=solver_options, name="ExchangesFixing")
         self.input_dataset = input_dataset
         self.parameters = parameters
-        self.exchange_fixing = None
 
     def compute(self, clearing_local_balances: dict[tuple[str, int], float]):
         self.build(clearing_local_balances)
@@ -63,7 +62,7 @@ class ExchangesFixing(OptimisationModel):
             self.create_borders_constraints()
 
     def build_objective(self):
-        """Create objective function for the clearing phase model"""
+        """Create objective function for the exchanges fixing phase model"""
         objective = []
         for border_name in self.input_dataset.mc_market_borders.keys():
             for time_index, _time in enumerate(self.input_dataset.times):
@@ -259,27 +258,6 @@ class ExchangesFixing(OptimisationModel):
                     (1 - timed_nus) * relative_max_flow >= timed_export - timed_xsis,
                     constants.constraint_4_3e_max_constraint_name(border_name, time_index),
                 )
-
-    def create_borders_exchanges_constraints(self):
-        for time_index, _time in enumerate(self.input_dataset.times):
-            for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-                if mc_border.time_resolution > self.parameters.temporal.timestep:
-                    time_elapsed = _time - self.parameters.temporal.start_date
-                    # % and / have same precedence => parsed left to right
-                    res_offset = (
-                        time_elapsed.minutes
-                        % mc_border.time_resolution
-                        / self.parameters.temporal.timestep.total_minutes()
-                    )
-                    if res_offset != 0:
-                        precedent_time_index = res_offset * self.parameters.temporal.timestep.total_minutes()
-                        self.add_constraint(
-                            self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
-                            == self.get_variable(
-                                constants.border_exchange_variable_name(border_name, precedent_time_index)
-                            ),
-                            constants.border_exchanges_constraint_name(border_name, time_index),
-                        )
 
     def get_n_borders_with_losses(self):
         n_borders_with_losses = 0
