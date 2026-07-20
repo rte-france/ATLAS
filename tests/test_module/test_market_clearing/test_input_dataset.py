@@ -11,7 +11,7 @@ from collections import Counter
 
 from atlas.enums import CouplingType
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.input_objects.market_area import get_max_price, get_min_price
+from atlas.modules.market_clearing.input_objects.market_area import INITIAL_MAX_PRICE, INITIAL_MIN_PRICE
 from atlas.modules.market_clearing.input_objects.market_border import get_max_flow, get_min_flow
 
 
@@ -49,7 +49,13 @@ class TestMarketAreas:
     def test_price_bounds_are_consistent_over_horizon(self, input_dataset: MarketClearingInputDataset) -> None:
         for market_area in input_dataset.mc_market_areas.values():
             for time in input_dataset.times:
-                assert get_max_price(market_area, time) > get_min_price(market_area, time)
+                max_price = (
+                    market_area.maximum_price.get_value(time) if market_area.maximum_price else INITIAL_MAX_PRICE
+                )
+                min_price = (
+                    market_area.minimum_price.get_value(time) if market_area.minimum_price else INITIAL_MIN_PRICE
+                )
+                assert max_price > min_price
 
 
 class TestOrders:

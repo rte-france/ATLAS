@@ -14,7 +14,7 @@ import math
 import pytest
 
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.input_objects.market_area import get_max_price, get_min_price
+from atlas.modules.market_clearing.input_objects.market_area import INITIAL_MAX_PRICE, INITIAL_MIN_PRICE
 from atlas.modules.market_clearing.input_objects.market_border import get_max_flow, get_min_flow
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
 from tests.utils import load_threshold_for_module
@@ -104,8 +104,10 @@ class TestOutputValues:
         for (area_name, time_index), price in output_dataset[0].market_prices.items():
             market_area = input_dataset.mc_market_areas[area_name]
             time = input_dataset.times[time_index]
-            assert price <= get_max_price(market_area, time) + tolerance
-            assert price >= get_min_price(market_area, time) - tolerance
+            max_price = market_area.maximum_price.get_value(time) if market_area.maximum_price else INITIAL_MAX_PRICE
+            min_price = market_area.minimum_price.get_value(time) if market_area.minimum_price else INITIAL_MIN_PRICE
+            assert price <= max_price + tolerance
+            assert price >= min_price - tolerance
 
 
 class TestChangeSets:

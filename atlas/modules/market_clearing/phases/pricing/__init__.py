@@ -9,7 +9,7 @@ import json
 import atlas.modules.market_clearing.constants as constants
 from atlas.enums import SolverStatus
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC, get_max_price, get_min_price
+from atlas.modules.market_clearing.input_objects.market_area import INITIAL_MAX_PRICE, INITIAL_MIN_PRICE, MarketAreaMC
 from atlas.modules.market_clearing.input_objects.market_border import MarketBorderMC, get_max_flow, get_min_flow
 from atlas.modules.market_clearing.order_links import OrderLinkResolver
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
@@ -232,8 +232,12 @@ class Pricing:
             time = self.input_dataset.times[price_group.time_index]
             mc_market_area = self.input_dataset.mc_market_areas[market_area_name]
             # Initialize the local bounds on order prices:
-            max_accepted_sale_price = max_rejected_purchase_price = get_min_price(mc_market_area, time)
-            min_rejected_sale_price = min_accepted_purchase_price = get_max_price(mc_market_area, time)
+            max_accepted_sale_price = max_rejected_purchase_price = (
+                mc_market_area.minimum_price.get_value(time) if mc_market_area.minimum_price else INITIAL_MIN_PRICE
+            )
+            min_rejected_sale_price = min_accepted_purchase_price = (
+                mc_market_area.maximum_price.get_value(time) if mc_market_area.maximum_price else INITIAL_MAX_PRICE
+            )
 
             # Select orders involved during the current time step (generator):
             current_orders = (
