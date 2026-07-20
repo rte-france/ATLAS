@@ -30,7 +30,7 @@ from atlas.config import DEFAULT_VALUE_IO, logger
 from atlas.enums import BusinessModelName, CouplingType, StorageType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.utils import to_snake_case
-from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
+from atlas.timing import pendulum_to_datetime
 from atlas.type import get_class_inheritance_chain, get_type_attribute
 
 # Constants
@@ -516,7 +516,7 @@ class PrometheusToAtlasDataParser:
     def _ensure_regular_frequency(self, df: pl.DataFrame) -> pl.DataFrame:
         """Ensure the DataFrame has a regular time frequency.
 
-        If frequency is irregular, upsample to most frequent timestep and forward fill.
+        If frequency is irregular, find the minimum timestep
 
         Args:
             df: DataFrame with TimeStep column
@@ -524,13 +524,10 @@ class PrometheusToAtlasDataParser:
         Returns:
             DataFrame with regular frequency
         """
-        try:
-            infer_frequency(df.rename({"TimeStep": "time"}))
-            return df
-        except ValueError:
-            logger.debug("Irregular frequency detected, upsampling to most frequent timestep")
-            timestep = get_most_frequent_timestep(df.rename({"TimeStep": "time"}))
-            return df.upsample(time_column="TimeStep", every=timestep).fill_null(strategy="forward").sort("TimeStep")
+        times = df["TimeStep"]
+        min_delta = times.sort().diff().drop_nulls().min()
+        timestep = pendulum.duration(seconds=int(min_delta.total_seconds()))
+        return df.upsample(time_column="TimeStep", every=timestep).fill_null(strategy="forward").sort("TimeStep")
 
     def _write_matrix_parquet(
         self,
