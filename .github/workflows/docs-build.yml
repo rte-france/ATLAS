@@ -27,4 +27,4 @@ jobs:
         run: uv sync --group docs --no-dev
 
       - name: Build documentation website
-        run: uv run zensical build
+        run: uv run zensical build --config-file zensical.toml

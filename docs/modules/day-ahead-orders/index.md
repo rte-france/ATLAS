@@ -2,7 +2,7 @@
 
 ## Overview
 
-Computes all market orders based on equipment in the input dataset, including load, non-dispatchable, storage, hydraulic, wind, solar, and thermal orders.
+Creates all market orders for the Day-Ahead market, for all equipments in the input dataset (including load, non-dispatchable, storage, hydraulic, wind, solar, and thermal orders). The order formulation at the portfolio level is currently not implemented in Atlas.
 
 ## Quick Start
 
@@ -32,6 +32,7 @@ See [Running Modules](../running-modules.md) for execution details.
 ### User Guide
 - [Overview](user-guide/overview.md): Module-specific introduction
 - [Parameters](user-guide/parameters.md): Module-specific parameters
+- [Input Objects](user-guide/input-objects.md): Required input data and attributes
 - [Results](user-guide/results.md): Accessing outputs
 
 ### Common Documentation

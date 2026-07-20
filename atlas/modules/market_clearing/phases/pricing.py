@@ -1125,7 +1125,9 @@ class Pricing(OptimisationModel):
             orders.append(child_order)
             for mc_order_coupling_name in order_coupling_parent_ids:
                 if mc_order_coupling_name not in processed_order_couplings:
-                    self.get_circular_children(mc_order_coupling, orders, processed_order_couplings)
+                    self.get_circular_children(
+                        self.input_dataset.mc_order_couplings[mc_order_coupling_name], orders, processed_order_couplings
+                    )
 
             return orders
         # The child is not a parent, the transitive parent/child link stops here

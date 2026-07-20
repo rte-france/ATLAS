@@ -81,7 +81,7 @@ The `attribute` column acts as a filter — filtering by `attribute == "availabi
 | 2024-01-01 00:00:00 | inflows | 125.3 | 98.7 | 156.2 |
 | 2024-01-01 01:00:00 | inflows | 128.1 | 102.4 | 159.8 |
 
-**forecasting_matrix/**: Forecast data with multiple forecast horizons. Each column is an execution date.
+**forecasting_matrix/**: Forecast data with multiple forecast horizons. Each column is indexed by an execution date, i.e. the date at which the information contained in the column is revealed to market actors.
 
 | time | attribute | 2026-01-01 00:00:00 | 2026-01-01 01:00:00 |
 |------|-----------|---------------------|---------------------|
@@ -226,9 +226,11 @@ node_fr      = dataset.node.get("node_fr")
 portfolio_fr = dataset.portfolio.get("generator_fr")
 
 # Build inflows timeseries
-index  = pd.date_range("2024-01-01", periods=8760, freq="h", tz="UTC")
-values = [120.0] * 8760  # constant 120 MWh/h inflows (example)
-inflows_ts = Timeseries.from_values(index=index, values=values, name="inflows")
+inflows_ts = Timeseries.from_values(
+    start_date="2024-01-01 00:00:00",
+    frequency="1h"
+    values=[120.0] * 8760 ,# constant 120 MWh/h inflows (example)
+    timezone="UTC")
 
 hydro = Hydro(
     name="fr_mountain_hydro",
@@ -255,8 +257,11 @@ dataset = AtlasDataset.from_directory("data/atlas-dataset/")
 node_de      = dataset.node.get("node_de")
 portfolio_de = dataset.portfolio.get("generator_de")
 
-index        = pd.date_range("2024-01-01", periods=8760, freq="h", tz="UTC")
-availability = Timeseries.from_values(index=index, values=np.random.uniform(0, 1, 8760).tolist(), name="availability")
+availability = Timeseries.from_values(
+    start_date="2024-01-01 00:00:00",
+    frequency="1h"
+    values=np.random.uniform(0, 1, 8760).tolist(),
+    timezone="UTC")
 
 wind_farm = Wind(
     name="de_offshore_wind",

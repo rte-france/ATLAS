@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Generator, Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Generic, Literal, Self, TypeVar
+from typing import Any, Literal, Self
 
 import pandas as pd
 import pendulum
@@ -24,10 +24,8 @@ from pydantic_core import core_schema
 
 from atlas.timing import build_datetime, generate_datetimes, get_duration
 
-TBackend = TypeVar("TBackend", pl.DataFrame, pl.LazyFrame)
 
-
-class AbstractTimeseries(ABC, Generic[TBackend]):
+class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
     """
     Abstract base class for Timeseries implementations.
 
@@ -108,8 +106,11 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         :return: A Timeseries object with the specified parameters
         :rtype: Self
         """
-        if len(values) < 2:
-            raise ValueError("Timeseries must contains at least 2 values")
+        if len(values) == 0:
+            raise ValueError("Timeseries must contains at least 1 value")
+
+        if len(values) == 1:
+            values = [values[0], values[0]]
 
         start = build_datetime(start_date, date_format).in_tz(timezone)
         end = build_datetime(start + (len(values) - 1) * get_duration(frequency)).in_tz(timezone)
@@ -751,7 +752,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         ...
 
     @abstractmethod
-    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
+    def iter_rows(self) -> Generator[tuple[datetime, float]]:
         """
         Iterate over rows of the Timeseries, yielding (time, value) tuples.
 

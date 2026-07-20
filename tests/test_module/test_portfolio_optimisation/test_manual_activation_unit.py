@@ -33,7 +33,6 @@ from atlas.modules.portfolio_optimisation.utils.manual_activation import (
     should_manually_activate,
 )
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 

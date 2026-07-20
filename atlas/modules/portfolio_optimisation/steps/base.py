@@ -7,16 +7,14 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
     from atlas.solver.solver_interface import OptimisationModel
 
-T = TypeVar("T")
 
-
-class AbstractOptimStep(ABC, Generic[T]):
+class AbstractOptimStep[T](ABC):
     def __init__(self, equipment: T):
         self.equipment = equipment
 

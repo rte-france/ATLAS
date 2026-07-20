@@ -107,6 +107,7 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
         timezone: str = "UTC",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
+        drop_null_columns: bool = False,
     ) -> LazyScenarioMatrix:
         """
         Load a LazyScenarioMatrix from a file.
@@ -114,10 +115,14 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
         :param file_path: Path to the file
         :param separator: CSV separator (if applicable)
         :param timezone: Timezone to apply
+        :param drop_null_columns: If True, drop columns that are entirely null once ``filters``
+            is applied. Files stacking several attributes in the same table can leave columns
+            that only belonged to another attribute, all-null after filtering.
+        :type drop_null_columns: bool
         :return: LazyScenarioMatrix instance
         """
 
-        return cls(scan_data_file(file_path, filters, separator), timezone)
+        return cls(scan_data_file(file_path, filters, separator, drop_null_columns=drop_null_columns), timezone)
 
     def get_matrix(self) -> pl.LazyFrame:
         """Return internal lazy frame."""

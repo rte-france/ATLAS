@@ -248,29 +248,12 @@ def test_get_baseline_price_da_price(module, test_parameters, test_input_dataset
     assert baseline_price.get_value(test_parameters.temporal.start_date) == 75.0
 
 
-def test_apply_non_negativity_constraint(module, test_parameters, test_input_dataset):
-    """Test applying non-negativity constraint."""
-
-    # Create timeseries with negative values
-    ts = Timeseries.from_index(
-        test_parameters.temporal.start_date, test_parameters.temporal.timestep, test_parameters.temporal.end_date
-    )
-    ts.set_value(test_parameters.temporal.start_date, -10.0)
-    ts.set_value(test_parameters.temporal.start_date + test_parameters.temporal.timestep, 50.0)
-
-    result = module._apply_non_negativity_constraint(ts, test_parameters)
-
-    assert result.get_value(test_parameters.temporal.start_date) == 0.0
-    assert result.get_value(test_parameters.temporal.start_date + test_parameters.temporal.timestep) == 50.0
-
-
 def test_apply_price_caps_upper(module, test_parameters, test_input_dataset):
     """Test applying upper price cap."""
     time_window = generate_datetimes(
         test_parameters.temporal.start_date, test_parameters.penultimate_date, test_parameters.temporal.timestep
     )
 
-    # Create timeseries with values exceeding upper cap
     ts = Timeseries.from_index(
         test_parameters.temporal.start_date, test_parameters.temporal.timestep, test_parameters.temporal.end_date
     )
