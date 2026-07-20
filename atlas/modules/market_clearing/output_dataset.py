@@ -12,6 +12,7 @@ from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatr
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
+from atlas.modules.market_clearing.input_objects.market_area import get_ref_balance
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
 from atlas.objects.market.critical_branch import CriticalBranch
 from atlas.objects.market.market_area import MarketArea
@@ -430,7 +431,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
             for time_index, time in enumerate(self.input_dataset.times):
                 relative_balances[market_area_name, time_index] = self.local_balances[
                     market_area_name, time_index
-                ] - mc_market_area.ref_balance.get_value(time)
+                ] - get_ref_balance(mc_market_area, time)
 
         for mc_critical_branch in self.input_dataset.mc_critical_branches.values():
             updated_values = {"name": mc_critical_branch.name}

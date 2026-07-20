@@ -5,11 +5,7 @@ This file is part of the ATLAS project.
 """
 
 import pendulum
-from pendulum import Duration
 
-from atlas.config import logger
-from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.math.timeseries import Timeseries
 from atlas.objects.market.market_border import MarketBorder
 
 # Static definition of default bounds on exchanges (can be changed at will):
@@ -18,55 +14,20 @@ DEFAULT_MIN_FLOW = -10000.0
 
 
 class MarketBorderMC(MarketBorder):
-    # Attributes from market clearing parameter
-    timestep: Duration
-    times: list[pendulum.DateTime]
-
-    @property
-    def max_flow(self) -> AbstractTimeseries:
-        if self.maximum_flow:
-            max_flow = self.maximum_flow.set_frequency(self.timestep, False).filter(self.times)
-        else:
-            max_flow = Timeseries.from_index(self.times[0], self.timestep, self.times[-1], DEFAULT_MAX_FLOW)
-        if self.ref_flow:
-            max_flow -= self.ref_flow
-        return max_flow
-
-    @property
-    def min_flow(self) -> AbstractTimeseries:
-        if self.minimum_flow:
-            min_flow = self.minimum_flow.set_frequency(self.timestep, False).filter(self.times)
-        else:
-            min_flow = Timeseries.from_index(self.times[0], self.timestep, self.times[-1], DEFAULT_MIN_FLOW)
-        if self.ref_flow:
-            min_flow -= self.ref_flow
-        return min_flow
-
-    @property
-    def ref_flow(self) -> AbstractTimeseries | None:
-        if self.reference_flow:
-            return self.reference_flow.set_frequency(self.timestep, False).filter(self.times)
-        return None
-
     @property
     def has_loss_factor(self) -> bool:
         return True if self.loss_factor > 0 else False
 
-    @property
-    def resolution_time(self) -> int:
-        timestep = self.timestep.total_minutes()
-        time_resolution = self.time_resolution if self.time_resolution else timestep
-        # Check and adapt if needed the time resolution:
-        if self.time_resolution < timestep:
-            time_resolution = timestep
-            logger.info(
-                f"The time resolution of the border {self.name} has had to be adapted to the time step (it was smaller)."
-            )
-        else:
-            n_timesteps, rest = divmod(time_resolution, timestep)
-            if rest != 0.0:
-                time_resolution = (n_timesteps + round(rest)) * timestep
-                logger.info(
-                    f"The time resolution of the border {self.name} has had to be rounded according to the time step."
-                )
-        return int(time_resolution)
+
+def get_max_flow(mc_border: MarketBorderMC, time: pendulum.DateTime) -> float:
+    max_flow = mc_border.maximum_flow.get_value(time) if mc_border.maximum_flow else DEFAULT_MAX_FLOW
+    if mc_border.reference_flow:
+        max_flow -= mc_border.reference_flow.get_value(time)
+    return max_flow
+
+
+def get_min_flow(mc_border: MarketBorderMC, time: pendulum.DateTime) -> float:
+    min_flow = mc_border.minimum_flow.get_value(time) if mc_border.minimum_flow else DEFAULT_MIN_FLOW
+    if mc_border.reference_flow:
+        min_flow -= mc_border.reference_flow.get_value(time)
+    return min_flow

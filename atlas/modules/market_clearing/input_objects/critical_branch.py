@@ -5,39 +5,20 @@ This file is part of the ATLAS project.
 """
 
 import pendulum
-from pendulum import Duration
 
-from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.objects.market.critical_branch import CriticalBranch
 
 
 class CriticalBranchMC(CriticalBranch):
-    # Attributes from market clearing parameter
-    timestep: Duration
-    times: list[pendulum.DateTime]
+    pass
 
-    @property
-    def flow_margin(self) -> AbstractTimeseries | None:
-        if self.flow_reliability_margin:
-            return self.flow_reliability_margin.set_frequency(self.timestep, False).filter(self.times)
-        else:
-            return None
 
-    @property
-    def ref_flow(self) -> AbstractTimeseries | None:
-        if self.reference_flow:
-            return self.reference_flow.set_frequency(self.timestep, False).filter(self.times)
-        else:
-            return None
-
-    @property
-    def max_flow(self) -> AbstractTimeseries | None:
-        if self.maximum_flow:
-            max_flow = self.maximum_flow.set_frequency(self.timestep, False).filter(self.times)
-            if self.flow_margin is not None:
-                max_flow -= self.flow_margin
-            if self.ref_flow is not None:
-                max_flow -= self.ref_flow
-            return max_flow
-        else:
-            return None
+def get_max_flow(mc_critical_branch: CriticalBranchMC, time: pendulum.DateTime) -> float | None:
+    if not mc_critical_branch.maximum_flow:
+        return None
+    max_flow = mc_critical_branch.maximum_flow.get_value(time)
+    if mc_critical_branch.flow_reliability_margin:
+        max_flow -= mc_critical_branch.flow_reliability_margin.get_value(time)
+    if mc_critical_branch.reference_flow:
+        max_flow -= mc_critical_branch.reference_flow.get_value(time)
+    return max_flow

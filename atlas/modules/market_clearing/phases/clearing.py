@@ -12,7 +12,8 @@ import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
 from atlas.enums import ComplementDirection, CouplingType, OrderType
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
+from atlas.modules.market_clearing.input_objects.critical_branch import get_max_flow as get_critical_branch_max_flow
+from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC, get_ref_balance
 from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.input_objects.order_coupling import OrderCouplingMC
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
@@ -357,15 +358,15 @@ class Clearing:
                 branch_load = []
                 for market_area_ptdf in mc_critical_branch.market_area_ptdf:
                     mc_market_area_ptdf = self.input_dataset.mc_market_area_ptdfs[market_area_ptdf.name]
-                    da_ptdf = mc_market_area_ptdf.day_ahead_ptdf
+                    da_ptdf = mc_market_area_ptdf.da_ptdf
                     mc_market_area = self.input_dataset.mc_market_areas[mc_market_area_ptdf.market_area.name]
                     relative_balance = self.model.get_variable(
                         constants.local_balance_variable_name(mc_market_area.name, time_index)
-                    ) - mc_market_area.ref_balance.get_value(time)
+                    ) - get_ref_balance(mc_market_area, time)
 
                     branch_load.append(da_ptdf.get_value(time) * relative_balance)
                 self.model.add_constraint(
-                    sum(branch_load) <= mc_critical_branch.max_flow.get_value(time),
+                    sum(branch_load) <= get_critical_branch_max_flow(mc_critical_branch, time),
                     constants.constraint_3_6_2_constraint_name(critical_branch_name, time_index),
                 )
 

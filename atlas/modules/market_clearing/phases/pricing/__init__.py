@@ -9,8 +9,8 @@ import json
 import atlas.modules.market_clearing.constants as constants
 from atlas.enums import SolverStatus
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
-from atlas.modules.market_clearing.input_objects.market_border import MarketBorderMC
+from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC, get_max_price, get_min_price
+from atlas.modules.market_clearing.input_objects.market_border import MarketBorderMC, get_max_flow, get_min_flow
 from atlas.modules.market_clearing.order_links import OrderLinkResolver
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases._helpers import count_saturated
@@ -123,8 +123,8 @@ class Pricing:
                 continue
             flow = self.clearing_border_exchanges[mc_border.name, time_index]
             time = self.input_dataset.times[time_index]
-            relative_max_flow = mc_border.max_flow.get_value(time)
-            relative_min_flow = mc_border.min_flow.get_value(time)
+            relative_max_flow = get_max_flow(mc_border, time)
+            relative_min_flow = get_min_flow(mc_border, time)
             if (
                 relative_min_flow + self.parameters.allowed_round_off_error
                 <= flow
@@ -232,8 +232,8 @@ class Pricing:
             time = self.input_dataset.times[price_group.time_index]
             mc_market_area = self.input_dataset.mc_market_areas[market_area_name]
             # Initialize the local bounds on order prices:
-            max_accepted_sale_price = max_rejected_purchase_price = mc_market_area.min_price.get_value(time)
-            min_rejected_sale_price = min_accepted_purchase_price = mc_market_area.max_price.get_value(time)
+            max_accepted_sale_price = max_rejected_purchase_price = get_min_price(mc_market_area, time)
+            min_rejected_sale_price = min_accepted_purchase_price = get_max_price(mc_market_area, time)
 
             # Select orders involved during the current time step (generator):
             current_orders = (

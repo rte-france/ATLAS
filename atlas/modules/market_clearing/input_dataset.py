@@ -80,18 +80,10 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
             self.mc_market_area_ptdfs = {}
 
     def get_critical_branches(self, critical_branches: list[CriticalBranch]) -> dict[str, CriticalBranchMC]:
-        if not critical_branches:
-            return {}
-        mc_critical_branches = {}
-        for critical_branch in critical_branches:
-            critical_branch_dump = {
-                **dict(critical_branch),
-                "timestep": self.parameters.temporal.timestep,
-                "times": self.times,
-            }
-            mc_critical_branch = CriticalBranchMC.model_validate(critical_branch_dump)
-            mc_critical_branches[critical_branch.name] = mc_critical_branch
-        return mc_critical_branches
+        return {
+            critical_branch.name: CriticalBranchMC.model_validate(dict(critical_branch))
+            for critical_branch in critical_branches
+        }
 
     def get_control_blocks(self, control_blocks: list[ControlBlock]) -> dict[str, ControlBlock]:
         # filter by the parameters control_block_names
@@ -129,12 +121,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 for order_name, mc_order in mc_orders.items()
                 if mc_order.market_area.name == market_area.name
             }
-            market_area_dump = {
-                **dict(market_area),
-                "timestep": self.parameters.temporal.timestep,
-                "times": self.times,
-                "mc_orders": market_area_orders,
-            }
+            market_area_dump = {**dict(market_area), "mc_orders": market_area_orders}
             mc_market_area = MarketAreaMC.model_validate(market_area_dump)
             mc_market_areas[market_area.name] = mc_market_area
 
@@ -204,23 +191,12 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                     or market_border.downhill_market_area.name not in self.parameters.market_area_names
                 ):
                     continue
-            market_border_dump = {
-                **dict(market_border),
-                "timestep": self.parameters.temporal.timestep,
-                "times": self.times,
-            }
-            mc_market_border = MarketBorderMC.model_validate(market_border_dump)
+            mc_market_border = MarketBorderMC.model_validate(dict(market_border))
             mc_market_borders[market_border.name] = mc_market_border
         return mc_market_borders
 
     def get_market_area_ptdfs(self, market_area_ptdfs: list[MarketAreaPtdf]) -> dict[str, MarketAreaPtdfMC]:
-        mc_market_area_ptdfs = {}
-        for market_area_ptdf in market_area_ptdfs:
-            market_area_ptdf_dump = {
-                **dict(market_area_ptdf),
-                "timestep": self.parameters.temporal.timestep,
-                "times": self.times,
-            }
-            mc_market_area_ptdf = MarketAreaPtdfMC.model_validate(market_area_ptdf_dump)
-            mc_market_area_ptdfs[market_area_ptdf.name] = mc_market_area_ptdf
-        return mc_market_area_ptdfs
+        return {
+            market_area_ptdf.name: MarketAreaPtdfMC.model_validate(dict(market_area_ptdf))
+            for market_area_ptdf in market_area_ptdfs
+        }

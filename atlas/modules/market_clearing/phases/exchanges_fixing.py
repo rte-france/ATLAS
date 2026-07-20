@@ -8,6 +8,7 @@ import json
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
+from atlas.modules.market_clearing.input_objects.market_border import get_max_flow, get_min_flow
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases import _border_variables
 from atlas.solver.models import SolverOptions
@@ -196,8 +197,8 @@ class ExchangesFixing:
             for border_name, mc_border in self.input_dataset.mc_market_borders.items():
                 if mc_border.loss_factor <= 0.0:
                     continue
-                relative_max_flow = mc_border.max_flow.get_value(time)
-                relative_min_flow = mc_border.min_flow.get_value(time)
+                relative_max_flow = get_max_flow(mc_border, time)
+                relative_min_flow = get_min_flow(mc_border, time)
                 timed_export = self.model.get_variable(constants.border_export_variable_name(border_name, time_index))
                 timed_import = self.model.get_variable(constants.border_import_variable_name(border_name, time_index))
                 timed_xsis = self.model.get_variable(constants.border_xsis_variable_name(border_name, time_index))

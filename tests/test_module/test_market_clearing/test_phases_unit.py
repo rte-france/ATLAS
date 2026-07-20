@@ -255,15 +255,13 @@ class TestCreatePriceGroups:
         return Timeseries.from_index(time, ONE_HOUR, time, value)
 
     def _build_network(self, times, ab_flow, bc_flow, max_flow=100.0):
-        area_a = make_market_area("ma_a", ONE_HOUR, times)
-        area_b = make_market_area("ma_b", ONE_HOUR, times)
-        area_c = make_market_area("ma_c", ONE_HOUR, times)
+        area_a = make_market_area("ma_a")
+        area_b = make_market_area("ma_b")
+        area_c = make_market_area("ma_c")
         border_ab = make_market_border(
             "ab",
             area_a,
             area_b,
-            ONE_HOUR,
-            times,
             maximum_flow=self._bounded_flow(times[0], max_flow),
             minimum_flow=self._bounded_flow(times[0], -max_flow),
         )
@@ -271,8 +269,6 @@ class TestCreatePriceGroups:
             "bc",
             area_b,
             area_c,
-            ONE_HOUR,
-            times,
             maximum_flow=self._bounded_flow(times[0], max_flow),
             minimum_flow=self._bounded_flow(times[0], -max_flow),
         )
@@ -336,11 +332,11 @@ class TestCreatePriceGroups:
 
 class TestIsNeighbour:
     def _network(self, times):
-        area_a = make_market_area("ma_a", ONE_HOUR, times)
-        area_b = make_market_area("ma_b", ONE_HOUR, times)
-        area_c = make_market_area("ma_c", ONE_HOUR, times)
-        border_ab = make_market_border("ab", area_a, area_b, ONE_HOUR, times)
-        border_bc = make_market_border("bc", area_b, area_c, ONE_HOUR, times)
+        area_a = make_market_area("ma_a")
+        area_b = make_market_area("ma_b")
+        area_c = make_market_area("ma_c")
+        border_ab = make_market_border("ab", area_a, area_b)
+        border_bc = make_market_border("bc", area_b, area_c)
         return _FakeInputDataset(
             times=times,
             mc_market_areas={"ma_a": area_a, "ma_b": area_b, "ma_c": area_c},
@@ -382,7 +378,7 @@ class TestOrderLinkResolverLinkedBids:
 
     def test_identical_volume_orders_land_in_the_same_linked_set(self, parameters: MarketClearingParameters) -> None:
         times = [parameters.temporal.start_date]
-        area = make_market_area("ma_a", ONE_HOUR, times)
+        area = make_market_area("ma_a")
         order_1 = make_order("o1", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR, is_linked=True)
         order_2 = make_order("o2", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR, is_linked=True)
         coupling = make_order_coupling("idv_1", CouplingType.IDENTICAL_VOLUME, [order_1, order_2])
@@ -403,7 +399,7 @@ class TestOrderLinkResolverLinkedBids:
         `_get_circular_children`.
         """
         times = [parameters.temporal.start_date]
-        area = make_market_area("ma_a", ONE_HOUR, times)
+        area = make_market_area("ma_a")
         order_1 = make_order("o1", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR, is_linked=True)
         order_2 = make_order("o2", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR, is_linked=True)
         circular_child = make_order("circular_child", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR)
@@ -427,7 +423,7 @@ class TestOrderLinkResolverParentChild:
 
     def test_non_circular_parent_child_link_is_not_flagged_circular(self, parameters: MarketClearingParameters) -> None:
         times = [parameters.temporal.start_date]
-        area = make_market_area("ma_a", ONE_HOUR, times)
+        area = make_market_area("ma_a")
         parent = make_order("parent", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR, is_parent=True)
         child = make_order("child", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR)
         coupling = make_order_coupling("pc_1", CouplingType.PARENT_CHILDREN, [parent, child])
@@ -438,7 +434,7 @@ class TestOrderLinkResolverParentChild:
 
     def test_parent_and_child_are_assigned_the_same_full_pc_id(self, parameters: MarketClearingParameters) -> None:
         times = [parameters.temporal.start_date]
-        area = make_market_area("ma_a", ONE_HOUR, times)
+        area = make_market_area("ma_a")
         parent = make_order("parent", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR, is_parent=True)
         child = make_order("child", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR)
         coupling = make_order_coupling("pc_1", CouplingType.PARENT_CHILDREN, [parent, child])
@@ -463,7 +459,7 @@ class TestMarginalFixingUpdateAcceptedPower:
         self, parameters: MarketClearingParameters
     ) -> None:
         times = [parameters.temporal.start_date]
-        area = make_market_area("ma_a", ONE_HOUR, times)
+        area = make_market_area("ma_a")
         spot_price = 50.0
         sell = make_order(
             "sell",
@@ -501,7 +497,7 @@ class TestMarginalFixingUpdateAcceptedPower:
 
     def test_orders_off_the_spot_price_are_ignored(self, parameters: MarketClearingParameters) -> None:
         times = [parameters.temporal.start_date]
-        area = make_market_area("ma_a", ONE_HOUR, times)
+        area = make_market_area("ma_a")
         spot_price = 50.0
         off_price_sell = make_order(
             "sell",
@@ -535,7 +531,7 @@ class TestCreateOppositeDeltaP:
 
     def _build_parent_child_pricing(self, parameters, accepted_powers):
         times = [parameters.temporal.start_date]
-        area = make_market_area("ma_a", ONE_HOUR, times)
+        area = make_market_area("ma_a")
         parent = make_order(
             "parent",
             area,

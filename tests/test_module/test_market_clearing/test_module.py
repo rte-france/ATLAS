@@ -14,6 +14,8 @@ import math
 import pytest
 
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
+from atlas.modules.market_clearing.input_objects.market_area import get_max_price, get_min_price
+from atlas.modules.market_clearing.input_objects.market_border import get_max_flow, get_min_flow
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
 from tests.utils import load_threshold_for_module
 
@@ -90,8 +92,8 @@ class TestOutputValues:
         for (border_name, time_index), exchange in output_dataset[0].border_exchanges.items():
             border = input_dataset.mc_market_borders[border_name]
             time = input_dataset.times[time_index]
-            assert exchange <= border.max_flow.get_value(time) + tolerance
-            assert exchange >= border.min_flow.get_value(time) - tolerance
+            assert exchange <= get_max_flow(border, time) + tolerance
+            assert exchange >= get_min_flow(border, time) - tolerance
 
     def test_market_prices_within_area_price_bounds(
         self,
@@ -102,8 +104,8 @@ class TestOutputValues:
         for (area_name, time_index), price in output_dataset[0].market_prices.items():
             market_area = input_dataset.mc_market_areas[area_name]
             time = input_dataset.times[time_index]
-            assert price <= market_area.max_price.get_value(time) + tolerance
-            assert price >= market_area.min_price.get_value(time) - tolerance
+            assert price <= get_max_price(market_area, time) + tolerance
+            assert price >= get_min_price(market_area, time) - tolerance
 
 
 class TestChangeSets:

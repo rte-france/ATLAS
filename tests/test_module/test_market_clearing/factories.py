@@ -30,8 +30,6 @@ def make_plain_market_area(name: str, control_block: ControlBlock | None = None)
 
 def make_market_area(
     name: str,
-    timestep: Duration,
-    times: list[DateTime],
     control_block: ControlBlock | None = None,
     mc_orders: dict[str, OrderMC] | None = None,
     **overrides,
@@ -40,8 +38,6 @@ def make_market_area(
         name=name,
         control_block=control_block or make_control_block(f"cb_{name}"),
         mc_orders=mc_orders or {},
-        timestep=timestep,
-        times=times,
         **overrides,
     )
 
@@ -50,8 +46,6 @@ def make_market_border(
     name: str,
     uphill_market_area: MarketAreaMC,
     downhill_market_area: MarketAreaMC,
-    timestep: Duration,
-    times: list[DateTime],
     **overrides,
 ) -> MarketBorderMC:
     return MarketBorderMC(
@@ -60,8 +54,6 @@ def make_market_border(
         downhill_market_area=downhill_market_area,
         uphill_control_block=uphill_market_area.control_block,
         downhill_control_block=downhill_market_area.control_block,
-        timestep=timestep,
-        times=times,
         **overrides,
     )
 

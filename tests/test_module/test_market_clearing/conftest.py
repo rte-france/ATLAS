@@ -43,12 +43,10 @@ def parameters(market_clearing_module: MarketClearingModule, lp_export_dir: Path
 
 
 @pytest.fixture(scope="session")
-def atlas_data(parameters: MarketClearingParameters) -> AtlasDataset:
+def atlas_data() -> AtlasDataset:
     if not INPUT_DATASET_DIR.exists():
         pytest.skip(f"Market clearing input dataset not found: {INPUT_DATASET_DIR}")
-    data = AtlasDataset.from_directory(INPUT_DATASET_DIR)
-    data.set_frequency_all(parameters.temporal.timestep, inplace=True)
-    return data
+    return AtlasDataset.from_directory(INPUT_DATASET_DIR)
 
 
 @pytest.fixture(scope="session")
@@ -93,12 +91,10 @@ def parameters_id(market_clearing_module: MarketClearingModule, lp_export_id_dir
 
 
 @pytest.fixture(scope="session")
-def atlas_data_id(parameters: MarketClearingParameters) -> AtlasDataset:
+def atlas_data_id() -> AtlasDataset:
     if not INPUT_DATASET_ID_DIR.exists():
         pytest.skip(f"Market clearing input dataset not found: {INPUT_DATASET_ID_DIR}")
-    data = AtlasDataset.from_directory(INPUT_DATASET_ID_DIR)
-    data.set_frequency_all(parameters.temporal.timestep, inplace=True)
-    return data
+    return AtlasDataset.from_directory(INPUT_DATASET_ID_DIR)
 
 
 @pytest.fixture(scope="session")
