@@ -71,7 +71,8 @@ class ExchangesFixing:
                     constants.border_neg_exchange_variable_name(border_name, time_index)
                 )
                 objective.append(border_pos_exchange - border_neg_exchange)
-        self.model.solver.Maximize(sum(objective))
+        self.model.set_direction("maximize")
+        self.model.add_objective(sum(objective))
 
     ##################################
     # Variables
