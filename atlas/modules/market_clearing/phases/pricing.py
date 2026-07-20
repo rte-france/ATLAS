@@ -6,8 +6,6 @@ This file is part of the ATLAS project.
 
 import json
 
-import pendulum
-
 import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
 from atlas.enums import ComplementDirection, CouplingType, SolverStatus
@@ -517,11 +515,7 @@ class Pricing(OptimisationModel):
                                 shadow_prices_fb = self.get_variable(
                                     constants.shadow_price_variable_name(critical_branch_name, time_index)
                                 )
-                                branch_load += (
-                                    coeff
-                                    * branch_ptdf.get_value(self.convert_time_index_to_time(time_index))
-                                    * shadow_prices_fb
-                                )
+                                branch_load += coeff * branch_ptdf.get_value(_time) * shadow_prices_fb
 
                     self.add_constraint(
                         branch_load == 0.0,
@@ -874,9 +868,6 @@ class Pricing(OptimisationModel):
                 paradoxical_delta_p >= opposite_delta_p, constants.paradoxical_delta_p_lo_constraint_name(index_lo)
             )
 
-    def convert_time_index_to_time(self, time_index: int) -> pendulum.DateTime:
-        return self.parameters.temporal.start_date + time_index * self.parameters.temporal.timestep
-
     # Generator of border ranks and names of neighbour area for each border of a given market area:
     def get_market_area_neighbours(self, mc_market_area_name: str) -> list[tuple[MarketBorderMC, str]]:
         neighbours_area = []
@@ -902,8 +893,9 @@ class Pricing(OptimisationModel):
             if neighbour_market_area_name in price_group.market_area_names:
                 continue
             flow = self.clearing_border_exchanges[mc_border.name, time_index]
-            relative_max_flow = mc_border.max_flow.get_value(self.convert_time_index_to_time(time_index))
-            relative_min_flow = mc_border.min_flow.get_value(self.convert_time_index_to_time(time_index))
+            time = self.input_dataset.times[time_index]
+            relative_max_flow = mc_border.max_flow.get_value(time)
+            relative_min_flow = mc_border.min_flow.get_value(time)
             if (
                 relative_min_flow + self.parameters.allowed_round_off_error
                 <= flow
@@ -1012,7 +1004,7 @@ class Pricing(OptimisationModel):
 
     def compute_price_bounds(self, price_group: PriceGroup, pricing_type: int):
         for market_area_name in price_group.market_area_names:
-            time = self.convert_time_index_to_time(price_group.time_index)
+            time = self.input_dataset.times[price_group.time_index]
             mc_market_area = self.input_dataset.mc_market_areas[market_area_name]
             # Initialize the local bounds on order prices:
             max_accepted_sale_price = max_rejected_purchase_price = mc_market_area.min_price.get_value(time)
