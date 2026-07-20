@@ -35,6 +35,21 @@ from tests.test_module.test_market_clearing.factories import (
 ONE_HOUR = pendulum.duration(hours=1)
 
 
+class _FakeOptimisationModel:
+    """Duck-typed stand-in for the `OptimisationModel` a real `Pricing` composes as `self.model` —
+    returns a plain float placeholder for any variable, since these tests only check whether a
+    variable/constraint was created and, for arithmetic, don't care about its exact value."""
+
+    def __init__(self):
+        self._variables: dict = {}
+
+    def add_continuous_variable(self, name, lower_bound=float("-inf"), upper_bound=float("inf")):
+        return self._variables.setdefault(name, 0.0)
+
+    def get_variable(self, name):
+        return self._variables.setdefault(name, 0.0)
+
+
 class _PricingAlgorithms:
     """Duck-typed stand-in for `Pricing` exposing only its solver-free algorithms.
 
@@ -52,13 +67,7 @@ class _PricingAlgorithms:
         self.saturated_critical_branch = {}
         self.dict_linked_orders: dict = {}
         self._full_link_id_by_order: dict = {}
-        self._variables: dict = {}
-
-    def add_continuous_variable(self, name, lower_bound=float("-inf"), upper_bound=float("inf")):
-        return self._variables.setdefault(name, 0.0)
-
-    def get_variable(self, name):
-        return self._variables.setdefault(name, 0.0)
+        self.model = _FakeOptimisationModel()
 
     # Each wrapper below calls the real, unbound `Pricing` method against this stand-in — mypy
     # doesn't accept `self: _PricingAlgorithms` where `Pricing` is expected, hence the ignores.
@@ -580,4 +589,4 @@ class TestCreateOppositeDeltaP:
 
         pricing.create_delta_price_pc_variables(opposite_delta_p_dict)
 
-        assert constants.delta_p_pc(next(iter(pricing.dict_parent_child_orders))) in pricing._variables
+        assert constants.delta_p_pc(next(iter(pricing.dict_parent_child_orders))) in pricing.model._variables
