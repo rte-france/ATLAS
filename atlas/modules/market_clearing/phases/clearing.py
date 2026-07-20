@@ -79,16 +79,24 @@ class Clearing(OptimisationModel):
     def build_variables(self):
         """Create all variables for the clearing phase model"""
         is_atc = self.input_dataset.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
-        self.create_border_exchange_variables(is_atc)
+        _border_variables.create_border_exchange_variables(self, is_atc)
         if self.input_dataset.parameters.flow_penalty_lambda_2 != 0.0:
-            self.create_border_pos_exchanges_variables(is_atc)
-            self.create_border_neg_exchanges_variables(is_atc)
+            _border_variables.create_border_pos_exchanges_variables(self, is_atc)
+            _border_variables.create_border_neg_exchanges_variables(self, is_atc)
 
         if is_atc:
-            self.create_border_imports_variables()
-            self.create_border_exports_variables()
-            self.create_border_xsis_variables()
-            self.create_border_nus_variables()
+            _border_variables.create_border_loss_variables(
+                self, constants.border_import_variable_name, only_borders_with_losses=True
+            )
+            _border_variables.create_border_loss_variables(
+                self, constants.border_export_variable_name, only_borders_with_losses=True
+            )
+            _border_variables.create_border_loss_variables(
+                self, constants.border_xsis_variable_name, only_borders_with_losses=True
+            )
+            _border_variables.create_border_loss_variables(
+                self, constants.border_nus_variable_name, only_borders_with_losses=True
+            )
 
         self.create_local_balances_variables()
         self.create_accepted_powers()
@@ -134,35 +142,6 @@ class Clearing(OptimisationModel):
     ##################################
     # Variables
     ##################################
-    def create_border_exchange_variables(self, is_atc: bool):
-        _border_variables.create_border_exchange_variables(self, is_atc)
-
-    def create_border_pos_exchanges_variables(self, is_atc: bool):
-        _border_variables.create_border_pos_exchanges_variables(self, is_atc)
-
-    def create_border_neg_exchanges_variables(self, is_atc: bool):
-        _border_variables.create_border_neg_exchanges_variables(self, is_atc)
-
-    def create_border_imports_variables(self):
-        _border_variables.create_border_loss_variables(
-            self, constants.border_import_variable_name, only_borders_with_losses=True
-        )
-
-    def create_border_exports_variables(self):
-        _border_variables.create_border_loss_variables(
-            self, constants.border_export_variable_name, only_borders_with_losses=True
-        )
-
-    def create_border_xsis_variables(self):
-        _border_variables.create_border_loss_variables(
-            self, constants.border_xsis_variable_name, only_borders_with_losses=True
-        )
-
-    def create_border_nus_variables(self):
-        _border_variables.create_border_loss_variables(
-            self, constants.border_nus_variable_name, only_borders_with_losses=True
-        )
-
     def create_local_balances_variables(self):
         for market_area_name in self.input_dataset.mc_market_areas:
             for time_index, _ in enumerate(self.input_dataset.times):
