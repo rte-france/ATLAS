@@ -5,6 +5,8 @@ This file is part of the ATLAS project.
 """
 
 import json
+from collections.abc import Callable
+from typing import Any
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
@@ -14,13 +16,31 @@ from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
 from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.input_objects.order_coupling import OrderCouplingMC
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.modules.market_clearing.phases import _border_variables
 from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 
-# Static definition of default bounds on exchanges (can be changed at will):
-DEFAULT_MAX_FLOW = 10000.0
-DEFAULT_MIN_FLOW = -10000.0
+
+def _sum_tso_orders(
+    control_block: ControlBlock,
+    mc_market_areas: dict[str, MarketAreaMC],
+    time,
+    order_type: OrderType,
+    value_of: Callable[[OrderMC], Any],
+):
+    """Sum `value_of(order)` over non-TSO orders of the given type, active at `time`, in a control block."""
+    total = 0.0
+    for mc_market_area in mc_market_areas.values():
+        if control_block.name != mc_market_area.control_block.name:
+            continue
+        for mc_order in mc_market_area.mc_orders.values():
+            is_available = mc_order.start_date <= time <= mc_order.end_date_processed
+            not_tso = not mc_order.is_agent_tso
+            matches_direction = mc_order.order_type == order_type
+            if is_available and not_tso and matches_direction:
+                total += value_of(mc_order)
+    return total
 
 
 class Clearing(OptimisationModel):
@@ -115,63 +135,33 @@ class Clearing(OptimisationModel):
     # Variables
     ##################################
     def create_border_exchange_variables(self, is_atc: bool):
-        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-            for time_index, _time in enumerate(self.input_dataset.times):
-                relative_max_flow = mc_border.max_flow.get_value(_time) if is_atc else float("inf")
-                relative_min_flow = mc_border.min_flow.get_value(_time) if is_atc else float("-inf")
-                self.add_continuous_variable(
-                    constants.border_exchange_variable_name(border_name, time_index),
-                    relative_min_flow,
-                    relative_max_flow,
-                )
+        _border_variables.create_border_exchange_variables(self, is_atc)
 
     def create_border_pos_exchanges_variables(self, is_atc: bool):
-        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-            for time_index, _time in enumerate(self.input_dataset.times):
-                relative_max_flow = mc_border.max_flow.get_value(_time) if is_atc else DEFAULT_MAX_FLOW
-                self.add_continuous_variable(
-                    constants.border_pos_exchange_variable_name(border_name, time_index), 0.0, relative_max_flow
-                )
+        _border_variables.create_border_pos_exchanges_variables(self, is_atc)
 
     def create_border_neg_exchanges_variables(self, is_atc: bool):
-        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-            for time_index, _time in enumerate(self.input_dataset.times):
-                relative_min_flow = mc_border.min_flow.get_value(_time) if is_atc else DEFAULT_MIN_FLOW
-                self.add_continuous_variable(
-                    constants.border_neg_exchange_variable_name(border_name, time_index), relative_min_flow, 0.0
-                )
+        _border_variables.create_border_neg_exchanges_variables(self, is_atc)
 
     def create_border_imports_variables(self):
-        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-            for time_index, _ in enumerate(self.input_dataset.times):
-                if mc_border.loss_factor and mc_border.loss_factor != 0.0:
-                    self.add_continuous_variable(
-                        constants.border_import_variable_name(border_name, time_index), -float("inf"), float("inf")
-                    )
+        _border_variables.create_border_loss_variables(
+            self, constants.border_import_variable_name, only_borders_with_losses=True
+        )
 
     def create_border_exports_variables(self):
-        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-            for time_index, _ in enumerate(self.input_dataset.times):
-                if mc_border.loss_factor and mc_border.loss_factor != 0.0:
-                    self.add_continuous_variable(
-                        constants.border_export_variable_name(border_name, time_index), -float("inf"), float("inf")
-                    )
+        _border_variables.create_border_loss_variables(
+            self, constants.border_export_variable_name, only_borders_with_losses=True
+        )
 
     def create_border_xsis_variables(self):
-        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-            for time_index, _ in enumerate(self.input_dataset.times):
-                if mc_border.loss_factor and mc_border.loss_factor != 0.0:
-                    self.add_continuous_variable(
-                        constants.border_xsis_variable_name(border_name, time_index), -float("inf"), float("inf")
-                    )
+        _border_variables.create_border_loss_variables(
+            self, constants.border_xsis_variable_name, only_borders_with_losses=True
+        )
 
     def create_border_nus_variables(self):
-        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-            for time_index, _ in enumerate(self.input_dataset.times):
-                if mc_border.loss_factor and mc_border.loss_factor != 0.0:
-                    self.add_continuous_variable(
-                        constants.border_nus_variable_name(border_name, time_index), -float("inf"), float("inf")
-                    )
+        _border_variables.create_border_loss_variables(
+            self, constants.border_nus_variable_name, only_borders_with_losses=True
+        )
 
     def create_local_balances_variables(self):
         for market_area_name in self.input_dataset.mc_market_areas:
@@ -605,60 +595,34 @@ class Clearing(OptimisationModel):
         return objective
 
     def get_tso_sold_power(self, time: int, control_block: ControlBlock):
-        tso_sold_power = 0.0
-        for mc_market_area in self.input_dataset.mc_market_areas.values():
-            if control_block.name == mc_market_area.control_block.name:
-                for order_name, mc_order in mc_market_area.mc_orders.items():
-                    is_available = mc_order.start_date <= time <= mc_order.end_date_processed
-                    not_tso = not mc_order.is_agent_tso
-                    not_sale = mc_order.order_type == OrderType.Buy
-                    if is_available and not_tso and not_sale:
-                        tso_sold_power += self.get_variable(
-                            constants.accepted_power_variable_name(mc_order.market_area.name, order_name)
-                        )
-        return tso_sold_power
+        return _sum_tso_orders(
+            control_block,
+            self.input_dataset.mc_market_areas,
+            time,
+            OrderType.Buy,
+            lambda mc_order: self.get_variable(
+                constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name)
+            ),
+        )
 
     def get_tso_bought_power(self, time: int, control_block: ControlBlock):
-        tso_bought_power = []
-        for mc_market_area in self.input_dataset.mc_market_areas.values():
-            if control_block.name == mc_market_area.control_block.name:
-                for order_name, mc_order in mc_market_area.mc_orders.items():
-                    is_available = mc_order.start_date <= time <= mc_order.end_date_processed
-                    not_tso = not mc_order.is_agent_tso
-                    is_sale = mc_order.order_type == OrderType.Sell
-                    if is_available and not_tso and is_sale:
-                        tso_bought_power.append(
-                            self.get_variable(
-                                constants.accepted_power_variable_name(mc_order.market_area.name, order_name)
-                            )
-                        )
-        return sum(tso_bought_power)
+        return _sum_tso_orders(
+            control_block,
+            self.input_dataset.mc_market_areas,
+            time,
+            OrderType.Sell,
+            lambda mc_order: self.get_variable(
+                constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name)
+            ),
+        )
 
     @staticmethod
     def get_max_tso_power_sold(time, control_block: ControlBlock, mc_market_areas: dict[str, MarketAreaMC]) -> float:
-        max_tso_power_sold = []
-        for mc_market_area in mc_market_areas.values():
-            if control_block == mc_market_area.control_block:
-                for mc_order in mc_market_area.mc_orders.values():
-                    is_available = mc_order.start_date <= time <= mc_order.end_date_processed
-                    not_tso = not mc_order.is_agent_tso
-                    not_sale = mc_order.order_type == OrderType.Buy
-                    if is_available and not_tso and not_sale:
-                        max_tso_power_sold.append(mc_order.qmax)
-        return sum(max_tso_power_sold)
+        return _sum_tso_orders(control_block, mc_market_areas, time, OrderType.Buy, lambda mc_order: mc_order.qmax)
 
     @staticmethod
     def get_max_tso_power_bought(time, control_block: ControlBlock, mc_market_areas: dict[str, MarketAreaMC]) -> float:
-        max_tso_power_bought = []
-        for mc_market_area in mc_market_areas.values():
-            if control_block == mc_market_area.control_block:
-                for mc_order in mc_market_area.mc_orders.values():
-                    is_available = mc_order.start_date <= time <= mc_order.end_date_processed
-                    not_tso = not mc_order.is_agent_tso
-                    is_sale = mc_order.order_type == OrderType.Sell
-                    if is_available and not_tso and is_sale:
-                        max_tso_power_bought.append(mc_order.qmax)
-        return sum(max_tso_power_bought)
+        return _sum_tso_orders(control_block, mc_market_areas, time, OrderType.Sell, lambda mc_order: mc_order.qmax)
 
     def get_n_borders_with_losses(self) -> int:
         """get the number of border that have a loss factor

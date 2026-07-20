@@ -8,8 +8,8 @@ import json
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.input_objects.market_border import DEFAULT_MAX_FLOW, DEFAULT_MIN_FLOW
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.modules.market_clearing.phases import _border_variables
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -79,59 +79,33 @@ class ExchangesFixing(OptimisationModel):
     # Variables
     ##################################
     def create_border_exchange_variables(self, is_atc: bool):
-        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-            for time_index, _time in enumerate(self.input_dataset.times):
-                relative_max_flow = mc_border.max_flow.get_value(_time) if is_atc else float("inf")
-                relative_min_flow = mc_border.min_flow.get_value(_time) if is_atc else float("-inf")
-                self.add_continuous_variable(
-                    constants.border_exchange_variable_name(border_name, time_index),
-                    relative_min_flow,
-                    relative_max_flow,
-                )
+        _border_variables.create_border_exchange_variables(self, is_atc)
 
     def create_border_imports_variables(self):
-        for border_name in self.input_dataset.mc_market_borders.keys():
-            for time_index, _ in enumerate(self.input_dataset.times):
-                self.add_continuous_variable(
-                    constants.border_import_variable_name(border_name, time_index), -float("inf"), float("inf")
-                )
+        _border_variables.create_border_loss_variables(
+            self, constants.border_import_variable_name, only_borders_with_losses=False
+        )
 
     def create_border_exports_variables(self):
-        for border_name in self.input_dataset.mc_market_borders.keys():
-            for time_index, _ in enumerate(self.input_dataset.times):
-                self.add_continuous_variable(
-                    constants.border_export_variable_name(border_name, time_index), -float("inf"), float("inf")
-                )
+        _border_variables.create_border_loss_variables(
+            self, constants.border_export_variable_name, only_borders_with_losses=False
+        )
 
     def create_border_xsis_variables(self):
-        for border_name in self.input_dataset.mc_market_borders.keys():
-            for time_index, _ in enumerate(self.input_dataset.times):
-                self.add_continuous_variable(
-                    constants.border_xsis_variable_name(border_name, time_index), -float("inf"), float("inf")
-                )
+        _border_variables.create_border_loss_variables(
+            self, constants.border_xsis_variable_name, only_borders_with_losses=False
+        )
 
     def create_border_nus_variables(self):
-        for border_name in self.input_dataset.mc_market_borders.keys():
-            for time_index, _ in enumerate(self.input_dataset.times):
-                self.add_continuous_variable(
-                    constants.border_nus_variable_name(border_name, time_index), -float("inf"), float("inf")
-                )
+        _border_variables.create_border_loss_variables(
+            self, constants.border_nus_variable_name, only_borders_with_losses=False
+        )
 
     def create_border_pos_exchanges_variables(self, is_atc: bool):
-        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-            for time_index, _time in enumerate(self.input_dataset.times):
-                relative_max_flow = mc_border.max_flow.get_value(_time) if is_atc else DEFAULT_MAX_FLOW
-                self.add_continuous_variable(
-                    constants.border_pos_exchange_variable_name(border_name, time_index), 0.0, relative_max_flow
-                )
+        _border_variables.create_border_pos_exchanges_variables(self, is_atc)
 
     def create_border_neg_exchanges_variables(self, is_atc: bool):
-        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-            for time_index, _time in enumerate(self.input_dataset.times):
-                relative_min_flow = mc_border.min_flow.get_value(_time) if is_atc else DEFAULT_MIN_FLOW
-                self.add_continuous_variable(
-                    constants.border_neg_exchange_variable_name(border_name, time_index), relative_min_flow, 0.0
-                )
+        _border_variables.create_border_neg_exchanges_variables(self, is_atc)
 
     ##################################
     # Constraints
