@@ -62,9 +62,9 @@ def instantiate_order_group_index(pricing: _PricingPhase) -> None:
     for price_group_list in pricing.price_groups.values():
         for price_group in price_group_list:
             for market_area_name in price_group.market_area_names:
-                for mc_order in pricing.input_dataset.mc_market_areas[market_area_name].mc_orders.values():
-                    if mc_order.time_index == price_group.time_index:
-                        mc_order.group_index = price_group.id
+                for order in pricing.input_dataset.market_areas[market_area_name].orders.values():
+                    if order.time_index == price_group.time_index:
+                        order.group_index = price_group.id
 
 
 ##################################
@@ -74,7 +74,7 @@ def create_link_child_to_pc_variables(pricing: _PricingPhase) -> None:
     for index_pc, (_, child_orders) in pricing.dict_parent_child_orders.items():
         index_child = 0
         for child_order in child_orders:
-            child_mc_order = pricing.input_dataset.mc_orders[child_order.name]
+            child_mc_order = pricing.input_dataset.orders[child_order.name]
             local_cleared_power = pricing.clearing_accepted_powers[child_mc_order.market_area.name, child_mc_order.name]
             if local_cleared_power > pricing.parameters.allowed_round_off_error:
                 pricing.model.add_continuous_variable(
@@ -137,7 +137,7 @@ def create_negative_diff_price_variables(pricing: _PricingPhase) -> None:
 
 def create_shadow_price_variables(pricing: _PricingPhase) -> None:
     for time_index, _time in enumerate(pricing.input_dataset.times):
-        for critical_branch_name in pricing.input_dataset.mc_critical_branches:
+        for critical_branch_name in pricing.input_dataset.critical_branches:
             pricing.model.add_continuous_variable(
                 constants.shadow_price_variable_name(critical_branch_name, time_index),
                 -float("inf"),
@@ -185,19 +185,19 @@ def create_linked_bid_surplus_constraints(pricing: _PricingPhase) -> None:
         logger.debug(f"Surplus for : {index_lo}")
         surplus = 0
         for order in orders:
-            mc_order = pricing.input_dataset.mc_orders[order.name]
-            time_index = mc_order.time_index
-            if time_index is None or mc_order.group_index is None:
+            order = pricing.input_dataset.orders[order.name]
+            time_index = order.time_index
+            if time_index is None or order.group_index is None:
                 continue
             local_price = pricing.model.get_variable(
-                constants.price_on_group_variable_name(mc_order.group_index, time_index)
+                constants.price_on_group_variable_name(order.group_index, time_index)
             )
-            local_cleared_power = pricing.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
-            coeff_sale = mc_order.production_sign
+            local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
+            coeff_sale = order.production_sign
 
             # If order is accepted, add its surplus to the overall surplus of this group of linked orders
             if local_cleared_power > pricing.parameters.allowed_round_off_error:
-                surplus += coeff_sale * local_cleared_power * (local_price - mc_order.price)
+                surplus += coeff_sale * local_cleared_power * (local_price - order.price)
 
         pricing.model.add_constraint(
             surplus >= 0.0,
@@ -215,7 +215,7 @@ def create_parent_child_surplus_constraints(pricing: _PricingPhase) -> None:
 
         # Setting constraints individually for child orders
         for child_order in child_orders:
-            child_mc_order = pricing.input_dataset.mc_orders[child_order.name]
+            child_mc_order = pricing.input_dataset.orders[child_order.name]
             time_index = child_mc_order.time_index
             if time_index is None or child_mc_order.group_index is None:
                 continue
@@ -239,7 +239,7 @@ def create_parent_child_surplus_constraints(pricing: _PricingPhase) -> None:
         # Then set global constraint on parents
         surplus = 0
         for parent_order in parent_orders:
-            parent_mc_order = pricing.input_dataset.mc_orders[parent_order.name]
+            parent_mc_order = pricing.input_dataset.orders[parent_order.name]
             time_index = parent_mc_order.time_index
             if time_index is None or parent_mc_order.group_index is None:
                 continue
@@ -264,61 +264,61 @@ def create_parent_child_surplus_constraints(pricing: _PricingPhase) -> None:
 
 
 def create_pos_surplus_order_constraints(pricing: _PricingPhase) -> None:
-    for mc_order in pricing.input_dataset.mc_orders.values():
-        if mc_order.name not in pricing._full_link_id_by_order and mc_order.parent_child_id is None:
-            time_index = mc_order.time_index
-            if time_index is None or mc_order.group_index is None:
+    for order in pricing.input_dataset.orders.values():
+        if order.name not in pricing._full_link_id_by_order and order.parent_child_id is None:
+            time_index = order.time_index
+            if time_index is None or order.group_index is None:
                 continue
 
             local_price = pricing.model.get_variable(
-                constants.price_on_group_variable_name(mc_order.group_index, time_index)
+                constants.price_on_group_variable_name(order.group_index, time_index)
             )
-            local_cleared_power = pricing.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
+            local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
 
             if local_cleared_power > pricing.parameters.allowed_round_off_error:
-                coeff_sale = mc_order.production_sign
-                equipment_name = mc_order.equipment.name if mc_order.equipment else "NA"
+                coeff_sale = order.production_sign
+                equipment_name = order.equipment.name if order.equipment else "NA"
                 pricing.model.add_constraint(
-                    coeff_sale * local_cleared_power * (local_price - mc_order.price) >= 0.0,
+                    coeff_sale * local_cleared_power * (local_price - order.price) >= 0.0,
                     constants.pos_surplus_order_constraint_name(
-                        mc_order.name, equipment_name, mc_order.market_area.name, time_index
+                        order.name, equipment_name, order.market_area.name, time_index
                     ),
                 )
 
 
 def create_null_marginal_order_constraints(pricing: _PricingPhase) -> None:
-    for mc_order in pricing.input_dataset.mc_orders.values():
-        if mc_order.name not in pricing._full_link_id_by_order and mc_order.parent_child_id is None:
-            time_index = mc_order.time_index
-            if time_index is None or mc_order.group_index is None:
+    for order in pricing.input_dataset.orders.values():
+        if order.name not in pricing._full_link_id_by_order and order.parent_child_id is None:
+            time_index = order.time_index
+            if time_index is None or order.group_index is None:
                 continue
 
             local_price = pricing.model.get_variable(
-                constants.price_on_group_variable_name(mc_order.group_index, time_index)
+                constants.price_on_group_variable_name(order.group_index, time_index)
             )
-            local_cleared_power = pricing.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
+            local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
 
             if local_cleared_power > pricing.parameters.allowed_round_off_error:
-                coeff_sale = mc_order.production_sign
-                equipment_name = mc_order.equipment.name if mc_order.equipment else "NA"
+                coeff_sale = order.production_sign
+                equipment_name = order.equipment.name if order.equipment else "NA"
                 # MARGINAL SURPLUS: if the bid is not linked and marginally accepted, its surplus should be null
-                if not mc_order.is_linked:
+                if not order.is_linked:
                     if (
-                        abs(local_cleared_power - mc_order.qmin) >= pricing.parameters.allowed_round_off_error
-                        and abs(local_cleared_power - mc_order.qmax) >= pricing.parameters.allowed_round_off_error
+                        abs(local_cleared_power - order.qmin) >= pricing.parameters.allowed_round_off_error
+                        and abs(local_cleared_power - order.qmax) >= pricing.parameters.allowed_round_off_error
                     ):
                         constraint_name = constants.null_marginal_order_constraint_name(
-                            mc_order.name, equipment_name, mc_order.market_area.name, time_index
+                            order.name, equipment_name, order.market_area.name, time_index
                         )
                         pricing.model.add_constraint(
-                            coeff_sale * local_cleared_power * (local_price - mc_order.price) == 0.0,
+                            coeff_sale * local_cleared_power * (local_price - order.price) == 0.0,
                             constraint_name,
                         )
 
 
 def create_shadow_price_constraints(pricing: _PricingPhase) -> None:
     for time_index, _time in enumerate(pricing.input_dataset.times):
-        for critical_branch_name in pricing.input_dataset.mc_critical_branches:
+        for critical_branch_name in pricing.input_dataset.critical_branches:
             shadow_price = pricing.model.get_variable(
                 constants.shadow_price_variable_name(critical_branch_name, time_index)
             )
@@ -332,17 +332,17 @@ def create_shadow_price_constraints(pricing: _PricingPhase) -> None:
 
 def create_adverse_flow_constraint(pricing: _PricingPhase) -> None:
     for time_index, _time in enumerate(pricing.input_dataset.times):
-        for border_name, mc_border in pricing.input_dataset.mc_market_borders.items():
+        for border_name, border in pricing.input_dataset.market_borders.items():
             border_exchange = pricing.clearing_border_exchanges[border_name, time_index]
             if abs(border_exchange) < pricing.parameters.allowed_round_off_error:
                 continue
             price_in, price_out = None, None
             for price_group in pricing.price_groups[time_index]:
-                if mc_border.uphill_market_area.name in price_group.market_area_names:
+                if border.uphill_market_area.name in price_group.market_area_names:
                     price_in = pricing.model.get_variable(
                         constants.price_on_group_variable_name(price_group.id, time_index)
                     )
-                if mc_border.downhill_market_area.name in price_group.market_area_names:
+                if border.downhill_market_area.name in price_group.market_area_names:
                     price_out = pricing.model.get_variable(
                         constants.price_on_group_variable_name(price_group.id, time_index)
                     )
@@ -395,8 +395,8 @@ def create_branch_load_constraint(pricing: _PricingPhase) -> None:
                     constants.negative_slack_branch_load_variable_name(group_i.id, group_j.id, time_index)
                 )
                 branch_load += positive_slack + negative_slack
-            for critical_branch_name, mc_critical_branch in pricing.input_dataset.mc_critical_branches.items():
-                for market_area_name in pricing.input_dataset.mc_market_areas:
+            for critical_branch_name, critical_branch in pricing.input_dataset.critical_branches.items():
+                for market_area_name in pricing.input_dataset.market_areas:
                     if market_area_name in group_i.market_area_names:
                         coeff = 1.0
                     elif market_area_name in group_j.market_area_names:
@@ -408,8 +408,8 @@ def create_branch_load_constraint(pricing: _PricingPhase) -> None:
                     # `ptdf` attribute (only `market_area_ptdf`/`node_ptdf`) — this branch is only reached
                     # in flow-based (non-ATC) mode, which no test dataset exercises, so it has never actually
                     # run. Needs business validation before a fix lands; preserved as-is.
-                    if market_area_name in mc_critical_branch.ptdf:  # type: ignore[attr-defined]
-                        branch_ptdf = mc_critical_branch.ptdf[market_area_name]  # type: ignore[attr-defined]
+                    if market_area_name in critical_branch.ptdf:  # type: ignore[attr-defined]
+                        branch_ptdf = critical_branch.ptdf[market_area_name]  # type: ignore[attr-defined]
                         shadow_prices_fb = pricing.model.get_variable(
                             constants.shadow_price_variable_name(critical_branch_name, time_index)
                         )

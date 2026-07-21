@@ -24,43 +24,41 @@ class TestTimesAndMode:
 
     def test_atc_mode_has_no_flow_based_objects(self, input_dataset: MarketClearingInputDataset) -> None:
         assert input_dataset.is_atc
-        assert input_dataset.mc_critical_branches == {}
-        assert input_dataset.mc_market_area_ptdfs == {}
+        assert input_dataset.critical_branches == {}
+        assert input_dataset.market_area_ptdfs == {}
 
 
 class TestMarketAreas:
     def test_each_market_area_links_to_a_known_control_block(self, input_dataset: MarketClearingInputDataset) -> None:
-        for market_area in input_dataset.mc_market_areas.values():
-            assert market_area.control_block.name in input_dataset.mc_control_blocks
+        for market_area in input_dataset.market_areas.values():
+            assert market_area.control_block.name in input_dataset.control_blocks
 
     def test_market_area_orders_match_global_orders_filtered_by_area(
         self, input_dataset: MarketClearingInputDataset
     ) -> None:
-        for area_name, market_area in input_dataset.mc_market_areas.items():
+        for area_name, market_area in input_dataset.market_areas.items():
             expected_order_names = {
-                order_name
-                for order_name, order in input_dataset.mc_orders.items()
-                if order.market_area.name == area_name
+                order_name for order_name, order in input_dataset.orders.items() if order.market_area.name == area_name
             }
-            assert set(market_area.mc_orders) == expected_order_names
+            assert set(market_area.orders) == expected_order_names
 
     def test_price_bounds_are_consistent_over_horizon(self, input_dataset: MarketClearingInputDataset) -> None:
-        for market_area in input_dataset.mc_market_areas.values():
+        for market_area in input_dataset.market_areas.values():
             for time in input_dataset.times:
                 assert market_area.max_price.get_value(time) > market_area.min_price.get_value(time)
 
 
 class TestOrders:
     def test_every_order_belongs_to_an_imported_market_area(self, input_dataset: MarketClearingInputDataset) -> None:
-        known_areas = set(input_dataset.mc_market_areas)
-        for order in input_dataset.mc_orders.values():
+        known_areas = set(input_dataset.market_areas)
+        for order in input_dataset.orders.values():
             assert order.market_area.name in known_areas
 
     def test_every_order_starts_within_the_optimization_horizon(
         self, input_dataset: MarketClearingInputDataset
     ) -> None:
         times = set(input_dataset.times)
-        for order in input_dataset.mc_orders.values():
+        for order in input_dataset.orders.values():
             assert order.start_date in times
             assert order.time_index == input_dataset.times.index(order.start_date)
 
@@ -70,72 +68,72 @@ class TestOrderCouplings:
         self, input_dataset: MarketClearingInputDataset
     ) -> None:
         linking_types = {CouplingType.IDENTICAL_VOLUME, CouplingType.IDENTICAL_RATIO, CouplingType.COMPLEMENT}
-        for coupling in input_dataset.mc_order_couplings.values():
+        for coupling in input_dataset.order_couplings.values():
             if coupling.coupling_type not in linking_types:
                 continue
             for order in coupling.orders:
-                if order.name not in input_dataset.mc_orders:
+                if order.name not in input_dataset.orders:
                     continue
-                mc_order = input_dataset.mc_orders[order.name]
-                assert mc_order.is_linked
-                assert mc_order.link_id == coupling.name
+                order = input_dataset.orders[order.name]
+                assert order.is_linked
+                assert order.link_id == coupling.name
 
     def test_parent_children_couplings_mark_first_order_as_parent(
         self, input_dataset: MarketClearingInputDataset
     ) -> None:
         parent_count_per_order: Counter[str] = Counter()
-        for coupling in input_dataset.mc_order_couplings.values():
+        for coupling in input_dataset.order_couplings.values():
             if coupling.coupling_type != CouplingType.PARENT_CHILDREN or not coupling.orders:
                 continue
             parent_name = coupling.orders[0].name
             parent_count_per_order[parent_name] += 1
 
-            parent = input_dataset.mc_orders.get(parent_name)
+            parent = input_dataset.orders.get(parent_name)
             assert parent is not None
             assert parent.is_parent
             assert parent.order_coupling_parent_ids is not None
             assert coupling.name in parent.order_coupling_parent_ids
 
             for child in coupling.orders:
-                if child.name not in input_dataset.mc_orders:
+                if child.name not in input_dataset.orders:
                     continue
-                mc_child = input_dataset.mc_orders[child.name]
+                mc_child = input_dataset.orders[child.name]
                 assert mc_child.is_in_parent_child_coupling
                 assert mc_child.parent_child_id == coupling.name
 
         for order_name, count in parent_count_per_order.items():
-            order = input_dataset.mc_orders[order_name]
+            order = input_dataset.orders[order_name]
             assert len(order.order_coupling_parent_ids) == count
 
     def test_exclusion_couplings_mark_orders_as_mutually_excluding(
         self, input_dataset: MarketClearingInputDataset
     ) -> None:
-        for coupling in input_dataset.mc_order_couplings.values():
+        for coupling in input_dataset.order_couplings.values():
             if coupling.coupling_type != CouplingType.EXCLUSION:
                 continue
             for order in coupling.orders:
-                if order.name not in input_dataset.mc_orders:
+                if order.name not in input_dataset.orders:
                     continue
-                mc_order = input_dataset.mc_orders[order.name]
-                assert mc_order.is_mutually_excluding
-                assert mc_order.requires_status_variable
+                order = input_dataset.orders[order.name]
+                assert order.is_mutually_excluding
+                assert order.requires_status_variable
 
     def test_couplings_with_fewer_than_two_feasible_orders_are_dropped(
         self, input_dataset: MarketClearingInputDataset
     ) -> None:
-        for coupling in input_dataset.mc_order_couplings.values():
+        for coupling in input_dataset.order_couplings.values():
             assert coupling.orders is not None
             assert len(coupling.orders) >= 2
 
 
 class TestMarketBorders:
     def test_border_endpoints_are_imported_market_areas(self, input_dataset: MarketClearingInputDataset) -> None:
-        known_areas = set(input_dataset.mc_market_areas)
-        for border in input_dataset.mc_market_borders.values():
+        known_areas = set(input_dataset.market_areas)
+        for border in input_dataset.market_borders.values():
             assert border.uphill_market_area.name in known_areas
             assert border.downhill_market_area.name in known_areas
 
     def test_border_flow_bounds_are_consistent(self, input_dataset: MarketClearingInputDataset) -> None:
-        for border in input_dataset.mc_market_borders.values():
+        for border in input_dataset.market_borders.values():
             for time in input_dataset.times:
                 assert border.max_flow.get_value(time) >= border.min_flow.get_value(time)

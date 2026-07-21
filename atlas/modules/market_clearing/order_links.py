@@ -25,9 +25,9 @@ from atlas.objects.market.order import Order
 class OrderLinkResolver:
     """Resolves the order couplings of a market_clearing dataset into linked/parent-child sets."""
 
-    def __init__(self, mc_orders: dict[str, OrderMC], mc_order_couplings: dict[str, OrderCouplingMC]):
-        self._mc_orders = mc_orders
-        self._mc_order_couplings = mc_order_couplings
+    def __init__(self, orders: dict[str, OrderMC], order_couplings: dict[str, OrderCouplingMC]):
+        self._orders = orders
+        self._order_couplings = order_couplings
         self._circular_pc_id: dict[str, int] = {}
         self._full_link_id: dict[str, int] = {}
         self._full_pc_id: dict[str, int] = {}
@@ -52,10 +52,10 @@ class OrderLinkResolver:
         index_pc_t = 0
 
         # Step 1 - Filling the dictionary with unique circular PC linked sets
-        for mc_order_coupling in self._mc_order_couplings.values():
-            if mc_order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
-                list_children = [mc_order_coupling.orders[0]]
-                circular_orders = self._get_circular_children(mc_order_coupling, list_children, [])
+        for order_coupling in self._order_couplings.values():
+            if order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
+                list_children = [order_coupling.orders[0]]
+                circular_orders = self._get_circular_children(order_coupling, list_children, [])
                 if len(circular_orders) > 1 and circular_orders not in dict_circular_children_bids.values():
                     dict_circular_children_bids[index_pc_t] = circular_orders
                     index_pc_t += 1
@@ -71,19 +71,19 @@ class OrderLinkResolver:
 
     # Recursively gets all the children from circular parent_child couplings
     def _get_circular_children(
-        self, mc_order_coupling: OrderCouplingMC, orders: list[Order], processed_order_couplings: list[str]
+        self, order_coupling: OrderCouplingMC, orders: list[Order], processed_order_couplings: list[str]
     ) -> list[Order]:
-        parent_order, child_order = mc_order_coupling.orders[:2]
-        child_mc_order = self._mc_orders[child_order.name]
-        processed_order_couplings.append(mc_order_coupling.name)
+        parent_order, child_order = order_coupling.orders[:2]
+        child_mc_order = self._orders[child_order.name]
+        processed_order_couplings.append(order_coupling.name)
         order_coupling_parent_ids = child_mc_order.order_coupling_parent_ids
 
         # A parent/child link is considered transitive when the child is also a parent elsewhere
         if child_mc_order.is_parent and order_coupling_parent_ids:
             orders.append(child_order)
-            for mc_order_coupling_name in order_coupling_parent_ids:
-                if mc_order_coupling_name not in processed_order_couplings:
-                    self._get_circular_children(mc_order_coupling, orders, processed_order_couplings)
+            for order_coupling_name in order_coupling_parent_ids:
+                if order_coupling_name not in processed_order_couplings:
+                    self._get_circular_children(order_coupling, orders, processed_order_couplings)
             return orders
         # The child is not a parent, the transitive parent/child link stops here
         return orders
@@ -138,17 +138,17 @@ class OrderLinkResolver:
         complement_couplings = []
         orders_by_coupling: dict[str, list[str]] = {}
         couplings_by_order: dict[str, list[str]] = {}
-        for mc_order_coupling in self._mc_order_couplings.values():
-            if mc_order_coupling.coupling_type == CouplingType.COMPLEMENT:
-                complement_couplings.append(mc_order_coupling)
+        for order_coupling in self._order_couplings.values():
+            if order_coupling.coupling_type == CouplingType.COMPLEMENT:
+                complement_couplings.append(order_coupling)
                 continue
-            if mc_order_coupling.coupling_type not in (CouplingType.IDENTICAL_VOLUME, CouplingType.IDENTICAL_RATIO):
+            if order_coupling.coupling_type not in (CouplingType.IDENTICAL_VOLUME, CouplingType.IDENTICAL_RATIO):
                 continue
 
-            orders_by_coupling[mc_order_coupling.name] = []
-            for order in mc_order_coupling.orders:
-                orders_by_coupling[mc_order_coupling.name].append(order.name)
-                couplings_by_order.setdefault(order.name, []).append(mc_order_coupling.name)
+            orders_by_coupling[order_coupling.name] = []
+            for order in order_coupling.orders:
+                orders_by_coupling[order_coupling.name].append(order.name)
+                couplings_by_order.setdefault(order.name, []).append(order_coupling.name)
 
         return complement_couplings, IdvIdrCouplingIndex(orders_by_coupling, couplings_by_order)
 
@@ -164,10 +164,10 @@ class OrderLinkResolver:
         order transitively linked through shared IDV/IDR couplings, plus any circular
         parent-child set one of those orders belongs to.
         """
-        mc_order_coupling = self._mc_order_couplings[order_coupling_name]
-        linked_bids = mc_order_coupling.orders
+        order_coupling = self._order_couplings[order_coupling_name]
+        linked_bids = order_coupling.orders
         block_idv_idr_bids = self._get_idv_idr_block_sets(
-            mc_order_coupling,
+            order_coupling,
             [],
             treated_order_couplings,
             index_lo,
@@ -188,7 +188,7 @@ class OrderLinkResolver:
         linked_bids.extend(block_idv_idr_bids)
 
         order_names = list(dict.fromkeys(order.name for order in linked_bids))
-        return [self._mc_orders[order_name] for order_name in order_names]
+        return [self._orders[order_name] for order_name in order_names]
 
     # Recursively gathers every order transitively linked through shared IDV/IDR couplings
     def _get_idv_idr_block_sets(
@@ -200,15 +200,15 @@ class OrderLinkResolver:
         idv_idr_index: IdvIdrCouplingIndex,
     ) -> list[OrderMC]:
         for order_name in idv_idr_index.orders_by_coupling[order_coupling.name]:
-            mc_order = self._mc_orders[order_name]
-            block_idv_idr_bids.append(mc_order)
+            order = self._orders[order_name]
+            block_idv_idr_bids.append(order)
             self._full_link_id[order_name] = index_lo
 
             for linked_order_coupling_name in idv_idr_index.couplings_by_order.get(order_name, []):
                 if linked_order_coupling_name in treated_order_couplings:
                     continue
                 treated_order_couplings.append(linked_order_coupling_name)
-                linked_order_coupling = self._mc_order_couplings[linked_order_coupling_name]
+                linked_order_coupling = self._order_couplings[linked_order_coupling_name]
                 self._get_idv_idr_block_sets(
                     linked_order_coupling,
                     block_idv_idr_bids,
@@ -227,19 +227,19 @@ class OrderLinkResolver:
         producing two groups for the same coupling. That mirrors the original behaviour exactly.
         """
         groups = []
-        for mc_order_coupling in complement_couplings:
-            directions = {(-1 if self._mc_orders[order.name].is_sale else 1) for order in mc_order_coupling.orders}
+        for order_coupling in complement_couplings:
+            directions = {(-1 if self._orders[order.name].is_sale else 1) for order in order_coupling.orders}
 
-            if len(directions) > 1 or mc_order_coupling.complement_direction == ComplementDirection.EqualTo:
-                groups.append(mc_order_coupling.orders)
+            if len(directions) > 1 or order_coupling.complement_direction == ComplementDirection.EqualTo:
+                groups.append(order_coupling.orders)
 
             if len(directions) == 1:
                 (direction,) = directions
-                if direction * mc_order_coupling.complement_energy >= 0:
-                    if direction == -1 and mc_order_coupling.complement_direction == ComplementDirection.LesserThan:
-                        groups.append(mc_order_coupling.orders)
-                    if direction == 1 and mc_order_coupling.complement_direction == ComplementDirection.GreaterThan:
-                        groups.append(mc_order_coupling.orders)
+                if direction * order_coupling.complement_energy >= 0:
+                    if direction == -1 and order_coupling.complement_direction == ComplementDirection.LesserThan:
+                        groups.append(order_coupling.orders)
+                    if direction == 1 and order_coupling.complement_direction == ComplementDirection.GreaterThan:
+                        groups.append(order_coupling.orders)
 
         return groups
 
@@ -254,13 +254,13 @@ class OrderLinkResolver:
     def _get_children(self, parent_orders: list[Order]) -> list[Order]:
         list_children = []
         for order in parent_orders:
-            mc_order = self._mc_orders[order.name]
-            for mc_order_coupling in self._mc_order_couplings.values():
-                if mc_order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
-                    market_area_name = self._mc_orders[mc_order_coupling.orders[0].name].market_area.name
-                    if mc_order.market_area.name == market_area_name and order.name == mc_order_coupling.orders[0].name:
-                        if mc_order_coupling.orders[1] not in parent_orders:
-                            list_children.append(mc_order_coupling.orders[1])
+            order = self._orders[order.name]
+            for order_coupling in self._order_couplings.values():
+                if order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
+                    market_area_name = self._orders[order_coupling.orders[0].name].market_area.name
+                    if order.market_area.name == market_area_name and order.name == order_coupling.orders[0].name:
+                        if order_coupling.orders[1] not in parent_orders:
+                            list_children.append(order_coupling.orders[1])
         return list_children
 
     # Finds global parent_child links between orders (including the links between parents to merge them as a single
@@ -284,10 +284,10 @@ class OrderLinkResolver:
         """
         dict_parent_child_orders: dict[int, tuple[list[Order], list[Order]]] = {}
         index_pc = 0
-        for mc_order_coupling in self._mc_order_couplings.values():
-            if mc_order_coupling.coupling_type != CouplingType.PARENT_CHILDREN:
+        for order_coupling in self._order_couplings.values():
+            if order_coupling.coupling_type != CouplingType.PARENT_CHILDREN:
                 continue
-            parent_order, child_order = mc_order_coupling.orders[:2]
+            parent_order, child_order = order_coupling.orders[:2]
 
             # Check if the parent is linked to other bids to consider them as parent as well
             full_link_id = self._full_link_id.get(parent_order.name)

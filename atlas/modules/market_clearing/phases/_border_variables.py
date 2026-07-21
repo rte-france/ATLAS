@@ -27,10 +27,10 @@ class _BorderVariablePhase(Protocol):
 
 
 def create_border_exchange_variables(phase: _BorderVariablePhase, is_atc: bool) -> None:
-    for border_name, mc_border in phase.input_dataset.mc_market_borders.items():
+    for border_name, border in phase.input_dataset.market_borders.items():
         for time_index, time in enumerate(phase.input_dataset.times):
-            relative_max_flow = mc_border.max_flow.get_value(time) if is_atc else float("inf")
-            relative_min_flow = mc_border.min_flow.get_value(time) if is_atc else float("-inf")
+            relative_max_flow = border.max_flow.get_value(time) if is_atc else float("inf")
+            relative_min_flow = border.min_flow.get_value(time) if is_atc else float("-inf")
             phase.model.add_continuous_variable(
                 constants.border_exchange_variable_name(border_name, time_index),
                 relative_min_flow,
@@ -39,18 +39,18 @@ def create_border_exchange_variables(phase: _BorderVariablePhase, is_atc: bool) 
 
 
 def create_border_pos_exchanges_variables(phase: _BorderVariablePhase, is_atc: bool) -> None:
-    for border_name, mc_border in phase.input_dataset.mc_market_borders.items():
+    for border_name, border in phase.input_dataset.market_borders.items():
         for time_index, time in enumerate(phase.input_dataset.times):
-            relative_max_flow = mc_border.max_flow.get_value(time) if is_atc else DEFAULT_MAX_FLOW
+            relative_max_flow = border.max_flow.get_value(time) if is_atc else DEFAULT_MAX_FLOW
             phase.model.add_continuous_variable(
                 constants.border_pos_exchange_variable_name(border_name, time_index), 0.0, relative_max_flow
             )
 
 
 def create_border_neg_exchanges_variables(phase: _BorderVariablePhase, is_atc: bool) -> None:
-    for border_name, mc_border in phase.input_dataset.mc_market_borders.items():
+    for border_name, border in phase.input_dataset.market_borders.items():
         for time_index, time in enumerate(phase.input_dataset.times):
-            relative_min_flow = mc_border.min_flow.get_value(time) if is_atc else DEFAULT_MIN_FLOW
+            relative_min_flow = border.min_flow.get_value(time) if is_atc else DEFAULT_MIN_FLOW
             phase.model.add_continuous_variable(
                 constants.border_neg_exchange_variable_name(border_name, time_index), relative_min_flow, 0.0
             )
@@ -61,8 +61,8 @@ def create_border_loss_variables(
     variable_name: Callable[[str, int], str],
     only_borders_with_losses: bool,
 ) -> None:
-    for border_name, mc_border in phase.input_dataset.mc_market_borders.items():
-        if only_borders_with_losses and not (mc_border.loss_factor and mc_border.loss_factor != 0.0):
+    for border_name, border in phase.input_dataset.market_borders.items():
+        if only_borders_with_losses and not (border.loss_factor and border.loss_factor != 0.0):
             continue
         for time_index, _ in enumerate(phase.input_dataset.times):
             phase.model.add_continuous_variable(variable_name(border_name, time_index), -float("inf"), float("inf"))

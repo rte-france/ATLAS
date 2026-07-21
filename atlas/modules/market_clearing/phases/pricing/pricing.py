@@ -38,7 +38,7 @@ class Pricing:
         self.clearing_local_balances = clearing_outputs.local_balances
         self.clearing_accepted_powers = clearing_outputs.accepted_powers
         self.price_groups = self.create_price_groups()
-        order_links = OrderLinkResolver(self.input_dataset.mc_orders, self.input_dataset.mc_order_couplings).resolve()
+        order_links = OrderLinkResolver(self.input_dataset.orders, self.input_dataset.order_couplings).resolve()
         self.dict_linked_orders = order_links.linked_orders
         self.dict_parent_child_orders = order_links.parent_child_orders
         self._full_link_id_by_order = order_links.full_link_id_by_order
@@ -96,33 +96,33 @@ class Pricing:
     # Price groups — shared across the three passes
     ##################################
     # Generator of border ranks and names of neighbour area for each border of a given market area:
-    def get_market_area_neighbours(self, mc_market_area_name: str) -> list[tuple[MarketBorderMC, str]]:
+    def get_market_area_neighbours(self, market_area_name: str) -> list[tuple[MarketBorderMC, str]]:
         neighbours_area = []
-        for mc_border in self.input_dataset.mc_market_borders.values():
+        for border in self.input_dataset.market_borders.values():
             neighbour_area = (
-                mc_border.downhill_market_area
-                if mc_border.uphill_market_area.name == mc_market_area_name
-                else mc_border.uphill_market_area
+                border.downhill_market_area
+                if border.uphill_market_area.name == market_area_name
+                else border.uphill_market_area
             )
-            neighbours_area.append((mc_border, neighbour_area.name))
+            neighbours_area.append((border, neighbour_area.name))
         return neighbours_area
 
     # Append all neighbour areas recursively as long as they are not already part of the group and the connection is not
     # saturated:
     def propagate_through_unsaturated(
         self,
-        mc_market_area: MarketAreaMC,
+        market_area: MarketAreaMC,
         time_index: int,
         area_price_group: dict[str, int | None],
         price_group: PriceGroup,
     ):
-        for mc_border, neighbour_market_area_name in self.get_market_area_neighbours(mc_market_area.name):
+        for border, neighbour_market_area_name in self.get_market_area_neighbours(market_area.name):
             if neighbour_market_area_name in price_group.market_area_names:
                 continue
-            flow = self.clearing_border_exchanges[mc_border.name, time_index]
+            flow = self.clearing_border_exchanges[border.name, time_index]
             time = self.input_dataset.times[time_index]
-            relative_max_flow = mc_border.max_flow.get_value(time)
-            relative_min_flow = mc_border.min_flow.get_value(time)
+            relative_max_flow = border.max_flow.get_value(time)
+            relative_min_flow = border.min_flow.get_value(time)
             if (
                 relative_min_flow + self.parameters.allowed_round_off_error
                 <= flow
@@ -130,7 +130,7 @@ class Pricing:
             ):
                 area_price_group[neighbour_market_area_name] = price_group.id
                 price_group.market_area_names.append(neighbour_market_area_name)
-                neighbour_market_area = self.input_dataset.mc_market_areas[neighbour_market_area_name]
+                neighbour_market_area = self.input_dataset.market_areas[neighbour_market_area_name]
                 self.propagate_through_unsaturated(neighbour_market_area, time_index, area_price_group, price_group)
 
     def create_price_groups(self) -> dict[int, list[PriceGroup]]:
@@ -140,12 +140,10 @@ class Pricing:
             if self.input_dataset.is_atc:
                 # Initialize a dict linking each market area with a price group number:
                 areas_price_group: dict[str, int | None] = {}
-                for market_area_name in self.input_dataset.mc_market_areas:
+                for market_area_name in self.input_dataset.market_areas:
                     areas_price_group[market_area_name] = None
 
-                for group_id, (market_area_name, mc_market_area) in enumerate(
-                    self.input_dataset.mc_market_areas.items()
-                ):
+                for group_id, (market_area_name, market_area) in enumerate(self.input_dataset.market_areas.items()):
                     # If the current area is already allocated to a price group, go to the next one:
                     if areas_price_group[market_area_name] is not None:
                         continue
@@ -156,17 +154,17 @@ class Pricing:
 
                     # Loop over borders that are not saturated and link all possible areas inside the current group in a
                     # recursive way:
-                    self.propagate_through_unsaturated(mc_market_area, time_index, areas_price_group, price_group)
+                    self.propagate_through_unsaturated(market_area, time_index, areas_price_group, price_group)
             else:
                 if (
                     count_saturated(self.saturated_critical_branch, time_index, self.parameters.allowed_round_off_error)
                     == 0
                 ):
                     unique_price_group = PriceGroup(id=0, time_index=time_index)
-                    unique_price_group.market_area_names = list(self.input_dataset.mc_market_areas)
+                    unique_price_group.market_area_names = list(self.input_dataset.market_areas)
                     price_groups[time_index].append(unique_price_group)
                 else:
-                    for group_id, market_area_name in enumerate(self.input_dataset.mc_market_areas):
+                    for group_id, market_area_name in enumerate(self.input_dataset.market_areas):
                         new_price_group = PriceGroup(id=group_id, time_index=time_index)
                         new_price_group.market_area_names = [market_area_name]
                         price_groups[time_index].append(new_price_group)
@@ -185,11 +183,11 @@ class Pricing:
         # Count the number of occurrences of each market border inside the
         # current group (self):
         current_borders_counts = {}
-        for border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
+        for border_name, border in self.input_dataset.market_borders.items():
             for market_area_name in price_group.market_area_names:
                 if (
-                    market_area_name == mc_market_border.uphill_market_area.name
-                    or market_area_name == mc_market_border.downhill_market_area.name
+                    market_area_name == border.uphill_market_area.name
+                    or market_area_name == border.downhill_market_area.name
                 ):
                     if border_name not in current_borders_counts:
                         current_borders_counts[border_name] = 0
@@ -203,11 +201,11 @@ class Pricing:
         # Count the number of occurrences of each market border inside the
         # other group (self):
         other_borders_counts = {}
-        for border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
+        for border_name, border in self.input_dataset.market_borders.items():
             for market_area_name in other_price_group.market_area_names:
                 if (
-                    market_area_name == mc_market_border.uphill_market_area.name
-                    or market_area_name == mc_market_border.downhill_market_area.name
+                    market_area_name == border.uphill_market_area.name
+                    or market_area_name == border.downhill_market_area.name
                 ):
                     if border_name not in other_borders_counts:
                         other_borders_counts[border_name] = 0
@@ -228,46 +226,42 @@ class Pricing:
     def compute_price_bounds(self, price_group: PriceGroup, pricing_type: PricingPass):
         for market_area_name in price_group.market_area_names:
             time = self.input_dataset.times[price_group.time_index]
-            mc_market_area = self.input_dataset.mc_market_areas[market_area_name]
+            market_area = self.input_dataset.market_areas[market_area_name]
             # Initialize the local bounds on order prices:
-            max_accepted_sale_price = max_rejected_purchase_price = mc_market_area.min_price.get_value(time)
-            min_rejected_sale_price = min_accepted_purchase_price = mc_market_area.max_price.get_value(time)
+            max_accepted_sale_price = max_rejected_purchase_price = market_area.min_price.get_value(time)
+            min_rejected_sale_price = min_accepted_purchase_price = market_area.max_price.get_value(time)
 
             # Select orders involved during the current time step (generator):
             current_orders = (
-                mc_order
-                for mc_order in mc_market_area.mc_orders.values()
-                if mc_order.start_date <= time < mc_order.end_date
+                order for order in market_area.orders.values() if order.start_date <= time < order.end_date
             )
 
-            for mc_order in current_orders:
-                current_power = self.clearing_accepted_powers[market_area_name, mc_order.name]
+            for order in current_orders:
+                current_power = self.clearing_accepted_powers[market_area_name, order.name]
                 # Skip complex orders to compute price bounds
                 # Linked order
-                if mc_order.is_linked:
+                if order.is_linked:
                     continue
 
                     # Other complex order
-                if mc_order.requires_status_variable is not None:
+                if order.requires_status_variable is not None:
                     continue
 
                     # Combined accepted at their min:
-                if (abs(current_power - mc_order.qmin) <= self.parameters.allowed_round_off_error) and (
-                    mc_order.qmin != 0.0
-                ):
+                if (abs(current_power - order.qmin) <= self.parameters.allowed_round_off_error) and (order.qmin != 0.0):
                     continue
 
                 # Compute the relevant bound:
-                if mc_order.is_sale:
+                if order.is_sale:
                     if abs(current_power) >= self.parameters.allowed_round_off_error:
-                        max_accepted_sale_price = max(max_accepted_sale_price, mc_order.price)
+                        max_accepted_sale_price = max(max_accepted_sale_price, order.price)
                     else:
-                        min_rejected_sale_price = min(min_rejected_sale_price, mc_order.price)
+                        min_rejected_sale_price = min(min_rejected_sale_price, order.price)
                 else:
                     if abs(current_power) >= self.parameters.allowed_round_off_error:
-                        min_accepted_purchase_price = min(min_accepted_purchase_price, mc_order.price)
+                        min_accepted_purchase_price = min(min_accepted_purchase_price, order.price)
                     else:
-                        max_rejected_purchase_price = max(max_rejected_purchase_price, mc_order.price)
+                        max_rejected_purchase_price = max(max_rejected_purchase_price, order.price)
 
                 # Once done with orders, deduce the bounds on the group price:
                 # In the first pricing, these bounds are computed taking into account both accepted and rejected orders

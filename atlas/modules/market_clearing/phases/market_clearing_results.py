@@ -66,23 +66,23 @@ class MarketClearingResults:
             "AcceptedPower": pl.Float64,
         }
         rows = []
-        for order_name, mc_order in self.input_dataset.mc_orders.items():
+        for order_name, order in self.input_dataset.orders.items():
             rows.append(
                 {
                     "Name": order_name,
-                    "IsAgentTSO": mc_order.is_agent_tso,
-                    "Equipment": mc_order.equipment.name if not mc_order.is_agent_tso else "NA",
-                    "MarketArea": mc_order.market_area.name,
-                    "StartDate": mc_order.start_date,
-                    "EndDate": mc_order.end_date,
-                    "ExecutionDate": mc_order.execution_date,
-                    "OrderType": mc_order.order_type.value,
-                    "isSell": True if mc_order.order_type == OrderType.Sell else False,
-                    "Product": mc_order.product.value,
-                    "Qmin": mc_order.qmin,
-                    "Qmax": mc_order.qmax,
-                    "Price": mc_order.price,
-                    "AcceptedPower": self.accepted_powers[mc_order.market_area.name, order_name],
+                    "IsAgentTSO": order.is_agent_tso,
+                    "Equipment": order.equipment.name if not order.is_agent_tso else "NA",
+                    "MarketArea": order.market_area.name,
+                    "StartDate": order.start_date,
+                    "EndDate": order.end_date,
+                    "ExecutionDate": order.execution_date,
+                    "OrderType": order.order_type.value,
+                    "isSell": True if order.order_type == OrderType.Sell else False,
+                    "Product": order.product.value,
+                    "Qmin": order.qmin,
+                    "Qmax": order.qmax,
+                    "Price": order.price,
+                    "AcceptedPower": self.accepted_powers[order.market_area.name, order_name],
                 }
             )
         build_rows_dataframe(rows, schema).write_csv(self.parameters.get_output_results_dir() / "offers.csv")
@@ -110,10 +110,10 @@ class MarketClearingResults:
             {
                 "Name": market_area_name,
                 "TimeStep": time,
-                "DAPrice": value_or_zero(mc_market_area.da_price, time),
-                "DABalance": value_or_zero(mc_market_area.da_balance, time),
+                "DAPrice": value_or_zero(market_area.da_price, time),
+                "DABalance": value_or_zero(market_area.da_balance, time),
             }
-            for market_area_name, mc_market_area in self.input_dataset.mc_market_areas.items()
+            for market_area_name, market_area in self.input_dataset.market_areas.items()
             for time in self.input_dataset.times
         ]
         return build_rows_dataframe(rows, schema)
@@ -126,9 +126,9 @@ class MarketClearingResults:
             "TotalIDBalance": pl.Float64,
         }
         rows = []
-        for market_area_name, mc_market_area in self.input_dataset.mc_market_areas.items():
-            id_price_forecast = mc_market_area.id_price
-            id_balance_forecast = mc_market_area.id_balance
+        for market_area_name, market_area in self.input_dataset.market_areas.items():
+            id_price_forecast = market_area.id_price
+            id_balance_forecast = market_area.id_balance
             if id_price_forecast is None or id_balance_forecast is None:
                 continue
 
@@ -173,10 +173,10 @@ class MarketClearingResults:
             {
                 "Name": market_area_name,
                 "TimeStep": time,
-                "RRActivationPrice": value_or_zero(mc_market_area.rr_activation_price, time),
-                "RRActivationBalance": value_or_zero(mc_market_area.rr_activation_balance, time),
+                "RRActivationPrice": value_or_zero(market_area.rr_activation_price, time),
+                "RRActivationBalance": value_or_zero(market_area.rr_activation_balance, time),
             }
-            for market_area_name, mc_market_area in self.input_dataset.mc_market_areas.items()
+            for market_area_name, market_area in self.input_dataset.market_areas.items()
             for time in self.input_dataset.times
         ]
         return build_rows_dataframe(rows, schema)
@@ -192,10 +192,10 @@ class MarketClearingResults:
             {
                 "Name": market_area_name,
                 "TimeStep": time,
-                "MFRRActivationPrice": value_or_zero(mc_market_area.mfrr_activation_price, time),
-                "MFRRActivationBalance": value_or_zero(mc_market_area.mfrr_activation_balance, time),
+                "MFRRActivationPrice": value_or_zero(market_area.mfrr_activation_price, time),
+                "MFRRActivationBalance": value_or_zero(market_area.mfrr_activation_balance, time),
             }
-            for market_area_name, mc_market_area in self.input_dataset.mc_market_areas.items()
+            for market_area_name, market_area in self.input_dataset.market_areas.items()
             for time in self.input_dataset.times
         ]
         return build_rows_dataframe(rows, schema)
@@ -209,10 +209,10 @@ class MarketClearingResults:
         rows = [
             {
                 "Name": order_coupling_name,
-                "Type": mc_order_coupling.coupling_type.value,
-                "OrderList": "|".join([order.name for order in mc_order_coupling.orders]),
+                "Type": order_coupling.coupling_type.value,
+                "OrderList": "|".join([order.name for order in order_coupling.orders]),
             }
-            for order_coupling_name, mc_order_coupling in self.input_dataset.mc_order_couplings.items()
+            for order_coupling_name, order_coupling in self.input_dataset.order_couplings.items()
         ]
         build_rows_dataframe(rows, schema).write_csv(self.parameters.get_output_results_dir() / "coupling_data.csv")
 
@@ -242,12 +242,12 @@ class MarketClearingResults:
             {
                 "Name": market_border_name,
                 "TimeStep": time,
-                "MaximumFlow": value_or_zero(mc_market_border.maximum_flow, time),
-                "MinimumFlow": value_or_zero(mc_market_border.minimum_flow, time),
-                "TotalFlow": value_or_zero(mc_market_border.da_flow, time),
-                "DAFlow": value_or_zero(mc_market_border.da_flow, time),
+                "MaximumFlow": value_or_zero(market_border.maximum_flow, time),
+                "MinimumFlow": value_or_zero(market_border.minimum_flow, time),
+                "TotalFlow": value_or_zero(market_border.da_flow, time),
+                "DAFlow": value_or_zero(market_border.da_flow, time),
             }
-            for market_border_name, mc_market_border in self.input_dataset.mc_market_borders.items()
+            for market_border_name, market_border in self.input_dataset.market_borders.items()
             for time in self.input_dataset.times
         ]
         return build_rows_dataframe(rows, schema)
@@ -262,18 +262,18 @@ class MarketClearingResults:
             "TotalIDFlow": pl.Float64,
         }
         rows = []
-        for market_border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
+        for market_border_name, market_border in self.input_dataset.market_borders.items():
             for time in self.input_dataset.times:
-                total_flow = value_or_zero(mc_market_border.da_flow, time)
-                total_flow += value_or_zero(mc_market_border.total_id_flow, time)
+                total_flow = value_or_zero(market_border.da_flow, time)
+                total_flow += value_or_zero(market_border.total_id_flow, time)
                 rows.append(
                     {
                         "Name": market_border_name,
                         "TimeStep": time,
-                        "MaximumFlow": value_or_zero(mc_market_border.maximum_flow, time),
-                        "MinimumFlow": value_or_zero(mc_market_border.minimum_flow, time),
+                        "MaximumFlow": value_or_zero(market_border.maximum_flow, time),
+                        "MinimumFlow": value_or_zero(market_border.minimum_flow, time),
                         "TotalFlow": total_flow,
-                        "TotalIDFlow": value_or_zero(mc_market_border.total_id_flow, time),
+                        "TotalIDFlow": value_or_zero(market_border.total_id_flow, time),
                     }
                 )
         return build_rows_dataframe(rows, schema)
@@ -288,19 +288,19 @@ class MarketClearingResults:
             "RRActivated": pl.Float64,
         }
         rows = []
-        for market_border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
+        for market_border_name, market_border in self.input_dataset.market_borders.items():
             for time in self.input_dataset.times:
-                total_flow = value_or_zero(mc_market_border.da_flow, time)
-                total_flow += value_or_zero(mc_market_border.total_id_flow, time)
-                total_flow += value_or_zero(mc_market_border.rr_activated, time)
+                total_flow = value_or_zero(market_border.da_flow, time)
+                total_flow += value_or_zero(market_border.total_id_flow, time)
+                total_flow += value_or_zero(market_border.rr_activated, time)
                 rows.append(
                     {
                         "Name": market_border_name,
                         "TimeStep": time,
-                        "MaximumFlow": value_or_zero(mc_market_border.maximum_flow, time),
-                        "MinimumFlow": value_or_zero(mc_market_border.minimum_flow, time),
+                        "MaximumFlow": value_or_zero(market_border.maximum_flow, time),
+                        "MinimumFlow": value_or_zero(market_border.minimum_flow, time),
                         "TotalFlow": total_flow,
-                        "RRActivated": value_or_zero(mc_market_border.rr_activated, time),
+                        "RRActivated": value_or_zero(market_border.rr_activated, time),
                     }
                 )
         return build_rows_dataframe(rows, schema)
@@ -315,20 +315,20 @@ class MarketClearingResults:
             "MFRRActivated": pl.Float64,
         }
         rows = []
-        for market_border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
+        for market_border_name, market_border in self.input_dataset.market_borders.items():
             for time in self.input_dataset.times:
-                total_flow = value_or_zero(mc_market_border.da_flow, time)
-                total_flow += value_or_zero(mc_market_border.total_id_flow, time)
-                total_flow += value_or_zero(mc_market_border.rr_activated, time)
-                total_flow += value_or_zero(mc_market_border.mfrr_activated, time)
+                total_flow = value_or_zero(market_border.da_flow, time)
+                total_flow += value_or_zero(market_border.total_id_flow, time)
+                total_flow += value_or_zero(market_border.rr_activated, time)
+                total_flow += value_or_zero(market_border.mfrr_activated, time)
                 rows.append(
                     {
                         "Name": market_border_name,
                         "TimeStep": time,
-                        "MaximumFlow": value_or_zero(mc_market_border.maximum_flow, time),
-                        "MinimumFlow": value_or_zero(mc_market_border.minimum_flow, time),
+                        "MaximumFlow": value_or_zero(market_border.maximum_flow, time),
+                        "MinimumFlow": value_or_zero(market_border.minimum_flow, time),
                         "TotalFlow": total_flow,
-                        "MFRRActivated": value_or_zero(mc_market_border.mfrr_activated, time),
+                        "MFRRActivated": value_or_zero(market_border.mfrr_activated, time),
                     }
                 )
         return build_rows_dataframe(rows, schema)

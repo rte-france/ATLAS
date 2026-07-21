@@ -17,7 +17,7 @@ INITIAL_MIN_PRICE = -1.0e8
 
 
 class MarketAreaMC(MarketArea):
-    mc_orders: dict[str, OrderMC]
+    orders: dict[str, OrderMC]
 
     # Attributes from market clearing parameter
     timestep: Duration

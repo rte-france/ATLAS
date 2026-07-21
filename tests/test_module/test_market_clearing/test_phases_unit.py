@@ -100,15 +100,13 @@ class _FakeInputDataset:
     """Duck-typed stand-in for `MarketClearingInputDataset` carrying only the attributes the
     Pricing algorithms read."""
 
-    def __init__(
-        self, times, is_atc=True, mc_market_areas=None, mc_market_borders=None, mc_orders=None, mc_order_couplings=None
-    ):
+    def __init__(self, times, is_atc=True, market_areas=None, market_borders=None, orders=None, order_couplings=None):
         self.times = times
         self.is_atc = is_atc
-        self.mc_market_areas = mc_market_areas or {}
-        self.mc_market_borders = mc_market_borders or {}
-        self.mc_orders = mc_orders or {}
-        self.mc_order_couplings = mc_order_couplings or {}
+        self.market_areas = market_areas or {}
+        self.market_borders = market_borders or {}
+        self.orders = orders or {}
+        self.order_couplings = order_couplings or {}
 
 
 class TestOrderIsFeasible:
@@ -242,9 +240,9 @@ class TestGetOrdersTimeIndex:
             execution_date=parameters.temporal.execution_date,
         )
 
-        mc_orders = fake_dataset.get_orders([order], {})
+        orders = fake_dataset.get_orders([order], {})
 
-        assert mc_orders["o1"].time_index == input_dataset.times.index(start_date)
+        assert orders["o1"].time_index == input_dataset.times.index(start_date)
 
 
 class TestCreatePriceGroups:
@@ -278,8 +276,8 @@ class TestCreatePriceGroups:
         )
         input_dataset = _FakeInputDataset(
             times=times,
-            mc_market_areas={"ma_a": area_a, "ma_b": area_b, "ma_c": area_c},
-            mc_market_borders={"ab": border_ab, "bc": border_bc},
+            market_areas={"ma_a": area_a, "ma_b": area_b, "ma_c": area_c},
+            market_borders={"ab": border_ab, "bc": border_bc},
         )
         exchanges = {("ab", 0): ab_flow, ("bc", 0): bc_flow}
         return input_dataset, exchanges
@@ -343,8 +341,8 @@ class TestIsNeighbour:
         border_bc = make_market_border("bc", area_b, area_c, ONE_HOUR, times)
         return _FakeInputDataset(
             times=times,
-            mc_market_areas={"ma_a": area_a, "ma_b": area_b, "ma_c": area_c},
-            mc_market_borders={"ab": border_ab, "bc": border_bc},
+            market_areas={"ma_a": area_a, "ma_b": area_b, "ma_c": area_c},
+            market_borders={"ab": border_ab, "bc": border_bc},
         )
 
     def test_groups_sharing_an_external_border_are_neighbours(self, parameters: MarketClearingParameters) -> None:
@@ -454,7 +452,7 @@ class TestMarginalFixingUpdateAcceptedPower:
     sell and a buy order priced exactly at the spot price."""
 
     def _build_marginal_fixing(self, parameters, area, orders, accepted_powers):
-        input_dataset = _FakeInputDataset(times=[parameters.temporal.start_date], mc_orders=orders)
+        input_dataset = _FakeInputDataset(times=[parameters.temporal.start_date], orders=orders)
         marginal_fixing = MarginalFixing(input_dataset, parameters)
         marginal_fixing.accepted_powers = dict(accepted_powers)
         return marginal_fixing
@@ -560,11 +558,11 @@ class TestCreateOppositeDeltaP:
         coupling = make_order_coupling("pc_1", CouplingType.PARENT_CHILDREN, [parent, child])
         input_dataset = _FakeInputDataset(
             times=times,
-            mc_orders={"parent": parent, "child": child},
-            mc_order_couplings={"pc_1": coupling},
+            orders={"parent": parent, "child": child},
+            order_couplings={"pc_1": coupling},
         )
         pricing = _PricingAlgorithms(input_dataset, parameters, clearing_accepted_powers=accepted_powers)
-        order_links = OrderLinkResolver(input_dataset.mc_orders, input_dataset.mc_order_couplings).resolve()
+        order_links = OrderLinkResolver(input_dataset.orders, input_dataset.order_couplings).resolve()
         pricing.dict_linked_orders = order_links.linked_orders
         pricing.dict_parent_child_orders = order_links.parent_child_orders
         pricing._full_link_id_by_order = order_links.full_link_id_by_order
