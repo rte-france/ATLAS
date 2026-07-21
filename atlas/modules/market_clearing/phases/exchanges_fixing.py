@@ -238,7 +238,12 @@ class ExchangesFixing(OptimisationModel):
                     (1.0 - mc_border.loss_factor) - 1.0 / (1.0 - mc_border.loss_factor)
                 ) * timed_xsis + timed_export / (1.0 - mc_border.loss_factor)
                 self.add_constraint(
-                    timed_import >= tmp_rhs, constants.constraint_4_3a_constraint_name(border_name, time_index)
+                    timed_import == tmp_rhs, constants.constraint_4_3a_constraint_name(border_name, time_index)
+                )
+
+                self.add_constraint(
+                    timed_xsis >= 0.5 * timed_export,
+                    constants.constraint4_3b_constraint_name(border_name, time_index),
                 )
 
                 self.add_constraint(
@@ -258,6 +263,21 @@ class ExchangesFixing(OptimisationModel):
                     (1 - timed_nus) * relative_max_flow >= timed_export - timed_xsis,
                     constants.constraint_4_3e_max_constraint_name(border_name, time_index),
                 )
+
+                # Compute the constraint (4.5) that considers the time
+                # resolution of exchanges across the border:
+                if mc_border.time_resolution > self.parameters.time_resolution:
+                    time_elapsed = self.input_dataset.times[time_index] - self.parameters.start_datetime
+                    # % and / have same precedence => parsed left to right
+                    res_offset = time_elapsed.TotalMinutes % mc_border.time_resolution / self.parameters.time_step
+                    if res_offset != 0:
+                        self.add_constraint(
+                            self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
+                            == self.get_variable(
+                                constants.border_exchange_variable_name(border_name, time_index - res_offset)
+                            ),
+                            constants.border_exchanges_constraint_name(border_name, time_index),
+                        )
 
     def get_n_borders_with_losses(self):
         n_borders_with_losses = 0
