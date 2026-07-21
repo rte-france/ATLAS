@@ -4,6 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from functools import cached_property
+
 from pendulum import DateTime, Duration
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
@@ -17,6 +19,6 @@ class MarketAreaPtdfMC(MarketAreaPtdf):
     timestep: Duration
     times: list[DateTime]
 
-    @property
+    @cached_property
     def day_ahead_ptdf(self) -> AbstractTimeseries:
-        return self.da_ptdf.set_frequency(self.timestep, False).filter(self.times)
+        return self.da_ptdf.filter(self.times)

@@ -4,6 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from functools import cached_property
+
 import pendulum
 from pendulum import Duration
 
@@ -16,24 +18,24 @@ class CriticalBranchMC(CriticalBranch):
     timestep: Duration
     times: list[pendulum.DateTime]
 
-    @property
+    @cached_property
     def flow_margin(self) -> AbstractTimeseries | None:
         if self.flow_reliability_margin:
-            return self.flow_reliability_margin.set_frequency(self.timestep, False).filter(self.times)
+            return self.flow_reliability_margin.filter(self.times)
         else:
             return None
 
-    @property
+    @cached_property
     def ref_flow(self) -> AbstractTimeseries | None:
         if self.reference_flow:
-            return self.reference_flow.set_frequency(self.timestep, False).filter(self.times)
+            return self.reference_flow.filter(self.times)
         else:
             return None
 
     @property
     def max_flow(self) -> AbstractTimeseries | None:
         if self.maximum_flow:
-            max_flow = self.maximum_flow.set_frequency(self.timestep, False).filter(self.times)
+            max_flow = self.maximum_flow.filter(self.times)
             if self.flow_margin is not None:
                 max_flow -= self.flow_margin
             if self.ref_flow is not None:

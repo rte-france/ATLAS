@@ -29,8 +29,8 @@ class MarketClearingModule(
         return MarketClearingParameters
 
     def import_data(self, input_data: AtlasDataset, parameters: MarketClearingParameters) -> MarketClearingInputDataset:
-        input_dataset = MarketClearingInputDataset(input_data, parameters)
-        return input_dataset
+        input_data.set_frequency_all(parameters.temporal.timestep, True)
+        return MarketClearingInputDataset(input_data, parameters)
 
     def validate_data(self, parameters: MarketClearingParameters, input_dataset: MarketClearingInputDataset) -> bool:
         return True
