@@ -184,7 +184,7 @@ class TestBuildOrder:
 
         result = formulator.build_order(OrderType.Sell, start, end, price=10.0, qmin=0.0, qmax=50.0)
         assert "test_equipment" in result.name
-        assert "_U_" in result.name
+        assert "_u_" in result.name
         assert "at_" in result.name
         assert not result.name.endswith("_")
 
