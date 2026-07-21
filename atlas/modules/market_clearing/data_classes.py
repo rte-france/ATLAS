@@ -8,7 +8,7 @@ Plain data containers shared across the market_clearing module and its phases.
 
 from dataclasses import dataclass, field
 
-from atlas.objects.market.order import Order
+from atlas.modules.market_clearing.input_objects.order import OrderMC
 
 
 @dataclass
@@ -37,8 +37,8 @@ class OrderLinks:
         belongs to, before that group was folded into ``linked_orders``.
     """
 
-    linked_orders: dict[int, list[Order]]
-    parent_child_orders: dict[int, tuple[list[Order], list[Order]]]
+    linked_orders: dict[int, list[OrderMC]]
+    parent_child_orders: dict[int, tuple[list[OrderMC], list[OrderMC]]]
     full_link_id_by_order: dict[str, int] = field(default_factory=dict)
     full_pc_id_by_order: dict[str, int] = field(default_factory=dict)
     child_id_by_order: dict[str, str] = field(default_factory=dict)

@@ -4,6 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+import itertools
 import json
 from collections.abc import Callable
 from typing import Any, Literal
@@ -187,7 +188,6 @@ class Clearing:
     def create_orders_status(self):
         for market_area in self.input_dataset.market_areas.values():
             for order in market_area.orders.values():
-                order = self.input_dataset.orders[order.name]
                 if order.requires_status_variable:
                     self.model.add_boolean_variable(constants.order_status_variable_name(market_area.name, order.name))
 
@@ -423,12 +423,9 @@ class Clearing:
                     self.create_parent_children_order_coupling_constraints(order_coupling)
 
     def create_identical_volume_order_coupling_constraints(self, order_coupling: OrderCouplingMC):
-        for i, order in enumerate(order_coupling.orders[1:]):
-            prev_order = order_coupling.orders[i]
-            order = self.input_dataset.orders[order.name]
-            mc_prev_order = self.input_dataset.orders[prev_order.name]
+        for prev_order, order in itertools.pairwise(order_coupling.orders):
             prev_accepted_power = self.model.get_variable(
-                constants.accepted_power_variable_name(mc_prev_order.market_area.name, mc_prev_order.name)
+                constants.accepted_power_variable_name(prev_order.market_area.name, prev_order.name)
             )
             accepted_power = self.model.get_variable(
                 constants.accepted_power_variable_name(order.market_area.name, order.name)
@@ -441,29 +438,20 @@ class Clearing:
 
     def create_complement_order_coupling_constraints(self, order_coupling: OrderCouplingMC):
         if not order_coupling.complement_direction:
-            logger.info(
+            logger.warning(
                 f"Can't create constraint complement order coupling ('{order_coupling.name}') because there is not "
                 f"complement_direction"
             )
             return
         aggregated_accepted_power = []
         for order in order_coupling.orders:
-            if not OrderMC.is_feasible(order, self.input_dataset.times, self.parameters):
-                continue
-            order = self.input_dataset.orders[order.name]
             accepted_power = self.model.get_variable(
                 constants.accepted_power_variable_name(order.market_area.name, order.name)
             )
-            order = self.input_dataset.orders[order.name]
             if order.order_type == OrderType.Sell:
                 aggregated_accepted_power.append(-accepted_power)
-            elif order.order_type == OrderType.Buy:
-                aggregated_accepted_power.append(accepted_power)
             else:
-                logger.info(
-                    f"Can't create constraint complement order coupling ('{order_coupling.name}') on "
-                    f"'{order.name}' because the order type '{order.order_type.value}' is not implemented"
-                )
+                aggregated_accepted_power.append(accepted_power)
         aggregated_proportion_accepted_power = (
             sum(aggregated_accepted_power) * self.parameters.temporal.timestep.total_minutes() / 60
         )
@@ -480,18 +468,10 @@ class Clearing:
             self.model.add_constraint(
                 aggregated_proportion_accepted_power <= order_coupling.complement_energy, constraint_name
             )
-        else:
-            logger.info(
-                f"Can't create constraint complement order coupling ('{order_coupling.name}') because complement"
-                f" direction '{order_coupling.complement_direction.value}' is not implemented"
-            )
 
     def create_exclusion_order_coupling_constraints(self, order_coupling: OrderCouplingMC):
         aggregated_status = []
         for order in order_coupling.orders:
-            if not OrderMC.is_feasible(order, self.input_dataset.times, self.parameters):
-                continue
-            order = self.input_dataset.orders[order.name]
             order_status = self.model.get_variable(
                 constants.order_status_variable_name(order.market_area.name, order.name)
             )
@@ -502,16 +482,10 @@ class Clearing:
 
     def create_parent_children_order_coupling_constraints(self, order_coupling: OrderCouplingMC):
         parent_order = order_coupling.orders[0]
-        mc_parent_order = self.input_dataset.orders[parent_order.name]
-        if not OrderMC.is_feasible(parent_order, self.input_dataset.times, self.parameters):
-            return
         parent_order_status = self.model.get_variable(
-            constants.order_status_variable_name(mc_parent_order.market_area.name, parent_order.name)
+            constants.order_status_variable_name(parent_order.market_area.name, parent_order.name)
         )
         for order in order_coupling.orders[1:]:
-            order = self.input_dataset.orders[order.name]
-            if not OrderMC.is_feasible(order, self.input_dataset.times, self.parameters):
-                continue
             order_status = self.model.get_variable(
                 constants.order_status_variable_name(order.market_area.name, order.name)
             )
@@ -521,20 +495,17 @@ class Clearing:
             )
 
     def create_identical_ratio_order_coupling_constraints(self, order_coupling: OrderCouplingMC):
-        for i, order in enumerate(order_coupling.orders[1:]):
-            order = self.input_dataset.orders[order.name]
-            prev_order = order_coupling.orders[i]
-            mc_prev_order = self.input_dataset.orders[prev_order.name]
+        for prev_order, order in itertools.pairwise(order_coupling.orders):
             prev_accepted_power = self.model.get_variable(
-                constants.accepted_power_variable_name(mc_prev_order.market_area.name, prev_order.name)
+                constants.accepted_power_variable_name(prev_order.market_area.name, prev_order.name)
             )
             accepted_power = self.model.get_variable(
                 constants.accepted_power_variable_name(order.market_area.name, order.name)
             )
             if prev_order.qmin == prev_order.qmax:
-                prev_ratio = prev_accepted_power / mc_prev_order.qmax
+                prev_ratio = prev_accepted_power / prev_order.qmax
             else:
-                prev_ratio = (prev_accepted_power - mc_prev_order.qmin) / (mc_prev_order.qmax - mc_prev_order.qmin)
+                prev_ratio = (prev_accepted_power - prev_order.qmin) / (prev_order.qmax - prev_order.qmin)
             if order.qmin == order.qmax:
                 ratio = accepted_power / order.qmax
             else:

@@ -240,7 +240,7 @@ class TestGetOrdersTimeIndex:
             execution_date=parameters.temporal.execution_date,
         )
 
-        orders = fake_dataset.get_orders([order], {})
+        orders = fake_dataset.get_orders([order])
 
         assert orders["o1"].time_index == input_dataset.times.index(start_date)
 

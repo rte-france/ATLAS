@@ -39,8 +39,9 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
 
         self.is_atc = self.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
 
-        self.order_couplings = self.get_order_couplings(input_data.order_coupling.all())
-        self.orders = self.get_orders(input_data.order.all(), self.order_couplings)
+        self.orders = self.get_orders(input_data.order.all())
+        self.order_couplings = self.get_order_couplings(input_data.order_coupling.all(), self.orders)
+        self.apply_coupling_flags()
         self.market_areas = self.get_market_areas(input_data.market_area.all(), self.orders)
         self.market_borders = self.get_market_borders(input_data.market_border.all())
         self.control_blocks = self.get_control_blocks(input_data.control_block.all())
@@ -62,7 +63,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 "timestep": self.parameters.temporal.timestep,
                 "times": self.times,
             }
-            mc_critical_branch = CriticalBranchMC.model_validate(critical_branch_dump)
+            mc_critical_branch = CriticalBranchMC(**critical_branch_dump)
             mc_critical_branches[critical_branch.name] = mc_critical_branch
         return mc_critical_branches
 
@@ -103,12 +104,12 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 "times": self.times,
                 "orders": market_area_orders,
             }
-            mc_market_area = MarketAreaMC.model_validate(market_area_dump)
+            mc_market_area = MarketAreaMC(**market_area_dump)
             mc_market_areas[market_area.name] = mc_market_area
 
         return mc_market_areas
 
-    def get_orders(self, orders: list[Order], order_couplings: dict[str, OrderCouplingMC]) -> dict[str, OrderMC]:
+    def get_orders(self, orders: list[Order]) -> dict[str, OrderMC]:
         mc_orders = {}
         for order in orders:
             if OrderMC.is_feasible(order, self.times, self.parameters):
@@ -120,7 +121,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                     "timestep": self.parameters.temporal.timestep,
                     "requires_status_variable": requires_status_variable,
                 }
-                order = OrderMC.model_validate(order_dump)
+                order = OrderMC(**order_dump)
                 # Add time_index attribute -> use in pricing and output
                 time_index = None
                 for candidate_time_index, time in enumerate(self.times):
@@ -133,53 +134,49 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 order.time_index = time_index
                 mc_orders[order.name] = order
 
-        for order_coupling in order_couplings.values():
-            for order in order_coupling.orders:
-                if order.name not in mc_orders:
-                    continue
-                order = mc_orders[order.name]
-                if order_coupling.coupling_type == CouplingType.EXCLUSION:
-                    order.requires_status_variable = True
-                    order.is_mutually_excluding = True
-                if order_coupling.coupling_type == CouplingType.IDENTICAL_VOLUME:
-                    order.is_linked = True
-                    order.link_id = order_coupling.name
-                if order_coupling.coupling_type == CouplingType.IDENTICAL_RATIO:
-                    order.is_linked = True
-                    order.link_id = order_coupling.name
-                # Uncomment to enforce the PC constraint
-                if order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
-                    order.is_in_parent_child_coupling = True
-                    order.requires_status_variable = True
-                    order.parent_child_id = order_coupling.name
-                if order_coupling.coupling_type == CouplingType.COMPLEMENT:
-                    order.is_linked = True
-                    order.link_id = order_coupling.name
-            if order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
-                if len(order_coupling.orders) > 0:
-                    order = order_coupling.orders[0]
-                    mc_orders[order.name].is_parent = True
-                    parent_ids = mc_orders[order.name].order_coupling_parent_ids
-                    if parent_ids is None:
-                        parent_ids = []
-                    parent_ids.append(order_coupling.name)
-                    mc_orders[order.name].order_coupling_parent_ids = parent_ids
-
         return mc_orders
 
-    def get_order_couplings(self, order_couplings: list[OrderCoupling]) -> dict[str, OrderCouplingMC]:
+    def get_order_couplings(
+        self, order_couplings: list[OrderCoupling], orders: dict[str, OrderMC]
+    ) -> dict[str, OrderCouplingMC]:
+        """Build the market-clearing couplings, resolving their nested ``orders`` to the actual
+        :class:`OrderMC` instances kept in ``orders``.
+        """
         mc_order_couplings = {}
         for order_coupling in order_couplings:
-            if self.is_order_coupling_feasible(order_coupling):
-                mc_order_coupling = OrderCouplingMC(**dict(order_coupling))
-                mc_order_couplings[order_coupling.name] = mc_order_coupling
+            coupling_orders = [orders[order.name] for order in order_coupling.orders if order.name in orders]
+            if len(coupling_orders) < 2:
+                continue
+            mc_order_couplings[order_coupling.name] = OrderCouplingMC(
+                **{**dict(order_coupling), "orders": coupling_orders}
+            )
         return mc_order_couplings
 
-    def is_order_coupling_feasible(self, order_coupling: OrderCoupling) -> bool:
-        order_names = [
-            order.name for order in order_coupling.orders if OrderMC.is_feasible(order, self.times, self.parameters)
-        ]
-        return len(order_names) >= 2
+    def apply_coupling_flags(self) -> None:
+        """Propagate coupling membership onto the shared :class:`OrderMC` instances.
+
+        The couplings hold references to the same order objects as ``self.orders``, so mutating them
+        here is what makes flags such as ``is_linked`` or ``is_parent`` visible everywhere.
+        """
+        for order_coupling in self.order_couplings.values():
+            for order in order_coupling.orders:
+                match order_coupling.coupling_type:
+                    case CouplingType.EXCLUSION:
+                        order.requires_status_variable = True
+                        order.is_mutually_excluding = True
+                    case CouplingType.IDENTICAL_VOLUME | CouplingType.IDENTICAL_RATIO | CouplingType.COMPLEMENT:
+                        order.is_linked = True
+                        order.link_id = order_coupling.name
+                    case CouplingType.PARENT_CHILDREN:
+                        order.is_in_parent_child_coupling = True
+                        order.requires_status_variable = True
+                        order.parent_child_id = order_coupling.name
+            if order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
+                parent = order_coupling.orders[0]
+                parent.is_parent = True
+                parent_ids = parent.order_coupling_parent_ids or []
+                parent_ids.append(order_coupling.name)
+                parent.order_coupling_parent_ids = parent_ids
 
     def get_market_borders(self, market_borders: list[MarketBorder]) -> dict[str, MarketBorderMC]:
         mc_market_borders = {}
@@ -212,6 +209,6 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 "timestep": self.parameters.temporal.timestep,
                 "times": self.times,
             }
-            mc_market_area_ptdf = MarketAreaPtdfMC.model_validate(market_area_ptdf_dump)
+            mc_market_area_ptdf = MarketAreaPtdfMC(**market_area_ptdf_dump)
             mc_market_area_ptdfs[market_area_ptdf.name] = mc_market_area_ptdf
         return mc_market_area_ptdfs

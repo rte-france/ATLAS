@@ -19,7 +19,6 @@ from atlas.enums import ComplementDirection, CouplingType
 from atlas.modules.market_clearing.data_classes import IdvIdrCouplingIndex, OrderLinks
 from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.input_objects.order_coupling import OrderCouplingMC
-from atlas.objects.market.order import Order
 
 
 class OrderLinkResolver:
@@ -47,8 +46,8 @@ class OrderLinkResolver:
         )
 
     # Defines the global circular parent_child sets and stores them in a dictionary
-    def _get_circular_parent_child_sets(self) -> dict[int, list[Order]]:
-        dict_circular_children_bids: dict[int, list[Order]] = {}
+    def _get_circular_parent_child_sets(self) -> dict[int, list[OrderMC]]:
+        dict_circular_children_bids: dict[int, list[OrderMC]] = {}
         index_pc_t = 0
 
         # Step 1 - Filling the dictionary with unique circular PC linked sets
@@ -71,8 +70,8 @@ class OrderLinkResolver:
 
     # Recursively gets all the children from circular parent_child couplings
     def _get_circular_children(
-        self, order_coupling: OrderCouplingMC, orders: list[Order], processed_order_couplings: list[str]
-    ) -> list[Order]:
+        self, order_coupling: OrderCouplingMC, orders: list[OrderMC], processed_order_couplings: list[str]
+    ) -> list[OrderMC]:
         parent_order, child_order = order_coupling.orders[:2]
         child_mc_order = self._orders[child_order.name]
         processed_order_couplings.append(order_coupling.name)
@@ -90,8 +89,10 @@ class OrderLinkResolver:
 
     # Finds global links between orders (including circular parent_child links), defines the resulting sets and stores
     # them in a dictionary
-    def _compute_linked_bids_sets(self, dict_circular_children_bids: dict[int, list[Order]]) -> dict[int, list[Order]]:
-        dict_linked_bids: dict[int, list[Order]] = {}
+    def _compute_linked_bids_sets(
+        self, dict_circular_children_bids: dict[int, list[OrderMC]]
+    ) -> dict[int, list[OrderMC]]:
+        dict_linked_bids: dict[int, list[OrderMC]] = {}
         next_index = 0
 
         complement_couplings, idv_idr_index = self._partition_couplings_for_linking()
@@ -157,9 +158,9 @@ class OrderLinkResolver:
         order_coupling_name: str,
         index_lo: int,
         idv_idr_index: IdvIdrCouplingIndex,
-        dict_circular_children_bids: dict[int, list[Order]],
+        dict_circular_children_bids: dict[int, list[OrderMC]],
         treated_order_couplings: list[str],
-    ) -> list[Order]:
+    ) -> list[OrderMC]:
         """Resolve one IDENTICAL_VOLUME/IDENTICAL_RATIO coupling into its full linked group: every
         order transitively linked through shared IDV/IDR couplings, plus any circular
         parent-child set one of those orders belongs to.
@@ -219,7 +220,7 @@ class OrderLinkResolver:
 
         return block_idv_idr_bids
 
-    def _resolve_complement_linked_groups(self, complement_couplings: list[OrderCouplingMC]) -> list[list[Order]]:
+    def _resolve_complement_linked_groups(self, complement_couplings: list[OrderCouplingMC]) -> list[list[OrderMC]]:
         """Resolve COMPLEMENT couplings into linked groups.
 
         Note the two conditions below are independent (not if/elif): when the coupling's orders
@@ -243,7 +244,7 @@ class OrderLinkResolver:
 
         return groups
 
-    def _assign_full_link_ids(self, dict_linked_bids: dict[int, list[Order]]) -> None:
+    def _assign_full_link_ids(self, dict_linked_bids: dict[int, list[OrderMC]]) -> None:
         for index_lo, orders in dict_linked_bids.items():
             for order in orders:
                 if order.name not in self._full_link_id:
@@ -251,7 +252,7 @@ class OrderLinkResolver:
 
     # Defining global parent_child sets
     # Gets all the children from a parent set containing several parent orders
-    def _get_children(self, parent_orders: list[Order]) -> list[Order]:
+    def _get_children(self, parent_orders: list[OrderMC]) -> list[OrderMC]:
         list_children = []
         for order in parent_orders:
             order = self._orders[order.name]
@@ -266,8 +267,8 @@ class OrderLinkResolver:
     # Finds global parent_child links between orders (including the links between parents to merge them as a single
     # parent), defines the resulting sets and stores them in a dictionary
     def _compute_parent_child_sets(
-        self, dict_linked_orders: dict[int, list[Order]]
-    ) -> dict[int, tuple[list[Order], list[Order]]]:
+        self, dict_linked_orders: dict[int, list[OrderMC]]
+    ) -> dict[int, tuple[list[OrderMC], list[OrderMC]]]:
         dict_parent_child_orders = self._group_parent_child_couplings(dict_linked_orders)
         self._assign_full_pc_and_child_ids(dict_parent_child_orders)
 
@@ -277,12 +278,12 @@ class OrderLinkResolver:
         return dict_parent_child_orders
 
     def _group_parent_child_couplings(
-        self, dict_linked_orders: dict[int, list[Order]]
-    ) -> dict[int, tuple[list[Order], list[Order]]]:
+        self, dict_linked_orders: dict[int, list[OrderMC]]
+    ) -> dict[int, tuple[list[OrderMC], list[OrderMC]]]:
         """Group PARENT_CHILDREN couplings into parent/children sets, merging a parent's whole
         linked-order group into the parent set when the parent itself is IDV/IDR-linked.
         """
-        dict_parent_child_orders: dict[int, tuple[list[Order], list[Order]]] = {}
+        dict_parent_child_orders: dict[int, tuple[list[OrderMC], list[OrderMC]]] = {}
         index_pc = 0
         for order_coupling in self._order_couplings.values():
             if order_coupling.coupling_type != CouplingType.PARENT_CHILDREN:
@@ -308,7 +309,7 @@ class OrderLinkResolver:
         return dict_parent_child_orders
 
     def _assign_full_pc_and_child_ids(
-        self, dict_parent_child_orders: dict[int, tuple[list[Order], list[Order]]]
+        self, dict_parent_child_orders: dict[int, tuple[list[OrderMC], list[OrderMC]]]
     ) -> None:
         for index_pc, (parent_orders, children_orders) in dict_parent_child_orders.items():
             for order in parent_orders:
