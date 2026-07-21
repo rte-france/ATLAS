@@ -53,9 +53,6 @@ class _PricingAlgorithms:
 
     # Each wrapper below calls the real, unbound `Pricing` method against this stand-in — mypy
     # doesn't accept `self: _PricingAlgorithms` where `Pricing` is expected, hence the ignores.
-    def convert_time_index_to_time(self, time_index):
-        return Pricing.convert_time_index_to_time(self, time_index)  # type: ignore[arg-type]
-
     def get_market_area_neighbours(self, mc_market_area_name):
         return Pricing.get_market_area_neighbours(self, mc_market_area_name)  # type: ignore[arg-type]
 

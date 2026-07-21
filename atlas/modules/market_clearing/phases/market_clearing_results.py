@@ -14,14 +14,8 @@ from atlas.modules.market_clearing.parameters import MarketClearingParameters
 
 class MarketClearingResults:
     """
-    Module storing the fourth and last step of the Market Clearing process: maximizing the accepted volumes of marginal
-    orders.
-
-    The previous steps have determined which orders could be associated with each others in order to maximize the
-    social welfare, which exchanges it induced at borders and what were the resulting market prices. However, some
-    orders which price is equal to the market price might remain unaccepted, whereas their price is equal to the market
-    price. Indeed, their acceptance would not modify the overall social welfare. The present step is dedicated to
-    finding such orders, called "marginal", and maximizing the volumes they can trade.
+    Exports the results of the Market Clearing process to CSV: accepted offers, market area data, order
+    couplings and border data. Only instantiated by the module when result export is requested.
     """
 
     def __init__(
@@ -35,13 +29,12 @@ class MarketClearingResults:
         self.accepted_powers = accepted_powers
 
     def compute(self) -> None:
-        if self.parameters.output.export_result:
-            if not self.parameters.get_output_results_dir().exists():
-                self.parameters.get_output_results_dir().mkdir(parents=True, exist_ok=True)
-            self.export_offers()
-            self.export_market_areas_data()
-            self.export_couplings_data()
-            self.export_borders_data()
+        if not self.parameters.get_output_results_dir().exists():
+            self.parameters.get_output_results_dir().mkdir(parents=True, exist_ok=True)
+        self.export_offers()
+        self.export_market_areas_data()
+        self.export_couplings_data()
+        self.export_borders_data()
 
     def export_offers(self):
         offers = pl.DataFrame(
@@ -80,10 +73,7 @@ class MarketClearingResults:
                 "AcceptedPower": self.accepted_powers[mc_order.market_area.name, order_name],
             }
             offer = pl.DataFrame({k: [v] for k, v in order_dict.items()}, schema=offers.schema)
-            if offers is None:
-                offers = offer
-            else:
-                offers.extend(offer)
+            offers.extend(offer)
         offers.write_csv(self.parameters.get_output_results_dir() / "offers.csv")
 
     def export_market_areas_data(self):
