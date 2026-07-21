@@ -46,14 +46,17 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         self.market_borders = self.get_market_borders(input_data.market_border.all())
         self.control_blocks = self.get_control_blocks(input_data.control_block.all())
 
+        self.market_area_ptdfs: dict[str, MarketAreaPtdfMC] = {}
+        self.critical_branches: dict[str, CriticalBranchMC] = {}
         if self.parameters.exchange_constraints_type == ExchangeConstraintsType.FB:
-            self.critical_branches = self.get_critical_branches(input_data.critical_branch.all())
-            self.market_area_ptdfs = self.get_market_area_ptdfs(input_data.market_area_ptdf.all())
-        else:
-            self.critical_branches = {}
-            self.market_area_ptdfs = {}
+            self.market_area_ptdfs = self.get_market_area_ptdfs(input_data.market_area_ptdf.all(), self.market_areas)
+            self.critical_branches = self.get_critical_branches(
+                input_data.critical_branch.all(), self.market_area_ptdfs
+            )
 
-    def get_critical_branches(self, critical_branches: list[CriticalBranch]) -> dict[str, CriticalBranchMC]:
+    def get_critical_branches(
+        self, critical_branches: list[CriticalBranch], market_area_ptdfs: dict[str, MarketAreaPtdfMC]
+    ) -> dict[str, CriticalBranchMC]:
         if not critical_branches:
             return {}
         mc_critical_branches = {}
@@ -62,6 +65,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 **dict(critical_branch),
                 "timestep": self.parameters.temporal.timestep,
                 "times": self.times,
+                "market_area_ptdf": [market_area_ptdfs[ptdf.name] for ptdf in critical_branch.market_area_ptdf],
             }
             mc_critical_branch = CriticalBranchMC(**critical_branch_dump)
             mc_critical_branches[critical_branch.name] = mc_critical_branch
@@ -201,13 +205,23 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
             mc_market_borders[market_border.name] = market_border
         return mc_market_borders
 
-    def get_market_area_ptdfs(self, market_area_ptdfs: list[MarketAreaPtdf]) -> dict[str, MarketAreaPtdfMC]:
+    def get_market_area_ptdfs(
+        self, market_area_ptdfs: list[MarketAreaPtdf], market_areas: dict[str, MarketAreaMC]
+    ) -> dict[str, MarketAreaPtdfMC]:
+        """Build the market-clearing PTDFs, resolving their nested ``market_area`` to the actual
+        :class:`MarketAreaMC` instance kept in ``market_areas``.
+
+        The base :class:`MarketArea` dump lacks the market-clearing fields, so validating it as
+        :class:`MarketAreaMC` would fail; referencing the already-built instance is both correct and
+        cheaper.
+        """
         mc_market_area_ptdfs = {}
         for market_area_ptdf in market_area_ptdfs:
             market_area_ptdf_dump = {
                 **dict(market_area_ptdf),
                 "timestep": self.parameters.temporal.timestep,
                 "times": self.times,
+                "market_area": market_areas[market_area_ptdf.market_area.name],
             }
             mc_market_area_ptdf = MarketAreaPtdfMC(**market_area_ptdf_dump)
             mc_market_area_ptdfs[market_area_ptdf.name] = mc_market_area_ptdf

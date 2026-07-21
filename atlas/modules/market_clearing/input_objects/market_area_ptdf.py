@@ -9,11 +9,13 @@ from functools import cached_property
 from pendulum import DateTime, Duration
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
 from atlas.objects.market.market_area_ptdf import MarketAreaPtdf
 
 
 class MarketAreaPtdfMC(MarketAreaPtdf):
     da_ptdf: AbstractTimeseries
+    market_area: MarketAreaMC
 
     # Attributes from market clearing parameter
     timestep: Duration

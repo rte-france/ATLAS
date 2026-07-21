@@ -10,11 +10,12 @@ import pendulum
 from pendulum import Duration
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.modules.market_clearing.input_objects.market_area_ptdf import MarketAreaPtdfMC
 from atlas.objects.market.critical_branch import CriticalBranch
 
 
 class CriticalBranchMC(CriticalBranch):
-    # Attributes from market clearing parameter
+    market_area_ptdf: list[MarketAreaPtdfMC]  # type: ignore[assignment]
     timestep: Duration
     times: list[pendulum.DateTime]
 

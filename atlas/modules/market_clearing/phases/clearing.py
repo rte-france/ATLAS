@@ -354,14 +354,10 @@ class Clearing:
             for critical_branch_name, critical_branch in self.input_dataset.critical_branches.items():
                 branch_load = []
                 for market_area_ptdf in critical_branch.market_area_ptdf:
-                    # `market_area_ptdf` is the base MarketAreaPtdf on the critical branch; look up
-                    # the market-clearing view alongside it since both are needed here.
-                    mc_market_area_ptdf = self.input_dataset.market_area_ptdfs[market_area_ptdf.name]
-                    da_ptdf = mc_market_area_ptdf.day_ahead_ptdf
-                    market_area = self.input_dataset.market_areas[mc_market_area_ptdf.market_area.name]
+                    da_ptdf = market_area_ptdf.day_ahead_ptdf
                     relative_balance = self.model.get_variable(
-                        constants.local_balance_variable_name(market_area.name, time_index)
-                    ) - market_area.ref_balance.get_value(time)
+                        constants.local_balance_variable_name(market_area_ptdf.market_area.name, time_index)
+                    ) - market_area_ptdf.market_area.ref_balance.get_value(time)
 
                     branch_load.append(da_ptdf.get_value(time) * relative_balance)
                 self.model.add_constraint(
