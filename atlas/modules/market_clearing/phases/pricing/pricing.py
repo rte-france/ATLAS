@@ -8,6 +8,7 @@ import json
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.enums import SolverStatus
+from atlas.modules.market_clearing.data_classes import ClearingOutputs, PriceGroup
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
 from atlas.modules.market_clearing.input_objects.market_border import MarketBorderMC
@@ -15,7 +16,7 @@ from atlas.modules.market_clearing.order_links import OrderLinkResolver
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases._helpers import count_saturated
 from atlas.modules.market_clearing.phases.pricing import first_pass, second_pass, third_pass
-from atlas.modules.market_clearing.price_group import PriceGroup
+from atlas.modules.market_clearing.phases.pricing._types import PricingPass
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -25,20 +26,17 @@ class Pricing:
         self,
         input_dataset: MarketClearingInputDataset,
         parameters: MarketClearingParameters,
-        saturated_critical_branch: dict[tuple[str, int], float],
-        exchange_fixing_border_exchanges: dict[tuple[str, int], float],
-        clearing_local_balances: dict[tuple[str, int], float],
-        clearing_accepted_powers: dict[tuple[str, str], float],
+        clearing_outputs: ClearingOutputs,
     ):
         solver_options = SolverOptions(presolve=parameters.solver.use_presolve)
 
         self.model = OptimisationModel(parameters.solver.solver_name, options=solver_options, name="Pricing")
         self.input_dataset = input_dataset
         self.parameters = parameters
-        self.saturated_critical_branch = saturated_critical_branch
-        self.clearing_border_exchanges = exchange_fixing_border_exchanges
-        self.clearing_local_balances = clearing_local_balances
-        self.clearing_accepted_powers = clearing_accepted_powers
+        self.saturated_critical_branch = clearing_outputs.saturated_critical_branch
+        self.clearing_border_exchanges = clearing_outputs.border_exchanges
+        self.clearing_local_balances = clearing_outputs.local_balances
+        self.clearing_accepted_powers = clearing_outputs.accepted_powers
         self.price_groups = self.create_price_groups()
         order_links = OrderLinkResolver(self.input_dataset.mc_orders, self.input_dataset.mc_order_couplings).resolve()
         self.dict_linked_orders = order_links.linked_orders
@@ -151,7 +149,7 @@ class Pricing:
                     # If the current area is already allocated to a price group, go to the next one:
                     if areas_price_group[market_area_name] is not None:
                         continue
-                    price_group = PriceGroup(group_id, time_index)
+                    price_group = PriceGroup(id=group_id, time_index=time_index)
                     price_group.market_area_names.append(market_area_name)
                     areas_price_group[market_area_name] = group_id
                     price_groups[time_index].append(price_group)
@@ -164,17 +162,17 @@ class Pricing:
                     count_saturated(self.saturated_critical_branch, time_index, self.parameters.allowed_round_off_error)
                     == 0
                 ):
-                    unique_price_group = PriceGroup(0, time_index)
+                    unique_price_group = PriceGroup(id=0, time_index=time_index)
                     unique_price_group.market_area_names = list(self.input_dataset.mc_market_areas)
                     price_groups[time_index].append(unique_price_group)
                 else:
                     for group_id, market_area_name in enumerate(self.input_dataset.mc_market_areas):
-                        new_price_group = PriceGroup(group_id, time_index)
+                        new_price_group = PriceGroup(id=group_id, time_index=time_index)
                         new_price_group.market_area_names = [market_area_name]
                         price_groups[time_index].append(new_price_group)
         for price_group_list in price_groups.values():
             for price_group in price_group_list:
-                self.compute_price_bounds(price_group, 1)
+                self.compute_price_bounds(price_group, PricingPass.FIRST)
         return price_groups
 
     def is_neighbour(self, price_group: PriceGroup, other_price_group: PriceGroup) -> bool:
@@ -227,7 +225,7 @@ class Pricing:
                 return True
         return False
 
-    def compute_price_bounds(self, price_group: PriceGroup, pricing_type: int):
+    def compute_price_bounds(self, price_group: PriceGroup, pricing_type: PricingPass):
         for market_area_name in price_group.market_area_names:
             time = self.input_dataset.times[price_group.time_index]
             mc_market_area = self.input_dataset.mc_market_areas[market_area_name]
@@ -273,7 +271,7 @@ class Pricing:
 
                 # Once done with orders, deduce the bounds on the group price:
                 # In the first pricing, these bounds are computed taking into account both accepted and rejected orders
-            if pricing_type == 1:
+            if pricing_type == PricingPass.FIRST:
                 price_group.min_price = max(price_group.min_price, max_accepted_sale_price, max_rejected_purchase_price)
                 price_group.max_price = min(price_group.max_price, min_rejected_sale_price, min_accepted_purchase_price)
                 # In the second, rejected orders are not taken into account to compute the price bounds

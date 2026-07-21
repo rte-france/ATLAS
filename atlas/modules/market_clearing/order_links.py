@@ -14,36 +14,12 @@ order through those side effects. This module keeps that bookkeeping local to on
 OrderLinkResolver instance and returns it as part of an immutable OrderLinks result instead.
 """
 
-from dataclasses import dataclass, field
-
 from atlas.config import logger
 from atlas.enums import ComplementDirection, CouplingType
+from atlas.modules.market_clearing.data_classes import IdvIdrCouplingIndex, OrderLinks
 from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.input_objects.order_coupling import OrderCouplingMC
 from atlas.objects.market.order import Order
-
-
-@dataclass(frozen=True)
-class OrderLinks:
-    """Immutable result of resolving a dataset's order couplings.
-
-    :param linked_orders: index -> orders sharing a IDENTICAL_VOLUME/IDENTICAL_RATIO/COMPLEMENT
-        link (including circular parent-child groups folded into a link).
-    :param parent_child_orders: index -> (parent orders, child orders) for each PARENT_CHILDREN
-        group.
-    :param full_link_id_by_order: order name -> the key into ``linked_orders`` it belongs to.
-    :param full_pc_id_by_order: order name -> the key into ``parent_child_orders`` it belongs to.
-    :param child_id_by_order: order name -> its rank among the children of its parent-child group.
-    :param circular_pc_id_by_order: order name -> the id of the circular parent-child group it
-        belongs to, before that group was folded into ``linked_orders``.
-    """
-
-    linked_orders: dict[int, list[Order]]
-    parent_child_orders: dict[int, tuple[list[Order], list[Order]]]
-    full_link_id_by_order: dict[str, int] = field(default_factory=dict)
-    full_pc_id_by_order: dict[str, int] = field(default_factory=dict)
-    child_id_by_order: dict[str, str] = field(default_factory=dict)
-    circular_pc_id_by_order: dict[str, int] = field(default_factory=dict)
 
 
 class OrderLinkResolver:
@@ -118,12 +94,10 @@ class OrderLinkResolver:
         dict_linked_bids: dict[int, list[Order]] = {}
         next_index = 0
 
-        complement_couplings, orders_by_idv_idr_coupling, idv_idr_couplings_by_order = (
-            self._partition_couplings_for_linking()
-        )
+        complement_couplings, idv_idr_index = self._partition_couplings_for_linking()
 
         treated_order_couplings: list[str] = []
-        for order_coupling_name in orders_by_idv_idr_coupling:
+        for order_coupling_name in idv_idr_index.orders_by_coupling:
             # Check if we have already treated this order coupling (could be the case in an idv/idr block)
             if order_coupling_name in treated_order_couplings:
                 continue
@@ -131,8 +105,7 @@ class OrderLinkResolver:
             dict_linked_bids[next_index] = self._resolve_idv_idr_linked_group(
                 order_coupling_name,
                 next_index,
-                orders_by_idv_idr_coupling,
-                idv_idr_couplings_by_order,
+                idv_idr_index,
                 dict_circular_children_bids,
                 treated_order_couplings,
             )
@@ -157,14 +130,14 @@ class OrderLinkResolver:
 
     def _partition_couplings_for_linking(
         self,
-    ) -> tuple[list[OrderCouplingMC], dict[str, list[str]], dict[str, list[str]]]:
+    ) -> tuple[list[OrderCouplingMC], IdvIdrCouplingIndex]:
         """Split order couplings into COMPLEMENT (handled separately) and
         IDENTICAL_VOLUME/IDENTICAL_RATIO, indexing the latter both by coupling name and, for each
         order, by every IDV/IDR coupling it's part of.
         """
         complement_couplings = []
-        orders_by_idv_idr_coupling: dict[str, list[str]] = {}
-        idv_idr_couplings_by_order: dict[str, list[str]] = {}
+        orders_by_coupling: dict[str, list[str]] = {}
+        couplings_by_order: dict[str, list[str]] = {}
         for mc_order_coupling in self._mc_order_couplings.values():
             if mc_order_coupling.coupling_type == CouplingType.COMPLEMENT:
                 complement_couplings.append(mc_order_coupling)
@@ -172,19 +145,18 @@ class OrderLinkResolver:
             if mc_order_coupling.coupling_type not in (CouplingType.IDENTICAL_VOLUME, CouplingType.IDENTICAL_RATIO):
                 continue
 
-            orders_by_idv_idr_coupling[mc_order_coupling.name] = []
+            orders_by_coupling[mc_order_coupling.name] = []
             for order in mc_order_coupling.orders:
-                orders_by_idv_idr_coupling[mc_order_coupling.name].append(order.name)
-                idv_idr_couplings_by_order.setdefault(order.name, []).append(mc_order_coupling.name)
+                orders_by_coupling[mc_order_coupling.name].append(order.name)
+                couplings_by_order.setdefault(order.name, []).append(mc_order_coupling.name)
 
-        return complement_couplings, orders_by_idv_idr_coupling, idv_idr_couplings_by_order
+        return complement_couplings, IdvIdrCouplingIndex(orders_by_coupling, couplings_by_order)
 
     def _resolve_idv_idr_linked_group(
         self,
         order_coupling_name: str,
         index_lo: int,
-        orders_by_idv_idr_coupling: dict[str, list[str]],
-        idv_idr_couplings_by_order: dict[str, list[str]],
+        idv_idr_index: IdvIdrCouplingIndex,
         dict_circular_children_bids: dict[int, list[Order]],
         treated_order_couplings: list[str],
     ) -> list[Order]:
@@ -199,8 +171,7 @@ class OrderLinkResolver:
             [],
             treated_order_couplings,
             index_lo,
-            orders_by_idv_idr_coupling,
-            idv_idr_couplings_by_order,
+            idv_idr_index,
         )
 
         circularly_linked_bids = []
@@ -226,15 +197,14 @@ class OrderLinkResolver:
         block_idv_idr_bids: list[OrderMC],
         treated_order_couplings: list[str],
         index_lo: int,
-        orders_by_idv_idr_coupling: dict[str, list[str]],
-        idv_idr_couplings_by_order: dict[str, list[str]],
+        idv_idr_index: IdvIdrCouplingIndex,
     ) -> list[OrderMC]:
-        for order_name in orders_by_idv_idr_coupling[order_coupling.name]:
+        for order_name in idv_idr_index.orders_by_coupling[order_coupling.name]:
             mc_order = self._mc_orders[order_name]
             block_idv_idr_bids.append(mc_order)
             self._full_link_id[order_name] = index_lo
 
-            for linked_order_coupling_name in idv_idr_couplings_by_order.get(order_name, []):
+            for linked_order_coupling_name in idv_idr_index.couplings_by_order.get(order_name, []):
                 if linked_order_coupling_name in treated_order_couplings:
                     continue
                 treated_order_couplings.append(linked_order_coupling_name)
@@ -244,8 +214,7 @@ class OrderLinkResolver:
                     block_idv_idr_bids,
                     treated_order_couplings,
                     index_lo,
-                    orders_by_idv_idr_coupling,
-                    idv_idr_couplings_by_order,
+                    idv_idr_index,
                 )
 
         return block_idv_idr_bids

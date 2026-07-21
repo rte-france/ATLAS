@@ -16,13 +16,13 @@ import pytest
 import atlas.modules.market_clearing.constants as constants
 from atlas.enums import CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
+from atlas.modules.market_clearing.data_classes import PriceGroup
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.order_links import OrderLinkResolver
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
 from atlas.modules.market_clearing.phases.pricing import Pricing, third_pass
-from atlas.modules.market_clearing.price_group import PriceGroup
 from tests.test_module.test_market_clearing.factories import (
     make_market_area,
     make_market_border,

@@ -7,13 +7,22 @@ Structural type shared by the first/second/third pricing pass modules, so they c
 type-checked against `Pricing` without importing it back (`Pricing` imports the pass modules).
 """
 
+from enum import IntEnum
 from typing import Protocol
 
+from atlas.modules.market_clearing.data_classes import PriceGroup
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
-from atlas.modules.market_clearing.price_group import PriceGroup
 from atlas.objects.market.order import Order
 from atlas.solver.solver_interface import OptimisationModel
+
+
+class PricingPass(IntEnum):
+    """Which pricing pass `compute_price_bounds` is tightening bounds for: the first pass bounds
+    on both accepted and rejected orders, the second pass on accepted orders only."""
+
+    FIRST = 1
+    SECOND = 2
 
 
 class _PricingPhase(Protocol):
@@ -32,4 +41,4 @@ class _PricingPhase(Protocol):
 
     def is_neighbour(self, price_group: PriceGroup, other_price_group: PriceGroup) -> bool: ...
 
-    def compute_price_bounds(self, price_group: PriceGroup, pricing_type: int) -> None: ...
+    def compute_price_bounds(self, price_group: PriceGroup, pricing_type: PricingPass) -> None: ...

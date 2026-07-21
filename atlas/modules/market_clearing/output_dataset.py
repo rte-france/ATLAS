@@ -11,6 +11,7 @@ from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
+from atlas.modules.market_clearing.data_classes import ClearingOutputs
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
 from atlas.objects.market.critical_branch import CriticalBranch
@@ -112,15 +113,13 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
     def __init__(
         self,
         input_dataset: MarketClearingInputDataset,
-        accepted_powers: dict[tuple[str, str], float],
-        local_balances: dict[tuple[str, int], float],
-        border_exchanges: dict[tuple[str, int], float],
+        clearing_outputs: ClearingOutputs,
         market_prices: dict[tuple[str, int], float],
     ):
         self.input_dataset = input_dataset
-        self.accepted_powers = accepted_powers
-        self.local_balances = local_balances
-        self.border_exchanges = border_exchanges
+        self.accepted_powers = clearing_outputs.accepted_powers
+        self.local_balances = clearing_outputs.local_balances
+        self.border_exchanges = clearing_outputs.border_exchanges
         self.market_prices = market_prices
 
     def build_change_sets(self) -> None:

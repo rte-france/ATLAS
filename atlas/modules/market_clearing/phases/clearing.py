@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 import json
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
@@ -381,36 +381,32 @@ class Clearing:
                     accepted_power = self.model.get_variable(
                         constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name)
                     )
-                    self.create_min_accepted_power_constraint(
-                        mc_market_area.name,
-                        mc_order.name,
-                        order_status,
-                        mc_order.qmin,
-                        accepted_power,
+                    self.create_accepted_power_constraint(
+                        mc_market_area.name, mc_order.name, order_status, "min", mc_order.qmin, accepted_power
                     )
-                    self.create_max_accepted_power_constraint(
-                        mc_market_area.name,
-                        mc_order.name,
-                        order_status,
-                        mc_order.qmax,
-                        accepted_power,
+                    self.create_accepted_power_constraint(
+                        mc_market_area.name, mc_order.name, order_status, "max", mc_order.qmax, accepted_power
                     )
 
-    def create_min_accepted_power_constraint(
-        self, market_area_name: str, order_name: str, order_status, min_power: float, accepted_power
+    def create_accepted_power_constraint(
+        self,
+        market_area_name: str,
+        order_name: str,
+        order_status,
+        bound: Literal["min", "max"],
+        power: float,
+        accepted_power,
     ):
-        self.model.add_constraint(
-            order_status * max(self.parameters.allowed_round_off_error, min_power) <= accepted_power,
-            constants.min_accepted_power_constraint_name(market_area_name, order_name),
-        )
-
-    def create_max_accepted_power_constraint(
-        self, market_area_name: str, order_name: str, order_status, max_power: float, accepted_power
-    ):
-        self.model.add_constraint(
-            order_status * max_power >= accepted_power,
-            constants.max_accepted_power_constraint_name(market_area_name, order_name),
-        )
+        if bound == "min":
+            self.model.add_constraint(
+                order_status * max(self.parameters.allowed_round_off_error, power) <= accepted_power,
+                constants.min_accepted_power_constraint_name(market_area_name, order_name),
+            )
+        else:
+            self.model.add_constraint(
+                order_status * power >= accepted_power,
+                constants.max_accepted_power_constraint_name(market_area_name, order_name),
+            )
 
     def create_order_couplings_constraints(self):
         for order_coupling in self.input_dataset.mc_order_couplings.values():

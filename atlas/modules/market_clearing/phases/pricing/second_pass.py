@@ -10,7 +10,7 @@ penalizing the worst rejected sale/buy instead of forcing it to zero.
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
-from atlas.modules.market_clearing.phases.pricing._types import _PricingPhase
+from atlas.modules.market_clearing.phases.pricing._types import PricingPass, _PricingPhase
 
 
 def build_variables(pricing: _PricingPhase) -> None:
@@ -35,7 +35,7 @@ def update_price_bound(pricing: _PricingPhase) -> None:
         for price_group in price_group_list:
             price_group.max_price = float("inf")
             price_group.min_price = -float("inf")
-            pricing.compute_price_bounds(price_group, 2)
+            pricing.compute_price_bounds(price_group, PricingPass.SECOND)
             logger.debug(
                 f"Updating price variables for group {(price_group.time_index, price_group.id)} with bounds "
                 f"{price_group.min_price} and {price_group.max_price}"
