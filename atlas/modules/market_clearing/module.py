@@ -39,21 +39,21 @@ class MarketClearingModule(
     ) -> MarketClearingOutputDataset:
         clearing = Clearing(input_dataset, parameters)
         clearing.compute()
-        saturated_critical_branches = clearing.retrieve_saturated_critical_branch()
-        local_balances = clearing.retrieve_local_balances()
-        accepted_powers = clearing.retrieve_accepted_powers()
+        saturated_critical_branches = clearing.get_saturated_critical_branch()
+        local_balances = clearing.get_local_balances()
+        accepted_powers = clearing.get_accepted_powers()
 
         # Launch Exchange Fixing phase
         exchange_fixing = ExchangesFixing(input_dataset, parameters)
         exchange_fixing.compute(local_balances)
-        border_exchanges = exchange_fixing.retrieve_border_exchanges()
+        border_exchanges = exchange_fixing.get_border_exchanges()
 
         # Launch Pricing phase
         pricing = Pricing(
             input_dataset, parameters, saturated_critical_branches, border_exchanges, local_balances, accepted_powers
         )
         pricing.compute()
-        market_prices = pricing.retrieve_market_prices()
+        market_prices = pricing.get_market_prices()
 
         # Launch Marginal Fixing phase
         marginal_fixing = MarginalFixing(input_dataset, parameters)

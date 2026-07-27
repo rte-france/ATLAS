@@ -18,7 +18,7 @@ from atlas.modules.market_clearing.parameters import MarketClearingParameters
 
 class MarginalFixing:
     """
-    Module storing the fourth and last step of the Market Clearing process: maximizing the accepted volumes of marginal
+    Phase storing the fourth and last step of the Market Clearing process: maximizing the accepted volumes of marginal
     orders.
 
     The previous steps have determined which orders could be associated with each others in order to maximize the
@@ -56,7 +56,7 @@ class MarginalFixing:
                 self.parameters.get_lp_dir() / "marginal_fixing_accepted_powers.json",
                 "w",
             ) as f:
-                json.dump([[ma, o, val] for (ma, o), val in self.retrieve_accepted_powers().items()], f)
+                json.dump([[ma, o, val] for (ma, o), val in self.get_accepted_powers().items()], f)
 
     def update_accepted_power(self, market_area_name: str, current_time: pendulum.DateTime, spot_price: float) -> None:
         """Update accepted power from clearing
@@ -67,7 +67,6 @@ class MarginalFixing:
         :type current_time: pendulum.Datetime
         :param spot_price: Price of the market area at the current time
         :type spot_price: float
-        :return: A generator of OrderMC that may be updated
         :rtype: None
         """
         # Initialize the variables storing the total amounts of usable marginal powers as well as the marginal amounts
@@ -135,19 +134,19 @@ class MarginalFixing:
             if not mc_order.start_date <= current_time < mc_order.end_date_processed:
                 continue
             if (
-                mc_order.end_datetime - mc_order.start_date
+                mc_order.end_date_processed - mc_order.start_date
             ).total_seconds() > self.parameters.temporal.timestep.total_seconds():
                 continue
             if mc_order.price != spot_price:
                 continue
-            if mc_order.is_linked or mc_order.id_with_status:
+            if mc_order.is_linked or mc_order.requires_status_variable:
                 continue
 
             accepted_power = self.accepted_powers[market_area_name, mc_order.name]
             if mc_order.qmin == 0.0 or (mc_order.qmax != mc_order.qmin and accepted_power != 0.0):
                 yield mc_order, accepted_power
 
-    def retrieve_accepted_powers(self) -> dict[tuple[str, str], float]:
+    def get_accepted_powers(self) -> dict[tuple[str, str], float]:
         """Retrieve the accepted powers of each order per area
 
         :rtype: dict[tuple[str, str], float]

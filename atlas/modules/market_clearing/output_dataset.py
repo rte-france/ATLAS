@@ -187,7 +187,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
 
                 indexes = generate_datetimes(
                     mc_order.start_date,
-                    mc_order.end_datetime - self.input_dataset.parameters.temporal.timestep,
+                    mc_order.end_date_processed - self.input_dataset.parameters.temporal.timestep,
                     self.input_dataset.parameters.temporal.timestep,
                 )
                 values_sold = [accepted_power * mc_order.production_sign for _ in range(len(indexes))]

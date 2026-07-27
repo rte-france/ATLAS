@@ -98,8 +98,8 @@ class _PricingAlgorithms:
     def get_idv_idr_block_sets_fast(self, *args, **kwargs):
         return Pricing.get_idv_idr_block_sets_fast(self, *args, **kwargs)  # type: ignore[arg-type]
 
-    def create_opposite_delta_p(self):
-        return Pricing.create_opposite_delta_p(self)  # type: ignore[arg-type]
+    def compute_opposite_delta_p(self):
+        return Pricing.compute_opposite_delta_p(self)  # type: ignore[arg-type]
 
     def create_delta_price_pc_variables(self, opposite_delta_p_dict):
         return Pricing.create_delta_price_pc_variables(self, opposite_delta_p_dict)  # type: ignore[arg-type]
@@ -560,7 +560,7 @@ class TestMarginalFixingUpdateAcceptedPower:
 
 
 class TestCreateOppositeDeltaP:
-    """`Pricing.create_opposite_delta_p` — ATLAS-296 B5: the per-parent-child-group aggregate is
+    """`Pricing.compute_opposite_delta_p` — ATLAS-296 B5: the per-parent-child-group aggregate is
     the sentinel `None` when no order in the group was accepted, and a real value otherwise. The
     old code initialized the aggregate to `0.0` and gated on `isinstance(x, int)`, which is
     always true for a `float` — the sentinel never actually distinguished the two cases. This
@@ -608,20 +608,20 @@ class TestCreateOppositeDeltaP:
     def test_no_accepted_order_gives_the_none_sentinel(self, parameters: MarketClearingParameters) -> None:
         pricing = self._build_parent_child_pricing(parameters, {("ma_a", "parent"): 0.0, ("ma_a", "child"): 0.0})
 
-        (value,) = pricing.create_opposite_delta_p().values()
+        (value,) = pricing.compute_opposite_delta_p().values()
 
         assert value is None
 
     def test_an_accepted_order_gives_a_real_value(self, parameters: MarketClearingParameters) -> None:
         pricing = self._build_parent_child_pricing(parameters, {("ma_a", "parent"): 10.0, ("ma_a", "child"): 0.0})
 
-        (value,) = pricing.create_opposite_delta_p().values()
+        (value,) = pricing.compute_opposite_delta_p().values()
 
         assert value is not None
 
     def test_variable_and_constraint_creation_follow_the_sentinel(self, parameters: MarketClearingParameters) -> None:
         pricing = self._build_parent_child_pricing(parameters, {("ma_a", "parent"): 10.0, ("ma_a", "child"): 0.0})
-        opposite_delta_p_dict = pricing.create_opposite_delta_p()
+        opposite_delta_p_dict = pricing.compute_opposite_delta_p()
 
         pricing.create_delta_price_pc_variables(opposite_delta_p_dict)
 

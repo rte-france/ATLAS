@@ -100,7 +100,7 @@ class TestOrderCouplings:
                 if child.name not in input_dataset.mc_orders:
                     continue
                 mc_child = input_dataset.mc_orders[child.name]
-                assert mc_child.is_parent_children
+                assert mc_child.is_in_parent_child_coupling
                 assert mc_child.parent_child_id == coupling.name
 
         for order_name, count in parent_count_per_order.items():
@@ -118,7 +118,7 @@ class TestOrderCouplings:
                     continue
                 mc_order = input_dataset.mc_orders[order.name]
                 assert mc_order.is_mutually_excluding
-                assert mc_order.id_with_status
+                assert mc_order.requires_status_variable
 
     def test_couplings_with_fewer_than_two_feasible_orders_are_dropped(
         self, input_dataset: MarketClearingInputDataset

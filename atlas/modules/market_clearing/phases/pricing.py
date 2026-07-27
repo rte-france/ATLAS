@@ -68,7 +68,7 @@ class Pricing(OptimisationModel):
                 json.dump(
                     [
                         [market_area_name, time_index, val]
-                        for (market_area_name, time_index), val in self.retrieve_market_prices().items()
+                        for (market_area_name, time_index), val in self.get_market_prices().items()
                     ],
                     f,
                 )
@@ -143,7 +143,7 @@ class Pricing(OptimisationModel):
         self.create_surplus_objective()
 
     def build_third(self):
-        opposite_delta_p_dict = self.create_opposite_delta_p()
+        opposite_delta_p_dict = self.compute_opposite_delta_p()
         self.build_third_variables(opposite_delta_p_dict)
         self.build_third_constraints(opposite_delta_p_dict)
         self.build_third_objective(opposite_delta_p_dict)
@@ -251,7 +251,7 @@ class Pricing(OptimisationModel):
                 continue
             for group_i, group_j in iter_group_pairs(price_groups):
                 self.add_continuous_variable(
-                    constants.positive_slack_branch_load_constraint_name(group_i.id, group_j.id, time_index),
+                    constants.positive_slack_branch_load_variable_name(group_i.id, group_j.id, time_index),
                     0.0,
                     float("inf"),
                 )
@@ -266,7 +266,7 @@ class Pricing(OptimisationModel):
                 continue
             for group_i, group_j in iter_group_pairs(price_groups):
                 self.add_continuous_variable(
-                    constants.negative_slack_branch_load_constraint_name(group_i.id, group_j.id, time_index),
+                    constants.negative_slack_branch_load_variable_name(group_i.id, group_j.id, time_index),
                     -float("inf"),
                     0.0,
                 )
@@ -436,7 +436,7 @@ class Pricing(OptimisationModel):
                     )
 
     def create_absolute_price_group_constraint(self):
-        for time_index, _time in enumerate(self.input_dataset.times):
+        for time_index, time in enumerate(self.input_dataset.times):
             for price_group in self.price_groups[time_index]:
                 positive_price = self.get_variable(
                     constants.positive_price_on_group_variable_name(price_group.id, time_index)
@@ -447,12 +447,12 @@ class Pricing(OptimisationModel):
                 price = self.get_variable(constants.price_on_group_variable_name(price_group.id, time_index))
                 self.add_constraint(
                     positive_price + negative_price - price == 0.0,
-                    constants.absolute_price_group_constraint_name(price_group.id, _time),
+                    constants.absolute_price_group_constraint_name(price_group.id, time),
                 )
         return
 
     def create_branch_load_constraint(self):
-        for time_index, _time in enumerate(self.input_dataset.times):
+        for time_index, time in enumerate(self.input_dataset.times):
             price_groups = self.price_groups[time_index]
             if (
                 count_saturated(self.saturated_critical_branch, time_index, self.parameters.allowed_round_off_error)
@@ -465,10 +465,10 @@ class Pricing(OptimisationModel):
                 branch_load = price - other_price
                 if self.parameters.fb_branch_load_slack_penalty:
                     positive_slack = self.get_variable(
-                        constants.positive_slack_branch_load_constraint_name(group_i.id, group_j.id, time_index)
+                        constants.positive_slack_branch_load_variable_name(group_i.id, group_j.id, time_index)
                     )
                     negative_slack = self.get_variable(
-                        constants.negative_slack_branch_load_constraint_name(group_i.id, group_j.id, time_index)
+                        constants.negative_slack_branch_load_variable_name(group_i.id, group_j.id, time_index)
                     )
                     branch_load += positive_slack + negative_slack
                 for critical_branch_name, mc_critical_branch in self.input_dataset.mc_critical_branches.items():
@@ -485,7 +485,7 @@ class Pricing(OptimisationModel):
                             shadow_prices_fb = self.get_variable(
                                 constants.shadow_price_variable_name(critical_branch_name, time_index)
                             )
-                            branch_load += coeff * branch_ptdf.get_value(_time) * shadow_prices_fb
+                            branch_load += coeff * branch_ptdf.get_value(time) * shadow_prices_fb
 
                 self.add_constraint(
                     branch_load == 0.0,
@@ -493,7 +493,7 @@ class Pricing(OptimisationModel):
                 )
 
     def create_add_price_difference_constraint(self):
-        for time_index, _time in enumerate(self.input_dataset.times):
+        for time_index, time in enumerate(self.input_dataset.times):
             price_groups = self.price_groups[time_index]
             for group_i, group_j in iter_group_pairs(price_groups):
                 if not self.is_neighbour(group_i, group_j):
@@ -509,7 +509,7 @@ class Pricing(OptimisationModel):
 
                 self.add_constraint(
                     positive_price_diff + negative_price_diff == price - other_price,
-                    constants.price_difference_constraint_name(group_i.id, group_j.id, _time),
+                    constants.price_difference_constraint_name(group_i.id, group_j.id, time),
                 )
 
     def create_groups_prices_objective(self):
@@ -544,10 +544,10 @@ class Pricing(OptimisationModel):
             price_groups = self.price_groups[time_index]
             for group_i, group_j in iter_group_pairs(price_groups):
                 positive_load_slack = self.get_variable(
-                    constants.positive_slack_branch_load_constraint_name(group_i.id, group_j.id, time_index)
+                    constants.positive_slack_branch_load_variable_name(group_i.id, group_j.id, time_index)
                 )
                 negative_load_slack = self.get_variable(
-                    constants.negative_slack_branch_load_constraint_name(group_i.id, group_j.id, time_index)
+                    constants.negative_slack_branch_load_variable_name(group_i.id, group_j.id, time_index)
                 )
                 objective.append(
                     self.parameters.fb_branch_load_slack_penalty * (positive_load_slack - negative_load_slack)
@@ -642,12 +642,12 @@ class Pricing(OptimisationModel):
                     constants.worst_rej_sale_group(price_group.id, price_group.time_index)
                 )
                 objective.append(
-                    self.parameters.paradoxically_rejected_penalty_N * (min_rejected_sale + max_rejected_buy)
+                    self.parameters.paradoxically_rejected_penalty * (min_rejected_sale + max_rejected_buy)
                 )
         return self.add_objective(sum(objective))
 
     # Pricing 3
-    def create_opposite_delta_p(self) -> dict[int, float | None]:
+    def compute_opposite_delta_p(self) -> dict[int, float | None]:
         opposite_delta_p_dict: dict[int, float | None] = {}
         for index_pc, (parent_orders, children_orders) in self.dict_parent_child_orders.items():
             opposite_delta_p = None
@@ -681,7 +681,7 @@ class Pricing(OptimisationModel):
     def create_delta_price_order_variables(self):
         for mc_order in self.input_dataset.mc_orders.values():
             if mc_order.full_link_id is None and mc_order.parent_child_id is None:
-                if mc_order.id_with_status is None or mc_order.parent_child_id is not None:
+                if mc_order.requires_status_variable is None or mc_order.parent_child_id is not None:
                     continue
                 time_index = mc_order.time_index
                 local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
@@ -724,7 +724,7 @@ class Pricing(OptimisationModel):
     def deactivate_positive_surplus_order_constraints(self):
         for mc_order in self.input_dataset.mc_orders.values():
             if mc_order.full_link_id is None and mc_order.parent_child_id is None:
-                if mc_order.id_with_status is not None and mc_order.parent_child_id is None:
+                if mc_order.requires_status_variable is not None and mc_order.parent_child_id is None:
                     local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
 
                     if local_cleared_power > self.parameters.allowed_round_off_error:
@@ -738,7 +738,7 @@ class Pricing(OptimisationModel):
     def create_paradoxical_delta_price_order_constraints(self):
         for mc_order in self.input_dataset.mc_orders.values():
             if mc_order.full_link_id is None and mc_order.parent_child_id is None:
-                if mc_order.id_with_status is not None and mc_order.parent_child_id is None:
+                if mc_order.requires_status_variable is not None and mc_order.parent_child_id is None:
                     local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
                     if local_cleared_power > self.parameters.allowed_round_off_error:
                         time_index = mc_order.time_index
@@ -761,7 +761,7 @@ class Pricing(OptimisationModel):
         objective = []
         for index_lo in self.dict_linked_orders:
             delta_p = self.get_variable(constants.delta_p_lo(index_lo))
-            objective.append(self.parameters.paradoxically_accepted_penalty_M * delta_p)
+            objective.append(self.parameters.paradoxically_accepted_penalty * delta_p)
         return self.add_objective(sum(objective))
 
     def create_paradoxical_pc_objective(self, opposite_delta_p_dict: dict[int, float | None]):
@@ -769,14 +769,14 @@ class Pricing(OptimisationModel):
         for index_pc in self.dict_parent_child_orders:
             if opposite_delta_p_dict[index_pc] is not None:
                 delta_p = self.get_variable(constants.delta_p_pc(index_pc))
-                objective.append(self.parameters.paradoxically_accepted_penalty_M * delta_p)
+                objective.append(self.parameters.paradoxically_accepted_penalty * delta_p)
         return self.add_objective(sum(objective))
 
     def create_paradoxical_order_objective(self):
         objective = []
         for mc_order in self.input_dataset.mc_orders.values():
             if mc_order.full_link_id is None and mc_order.parent_child_id is None:
-                if mc_order.id_with_status is None or mc_order.parent_child_id is not None:
+                if mc_order.requires_status_variable is None or mc_order.parent_child_id is not None:
                     continue
                 time_index = mc_order.time_index
                 local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
@@ -785,7 +785,7 @@ class Pricing(OptimisationModel):
                     delta_p = self.get_variable(
                         constants.delta_p_order(mc_order.name, mc_order.market_area.name, time_index)
                     )
-                    objective.append(self.parameters.paradoxically_accepted_penalty_M * delta_p)
+                    objective.append(self.parameters.paradoxically_accepted_penalty * delta_p)
         return self.add_objective(sum(objective))
 
     def create_paradoxical_delta_price_pc_constraints(self, opposite_delta_p_dict: dict[int, float | None]):
@@ -971,7 +971,7 @@ class Pricing(OptimisationModel):
                     continue
 
                     # Other complex order
-                if mc_order.id_with_status is not None:
+                if mc_order.requires_status_variable is not None:
                     continue
 
                     # Combined accepted at their min:
@@ -1305,7 +1305,7 @@ class Pricing(OptimisationModel):
                                 price_group.max_rejected_buy = max(mc_order.price, price_group.max_rejected_buy)
                 logger.debug(f"Worst rejected : {price_group.min_rejected_sale}, {price_group.max_rejected_buy}")
 
-    def retrieve_market_prices(self) -> dict[tuple[str, int], float]:
+    def get_market_prices(self) -> dict[tuple[str, int], float]:
         """
         :rtype: dict[tuple[str, int], float]
         """
