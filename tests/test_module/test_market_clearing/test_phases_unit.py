@@ -13,6 +13,7 @@ exercised via the unbound-method technique against a lightweight duck-typed stan
 import pendulum
 import pytest
 
+import atlas.modules.market_clearing.constants as constants
 from atlas.enums import CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
@@ -50,6 +51,13 @@ class _PricingAlgorithms:
         self.saturated_critical_branch = {}
         self.dict_circular_children_bids: dict = {}
         self.dict_linked_orders: dict = {}
+        self._variables: dict = {}
+
+    def add_continuous_variable(self, name, lower_bound=float("-inf"), upper_bound=float("inf")):
+        return self._variables.setdefault(name, 0.0)
+
+    def get_variable(self, name):
+        return self._variables.setdefault(name, 0.0)
 
     # Each wrapper below calls the real, unbound `Pricing` method against this stand-in — mypy
     # doesn't accept `self: _PricingAlgorithms` where `Pricing` is expected, hence the ignores.
@@ -89,6 +97,12 @@ class _PricingAlgorithms:
 
     def get_idv_idr_block_sets_fast(self, *args, **kwargs):
         return Pricing.get_idv_idr_block_sets_fast(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    def create_opposite_delta_p(self):
+        return Pricing.create_opposite_delta_p(self)  # type: ignore[arg-type]
+
+    def create_delta_price_pc_variables(self, opposite_delta_p_dict):
+        return Pricing.create_delta_price_pc_variables(self, opposite_delta_p_dict)  # type: ignore[arg-type]
 
 
 class _FakeInputDataset:
@@ -392,6 +406,37 @@ class TestLinkedBidsSets:
         assert {order.name for order in linked_orders} == {"o1", "o2"}
         assert order_1.full_link_id == order_2.full_link_id
 
+    def test_linked_order_pulls_in_its_circular_parent_child_set(self, parameters: MarketClearingParameters) -> None:
+        """ATLAS-296 B2 regression: `circular_pc_id` (not `circular_PC_id`) must resolve, and the
+        lookup must use the order actually being linked, not a variable leaked from an earlier
+        unrelated loop. `dict_circular_children_bids` is injected directly rather than produced by
+        `get_circular_parent_child_sets`, since building a genuinely circular PC chain hits a
+        separate, unrelated infinite-recursion bug in `get_circular_children`.
+        """
+        times = [parameters.temporal.start_date]
+        area = make_market_area("ma_a", ONE_HOUR, times)
+        order_1 = make_order(
+            "o1", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR, is_linked=True, circular_pc_id=0
+        )
+        order_2 = make_order("o2", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR, is_linked=True)
+        circular_child = make_order("circular_child", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR)
+        coupling = make_order_coupling("idv_1", CouplingType.IDENTICAL_VOLUME, [order_1, order_2])
+
+        input_dataset = _FakeInputDataset(
+            times=times,
+            mc_orders={"o1": order_1, "o2": order_2, "circular_child": circular_child},
+            mc_order_couplings={"idv_1": coupling},
+        )
+        pricing = _PricingAlgorithms(input_dataset, parameters)
+        pricing.dict_circular_children_bids = {0: [circular_child]}
+
+        linked_sets = pricing.compute_linked_bids_sets()
+
+        assert len(linked_sets) == 1
+        (linked_orders,) = linked_sets.values()
+        assert {order.name for order in linked_orders} == {"o1", "o2", "circular_child"}
+        assert 0 not in pricing.dict_circular_children_bids
+
 
 class TestParentChildSets:
     """`compute_parent_child_sets` / `get_circular_children` — a simple, non-circular
@@ -512,3 +557,72 @@ class TestMarginalFixingUpdateAcceptedPower:
         marginal_fixing.update_accepted_power("ma_a", times[0], spot_price)
 
         assert marginal_fixing.accepted_powers["ma_a", "sell"] == 0.0
+
+
+class TestCreateOppositeDeltaP:
+    """`Pricing.create_opposite_delta_p` — ATLAS-296 B5: the per-parent-child-group aggregate is
+    the sentinel `None` when no order in the group was accepted, and a real value otherwise. The
+    old code initialized the aggregate to `0.0` and gated on `isinstance(x, int)`, which is
+    always true for a `float` — the sentinel never actually distinguished the two cases. This
+    method is only reachable via `build_third`, the LP fallback for an infeasible first and
+    second pass; neither test dataset's optimum requires it, so the LP-comparison fixtures never
+    exercise it.
+    """
+
+    def _build_parent_child_pricing(self, parameters, accepted_powers):
+        times = [parameters.temporal.start_date]
+        area = make_market_area("ma_a", ONE_HOUR, times)
+        parent = make_order(
+            "parent",
+            area,
+            ONE_HOUR,
+            price=50.0,
+            start_date=times[0],
+            end_date=times[0] + ONE_HOUR,
+            is_parent=True,
+            group_index=0,
+            time_index=0,
+        )
+        child = make_order(
+            "child",
+            area,
+            ONE_HOUR,
+            price=40.0,
+            start_date=times[0],
+            end_date=times[0] + ONE_HOUR,
+            group_index=0,
+            time_index=0,
+        )
+        coupling = make_order_coupling("pc_1", CouplingType.PARENT_CHILDREN, [parent, child])
+        input_dataset = _FakeInputDataset(
+            times=times,
+            mc_orders={"parent": parent, "child": child},
+            mc_order_couplings={"pc_1": coupling},
+        )
+        pricing = _PricingAlgorithms(input_dataset, parameters, clearing_accepted_powers=accepted_powers)
+        pricing.dict_circular_children_bids = pricing.get_circular_parent_child_sets()
+        pricing.dict_linked_orders = pricing.compute_linked_bids_sets()
+        pricing.dict_parent_child_orders = pricing.compute_parent_child_sets()
+        return pricing
+
+    def test_no_accepted_order_gives_the_none_sentinel(self, parameters: MarketClearingParameters) -> None:
+        pricing = self._build_parent_child_pricing(parameters, {("ma_a", "parent"): 0.0, ("ma_a", "child"): 0.0})
+
+        (value,) = pricing.create_opposite_delta_p().values()
+
+        assert value is None
+
+    def test_an_accepted_order_gives_a_real_value(self, parameters: MarketClearingParameters) -> None:
+        pricing = self._build_parent_child_pricing(parameters, {("ma_a", "parent"): 10.0, ("ma_a", "child"): 0.0})
+
+        (value,) = pricing.create_opposite_delta_p().values()
+
+        assert value is not None
+
+    def test_variable_and_constraint_creation_follow_the_sentinel(self, parameters: MarketClearingParameters) -> None:
+        pricing = self._build_parent_child_pricing(parameters, {("ma_a", "parent"): 10.0, ("ma_a", "child"): 0.0})
+        opposite_delta_p_dict = pricing.create_opposite_delta_p()
+
+        pricing.create_delta_price_pc_variables(opposite_delta_p_dict)
+
+        assert constants.delta_p_pc(next(iter(pricing.dict_parent_child_orders))) in pricing._variables

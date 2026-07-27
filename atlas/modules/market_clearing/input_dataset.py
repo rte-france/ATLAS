@@ -137,13 +137,13 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 }
                 mc_order = OrderMC.model_validate(order_dump)
                 # Add time_index attribute -> use in pricing and output
-                time_index = 0
-                for time_index, time in enumerate(self.times):
+                time_index = None
+                for candidate_time_index, time in enumerate(self.times):
                     if time == mc_order.start_date:
-                        time_index = time_index
+                        time_index = candidate_time_index
                         break
                 if time_index is None:
-                    logger.debbug(f"Order {order.name} is ignored : The start date is not an optimization timestep.")
+                    logger.debug(f"Order {order.name} is ignored : The start date is not an optimization timestep.")
                     continue
                 mc_order.time_index = time_index
                 mc_orders[order.name] = mc_order
