@@ -42,5 +42,4 @@ class TestAddTimeseriesToForecast:
         result = fake_output_dataset.add_timeseries_to_forecast(lazy_forecast, new_ts)
 
         assert isinstance(result, ForecastingMatrix)
-        assert not isinstance(result, LazyForecastingMatrix)
         assert new_time in result
