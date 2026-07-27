@@ -18,6 +18,7 @@ from atlas.enums import CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.input_objects.order import OrderMC
+from atlas.modules.market_clearing.order_links import OrderLinkResolver
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
 from atlas.modules.market_clearing.phases.pricing import Pricing
@@ -49,8 +50,8 @@ class _PricingAlgorithms:
         self.clearing_border_exchanges = clearing_border_exchanges or {}
         self.clearing_accepted_powers = clearing_accepted_powers or {}
         self.saturated_critical_branch = {}
-        self.dict_circular_children_bids: dict = {}
         self.dict_linked_orders: dict = {}
+        self._full_link_id_by_order: dict = {}
         self._variables: dict = {}
 
     def add_continuous_variable(self, name, lower_bound=float("-inf"), upper_bound=float("inf")):
@@ -77,26 +78,6 @@ class _PricingAlgorithms:
 
     def compute_price_bounds(self, price_group, pricing_type):
         return Pricing.compute_price_bounds(self, price_group, pricing_type)  # type: ignore[arg-type]
-
-    def compute_linked_bids_sets(self):
-        return Pricing.compute_linked_bids_sets(self)  # type: ignore[arg-type]
-
-    def compute_parent_child_sets(self):
-        return Pricing.compute_parent_child_sets(self)  # type: ignore[arg-type]
-
-    def get_children(self, parent_orders):
-        return Pricing.get_children(self, parent_orders)  # type: ignore[arg-type]
-
-    def get_circular_children(self, mc_order_coupling, orders, processed_order_couplings):
-        return Pricing.get_circular_children(  # type: ignore[arg-type]
-            self, mc_order_coupling, orders, processed_order_couplings
-        )
-
-    def get_circular_parent_child_sets(self):
-        return Pricing.get_circular_parent_child_sets(self)  # type: ignore[arg-type]
-
-    def get_idv_idr_block_sets_fast(self, *args, **kwargs):
-        return Pricing.get_idv_idr_block_sets_fast(self, *args, **kwargs)  # type: ignore[arg-type]
 
     def compute_opposite_delta_p(self):
         return Pricing.compute_opposite_delta_p(self)  # type: ignore[arg-type]
@@ -381,8 +362,13 @@ class TestIsNeighbour:
         assert not pricing.is_neighbour(group_a, group_c)
 
 
-class TestLinkedBidsSets:
-    """`compute_linked_bids_sets` — a simple, non-circular IDENTICAL_VOLUME coupling."""
+class TestOrderLinkResolverLinkedBids:
+    """`OrderLinkResolver` — a simple, non-circular IDENTICAL_VOLUME coupling.
+
+    ATLAS-296 PR-5 step 1: this logic used to live on `Pricing` and mutate the shared `OrderMC`
+    instances directly (`full_link_id`, `circular_pc_id`); it's now a plain, solver-free class
+    returning an immutable result, so these tests no longer need the `_PricingAlgorithms` harness.
+    """
 
     def test_identical_volume_orders_land_in_the_same_linked_set(self, parameters: MarketClearingParameters) -> None:
         times = [parameters.temporal.start_date]
@@ -391,56 +377,43 @@ class TestLinkedBidsSets:
         order_2 = make_order("o2", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR, is_linked=True)
         coupling = make_order_coupling("idv_1", CouplingType.IDENTICAL_VOLUME, [order_1, order_2])
 
-        input_dataset = _FakeInputDataset(
-            times=times,
-            mc_orders={"o1": order_1, "o2": order_2},
-            mc_order_couplings={"idv_1": coupling},
-        )
-        pricing = _PricingAlgorithms(input_dataset, parameters)
-        pricing.dict_circular_children_bids = pricing.get_circular_parent_child_sets()
+        order_links = OrderLinkResolver({"o1": order_1, "o2": order_2}, {"idv_1": coupling}).resolve()
 
-        linked_sets = pricing.compute_linked_bids_sets()
-
-        assert len(linked_sets) == 1
-        (linked_orders,) = linked_sets.values()
+        assert len(order_links.linked_orders) == 1
+        (linked_orders,) = order_links.linked_orders.values()
         assert {order.name for order in linked_orders} == {"o1", "o2"}
-        assert order_1.full_link_id == order_2.full_link_id
+        assert order_links.full_link_id_by_order["o1"] == order_links.full_link_id_by_order["o2"]
 
     def test_linked_order_pulls_in_its_circular_parent_child_set(self, parameters: MarketClearingParameters) -> None:
         """ATLAS-296 B2 regression: `circular_pc_id` (not `circular_PC_id`) must resolve, and the
         lookup must use the order actually being linked, not a variable leaked from an earlier
-        unrelated loop. `dict_circular_children_bids` is injected directly rather than produced by
-        `get_circular_parent_child_sets`, since building a genuinely circular PC chain hits a
-        separate, unrelated infinite-recursion bug in `get_circular_children`.
+        unrelated loop. The circular precondition is injected directly on the resolver's internal
+        state rather than produced by `_get_circular_parent_child_sets`, since building a
+        genuinely circular PC chain hits a separate, unrelated infinite-recursion bug in
+        `_get_circular_children`.
         """
         times = [parameters.temporal.start_date]
         area = make_market_area("ma_a", ONE_HOUR, times)
-        order_1 = make_order(
-            "o1", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR, is_linked=True, circular_pc_id=0
-        )
+        order_1 = make_order("o1", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR, is_linked=True)
         order_2 = make_order("o2", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR, is_linked=True)
         circular_child = make_order("circular_child", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR)
         coupling = make_order_coupling("idv_1", CouplingType.IDENTICAL_VOLUME, [order_1, order_2])
 
-        input_dataset = _FakeInputDataset(
-            times=times,
-            mc_orders={"o1": order_1, "o2": order_2, "circular_child": circular_child},
-            mc_order_couplings={"idv_1": coupling},
+        resolver = OrderLinkResolver(
+            {"o1": order_1, "o2": order_2, "circular_child": circular_child}, {"idv_1": coupling}
         )
-        pricing = _PricingAlgorithms(input_dataset, parameters)
-        pricing.dict_circular_children_bids = {0: [circular_child]}
+        resolver._circular_pc_id["o1"] = 0
 
-        linked_sets = pricing.compute_linked_bids_sets()
+        linked_orders = resolver._compute_linked_bids_sets({0: [circular_child]})
 
-        assert len(linked_sets) == 1
-        (linked_orders,) = linked_sets.values()
-        assert {order.name for order in linked_orders} == {"o1", "o2", "circular_child"}
-        assert 0 not in pricing.dict_circular_children_bids
+        assert len(linked_orders) == 1
+        (orders,) = linked_orders.values()
+        assert {order.name for order in orders} == {"o1", "o2", "circular_child"}
 
 
-class TestParentChildSets:
-    """`compute_parent_child_sets` / `get_circular_children` — a simple, non-circular
-    PARENT_CHILDREN coupling (the child is not itself a parent elsewhere)."""
+class TestOrderLinkResolverParentChild:
+    """`OrderLinkResolver` — a simple, non-circular PARENT_CHILDREN coupling (the child is not
+    itself a parent elsewhere)."""
 
     def test_non_circular_parent_child_link_is_not_flagged_circular(self, parameters: MarketClearingParameters) -> None:
         times = [parameters.temporal.start_date]
@@ -449,18 +422,9 @@ class TestParentChildSets:
         child = make_order("child", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR)
         coupling = make_order_coupling("pc_1", CouplingType.PARENT_CHILDREN, [parent, child])
 
-        input_dataset = _FakeInputDataset(
-            times=times,
-            mc_orders={"parent": parent, "child": child},
-            mc_order_couplings={"pc_1": coupling},
-        )
-        pricing = _PricingAlgorithms(input_dataset, parameters)
+        order_links = OrderLinkResolver({"parent": parent, "child": child}, {"pc_1": coupling}).resolve()
 
-        circular_sets = pricing.get_circular_parent_child_sets()
-
-        assert circular_sets == {}
-        assert parent.circular_pc_id is None
-        assert child.circular_pc_id is None
+        assert order_links.circular_pc_id_by_order == {}
 
     def test_parent_and_child_are_assigned_the_same_full_pc_id(self, parameters: MarketClearingParameters) -> None:
         times = [parameters.temporal.start_date]
@@ -469,20 +433,10 @@ class TestParentChildSets:
         child = make_order("child", area, ONE_HOUR, start_date=times[0], end_date=times[0] + ONE_HOUR)
         coupling = make_order_coupling("pc_1", CouplingType.PARENT_CHILDREN, [parent, child])
 
-        input_dataset = _FakeInputDataset(
-            times=times,
-            mc_orders={"parent": parent, "child": child},
-            mc_order_couplings={"pc_1": coupling},
-        )
-        pricing = _PricingAlgorithms(input_dataset, parameters)
-        pricing.dict_circular_children_bids = pricing.get_circular_parent_child_sets()
-        pricing.dict_linked_orders = pricing.compute_linked_bids_sets()
+        order_links = OrderLinkResolver({"parent": parent, "child": child}, {"pc_1": coupling}).resolve()
 
-        pricing.compute_parent_child_sets()
-
-        assert parent.full_pc_id is not None
-        assert parent.full_pc_id == child.full_pc_id
-        assert child.child_id == "0"
+        assert order_links.full_pc_id_by_order["parent"] == order_links.full_pc_id_by_order["child"]
+        assert order_links.child_id_by_order["child"] == "0"
 
 
 class TestMarginalFixingUpdateAcceptedPower:
@@ -600,9 +554,10 @@ class TestCreateOppositeDeltaP:
             mc_order_couplings={"pc_1": coupling},
         )
         pricing = _PricingAlgorithms(input_dataset, parameters, clearing_accepted_powers=accepted_powers)
-        pricing.dict_circular_children_bids = pricing.get_circular_parent_child_sets()
-        pricing.dict_linked_orders = pricing.compute_linked_bids_sets()
-        pricing.dict_parent_child_orders = pricing.compute_parent_child_sets()
+        order_links = OrderLinkResolver(input_dataset.mc_orders, input_dataset.mc_order_couplings).resolve()
+        pricing.dict_linked_orders = order_links.linked_orders
+        pricing.dict_parent_child_orders = order_links.parent_child_orders
+        pricing._full_link_id_by_order = order_links.full_link_id_by_order
         return pricing
 
     def test_no_accepted_order_gives_the_none_sentinel(self, parameters: MarketClearingParameters) -> None:
