@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 
 from atlas.abstract_class.module import AbstractModule
 from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.modules.market_clearing.data_classes import ClearingOutputs
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
@@ -28,8 +29,8 @@ class MarketClearingModule(
         return MarketClearingParameters
 
     def import_data(self, input_data: AtlasDataset, parameters: MarketClearingParameters) -> MarketClearingInputDataset:
-        input_dataset = MarketClearingInputDataset(input_data, parameters)
-        return input_dataset
+        input_data.set_frequency_all(parameters.temporal.timestep, True)
+        return MarketClearingInputDataset(input_data, parameters)
 
     def validate_data(self, parameters: MarketClearingParameters, input_dataset: MarketClearingInputDataset) -> bool:
         return True
@@ -48,10 +49,15 @@ class MarketClearingModule(
         exchange_fixing.compute(local_balances)
         border_exchanges = exchange_fixing.get_border_exchanges()
 
-        # Launch Pricing phase
-        pricing = Pricing(
-            input_dataset, parameters, saturated_critical_branches, border_exchanges, local_balances, accepted_powers
+        clearing_outputs = ClearingOutputs(
+            saturated_critical_branch=saturated_critical_branches,
+            border_exchanges=border_exchanges,
+            local_balances=local_balances,
+            accepted_powers=accepted_powers,
         )
+
+        # Launch Pricing phase
+        pricing = Pricing(input_dataset, parameters, clearing_outputs)
         pricing.compute()
         market_prices = pricing.get_market_prices()
 
@@ -59,9 +65,7 @@ class MarketClearingModule(
         marginal_fixing = MarginalFixing(input_dataset, parameters)
         marginal_fixing.compute(accepted_powers, market_prices)
 
-        market_clearing_output_dataset = MarketClearingOutputDataset(
-            input_dataset, accepted_powers, local_balances, border_exchanges, market_prices
-        )
+        market_clearing_output_dataset = MarketClearingOutputDataset(input_dataset, clearing_outputs, market_prices)
 
         return market_clearing_output_dataset
 

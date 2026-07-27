@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from collections.abc import Iterator
 
-from atlas.modules.market_clearing.price_group import PriceGroup
+from atlas.modules.market_clearing.data_classes import PriceGroup
 
 
 def count_saturated(saturated_critical_branch: dict[tuple[str, int], float], time_index: int, tolerance: float) -> int:
