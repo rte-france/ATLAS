@@ -41,15 +41,24 @@ class ExchangesFixing:
     def build_variables(self):
         """Create all variables for the exchange fixing phase model"""
         is_atc = self.input_dataset.is_atc
-        self.create_border_exchange_variables(is_atc)
-        self.create_border_pos_exchanges_variables(is_atc)
-        self.create_border_neg_exchanges_variables(is_atc)
+
+        _border_variables.create_border_exchange_variables(self, is_atc)
+        _border_variables.create_border_pos_exchanges_variables(self, is_atc)
+        _border_variables.create_border_neg_exchanges_variables(self, is_atc)
 
         if is_atc:
-            self.create_border_imports_variables()
-            self.create_border_exports_variables()
-            self.create_border_xsis_variables()
-            self.create_border_nus_variables()
+            _border_variables.create_border_loss_variables(
+                self, constants.border_import_variable_name, only_borders_with_losses=False
+            )
+            _border_variables.create_border_loss_variables(
+                self, constants.border_export_variable_name, only_borders_with_losses=False
+            )
+            _border_variables.create_border_loss_variables(
+                self, constants.border_xsis_variable_name, only_borders_with_losses=False
+            )
+            _border_variables.create_border_loss_variables(
+                self, constants.border_nus_variable_name, only_borders_with_losses=False
+            )
 
     def build_constraints(self, clearing_local_balances: dict[tuple[str, int], float]):
         """Create all constraints for the exchange fixing phase model"""
@@ -73,38 +82,6 @@ class ExchangesFixing:
                 objective.append(border_pos_exchange - border_neg_exchange)
         self.model.set_direction("maximize")
         self.model.add_objective(sum(objective))
-
-    ##################################
-    # Variables
-    ##################################
-    def create_border_exchange_variables(self, is_atc: bool):
-        _border_variables.create_border_exchange_variables(self, is_atc)
-
-    def create_border_imports_variables(self):
-        _border_variables.create_border_loss_variables(
-            self, constants.border_import_variable_name, only_borders_with_losses=False
-        )
-
-    def create_border_exports_variables(self):
-        _border_variables.create_border_loss_variables(
-            self, constants.border_export_variable_name, only_borders_with_losses=False
-        )
-
-    def create_border_xsis_variables(self):
-        _border_variables.create_border_loss_variables(
-            self, constants.border_xsis_variable_name, only_borders_with_losses=False
-        )
-
-    def create_border_nus_variables(self):
-        _border_variables.create_border_loss_variables(
-            self, constants.border_nus_variable_name, only_borders_with_losses=False
-        )
-
-    def create_border_pos_exchanges_variables(self, is_atc: bool):
-        _border_variables.create_border_pos_exchanges_variables(self, is_atc)
-
-    def create_border_neg_exchanges_variables(self, is_atc: bool):
-        _border_variables.create_border_neg_exchanges_variables(self, is_atc)
 
     ##################################
     # Constraints

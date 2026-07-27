@@ -395,7 +395,7 @@ def create_branch_load_constraint(pricing: _PricingPhase) -> None:
                     constants.negative_slack_branch_load_variable_name(group_i.id, group_j.id, time_index)
                 )
                 branch_load += positive_slack + negative_slack
-            for critical_branch_name, critical_branch in pricing.input_dataset.critical_branches.items():
+            for critical_branch_name, _ in pricing.input_dataset.critical_branches.items():
                 for market_area_name in pricing.input_dataset.market_areas:
                     if market_area_name in group_i.market_area_names:
                         coeff = 1.0
@@ -404,16 +404,12 @@ def create_branch_load_constraint(pricing: _PricingPhase) -> None:
                     else:
                         continue
 
-                    # ATLAS-296 (new finding, not in the original B1-B13 list): `CriticalBranchMC` has no
-                    # `ptdf` attribute (only `market_area_ptdf`/`node_ptdf`) — this branch is only reached
-                    # in flow-based (non-ATC) mode, which no test dataset exercises, so it has never actually
-                    # run. Needs business validation before a fix lands; preserved as-is.
-                    if market_area_name in critical_branch.ptdf:  # type: ignore[attr-defined]
-                        branch_ptdf = critical_branch.ptdf[market_area_name]  # type: ignore[attr-defined]
+                    if market_area_name in pricing.input_dataset.market_area_ptdfs:
+                        mc_market_area_ptdf = pricing.input_dataset.market_area_ptdfs[market_area_name]
                         shadow_prices_fb = pricing.model.get_variable(
                             constants.shadow_price_variable_name(critical_branch_name, time_index)
                         )
-                        branch_load += coeff * branch_ptdf.get_value(time) * shadow_prices_fb
+                        branch_load += coeff * mc_market_area_ptdf.day_ahead_ptdf.get_value(time) * shadow_prices_fb
 
             pricing.model.add_constraint(
                 branch_load == 0.0,
