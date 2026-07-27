@@ -3,9 +3,9 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-First pricing pass: builds the LP that computes market-clearing prices under the standard
-surplus/branch-load/price-difference constraints. If this pass is infeasible, `second_pass`
-relaxes the rejected-orders surplus constraints, and `third_pass` further relaxes paradoxically
+First pricing attempt: builds the LP that computes market-clearing prices under the standard
+surplus/branch-load/price-difference constraints. If this attempt is infeasible, `second_attempt`
+relaxes the rejected-orders surplus constraints, and `third_attempt` further relaxes paradoxically
 accepted/rejected orders.
 """
 

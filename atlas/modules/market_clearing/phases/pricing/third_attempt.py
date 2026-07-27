@@ -3,7 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Third pricing pass: run when the second pass is still infeasible. Deactivates the remaining
+Third pricing attempt: run when the second attempt is still infeasible. Deactivates the remaining
 positive-surplus constraints and instead penalizes any paradoxically accepted/rejected order by
 its opposite delta-P (the gap between its own price and the clearing price it actually got).
 """

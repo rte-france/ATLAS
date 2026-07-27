@@ -22,7 +22,7 @@ from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.order_links import OrderLinkResolver
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
-from atlas.modules.market_clearing.phases.pricing import Pricing, third_pass
+from atlas.modules.market_clearing.phases.pricing import Pricing, third_attempt
 from tests.test_module.test_market_clearing.factories import (
     make_market_area,
     make_market_border,
@@ -69,8 +69,8 @@ class _PricingAlgorithms:
         self._full_link_id_by_order: dict = {}
         self.model = _FakeOptimisationModel()
 
-    # Each wrapper below calls the real, unbound `Pricing` method (or, for the third pricing pass,
-    # the plain `third_pass` function it now delegates to) against this stand-in — mypy doesn't
+    # Each wrapper below calls the real, unbound `Pricing` method (or, for the third pricing attempt,
+    # the plain `third_attempt` function it now delegates to) against this stand-in — mypy doesn't
     # accept `self: _PricingAlgorithms` where `Pricing`/`_PricingPhase` is expected, hence the ignores.
     def get_market_area_neighbours(self, mc_market_area_name):
         return Pricing.get_market_area_neighbours(self, mc_market_area_name)  # type: ignore[arg-type]
@@ -90,10 +90,10 @@ class _PricingAlgorithms:
         return Pricing.compute_price_bounds(self, price_group, pricing_type)  # type: ignore[arg-type]
 
     def compute_opposite_delta_p(self):
-        return third_pass.compute_opposite_delta_p(self)  # type: ignore[arg-type]
+        return third_attempt.compute_opposite_delta_p(self)  # type: ignore[arg-type]
 
     def create_delta_price_pc_variables(self, opposite_delta_p_dict):
-        return third_pass.create_delta_price_pc_variables(self, opposite_delta_p_dict)  # type: ignore[arg-type]
+        return third_attempt.create_delta_price_pc_variables(self, opposite_delta_p_dict)  # type: ignore[arg-type]
 
 
 class _FakeInputDataset:

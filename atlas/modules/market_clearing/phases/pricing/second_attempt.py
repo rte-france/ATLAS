@@ -3,14 +3,14 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Second pricing pass: run when the first pass is infeasible. Tightens each price group's bounds
+Second pricing attempt: run when the first attempt is infeasible. Tightens each price group's bounds
 to the accepted-orders-only range, then relaxes the marginal-order surplus constraint by
 penalizing the worst rejected sale/buy instead of forcing it to zero.
 """
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
-from atlas.modules.market_clearing.phases.pricing._types import PricingPass, _PricingPhase
+from atlas.modules.market_clearing.phases.pricing._types import PricingAttempt, _PricingPhase
 
 
 def build_variables(pricing: _PricingPhase) -> None:
@@ -35,7 +35,7 @@ def update_price_bound(pricing: _PricingPhase) -> None:
         for price_group in price_group_list:
             price_group.max_price = float("inf")
             price_group.min_price = -float("inf")
-            pricing.compute_price_bounds(price_group, PricingPass.SECOND)
+            pricing.compute_price_bounds(price_group, PricingAttempt.SECOND)
             logger.debug(
                 f"Updating price variables for group {(price_group.time_index, price_group.id)} with bounds "
                 f"{price_group.min_price} and {price_group.max_price}"

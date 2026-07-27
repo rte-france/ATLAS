@@ -15,8 +15,8 @@ from atlas.modules.market_clearing.input_objects.market_border import MarketBord
 from atlas.modules.market_clearing.order_links import OrderLinkResolver
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases._helpers import count_saturated
-from atlas.modules.market_clearing.phases.pricing import first_pass, second_pass, third_pass
-from atlas.modules.market_clearing.phases.pricing._types import PricingPass
+from atlas.modules.market_clearing.phases.pricing import first_attempt, second_attempt, third_attempt
+from atlas.modules.market_clearing.phases.pricing._types import PricingAttempt
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -72,28 +72,28 @@ class Pricing:
                 )
 
     def build_first(self):
-        first_pass.instantiate_order_group_index(self)
-        first_pass.build_variables(self)
-        first_pass.build_constraints(self)
-        first_pass.build_objective(self)
+        first_attempt.instantiate_order_group_index(self)
+        first_attempt.build_variables(self)
+        first_attempt.build_constraints(self)
+        first_attempt.build_objective(self)
 
     def build_second(self):
         # Update PriceGroup
-        second_pass.update_price_bound(self)
-        second_pass.compute_min_max_rejected_sale_buy(self)
-        second_pass.build_variables(self)
+        second_attempt.update_price_bound(self)
+        second_attempt.compute_min_max_rejected_sale_buy(self)
+        second_attempt.build_variables(self)
         # If the order is accepted, check if it is partially accepted. If so, delete the marginal surplus constraint.
-        second_pass.build_constraints(self)
-        second_pass.build_objective(self)
+        second_attempt.build_constraints(self)
+        second_attempt.build_objective(self)
 
     def build_third(self):
-        opposite_delta_p_dict = third_pass.compute_opposite_delta_p(self)
-        third_pass.build_variables(self, opposite_delta_p_dict)
-        third_pass.build_constraints(self, opposite_delta_p_dict)
-        third_pass.build_objective(self, opposite_delta_p_dict)
+        opposite_delta_p_dict = third_attempt.compute_opposite_delta_p(self)
+        third_attempt.build_variables(self, opposite_delta_p_dict)
+        third_attempt.build_constraints(self, opposite_delta_p_dict)
+        third_attempt.build_objective(self, opposite_delta_p_dict)
 
     ##################################
-    # Price groups — shared across the three passes
+    # Price groups — shared across the three attempts
     ##################################
     # Generator of border ranks and names of neighbour area for each border of a given market area:
     def get_market_area_neighbours(self, market_area_name: str) -> list[tuple[MarketBorderMC, str]]:
@@ -170,7 +170,7 @@ class Pricing:
                         price_groups[time_index].append(new_price_group)
         for price_group_list in price_groups.values():
             for price_group in price_group_list:
-                self.compute_price_bounds(price_group, PricingPass.FIRST)
+                self.compute_price_bounds(price_group, PricingAttempt.FIRST)
         return price_groups
 
     def is_neighbour(self, price_group: PriceGroup, other_price_group: PriceGroup) -> bool:
@@ -223,7 +223,7 @@ class Pricing:
                 return True
         return False
 
-    def compute_price_bounds(self, price_group: PriceGroup, pricing_type: PricingPass):
+    def compute_price_bounds(self, price_group: PriceGroup, pricing_type: PricingAttempt):
         for market_area_name in price_group.market_area_names:
             time = self.input_dataset.times[price_group.time_index]
             market_area = self.input_dataset.market_areas[market_area_name]
@@ -265,7 +265,7 @@ class Pricing:
 
                 # Once done with orders, deduce the bounds on the group price:
                 # In the first pricing, these bounds are computed taking into account both accepted and rejected orders
-            if pricing_type == PricingPass.FIRST:
+            if pricing_type == PricingAttempt.FIRST:
                 price_group.min_price = max(price_group.min_price, max_accepted_sale_price, max_rejected_purchase_price)
                 price_group.max_price = min(price_group.max_price, min_rejected_sale_price, min_accepted_purchase_price)
                 # In the second, rejected orders are not taken into account to compute the price bounds
