@@ -3,14 +3,14 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Second pricing pass: run when the first pass is infeasible. Tightens each price group's bounds
+Second pricing attempt: run when the first attempt is infeasible. Tightens each price group's bounds
 to the accepted-orders-only range, then relaxes the marginal-order surplus constraint by
 penalizing the worst rejected sale/buy instead of forcing it to zero.
 """
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
-from atlas.modules.market_clearing.phases.pricing._types import _PricingPhase
+from atlas.modules.market_clearing.phases.pricing._types import PricingAttempt, _PricingPhase
 
 
 def build_variables(pricing: _PricingPhase) -> None:
@@ -35,7 +35,7 @@ def update_price_bound(pricing: _PricingPhase) -> None:
         for price_group in price_group_list:
             price_group.max_price = float("inf")
             price_group.min_price = -float("inf")
-            pricing.compute_price_bounds(price_group, 2)
+            pricing.compute_price_bounds(price_group, PricingAttempt.SECOND)
             logger.debug(
                 f"Updating price variables for group {(price_group.time_index, price_group.id)} with bounds "
                 f"{price_group.min_price} and {price_group.max_price}"
@@ -53,19 +53,19 @@ def compute_min_max_rejected_sale_buy(pricing: _PricingPhase) -> None:
             price_group.min_rejected_sale = float("inf")
             price_group.max_rejected_buy = -float("inf")
             for market_area_name in price_group.market_area_names:
-                mc_market_area = pricing.input_dataset.mc_market_areas[market_area_name]
+                market_area = pricing.input_dataset.market_areas[market_area_name]
 
-                for mc_order in mc_market_area.mc_orders.values():
+                for order in market_area.orders.values():
                     # Keep only orders in correct time
-                    if mc_order.time_index != time_index or mc_order.price is None:
+                    if order.time_index != time_index or order.price is None:
                         continue
-                    local_acc_power = pricing.clearing_accepted_powers[market_area_name, mc_order.name]
+                    local_acc_power = pricing.clearing_accepted_powers[market_area_name, order.name]
                     # Keep only rejected orders
-                    if abs(mc_order.qmax - local_acc_power) > pricing.parameters.allowed_round_off_error:
-                        if mc_order.is_sale:
-                            price_group.min_rejected_sale = min(mc_order.price, price_group.min_rejected_sale)
+                    if abs(order.qmax - local_acc_power) > pricing.parameters.allowed_round_off_error:
+                        if order.is_sale:
+                            price_group.min_rejected_sale = min(order.price, price_group.min_rejected_sale)
                         else:
-                            price_group.max_rejected_buy = max(mc_order.price, price_group.max_rejected_buy)
+                            price_group.max_rejected_buy = max(order.price, price_group.max_rejected_buy)
             logger.debug(f"Worst rejected : {price_group.min_rejected_sale}, {price_group.max_rejected_buy}")
 
 
@@ -85,24 +85,24 @@ def create_surplus_rejected_variables(pricing: _PricingPhase) -> None:
 
 
 def deactivate_null_marginal_order_constraint(pricing: _PricingPhase) -> None:
-    for mc_order in pricing.input_dataset.mc_orders.values():
-        if mc_order.name not in pricing._full_link_id_by_order and mc_order.parent_child_id is None:
-            time_index = mc_order.time_index
+    for order in pricing.input_dataset.orders.values():
+        if order.name not in pricing._full_link_id_by_order and order.parent_child_id is None:
+            time_index = order.time_index
             if time_index is None:
                 continue
 
-            local_cleared_power = pricing.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
+            local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
 
             if local_cleared_power > pricing.parameters.allowed_round_off_error:
-                equipment_name = mc_order.equipment.name if mc_order.equipment else "NA"
+                equipment_name = order.equipment.name if order.equipment else "NA"
                 # MARGINAL SURPLUS: if the bid is not linked and marginally accepted, its surplus should be null
-                if not mc_order.is_linked:
+                if not order.is_linked:
                     if (
-                        abs(local_cleared_power - mc_order.qmin) >= pricing.parameters.allowed_round_off_error
-                        and abs(local_cleared_power - mc_order.qmax) >= pricing.parameters.allowed_round_off_error
+                        abs(local_cleared_power - order.qmin) >= pricing.parameters.allowed_round_off_error
+                        and abs(local_cleared_power - order.qmax) >= pricing.parameters.allowed_round_off_error
                     ):
                         constraint_name = constants.null_marginal_order_constraint_name(
-                            mc_order.name, equipment_name, mc_order.market_area.name, time_index
+                            order.name, equipment_name, order.market_area.name, time_index
                         )
                         pricing.model.deactivate_constraint(constraint_name)
 

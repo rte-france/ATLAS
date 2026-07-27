@@ -17,8 +17,6 @@ from atlas.objects.market.order import Order
 
 
 class OrderMC(Order):
-    # Override of parent class  attributes that were None
-
     execution_date: DateTime
     start_date: DateTime
     end_date: DateTime
@@ -26,6 +24,7 @@ class OrderMC(Order):
     order_type: OrderType
     qmax: float
     qmin: float
+    price: int | float
 
     # Attributes that will be set later (while creating coupling groups):
     requires_status_variable: bool = False

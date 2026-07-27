@@ -33,13 +33,13 @@ def make_market_area(
     timestep: Duration,
     times: list[DateTime],
     control_block: ControlBlock | None = None,
-    mc_orders: dict[str, OrderMC] | None = None,
+    orders: dict[str, OrderMC] | None = None,
     **overrides,
 ) -> MarketAreaMC:
     return MarketAreaMC(
         name=name,
         control_block=control_block or make_control_block(f"cb_{name}"),
-        mc_orders=mc_orders or {},
+        orders=orders or {},
         timestep=timestep,
         times=times,
         **overrides,
