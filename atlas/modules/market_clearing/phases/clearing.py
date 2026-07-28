@@ -248,28 +248,26 @@ class Clearing:
                 )
 
     def create_exchange_across_border_constraints(self):
-        # NB: the offset arithmetic below is a literal port of the pre-datetime version, kept as-is so
-        # this commit stays a pure rename; it is corrected in the follow-up commit.
+        """Hold a border's exchange constant over each of its resolution blocks.
+
+        A border coarser than the clearing timestep can only carry one exchange value per resolution
+        block, so every timestep inside a block is tied back to the timestep that opens it.
+        """
         timestep_minutes = self.parameters.temporal.timestep.total_minutes()
         for time in self.input_dataset.times:
             for border_name, border in self.input_dataset.market_borders.items():
-                if border.time_resolution > timestep_minutes:
-                    time_elapsed = time - self.parameters.temporal.start_date
-                    # % and / have same precedence => parsed left to right
-                    res_offset = time_elapsed.minutes % border.time_resolution / timestep_minutes
-                    if res_offset != 0:
-                        # The former index suffix `i` denoted `times[i]`, i.e. start_date + i * timestep.
-                        precedent_time = (
-                            self.parameters.temporal.start_date
-                            + res_offset * timestep_minutes * self.parameters.temporal.timestep
-                        )
-                        self.model.add_constraint(
-                            self.model.get_variable(constants.border_exchange_variable_name(border_name, time))
-                            == self.model.get_variable(
-                                constants.border_exchange_variable_name(border_name, precedent_time)
-                            ),
-                            constants.exchange_across_border_constraint_name(border_name, time),
-                        )
+                if border.time_resolution is None or border.resolution_time <= timestep_minutes:
+                    continue
+                minutes_elapsed = (time - self.parameters.temporal.start_date).in_minutes()
+                minutes_into_block = minutes_elapsed % border.resolution_time
+                if not minutes_into_block:
+                    continue
+                block_start = time.subtract(minutes=minutes_into_block)
+                self.model.add_constraint(
+                    self.model.get_variable(constants.border_exchange_variable_name(border_name, time))
+                    == self.model.get_variable(constants.border_exchange_variable_name(border_name, block_start)),
+                    constants.exchange_across_border_constraint_name(border_name, time),
+                )
 
     def create_import_export_constraints(self):
         for time in self.input_dataset.times:

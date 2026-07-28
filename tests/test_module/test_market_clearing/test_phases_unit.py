@@ -21,6 +21,7 @@ from atlas.modules.market_clearing.input_dataset import MarketClearingInputDatas
 from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.order_links import OrderLinkResolver
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
+from atlas.modules.market_clearing.phases.clearing import Clearing
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
 from atlas.modules.market_clearing.phases.pricing import Pricing, third_attempt
 from tests.test_module.test_market_clearing.factories import (
@@ -588,3 +589,98 @@ class TestCreateOppositeDeltaP:
         pricing.create_delta_price_pc_variables(opposite_delta_p_dict)
 
         assert constants.delta_p_pc(next(iter(pricing.dict_parent_child_orders))) in pricing.model._variables
+
+
+class _RecordingVariable:
+    """Stand-in for a solver variable that reports which pair of names an equality tied together."""
+
+    def __init__(self, name: str):
+        self.name = name
+
+    def __eq__(self, other):
+        return (self.name, other.name)
+
+
+class _RecordingModel:
+    """Duck-typed `OptimisationModel` recording the constraints a phase creates, so the constraint
+    set can be asserted without a solver."""
+
+    def __init__(self):
+        self._variables: dict = {}
+        self.constraints: dict = {}
+
+    def get_variable(self, name):
+        return self._variables.setdefault(name, _RecordingVariable(name))
+
+    def add_constraint(self, expression, name):
+        self.constraints[name] = expression
+
+
+class _ClearingAlgorithms:
+    """Duck-typed stand-in for `Clearing`, bound to the real unbound method under test — same
+    technique as `_PricingAlgorithms`, since `Clearing.__init__` builds a live OR-Tools model."""
+
+    def __init__(self, input_dataset, parameters):
+        self.input_dataset = input_dataset
+        self.parameters = parameters
+        self.model = _RecordingModel()
+
+    def create_exchange_across_border_constraints(self):
+        return Clearing.create_exchange_across_border_constraints(self)  # type: ignore[arg-type]
+
+
+class TestExchangeAcrossBorderConstraints:
+    """`Clearing.create_exchange_across_border_constraints` — a border coarser than the clearing
+    timestep carries a single exchange per resolution block, so every timestep inside a block is
+    tied back to the timestep opening it."""
+
+    def _build(self, parameters: MarketClearingParameters, time_resolution: float, n_times: int = 4):
+        times = [parameters.temporal.start_date.add(hours=hour) for hour in range(n_times)]
+        area_a = make_market_area("ma_a", ONE_HOUR, times)
+        area_b = make_market_area("ma_b", ONE_HOUR, times)
+        border = make_market_border("ab", area_a, area_b, ONE_HOUR, times, time_resolution=time_resolution)
+        input_dataset = _FakeInputDataset(
+            times=times,
+            market_areas={"ma_a": area_a, "ma_b": area_b},
+            market_borders={"ab": border},
+        )
+        return _ClearingAlgorithms(input_dataset, parameters), times
+
+    def test_border_at_the_clearing_resolution_is_left_free(self, parameters: MarketClearingParameters) -> None:
+        clearing, _ = self._build(parameters, time_resolution=0.0)
+
+        clearing.create_exchange_across_border_constraints()
+
+        assert clearing.model.constraints == {}
+
+    def test_two_hour_border_ties_each_odd_hour_to_the_hour_opening_its_block(
+        self, parameters: MarketClearingParameters
+    ) -> None:
+        clearing, times = self._build(parameters, time_resolution=120.0)
+
+        clearing.create_exchange_across_border_constraints()
+
+        # Blocks are [t0, t1] and [t2, t3]: only the second hour of each block is constrained.
+        assert set(clearing.model.constraints) == {
+            constants.exchange_across_border_constraint_name("ab", times[1]),
+            constants.exchange_across_border_constraint_name("ab", times[3]),
+        }
+        assert clearing.model.constraints[constants.exchange_across_border_constraint_name("ab", times[1])] == (
+            constants.border_exchange_variable_name("ab", times[1]),
+            constants.border_exchange_variable_name("ab", times[0]),
+        )
+        assert clearing.model.constraints[constants.exchange_across_border_constraint_name("ab", times[3])] == (
+            constants.border_exchange_variable_name("ab", times[3]),
+            constants.border_exchange_variable_name("ab", times[2]),
+        )
+
+    def test_four_hour_border_ties_every_later_hour_to_the_first(self, parameters: MarketClearingParameters) -> None:
+        clearing, times = self._build(parameters, time_resolution=240.0)
+
+        clearing.create_exchange_across_border_constraints()
+
+        for time in times[1:]:
+            assert clearing.model.constraints[constants.exchange_across_border_constraint_name("ab", time)] == (
+                constants.border_exchange_variable_name("ab", time),
+                constants.border_exchange_variable_name("ab", times[0]),
+            )
