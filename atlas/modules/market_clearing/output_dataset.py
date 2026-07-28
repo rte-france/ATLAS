@@ -4,6 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+import pendulum
+
 import atlas.config as cfg
 from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.enums import Product
@@ -114,7 +116,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
         self,
         input_dataset: MarketClearingInputDataset,
         clearing_outputs: ClearingOutputs,
-        market_prices: dict[tuple[str, int], float],
+        market_prices: dict[tuple[str, pendulum.DateTime], float],
     ):
         self.input_dataset = input_dataset
         self.accepted_powers = clearing_outputs.accepted_powers
@@ -139,11 +141,8 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
             if abs(accepted_power) <= self.input_dataset.parameters.allowed_round_off_error:
                 continue
             updated_values["accepted_power"] = accepted_power
-            time_index = order.time_index
-            if time_index is None:
-                continue
             # The surplus of an order is the gain made by its emitter computed from the present spot price:
-            spot_price = self.market_prices[order.market_area.name, time_index]
+            spot_price = self.market_prices[order.market_area.name, order.start_date]
             if order.is_sale:
                 updated_values["individual_spread"] = spot_price - order.price
             else:
@@ -292,14 +291,8 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
     def update_market_area(self):
         for market_area_name, market_area in self.input_dataset.market_areas.items():
             updated_values = {"name": market_area_name}
-            balance_values = [
-                self.local_balances[market_area_name, time_index]
-                for time_index, _ in enumerate(self.input_dataset.times)
-            ]
-            price_values = [
-                self.market_prices[market_area_name, time_index]
-                for time_index, _ in enumerate(self.input_dataset.times)
-            ]
+            balance_values = [self.local_balances[market_area_name, time] for time in self.input_dataset.times]
+            price_values = [self.market_prices[market_area_name, time] for time in self.input_dataset.times]
 
             values_bal = Timeseries.from_values(
                 self.input_dataset.parameters.temporal.start_date,
@@ -351,14 +344,11 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
     def update_market_border(self):
         for market_border_name, market_border in self.input_dataset.market_borders.items():
             updated_values = {"name": market_border_name}
-            flow_values = [
-                self.border_exchanges[market_border_name, time_index]
-                for time_index, _ in enumerate(self.input_dataset.times)
-            ]
+            flow_values = [self.border_exchanges[market_border_name, time] for time in self.input_dataset.times]
             shadow_price_values = [
-                self.market_prices[market_border.uphill_market_area.name, time_index]
-                - self.market_prices[market_border.downhill_market_area.name, time_index]
-                for time_index, _ in enumerate(self.input_dataset.times)
+                self.market_prices[market_border.uphill_market_area.name, time]
+                - self.market_prices[market_border.downhill_market_area.name, time]
+                for time in self.input_dataset.times
             ]
 
             flow = Timeseries.from_values(
@@ -424,9 +414,9 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
     def update_critical_branches(self):
         relative_balances = {}
         for market_area_name, market_area in self.input_dataset.market_areas.items():
-            for time_index, time in enumerate(self.input_dataset.times):
-                relative_balances[market_area_name, time_index] = self.local_balances[
-                    market_area_name, time_index
+            for time in self.input_dataset.times:
+                relative_balances[market_area_name, time] = self.local_balances[
+                    market_area_name, time
                 ] - market_area.ref_balance.get_value(time)
 
         for critical_branch in self.input_dataset.critical_branches.values():

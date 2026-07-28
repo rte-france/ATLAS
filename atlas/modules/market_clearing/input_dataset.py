@@ -5,7 +5,6 @@ This file is part of the ATLAS project.
 """
 
 from atlas.abstract_class.dataset import AbstractDataset
-from atlas.config import logger
 from atlas.enums import CouplingType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.market_clearing.input_objects.critical_branch import CriticalBranchMC
@@ -126,16 +125,6 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                     "requires_status_variable": requires_status_variable,
                 }
                 order = OrderMC(**order_dump)
-                # Add time_index attribute -> use in pricing and output
-                time_index = None
-                for candidate_time_index, time in enumerate(self.times):
-                    if time == order.start_date:
-                        time_index = candidate_time_index
-                        break
-                if time_index is None:
-                    logger.debug(f"Order {order.name} is ignored : The start date is not an optimization timestep.")
-                    continue
-                order.time_index = time_index
                 mc_orders[order.name] = order
 
         return mc_orders

@@ -75,9 +75,9 @@ class _PricingAlgorithms:
     def get_market_area_neighbours(self, mc_market_area_name):
         return Pricing.get_market_area_neighbours(self, mc_market_area_name)  # type: ignore[arg-type]
 
-    def propagate_through_unsaturated(self, mc_market_area, time_index, area_price_group, price_group):
+    def propagate_through_unsaturated(self, mc_market_area, time, area_price_group, price_group):
         return Pricing.propagate_through_unsaturated(  # type: ignore[arg-type]
-            self, mc_market_area, time_index, area_price_group, price_group
+            self, mc_market_area, time, area_price_group, price_group
         )
 
     def create_price_groups(self):
@@ -219,10 +219,10 @@ class TestOrderIsFeasible:
         assert not OrderMC.is_feasible(order, input_dataset.times, restricted_parameters)
 
 
-class TestGetOrdersTimeIndex:
-    """`MarketClearingInputDataset.get_orders` — time_index assignment for a feasible order."""
+class TestGetOrdersFeasibleOrder:
+    """`MarketClearingInputDataset.get_orders` — a feasible order is kept, start date untouched."""
 
-    def test_time_index_matches_the_order_start_date_position(
+    def test_feasible_order_is_kept_with_its_start_date(
         self, parameters: MarketClearingParameters, input_dataset
     ) -> None:
         fake_dataset = MarketClearingInputDataset.__new__(MarketClearingInputDataset)
@@ -242,7 +242,8 @@ class TestGetOrdersTimeIndex:
 
         orders = fake_dataset.get_orders([order])
 
-        assert orders["o1"].time_index == input_dataset.times.index(start_date)
+        assert orders["o1"].start_date == start_date
+        assert start_date in input_dataset.times
 
 
 class TestCreatePriceGroups:
@@ -279,7 +280,7 @@ class TestCreatePriceGroups:
             market_areas={"ma_a": area_a, "ma_b": area_b, "ma_c": area_c},
             market_borders={"ab": border_ab, "bc": border_bc},
         )
-        exchanges = {("ab", 0): ab_flow, ("bc", 0): bc_flow}
+        exchanges = {("ab", times[0]): ab_flow, ("bc", times[0]): bc_flow}
         return input_dataset, exchanges
 
     @pytest.mark.xfail(
@@ -302,7 +303,7 @@ class TestCreatePriceGroups:
         input_dataset, exchanges = self._build_network(times, ab_flow=0.0, bc_flow=100.0)
         pricing = _PricingAlgorithms(input_dataset, parameters, clearing_border_exchanges=exchanges)
 
-        price_groups = pricing.create_price_groups()[0]
+        price_groups = pricing.create_price_groups()[times[0]]
 
         groups_by_area = {area: frozenset(pg.market_area_names) for pg in price_groups for area in pg.market_area_names}
         assert groups_by_area["ma_a"] == frozenset({"ma_a", "ma_b"})
@@ -313,7 +314,7 @@ class TestCreatePriceGroups:
         input_dataset, exchanges = self._build_network(times, ab_flow=0.0, bc_flow=0.0)
         pricing = _PricingAlgorithms(input_dataset, parameters, clearing_border_exchanges=exchanges)
 
-        price_groups = pricing.create_price_groups()[0]
+        price_groups = pricing.create_price_groups()[times[0]]
 
         assert len(price_groups) == 1
         assert set(price_groups[0].market_area_names) == {"ma_a", "ma_b", "ma_c"}
@@ -323,7 +324,7 @@ class TestCreatePriceGroups:
         input_dataset, exchanges = self._build_network(times, ab_flow=100.0, bc_flow=100.0)
         pricing = _PricingAlgorithms(input_dataset, parameters, clearing_border_exchanges=exchanges)
 
-        price_groups = pricing.create_price_groups()[0]
+        price_groups = pricing.create_price_groups()[times[0]]
 
         assert {frozenset(pg.market_area_names) for pg in price_groups} == {
             frozenset({"ma_a"}),
@@ -350,9 +351,9 @@ class TestIsNeighbour:
         input_dataset = self._network(times)
         pricing = _PricingAlgorithms(input_dataset, parameters)
 
-        group_a = PriceGroup(0, 0)
+        group_a = PriceGroup(0, times[0])
         group_a.market_area_names = ["ma_a"]
-        group_bc = PriceGroup(1, 0)
+        group_bc = PriceGroup(1, times[0])
         group_bc.market_area_names = ["ma_b", "ma_c"]
 
         assert pricing.is_neighbour(group_a, group_bc)
@@ -362,9 +363,9 @@ class TestIsNeighbour:
         input_dataset = self._network(times)
         pricing = _PricingAlgorithms(input_dataset, parameters)
 
-        group_a = PriceGroup(0, 0)
+        group_a = PriceGroup(0, times[0])
         group_a.market_area_names = ["ma_a"]
-        group_c = PriceGroup(1, 0)
+        group_c = PriceGroup(1, times[0])
         group_c.market_area_names = ["ma_c"]
 
         assert not pricing.is_neighbour(group_a, group_c)
@@ -543,7 +544,6 @@ class TestCreateOppositeDeltaP:
             end_date=times[0] + ONE_HOUR,
             is_parent=True,
             group_index=0,
-            time_index=0,
         )
         child = make_order(
             "child",
@@ -553,7 +553,6 @@ class TestCreateOppositeDeltaP:
             start_date=times[0],
             end_date=times[0] + ONE_HOUR,
             group_index=0,
-            time_index=0,
         )
         coupling = make_order_coupling("pc_1", CouplingType.PARENT_CHILDREN, [parent, child])
         input_dataset = _FakeInputDataset(

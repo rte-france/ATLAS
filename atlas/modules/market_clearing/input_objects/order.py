@@ -32,7 +32,6 @@ class OrderMC(Order):
     is_linked: bool = False
     link_id: str | None = None
     group_index: int | None = None
-    time_index: int | None = None
     is_in_parent_child_coupling: bool = False
     parent_child_id: str | None = None
     is_parent: bool = False

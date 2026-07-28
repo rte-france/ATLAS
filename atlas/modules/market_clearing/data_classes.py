@@ -8,13 +8,15 @@ Plain data containers shared across the market_clearing module and its phases.
 
 from dataclasses import dataclass, field
 
+import pendulum
+
 from atlas.modules.market_clearing.input_objects.order import OrderMC
 
 
 @dataclass
 class PriceGroup:
     id: int
-    time_index: int
+    time: pendulum.DateTime
     market_area_names: list[str] = field(default_factory=list)
     max_price: float = float("inf")
     min_price: float = -float("inf")
@@ -62,9 +64,13 @@ class IdvIdrCouplingIndex:
 @dataclass(frozen=True)
 class ClearingOutputs:
     """Results of the Clearing and ExchangesFixing phases, consumed by Pricing and by the
-    market clearing output dataset."""
+    market clearing output dataset.
 
-    saturated_critical_branch: dict[tuple[str, int], float]
-    border_exchanges: dict[tuple[str, int], float]
-    local_balances: dict[tuple[str, int], float]
+    The time-indexed results are keyed by the timestep itself, so a key stays meaningful without
+    ``input_dataset.times`` at hand.
+    """
+
+    saturated_critical_branch: dict[tuple[str, pendulum.DateTime], float]
+    border_exchanges: dict[tuple[str, pendulum.DateTime], float]
+    local_balances: dict[tuple[str, pendulum.DateTime], float]
     accepted_powers: dict[tuple[str, str], float]

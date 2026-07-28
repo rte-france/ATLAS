@@ -6,17 +6,19 @@ This file is part of the ATLAS project.
 
 from collections.abc import Iterator
 
+import pendulum
+
 from atlas.modules.market_clearing.data_classes import PriceGroup
 
 
-def count_saturated(saturated_critical_branch: dict[tuple[str, int], float], time_index: int, tolerance: float) -> int:
+def count_saturated(
+    saturated_critical_branch: dict[tuple[str, pendulum.DateTime], float],
+    time: pendulum.DateTime,
+    tolerance: float,
+) -> int:
     """Count critical branches saturated (shadow price below tolerance) at a given time step."""
     return len(
-        [
-            1
-            for (_, cb_time_index), value in saturated_critical_branch.items()
-            if abs(value) <= tolerance and cb_time_index == time_index
-        ]
+        [1 for (_, cb_time), value in saturated_critical_branch.items() if abs(value) <= tolerance and cb_time == time]
     )
 
 

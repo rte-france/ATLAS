@@ -6,6 +6,8 @@ This file is part of the ATLAS project.
 
 import json
 
+import pendulum
+
 import atlas.modules.market_clearing.constants as constants
 from atlas.enums import SolverStatus
 from atlas.modules.market_clearing.data_classes import ClearingOutputs, PriceGroup
@@ -65,8 +67,8 @@ class Pricing:
             with open(output_path / "pricing_market_prices.json", "w") as f:
                 json.dump(
                     [
-                        [market_area_name, time_index, val]
-                        for (market_area_name, time_index), val in self.get_market_prices().items()
+                        [market_area_name, str(time), val]
+                        for (market_area_name, time), val in self.get_market_prices().items()
                     ],
                     f,
                 )
@@ -112,15 +114,14 @@ class Pricing:
     def propagate_through_unsaturated(
         self,
         market_area: MarketAreaMC,
-        time_index: int,
+        time: pendulum.DateTime,
         area_price_group: dict[str, int | None],
         price_group: PriceGroup,
     ):
         for border, neighbour_market_area_name in self.get_market_area_neighbours(market_area.name):
             if neighbour_market_area_name in price_group.market_area_names:
                 continue
-            flow = self.clearing_border_exchanges[border.name, time_index]
-            time = self.input_dataset.times[time_index]
+            flow = self.clearing_border_exchanges[border.name, time]
             relative_max_flow = border.max_flow.get_value(time)
             relative_min_flow = border.min_flow.get_value(time)
             if (
@@ -131,12 +132,12 @@ class Pricing:
                 area_price_group[neighbour_market_area_name] = price_group.id
                 price_group.market_area_names.append(neighbour_market_area_name)
                 neighbour_market_area = self.input_dataset.market_areas[neighbour_market_area_name]
-                self.propagate_through_unsaturated(neighbour_market_area, time_index, area_price_group, price_group)
+                self.propagate_through_unsaturated(neighbour_market_area, time, area_price_group, price_group)
 
-    def create_price_groups(self) -> dict[int, list[PriceGroup]]:
-        price_groups: dict[int, list[PriceGroup]] = {}
-        for time_index, _time in enumerate(self.input_dataset.times):
-            price_groups[time_index] = []
+    def create_price_groups(self) -> dict[pendulum.DateTime, list[PriceGroup]]:
+        price_groups: dict[pendulum.DateTime, list[PriceGroup]] = {}
+        for time in self.input_dataset.times:
+            price_groups[time] = []
             if self.input_dataset.is_atc:
                 # Initialize a dict linking each market area with a price group number:
                 areas_price_group: dict[str, int | None] = {}
@@ -147,27 +148,24 @@ class Pricing:
                     # If the current area is already allocated to a price group, go to the next one:
                     if areas_price_group[market_area_name] is not None:
                         continue
-                    price_group = PriceGroup(id=group_id, time_index=time_index)
+                    price_group = PriceGroup(id=group_id, time=time)
                     price_group.market_area_names.append(market_area_name)
                     areas_price_group[market_area_name] = group_id
-                    price_groups[time_index].append(price_group)
+                    price_groups[time].append(price_group)
 
                     # Loop over borders that are not saturated and link all possible areas inside the current group in a
                     # recursive way:
-                    self.propagate_through_unsaturated(market_area, time_index, areas_price_group, price_group)
+                    self.propagate_through_unsaturated(market_area, time, areas_price_group, price_group)
             else:
-                if (
-                    count_saturated(self.saturated_critical_branch, time_index, self.parameters.allowed_round_off_error)
-                    == 0
-                ):
-                    unique_price_group = PriceGroup(id=0, time_index=time_index)
+                if count_saturated(self.saturated_critical_branch, time, self.parameters.allowed_round_off_error) == 0:
+                    unique_price_group = PriceGroup(id=0, time=time)
                     unique_price_group.market_area_names = list(self.input_dataset.market_areas)
-                    price_groups[time_index].append(unique_price_group)
+                    price_groups[time].append(unique_price_group)
                 else:
                     for group_id, market_area_name in enumerate(self.input_dataset.market_areas):
-                        new_price_group = PriceGroup(id=group_id, time_index=time_index)
+                        new_price_group = PriceGroup(id=group_id, time=time)
                         new_price_group.market_area_names = [market_area_name]
-                        price_groups[time_index].append(new_price_group)
+                        price_groups[time].append(new_price_group)
         for price_group_list in price_groups.values():
             for price_group in price_group_list:
                 self.compute_price_bounds(price_group, PricingAttempt.FIRST)
@@ -225,7 +223,7 @@ class Pricing:
 
     def compute_price_bounds(self, price_group: PriceGroup, pricing_type: PricingAttempt):
         for market_area_name in price_group.market_area_names:
-            time = self.input_dataset.times[price_group.time_index]
+            time = price_group.time
             market_area = self.input_dataset.market_areas[market_area_name]
             # Initialize the local bounds on order prices:
             max_accepted_sale_price = max_rejected_purchase_price = market_area.min_price.get_value(time)
@@ -273,16 +271,14 @@ class Pricing:
                 price_group.min_price = max(price_group.min_price, max_accepted_sale_price)
                 price_group.max_price = min(price_group.max_price, min_accepted_purchase_price)
 
-    def get_market_prices(self) -> dict[tuple[str, int], float]:
+    def get_market_prices(self) -> dict[tuple[str, pendulum.DateTime], float]:
         """
-        :rtype: dict[tuple[str, int], float]
+        :rtype: dict[tuple[str, pendulum.DateTime], float]
         """
         market_prices = {}
-        for time_index, price_groups in self.price_groups.items():
+        for time, price_groups in self.price_groups.items():
             for price_group in price_groups:
                 for market_area_name in price_group.market_area_names:
-                    market_price_name = constants.price_on_group_variable_name(price_group.id, time_index)
-                    market_prices[market_area_name, time_index] = self.model.get_variable(
-                        market_price_name
-                    ).solution_value()
+                    market_price_name = constants.price_on_group_variable_name(price_group.id, time)
+                    market_prices[market_area_name, time] = self.model.get_variable(market_price_name).solution_value()
         return market_prices

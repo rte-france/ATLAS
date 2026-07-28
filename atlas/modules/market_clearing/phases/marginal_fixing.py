@@ -34,22 +34,22 @@ class MarginalFixing:
         self.accepted_powers: dict[tuple[str, str], float] = {}
 
     def compute(
-        self, accepted_powers: dict[tuple[str, str], float], market_prices: dict[tuple[str, int], float]
+        self, accepted_powers: dict[tuple[str, str], float], market_prices: dict[tuple[str, pendulum.DateTime], float]
     ) -> None:
         """
 
         :param accepted_powers: Result of optimization
         :type accepted_powers: dict[tuple[str, str], float]
         :param market_prices: Result of optimization
-        :type market_prices: dict[tuple[str, int], float]
+        :type market_prices: dict[tuple[str, pendulum.DateTime], float]
         """
         self.accepted_powers = copy.deepcopy(accepted_powers)
         # Start with looping over time, since all time steps are independent:
-        for time_index, time in enumerate(self.input_dataset.times):
+        for time in self.input_dataset.times:
             # Loop again immediately on market areas, since they are also,independent of each other:
             for market_area_name in self.input_dataset.market_areas:
                 # Get the values of local variables:
-                spot_price = market_prices[market_area_name, time_index]
+                spot_price = market_prices[market_area_name, time]
                 self.update_accepted_power(market_area_name, time, spot_price)
         if self.parameters.solver.export_lp:
             with open(
