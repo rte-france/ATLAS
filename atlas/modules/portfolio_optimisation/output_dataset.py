@@ -80,24 +80,22 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                 else:
                     portfolio.imbalance = ForecastingMatrix().add(imbalance_ts, self.parameters.temporal.execution_date)
 
-                power_values = [0.0] * len(self.parameters.target_times)
-                for _, equipment_list in portfolio.equipments.iter_by_type():
-                    for e in equipment_list:
-                        if e.power:
-                            forecast = e.power.get_forecast(
-                                self.parameters.temporal.execution_date,
-                                min(self.parameters.target_times),
-                                max(self.parameters.target_times),
-                            )
-
-                            for idx, value in enumerate(forecast.values):
-                                power_values[idx] += value
+                for equipment_type, equipment_list in portfolio.equipments.iter_by_type():
+                    self.update_equipment(optimisation_results, equipment_type, equipment_list)
 
                 power_ts = Timeseries.from_values(
                     start_date=self.parameters.target_times[0],
                     frequency=self.parameters.temporal.timestep,
-                    values=power_values,
+                    values=[0.0] * len(self.parameters.target_times),
                 )
+                for _, equipment_list in portfolio.equipments.iter_by_type():
+                    for e in equipment_list:
+                        if e.power:
+                            power_ts = power_ts + e.power.get_forecast(
+                                self.parameters.temporal.execution_date,
+                                min(self.parameters.target_times),
+                                max(self.parameters.target_times),
+                            )
 
                 if portfolio.power:
                     if self.parameters.temporal.execution_date in portfolio.power:
@@ -106,9 +104,6 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                         portfolio.power.add(power_ts, self.parameters.temporal.execution_date)
                 else:
                     portfolio.power = ForecastingMatrix().add(power_ts, self.parameters.temporal.execution_date)
-
-                for equipment_type, equipment_list in portfolio.equipments.iter_by_type():
-                    self.update_equipment(optimisation_results, equipment_type, equipment_list)
 
     def _extract_values(
         self, equipment: EquipmentPO, equipment_type: str, optimisation_results: PortfolioOptimisationResult
