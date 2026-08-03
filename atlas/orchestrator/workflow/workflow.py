@@ -44,11 +44,13 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         Step.add_index_in_step_name(self.parameters.steps)
 
         for step in self.parameters.steps:
-            parameters = (
-                step.module.value()
-                .get_parameters_class()
-                .from_file(self.parameters.resolve_path(step.parameters_path), self.parameters.context)
-            )
+            parameters_class = step.module.value().get_parameters_class()
+            if step.parameters_path is not None:
+                parameters = parameters_class.from_file(
+                    self.parameters.resolve_path(step.parameters_path), self.parameters.context
+                )
+            else:
+                parameters = parameters_class.from_dict(step.parameters, self.parameters.context)
             parameters.output.output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
             workflow_job = WorkflowJob(step.name, step.module.value, parameters)
             self.add_job(workflow_job)
