@@ -38,7 +38,4 @@ class Node(BusinessModel):
     da_power_injection: AbstractTimeseries | None = None
     reference_balance: AbstractTimeseries | None = None
 
-    @field_serializer("control_block", "market_area", mode="plain")
-    def serializer_bmo(self, value: BusinessModel | None) -> str | None:
-        """Serialize BusinessModel attributes to string."""
-        return serializer_business_model(value)
+    _serialize_relations = field_serializer("control_block", "market_area", mode="plain")(serializer_business_model)

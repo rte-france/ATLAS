@@ -27,7 +27,4 @@ class NodePtdf(BusinessModel):
     id_ptdf: ForecastingMatrix | LazyForecastingMatrix | None = None
     da_ptdf: AbstractTimeseries | None = None
 
-    @field_serializer("node", mode="plain")
-    def serializer_bmo(self, value: BusinessModel | None) -> str | None:
-        """Serialize BusinessModel attributes to string."""
-        return serializer_business_model(value)
+    _serialize_relations = field_serializer("node", mode="plain")(serializer_business_model)

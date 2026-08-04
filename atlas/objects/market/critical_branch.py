@@ -57,11 +57,7 @@ class CriticalBranch(BusinessModel):
     reference_flow: AbstractTimeseries | None = None
     total_id_flow: AbstractTimeseries | None = None
 
-    @field_serializer("downhill_node", "uphill_node", mode="plain")
-    def serializer_bmo(self, value: BusinessModel | None) -> str | None:
-        """Serialize BusinessModel attributes to string."""
-        return serializer_business_model(value)
-
-    @field_serializer("market_area_ptdf", "node_ptdf", mode="plain")
-    def serializer_list_bmo(self, value: list[BusinessModel] | None) -> str | None:
-        return serializer_list_business_model(value)
+    _serialize_relations = field_serializer("downhill_node", "uphill_node", mode="plain")(serializer_business_model)
+    _serialize_list_relations = field_serializer("market_area_ptdf", "node_ptdf", mode="plain")(
+        serializer_list_business_model
+    )

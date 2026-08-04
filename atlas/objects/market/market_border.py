@@ -95,9 +95,6 @@ class MarketBorder(BusinessModel):
     rr_activated: AbstractTimeseries | None = None
     total_id_flow: AbstractTimeseries | None = None
 
-    @field_serializer(
+    _serialize_relations = field_serializer(
         "downhill_control_block", "uphill_control_block", "downhill_market_area", "uphill_market_area", mode="plain"
-    )
-    def serializer_bmo(self, value: BusinessModel | None) -> str | None:
-        """Serialize BusinessModel attributes to string."""
-        return serializer_business_model(value)
+    )(serializer_business_model)

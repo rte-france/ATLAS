@@ -28,6 +28,4 @@ class OrderCoupling(BusinessModel):
     complement_energy: float | None = None
     coupling_type: CouplingType | None = None
 
-    @field_serializer("orders", mode="plain")
-    def serializer_orders(self, value: list[BusinessModel] | None) -> str | None:
-        return serializer_list_business_model(value)
+    _serialize_orders = field_serializer("orders", mode="plain")(serializer_list_business_model)

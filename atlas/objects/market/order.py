@@ -45,10 +45,10 @@ class Order(BusinessModel):
     :type price_group: int
     :param product: Type of product
     :type product: Product
-    :param q_max: Maximum quantity that can be accepted in the clearing phase
-    :type q_max: float
-    :param q_min: Minimum quantity that can be accepted in the clearing phase
-    :type q_min: float
+    :param qmax: Maximum quantity that can be accepted in the clearing phase
+    :type qmax: float
+    :param qmin: Minimum quantity that can be accepted in the clearing phase
+    :type qmin: float
     """
 
     equipment: Equipment | None = None
@@ -67,7 +67,6 @@ class Order(BusinessModel):
     qmax: float | None = None
     qmin: float | None = None
 
-    @field_serializer("equipment", "market_area", "portfolio", mode="plain")
-    def serializer_bmo(self, value: BusinessModel | None) -> str | None:
-        """Serialize BusinessModel attributes to string."""
-        return serializer_business_model(value)
+    _serialize_relations = field_serializer("equipment", "market_area", "portfolio", mode="plain")(
+        serializer_business_model
+    )

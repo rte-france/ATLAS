@@ -73,7 +73,4 @@ class Portfolio(BusinessModel):
     rr_up_procured: AbstractTimeseries | None = None
     total_id_cleared_quantity: AbstractTimeseries | None = None
 
-    @field_serializer("control_block", "market_area", mode="plain")
-    def serializer_bmo(self, value: BusinessModel | None) -> str | None:
-        """Serialize BusinessModel attributes to string."""
-        return serializer_business_model(value)
+    _serialize_relations = field_serializer("control_block", "market_area", mode="plain")(serializer_business_model)

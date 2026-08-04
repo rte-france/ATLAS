@@ -81,7 +81,4 @@ class MarketArea(BusinessModel):
     rr_activation_price: AbstractTimeseries | None = None
     total_id_balance: AbstractTimeseries | None = None
 
-    @field_serializer("control_block", mode="plain")
-    def serializer_bmo(self, value: BusinessModel | None) -> str | None:
-        """Serialize BusinessModel attributes to string."""
-        return serializer_business_model(value)
+    _serialize_relations = field_serializer("control_block", mode="plain")(serializer_business_model)
