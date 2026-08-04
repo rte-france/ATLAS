@@ -6,6 +6,7 @@ from pydantic_extra_types.timezone_name import TimeZoneName
 
 import atlas.config as cfg
 from atlas.custom_errors import DataValidationError, DirectoryStructureError
+from atlas.validators import DateFormat
 
 
 class _IOConfig(BaseModel):
@@ -17,8 +18,8 @@ class _IOConfig(BaseModel):
     matrix_file_extension: Literal["csv", "parquet", "pickle"] = "parquet"
     lazy: bool = False
     timezone: TimeZoneName = TimeZoneName("UTC")
-    date_format_forecasting_matrix: str = "YYYY-MM-DD HH:mm:ss"
-    date_format_input_files: str = "YYYY-MM-DD HH:mm:ss"
+    date_format_forecasting_matrix: DateFormat = "YYYY-MM-DD HH:mm:ss"
+    date_format_input_files: DateFormat = "YYYY-MM-DD HH:mm:ss"
 
 
 class InputLoaderConfig(_IOConfig):

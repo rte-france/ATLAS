@@ -9,6 +9,7 @@ from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
 from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.validators import (
+    DateFormat,
     PipeSeparatedFloats,
     convert_to_duration,
     serializer_business_model,
@@ -199,3 +200,22 @@ def test_pipe_separated_floats_round_trip():
 
     with pytest.raises(ValidationError):
         _PipeModel.model_validate({"values": "a|b"})
+
+
+class _DateFormatModel(BaseModel):
+    fmt: DateFormat = "YYYY-MM-DD HH:mm:ss"
+
+
+def test_date_format_accepts_pendulum_tokens():
+    """Genuine pendulum format tokens round-trip through format/parse."""
+    assert _DateFormatModel(fmt="YYYY-MM-DD HH:mm:ss").fmt == "YYYY-MM-DD HH:mm:ss"
+    assert _DateFormatModel(fmt="DD/MM/YYYY").fmt == "DD/MM/YYYY"
+
+
+def test_date_format_rejects_garbage():
+    """Strings with no or malformed date tokens fail the format/parse round-trip."""
+    with pytest.raises(ValidationError, match="Invalid date format"):
+        _DateFormatModel(fmt="hello world")
+
+    with pytest.raises(ValidationError, match="Invalid date format"):
+        _DateFormatModel(fmt="ZZZZZZZ")
