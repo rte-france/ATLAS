@@ -92,23 +92,13 @@ def serializer_list_float(value: list[float] | None) -> str | None:
 
 
 def serializer_business_model(value: BusinessModel | None) -> str | None:
-    if value is None:
-        return None
-    if isinstance(value, BusinessModel):
-        return value.name
-    raise ValueError(
-        f"Expected BusinessModel instance, got: {value}",
-    )
+    """Serialize a BusinessModel reference to its name."""
+    return None if value is None else value.name
 
 
 def serializer_list_business_model(value: list[BusinessModel] | None) -> str | None:
-    if value is None:
-        return None
-    if isinstance(value, list):
-        return "|".join(str(bm.name) for bm in value)
-    raise ValueError(
-        f"Expected list of BusinessModel instances, got: {value}",
-    )
+    """Serialize a list of BusinessModel references to a pipe-separated string of names."""
+    return None if value is None else "|".join(bm.name for bm in value)
 
 
 def convert_to_duration(
@@ -170,3 +160,6 @@ def convert_to_duration(
         raise ValueError(f"Zero duration not allowed: {duration_obj}")
 
     return duration_obj
+
+
+DurationField = Annotated[pendulum.Duration, BeforeValidator(convert_to_duration)]
