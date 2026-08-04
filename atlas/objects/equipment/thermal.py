@@ -6,14 +6,13 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pendulum import Duration
-from pydantic import Field, field_validator
+from pydantic import Field
 
 from atlas.enums import ThermalStrategy
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.objects.equipment.equipment import Equipment
-from atlas.validators import convert_to_duration
+from atlas.validators import DurationField
 
 
 class Thermal(Equipment):
@@ -64,24 +63,24 @@ class Thermal(Equipment):
         ge=0,
         description="Installed capacity (must be positive)",
     )
-    minimum_stable_power_duration: Duration | None = Field(
+    minimum_stable_power_duration: DurationField | None = Field(
         None, description="Minimum stable power duration in hours (will be converted to Duration)"
     )
-    minimum_time_off: Duration | None = Field(
+    minimum_time_off: DurationField | None = Field(
         None, description="Minimum time off in hours (will be converted to Duration)"
     )
-    minimum_time_on: Duration | None = Field(
+    minimum_time_on: DurationField | None = Field(
         None, description="Minimum time on in hours (will be converted to Duration)"
     )
-    outage_mean_duration: Duration | None = Field(None)
+    outage_mean_duration: DurationField | None = Field(None)
     outage_probability: float | None = Field(None, ge=0, le=1)
-    scheduled_shutdown_mean_duration: Duration | None = Field(None)
+    scheduled_shutdown_mean_duration: DurationField | None = Field(None)
     scheduled_shutdown_probability: float | None = Field(None, ge=0, le=1)
-    shutdown_duration: Duration | None = Field(
+    shutdown_duration: DurationField | None = Field(
         None, description="Shutdown duration in hours (will be converted to Duration)"
     )
     startup_delay_probability: float | None = Field(None, ge=0, le=1)
-    startup_duration: Duration | None = Field(
+    startup_duration: DurationField | None = Field(
         None, description="Startup duration in hours (will be converted to Duration)"
     )
     strategy: ThermalStrategy | None = None
@@ -89,18 +88,3 @@ class Thermal(Equipment):
     da_sell_submitted_volume: AbstractTimeseries | None = None
     maximum_power: AbstractTimeseries | None = None
     minimum_power: AbstractTimeseries | None = None
-
-    @field_validator(
-        "minimum_stable_power_duration",
-        "minimum_time_off",
-        "minimum_time_on",
-        "outage_mean_duration",
-        "shutdown_duration",
-        "startup_duration",
-        "scheduled_shutdown_mean_duration",
-        mode="before",
-    )
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
