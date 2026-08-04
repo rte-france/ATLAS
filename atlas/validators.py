@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 
 import pendulum
-from pydantic import BeforeValidator
+from pydantic import BeforeValidator, PlainSerializer
 
 from atlas.enums import ThermalStrategy
 from atlas.objects.business_model import BusinessModel
@@ -89,6 +89,13 @@ def serializer_list_float(value: list[float] | None) -> str | None:
     raise ValueError(
         f"Expected list of floats, got: {value}",
     )
+
+
+PipeSeparatedFloats = Annotated[
+    list[float] | None,
+    BeforeValidator(parse_list_float),
+    PlainSerializer(serializer_list_float),
+]
 
 
 def serializer_business_model(value: BusinessModel | None) -> str | None:

@@ -1,5 +1,6 @@
 import pytest
 from pendulum import duration
+from pydantic import BaseModel, ValidationError
 
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.equipment.equipment import Equipment
@@ -8,6 +9,7 @@ from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
 from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.validators import (
+    PipeSeparatedFloats,
     convert_to_duration,
     serializer_business_model,
     serializer_list_business_model,
@@ -180,3 +182,20 @@ def test_field_serializer_integration():
     assert dumped["node"] == "test_node"
     assert dumped["portfolio"] == "test_portfolio"
     assert dumped["co2_emission_factor"] == 0.5
+
+
+class _PipeModel(BaseModel):
+    values: PipeSeparatedFloats = None
+
+
+def test_pipe_separated_floats_round_trip():
+    """PipeSeparatedFloats parses "a|b" on validation and re-emits it on dump."""
+    assert _PipeModel.model_validate({"values": "1.0|2.5"}).values == [1.0, 2.5]
+    assert _PipeModel.model_validate({"values": [1.0, 2.5]}).values == [1.0, 2.5]
+    assert _PipeModel(values=[1.0, 2.5]).model_dump(mode="json")["values"] == "1.0|2.5"
+
+    assert _PipeModel.model_validate({"values": None}).values is None
+    assert _PipeModel().model_dump(mode="json")["values"] is None
+
+    with pytest.raises(ValidationError):
+        _PipeModel.model_validate({"values": "a|b"})
