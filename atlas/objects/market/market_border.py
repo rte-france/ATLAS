@@ -4,15 +4,13 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import field_serializer
-
 from atlas.enums import CouplingType
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.market.market_area import MarketArea
 from atlas.objects.network_operator.control_block import ControlBlock
-from atlas.validators import serializer_business_model
+from atlas.validators import BusinessModelRef
 
 
 class MarketBorder(BusinessModel):
@@ -69,10 +67,10 @@ class MarketBorder(BusinessModel):
     :type total_id_flow: Timeseries
     """
 
-    downhill_control_block: ControlBlock
-    uphill_control_block: ControlBlock
-    downhill_market_area: MarketArea
-    uphill_market_area: MarketArea
+    downhill_control_block: BusinessModelRef[ControlBlock]
+    uphill_control_block: BusinessModelRef[ControlBlock]
+    downhill_market_area: BusinessModelRef[MarketArea]
+    uphill_market_area: BusinessModelRef[MarketArea]
     coupling_type: CouplingType | None = None
     loss_factor: float | None = None
     time_resolution: float | None = None
@@ -94,7 +92,3 @@ class MarketBorder(BusinessModel):
     reference_flow: AbstractTimeseries | None = None
     rr_activated: AbstractTimeseries | None = None
     total_id_flow: AbstractTimeseries | None = None
-
-    _serialize_relations = field_serializer(
-        "downhill_control_block", "uphill_control_block", "downhill_market_area", "uphill_market_area", mode="plain"
-    )(serializer_business_model)

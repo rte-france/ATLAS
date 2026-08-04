@@ -4,7 +4,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import field_serializer
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.enums import OrderType, Product
@@ -12,7 +11,7 @@ from atlas.objects.business_model import BusinessModel
 from atlas.objects.equipment.equipment import Equipment
 from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market_operator.portfolio import Portfolio
-from atlas.validators import serializer_business_model
+from atlas.validators import BusinessModelRef
 
 
 class Order(BusinessModel):
@@ -51,9 +50,9 @@ class Order(BusinessModel):
     :type qmin: float
     """
 
-    equipment: Equipment | None = None
-    market_area: MarketArea
-    portfolio: Portfolio | None = None
+    equipment: BusinessModelRef[Equipment] | None = None
+    market_area: BusinessModelRef[MarketArea]
+    portfolio: BusinessModelRef[Portfolio] | None = None
     accepted_power: float | None = None
     execution_date: DateTime | None = None
     start_date: DateTime | None = None
@@ -66,7 +65,3 @@ class Order(BusinessModel):
     product: Product | None = None
     qmax: float | None = None
     qmin: float | None = None
-
-    _serialize_relations = field_serializer("equipment", "market_area", "portfolio", mode="plain")(
-        serializer_business_model
-    )

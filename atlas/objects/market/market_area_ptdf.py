@@ -4,13 +4,11 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import field_serializer
-
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.market.market_area import MarketArea
-from atlas.validators import serializer_business_model
+from atlas.validators import BusinessModelRef
 
 
 class MarketAreaPtdf(BusinessModel):
@@ -23,8 +21,6 @@ class MarketAreaPtdf(BusinessModel):
     :type da_ptdf: Timeseries
     """
 
-    market_area: MarketArea
+    market_area: BusinessModelRef[MarketArea]
     id_ptdf: ForecastingMatrix | LazyForecastingMatrix | None = None
     da_ptdf: AbstractTimeseries | None = None
-
-    _serialize_relations = field_serializer("market_area", mode="plain")(serializer_business_model)

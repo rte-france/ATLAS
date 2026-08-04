@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 
 import pendulum
-from pydantic import BeforeValidator
+from pydantic import BeforeValidator, PlainSerializer
 
 from atlas.enums import ThermalStrategy
 from atlas.objects.business_model import BusinessModel
@@ -109,6 +109,10 @@ def serializer_list_business_model(value: list[BusinessModel] | None) -> str | N
     raise ValueError(
         f"Expected list of BusinessModel instances, got: {value}",
     )
+
+
+type BusinessModelRef[T] = Annotated[T, PlainSerializer(serializer_business_model)]
+type BusinessModelListRef[T] = Annotated[list[T], PlainSerializer(serializer_list_business_model)]
 
 
 def convert_to_duration(

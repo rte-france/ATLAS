@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import Field, field_serializer
+from pydantic import Field
 
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
@@ -12,7 +12,7 @@ from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatr
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
-from atlas.validators import DurationField, serializer_business_model
+from atlas.validators import BusinessModelRef, DurationField
 
 
 class Equipment(BusinessModel):
@@ -107,8 +107,8 @@ class Equipment(BusinessModel):
     :type variable_cost: AbstractTimeseries
     """
 
-    node: Node
-    portfolio: Portfolio
+    node: BusinessModelRef[Node]
+    portfolio: BusinessModelRef[Portfolio]
     co2_emission_factor: float | None = Field(None, description="COE2 emission factor")
     has_daily_energy_constraint: bool | None = None
     maximum_afrr: float | None = None
@@ -149,5 +149,3 @@ class Equipment(BusinessModel):
     total_id_sell_submitted_volume: AbstractTimeseries | None = None
     variable_cost: AbstractTimeseries | None = None
     additional_hours: DurationField | None = None
-
-    _serialize_relations = field_serializer("node", "portfolio", mode="plain")(serializer_business_model)
