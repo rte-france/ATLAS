@@ -7,7 +7,7 @@ Functional module for loading ATLAS datasets from directories.
 """
 
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -186,43 +186,17 @@ def _build_math_objects(
     object_type: BusinessModelName,
     config: InputLoaderConfig,
 ) -> list[dict[str, Any]]:
-    """Parallel version of _build_math_objects for better performance with I/O operations."""
-    results: list[dict[str, Any]] = [{}] * len(object_list)
-    max_workers = min(4, len(object_list))  # Limit concurrent workers
-
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all tasks
-        futures = {}
-        for i, obj in enumerate(object_list):
-            future = executor.submit(
-                _process_single_object_math,
-                obj,
-                object_type,
-                config,
-                i,  # Pass index for error reporting
-            )
-            futures[future] = i
-
-        # Collect results maintaining order
-        for future in as_completed(futures):
-            idx = futures[future]
-            try:
-                results[idx] = future.result()
-            except Exception as e:
-                # Re-raise with context about which object failed
-                obj_name = object_list[idx].get("name", f"object_{idx}")
-                raise FileParsingError(f"Error processing object '{obj_name}' of type '{object_type}': {str(e)}") from e
-
-    return results
+    """Load the timeseries/matrix attributes of every object, in parallel (I/O-bound)."""
+    with ThreadPoolExecutor(max_workers=min(4, len(object_list))) as executor:
+        return list(executor.map(lambda obj: _process_single_object_math(obj, object_type, config), object_list))
 
 
 def _process_single_object_math(
     obj: dict[str, Any],
     object_type: BusinessModelName,
     config: InputLoaderConfig,
-    obj_index: int,
 ) -> dict[str, Any]:
-    """Process a single object's math attributes. Used by parallel processing."""
+    """Load the timeseries/matrix attributes of a single object."""
     try:
         object_name = cast(str, obj["name"])
         cfg.logger.debug(f"Processing math objects for '{object_name}' (type: {object_type})")
@@ -266,7 +240,9 @@ def _process_single_object_math(
     except Exception as e:
         if isinstance(e, FileParsingError):
             raise
-        raise FileParsingError(f"Error processing object {obj_index} of type '{object_type}': {str(e)}") from e
+        raise FileParsingError(
+            f"Error processing object '{obj.get('name', 'unnamed_object')}' of type '{object_type}': {str(e)}"
+        ) from e
 
 
 def _load_timeseries(
