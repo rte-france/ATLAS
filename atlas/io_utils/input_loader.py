@@ -90,7 +90,6 @@ def load_from_directory(
                 f"Expected files named after object types with supported extensions."
             )
 
-        objects_instantiated_with_math_objects = {}
         objects_instantiated: dict[str, list[BusinessModel]] = {}
         # Name references are resolved against this registry by the BusinessModelRef annotation,
         # hence the MODEL_ORDER_INSTANTIATION ordering below: a type is built after the types it references.
@@ -100,14 +99,8 @@ def load_from_directory(
 
         for object_type in objects_type_sorted:
             try:
-                objects_instantiated_with_math_objects[object_type] = _build_math_objects(
-                    objects[object_type],
-                    object_type,
-                    config,
-                )
-
                 objects_instantiated[object_type] = _build_business_models(
-                    objects_instantiated_with_math_objects[object_type],
+                    _build_math_objects(objects[object_type], object_type, config),
                     object_type,
                     registry,
                 )
