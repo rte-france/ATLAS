@@ -6,9 +6,10 @@ This file is part of the ATLAS project.
 Functional module for loading ATLAS datasets from directories.
 """
 
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, Literal, cast, get_args, get_origin
+from typing import Any, Literal, cast
 
 import atlas.config as cfg
 from atlas.custom_errors import (
@@ -91,6 +92,9 @@ def load_from_directory(
 
         objects_instantiated_with_math_objects = {}
         objects_instantiated: dict[str, list[BusinessModel]] = {}
+        # Name references are resolved against this registry by the BusinessModelRef annotation,
+        # hence the MODEL_ORDER_INSTANTIATION ordering below: a type is built after the types it references.
+        registry: dict[str, list[BusinessModel]] = defaultdict(list)
 
         objects_type_sorted = sorted(objects, key=lambda x: cfg.MODEL_ORDER_INSTANTIATION.index(x))
 
@@ -105,8 +109,11 @@ def load_from_directory(
                 objects_instantiated[object_type] = _build_business_models(
                     objects_instantiated_with_math_objects[object_type],
                     object_type,
-                    objects_instantiated,
+                    registry,
                 )
+
+                for business_model in objects_instantiated[object_type]:
+                    registry[business_model.name].append(business_model)
 
                 cfg.logger.debug(
                     f"Instantiated {len(objects_instantiated[object_type])} "
@@ -396,18 +403,20 @@ def _load_matrix(
 def _build_business_models(
     object_list: list[dict[str, Any]],
     object_type: BusinessModelName,
-    objects_instantiated: dict[str, list[BusinessModel]],
+    registry: dict[str, list[BusinessModel]],
 ) -> list[BusinessModel]:
-    """Instantiate final BusinessModel objects from intermediate math object dictionaries."""
-    # Pre-build lookup indices once for performance
-    object_indices = _build_object_indices(objects_instantiated)
+    """Instantiate final BusinessModel objects from intermediate math object dictionaries.
 
+    Name references to other objects (single or pipe-separated lists) are resolved by the
+    ``BusinessModelRef``/``BusinessModelListRef`` annotations against ``registry``, passed as
+    pydantic validation context.
+    """
+    model = cfg.MODEL_MAPPING_NAME[object_type]
     business_models = []
 
-    for _, obj in enumerate(object_list):
+    for obj in object_list:
         try:
-            business_model = _build_single_business_model(obj, object_type, object_indices)
-            business_models.append(business_model)
+            business_models.append(cast(BusinessModel, model.model_validate(obj, context={"registry": registry})))
         except Exception as e:
             object_name: str = obj["name"]
             raise ObjectInstantiationError(
@@ -415,168 +424,3 @@ def _build_business_models(
             ) from e
 
     return business_models
-
-
-def _build_object_indices(
-    objects_instantiated: dict[str, list[BusinessModel]],
-) -> dict[str, dict[str, BusinessModel]]:
-    """
-    Pre-build lookup indices for all object types for O(1) lookups.
-    This dramatically improves performance by avoiding repeated dict comprehensions.
-    """
-    object_indices = {}
-
-    # Build index for each object type
-    for object_type, objects in objects_instantiated.items():
-        object_indices[object_type] = {obj.name: obj for obj in objects}
-
-    # Build combined equipment index for faster equipment lookups
-    equipment_index = {}
-    for equipment_type in cfg.EQUIPMENT_MODELS:
-        if equipment_type in objects_instantiated:
-            for obj in objects_instantiated[equipment_type]:
-                equipment_index[obj.name] = obj
-
-    object_indices["_equipment_combined"] = equipment_index
-
-    return object_indices
-
-
-def _build_single_business_model(
-    object_dict: dict[str, Any],
-    object_type: BusinessModelName,
-    object_indices: dict[str, dict[str, BusinessModel]],
-) -> BusinessModel:
-    """Instantiate a single BusinessModel object from its attributes."""
-    object_name = object_dict.get("name", "unnamed_object")
-
-    try:
-        cfg.logger.debug(
-            f"Instantiating business model '{object_name}' - type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"
-        )
-
-        for attribute in object_dict:
-            try:
-                attribute_type = get_type_attribute(object_type, attribute)
-
-                if attribute_type in cfg.INVERSE_MODEL_MAPPING_NAME:
-                    if attribute_type is cfg.MODEL_MAPPING_NAME[BusinessModelName.EQUIPMENT]:
-                        _resolve_equipment_reference(object_dict, object_indices)
-                    else:
-                        _resolve_single_object_reference(
-                            object_dict,
-                            attribute,
-                            attribute_type,  # type: ignore[arg-type]
-                            object_indices,
-                        )
-                elif get_origin(attribute_type) is list:
-                    if get_args(attribute_type)[0] in cfg.INVERSE_MODEL_MAPPING_NAME:
-                        _resolve_list_object_reference(object_dict, attribute, attribute_type, object_indices)
-
-            except Exception as e:
-                raise ObjectInstantiationError(
-                    f"Error resolving attribute '{attribute}' for object '{object_name}': {str(e)}"
-                ) from e
-
-        return cast(BusinessModel, cfg.MODEL_MAPPING_NAME[object_type].model_validate(object_dict))
-
-    except Exception as e:
-        if isinstance(e, ObjectInstantiationError):
-            raise
-        raise ObjectInstantiationError(
-            f"Failed to create {cfg.MODEL_MAPPING_NAME[object_type].__name__} instance for '{object_name}': {str(e)}"
-        ) from e
-
-
-def _resolve_equipment_reference(
-    object_dict: dict[str, Any],
-    object_indices: dict[str, dict[str, BusinessModel]],
-) -> None:
-    """Equipment reference resolution using pre-built indices."""
-    equipment_name = object_dict.get("equipment")
-    if not equipment_name:
-        return
-
-    equipment_index = object_indices.get("_equipment_combined", {})
-
-    if equipment_name in equipment_index:
-        object_dict["equipment"] = equipment_index[equipment_name]
-    else:
-        available_equipment = list(equipment_index.keys())
-        raise DataValidationError(f"Equipment '{equipment_name}' not found. Available equipment: {available_equipment}")
-
-
-def _resolve_single_object_reference(
-    object_dict: dict[str, Any],
-    attribute: str,
-    attribute_type: type[BusinessModel],
-    object_indices: dict[str, dict[str, BusinessModel]],
-) -> None:
-    """Single object reference resolution using pre-built indices."""
-    object_name: str = object_dict[attribute]
-    # Do not search for reference when attribute is None
-    if not object_name:
-        return None
-    object_type_key: str = cfg.INVERSE_MODEL_MAPPING_NAME[attribute_type]
-
-    type_index = object_indices.get(object_type_key)
-    if not type_index:
-        raise DataValidationError(
-            f"No objects of type '{object_type_key}' have been instantiated yet. You may have missing data in your dataset."
-        )
-
-    if object_name in type_index:
-        object_dict[attribute] = type_index[object_name]
-    else:
-        available_objects = list(type_index.keys())
-        raise DataValidationError(
-            f"Object '{object_name}' of type '{object_type_key}' not found. Available objects: {available_objects}"
-        )
-
-
-def _resolve_list_object_reference(
-    object_dict: dict[str, Any],
-    attribute: str,
-    attribute_type: type[BusinessModel] | float | str | int | None,
-    object_indices: dict[str, dict[str, BusinessModel]],
-) -> None:
-    """List object reference resolution using pre-built indices."""
-    object_list_string = object_dict[attribute]
-    if not object_list_string:
-        object_dict[attribute] = []
-        return
-
-    object_type_key = cfg.INVERSE_MODEL_MAPPING_NAME[get_args(attribute_type)[0]]
-
-    type_index = object_indices.get(object_type_key)
-    if not type_index:
-        raise DataValidationError(
-            f"No objects of type '{object_type_key}' have been instantiated yet. Check the instantiation order."
-        )
-
-    # Parse the list from CSV format (colon-separated string)
-    if isinstance(object_list_string, str):
-        object_names = object_list_string.split("|")
-    elif isinstance(object_list_string, list):
-        object_names = object_list_string
-    else:
-        raise DataValidationError(
-            f"Invalid list format for attribute '{attribute}': expected string or list, got {type(object_list_string)}"
-        )
-
-    object_list_instantiated = []
-    missing_objects = []
-
-    for obj_string in object_names:
-        if obj_string in type_index:
-            object_list_instantiated.append(type_index[obj_string])
-        else:
-            missing_objects.append(obj_string)
-
-    if missing_objects:
-        available_objects = list(type_index.keys())
-        raise DataValidationError(
-            f"Objects {missing_objects} of type '{object_type_key}' not found. Available objects: {available_objects}"
-        )
-
-    object_dict[attribute] = object_list_instantiated
