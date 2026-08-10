@@ -684,7 +684,7 @@ class Clearing(OptimisationModel):
         return local_balances
 
     def retrieve_accepted_powers(self) -> dict[tuple[str, str], float]:
-        """Retrieve tje accepted powers of each order per area
+        """Retrieve the accepted powers of each order per area
 
         :rtype: dict[tuple[str, str], float]
         """

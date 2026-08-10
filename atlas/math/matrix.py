@@ -70,17 +70,22 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         timezone: str = "UTC",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
+        drop_null_columns: bool = False,
     ) -> ScenarioMatrix:
         """
         Load a ScenarioMatrix from a file.
 
         :param file_path: Path to the file (CSV or Parquet).
         :type file_path: str | Path
+        :param drop_null_columns: If True, drop columns that are entirely null once ``filters``
+            is applied. Files stacking several attributes in the same table can leave columns
+            that only belonged to another attribute, all-null after filtering.
+        :type drop_null_columns: bool
         :return: A ScenarioMatrix object.
         :rtype: ScenarioMatrix
         """
 
-        return cls(read_data_file(file_path, filters, separator), timezone)
+        return cls(read_data_file(file_path, filters, separator, drop_null_columns=drop_null_columns), timezone)
 
     def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | ScenarioMatrix | None, timezone: str) -> None:
         """Set matrix attribute"""

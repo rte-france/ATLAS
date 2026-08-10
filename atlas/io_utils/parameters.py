@@ -46,8 +46,21 @@ class Parameters(BaseModel):
         else:
             raise ValueError(f"Unsupported file extension: {file_extension}")
 
+        return cls.from_dict(parameters, context)
+
+    @classmethod
+    def from_dict(cls, parameters: dict | None, context: ContextParameters | None = None) -> Self:
+        """Build parameters from an in-memory dict, applying an optional context.
+
+        :param parameters: Raw parameter values.
+        :type parameters: dict or None
+        :param context: Context parameters to use.
+        :type context: ContextParameters or None
+        :return: A Parameters object containing the parsed and validated parameters.
+        :rtype: Parameters
+        """
         if context is None:
-            return cls(**parameters)
+            return cls(**(parameters or {}))
 
         if parameters is None:
             parameters = {}

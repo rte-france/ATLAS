@@ -113,7 +113,6 @@ class OrderMC(Order):
         if (parameters.temporal.execution_date - order.execution_date).total_seconds() / 60 > float(tolerance):
             return False
 
-        # MS
         duration_span = order.end_date.diff(order.start_date).as_duration()
         if parameters.temporal.timestep > duration_span:
             logger.info(
