@@ -137,6 +137,10 @@ def serializer_list_business_model(value: list[BusinessModel] | None) -> str | N
     )
 
 
+type BusinessModelRef[T] = Annotated[T, PlainSerializer(serializer_business_model)]
+type BusinessModelListRef[T] = Annotated[list[T], PlainSerializer(serializer_list_business_model)]
+
+
 def convert_to_duration(
     value: Any,
     allow_zero: bool = True,
@@ -196,3 +200,6 @@ def convert_to_duration(
         raise ValueError(f"Zero duration not allowed: {duration_obj}")
 
     return duration_obj
+
+
+DurationField = Annotated[pendulum.Duration, BeforeValidator(convert_to_duration)]
