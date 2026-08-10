@@ -10,6 +10,8 @@ import shutil
 from pathlib import Path
 from typing import Literal
 
+import polars as pl
+
 import atlas.config as cfg
 from atlas.custom_errors import InputLoaderError
 from atlas.io_utils.models import OutputGeneratorConfig
@@ -108,17 +110,13 @@ def _export_object_type(
     scenario_matrix_dir = config.directory_path / "scenario_matrix"
     forecasting_matrix_dir = config.directory_path / "forecasting_matrix"
 
-    file_name = object_type + ".csv"
-    file_path = objects_dir / file_name
+    file_path = objects_dir / (object_type + ".csv")
 
     # Get column names from first object
     first_dump = objects_list[0].model_dump(mode="json")
     columns_name = [col for col in sorted(first_dump.keys()) if col != "name"]
 
-    # Build CSV rows
-    csv_rows = []
-    header_row = ["name"] + columns_name
-    csv_rows.append(config.separator.join(header_row))
+    rows: list[dict[str, str | None]] = []
 
     # Process each business object
     for business_object in objects_list:
@@ -159,16 +157,15 @@ def _export_object_type(
                     config=config,
                 )
 
-        # Add row to CSV
+        # Add row. None stays None (written as an empty, unquoted CSV field, same as before)
+        # instead of "" (which Polars would quote to keep it distinct from null on reload).
         dump_value = business_object.model_dump(mode="json")
-        row_values = [str(dump_value["name"])] + [
-            "" if dump_value[col] is None else str(dump_value[col]) for col in columns_name
-        ]
-        csv_rows.append(config.separator.join(row_values))
+        row: dict[str, str | None] = {"name": str(dump_value["name"])}
+        row.update({col: None if dump_value[col] is None else str(dump_value[col]) for col in columns_name})
+        rows.append(row)
 
-    # Write CSV file
-    with open(file_path, "w") as file:
-        file.write("\n".join(csv_rows) + "\n")
+    # Write CSV file, letting Polars handle quoting/escaping of separator or newline characters in values
+    pl.DataFrame(rows).write_csv(file_path, separator=config.separator)
 
 
 def _export_timeseries(
