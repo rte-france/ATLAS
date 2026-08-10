@@ -7,10 +7,8 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-import copy
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import cast
 
 from pydantic_extra_types.pendulum_dt import DateTime
 
@@ -18,6 +16,7 @@ from atlas import WorkflowParameters
 from atlas.abstract_class.job import AbstractJob
 from atlas.abstract_class.module import AbstractModule
 from atlas.abstract_class.parameters import AbstractModuleParameters
+from atlas.io_utils.parameters import DateParameters
 from atlas.io_utils.utils import deep_update
 from atlas.orchestrator.actionplan.parameters import Task
 from atlas.orchestrator.workflow.workflow import Workflow
@@ -77,13 +76,11 @@ class TaskIterator(ABC):
         """
 
     def __len__(self):
-        # TODO better computation
-        acc = 0
-        d = self.next_execution_date
-        while d <= self.task.until:
-            acc += 1
-            d += self.task.frequency
-        return acc
+        if self.next_execution_date > self.task.until:
+            return 0
+        span_seconds = (self.task.until - self.next_execution_date).total_seconds()
+        step_seconds = self.task.frequency.total_seconds()
+        return int(span_seconds // step_seconds) + 1
 
     def __lt__(self, other):
         if self.next_execution_date != other.next_execution_date:
@@ -117,13 +114,19 @@ class ModuleTaskIterator(TaskIterator):
 
     def _build_current_parameters(self) -> AbstractModuleParameters:
         """Build and return parameters to use for the module with execution date value as the current value of self.next_execution_date."""
-        parameters = copy.deepcopy(self.parameters)
-        if parameters.output is not None:
-            parameters.output.output_dir = self.root_output_dir / str(self.next_execution_date.isoformat())
-        parameters.temporal.start_date = self.next_start_date
-        parameters.temporal.end_date = self.next_end_date
-        parameters.temporal.execution_date = self.next_execution_date
-        return parameters
+        updates: dict = {
+            "temporal": DateParameters(
+                start_date=self.next_start_date,
+                end_date=self.next_end_date,
+                execution_date=self.next_execution_date,
+                timestep=self.parameters.temporal.timestep,
+            )
+        }
+        if self.parameters.output is not None:
+            updates["output"] = self.parameters.output.model_copy(
+                update={"output_dir": self.root_output_dir / str(self.next_execution_date.isoformat())}
+            )
+        return self.parameters.model_copy(update=updates, deep=True)
 
 
 class WorkflowTaskIterator(TaskIterator):
@@ -136,7 +139,7 @@ class WorkflowTaskIterator(TaskIterator):
 
     def _build_current_parameters(self) -> WorkflowParameters:
         """Build and return parameters to use for the action plan with execution date value as the current value of self.next_execution_date."""
-        parameters = copy.deepcopy(self.parameters)
+        parameters = self.parameters.model_copy(deep=True)
         deep_update(
             parameters.context.forced,
             {
@@ -158,4 +161,4 @@ class WorkflowTaskIterator(TaskIterator):
         workflow = Workflow(
             self._build_current_parameters(), f"task {self.task.name} iteration {self.current_iteration}"
         )
-        return [cast(ActionPlanJob, x) for x in list(workflow.jobs)]
+        return list(workflow.jobs)

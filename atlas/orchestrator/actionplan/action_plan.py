@@ -12,10 +12,10 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import cast
 
-from atlas import WorkflowParameters
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.orchestrator.actionplan.job import ActionPlanJob, ModuleTaskIterator, TaskIterator, WorkflowTaskIterator
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, Task
+from atlas.orchestrator.workflow.parameters import WorkflowParameters
 from atlas.orchestrator.workflow.workflow import Workflow
 
 

@@ -128,9 +128,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
 
             logger.info(f"Finishing job :'{job.name}'")
 
-            if job_idx + 1 == self.jobs_count:
-                self.final_dataset = job.output_dataset
-
+        self.final_dataset = job.output_dataset
         if self.parameters.export_output:
             logger.info(
                 f"Exporting final {self.__class__.__name__.lower()} output to {self.parameters.resolve_path(self.parameters.output_dir)}"

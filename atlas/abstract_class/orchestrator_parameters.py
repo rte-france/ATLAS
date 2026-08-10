@@ -59,7 +59,7 @@ class AbstractOrchestratorParameters(Parameters):
         if not self.path_from_orchestrator:
             return self
 
-        if not self.orchestrator_path.absolute():
+        if not self.orchestrator_path.is_absolute():
             raise DataValidationError(
                 f"Path {self.orchestrator_path} is not an absolute path."
                 f'This path used for orchestrator {self.name} parameter "orchestrator_path" and has to be an absolute path.'
