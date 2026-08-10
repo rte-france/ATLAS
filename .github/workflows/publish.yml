@@ -1,69 +1,37 @@
 name: Publish to PyPI
 
 on:
-  push:
-    tags:
-      - 'v*'  # Example: v1.0.0
+  release:
+    types: [published]
 
 jobs:
   publish:
-    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
 
+    environment:
+      name: pypi
+      url: https://pypi.org/p/rte-atlas
+
     permissions:
-      contents: read
+      id-token: write
 
     steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0  # Need full history to check tag origin
+      - uses: actions/checkout@v5
 
-      - name: Verify tag is from main branch
-        run: |
-          # Check if tag was created from main branch
-          TAG_COMMIT=$(git rev-list -n 1 $GITHUB_REF)
-
-          # Check if this commit exists in main branch
-          if ! git merge-base --is-ancestor $TAG_COMMIT origin/main; then
-            echo "Error: Tag was not created from main branch"
-            echo "Tags can only be created from the main branch for releases"
-            exit 1
-          fi
-
-          echo "Tag verification passed: created from main branch"
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.13"
 
-      - name: Extract version from tag
-        id: version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Publishing version: $VERSION"
-
-      - name: Verify version matches pyproject.toml
+      - name: Verify release tag matches pyproject.toml version
         run: |
           PYPROJECT_VERSION=$(uv run --no-project python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
-          TAG_VERSION="${{ steps.version.outputs.version }}"
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
 
           if [ "$PYPROJECT_VERSION" != "$TAG_VERSION" ]; then
-            echo "Error: Version mismatch!"
-            echo "pyproject.toml version: $PYPROJECT_VERSION"
-            echo "Tag version: $TAG_VERSION"
-            echo "Please update pyproject.toml version to match the tag"
+            echo "Version mismatch: pyproject.toml=$PYPROJECT_VERSION, tag=$TAG_VERSION"
             exit 1
           fi
 
-          echo "Version verification passed: $TAG_VERSION"
+      - run: uv build
 
-      - name: Build the package
-        run: uv build
-
-      - name: Publish to PyPI
-        env:
-          UV_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          uv publish --token $UV_PYPI_TOKEN
+      - uses: pypa/gh-action-pypi-publish@release/v1
