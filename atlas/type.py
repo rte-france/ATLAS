@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from datetime import datetime
 from types import UnionType
-from typing import TypedDict, get_args, get_origin
+from typing import Any, TypeAliasType, TypedDict, get_args, get_origin
 
 from pendulum import DateTime
 
@@ -19,6 +19,20 @@ from atlas.objects.business_model import BusinessModel
 class TimeseriesDict(TypedDict):
     time: list[datetime] | list[DateTime]
     value: list[float] | list[int]
+
+
+def _unwrap_generic_alias(model_type: Any) -> Any:
+    """Resolve a parametrized PEP 695 generic type alias (e.g. BusinessModelRef[Node]) to the
+    underlying business model type, preserving list[...] shape for list-of-relation aliases.
+    A no-op for any other type.
+    """
+    alias = get_origin(model_type)
+    if not isinstance(alias, TypeAliasType):
+        return model_type
+
+    substituted = get_args(model_type)[0]
+    template = get_args(alias.__value__)[0]  # unsubstituted T or list[T]
+    return list[substituted] if get_origin(template) is list else substituted  # type: ignore[valid-type]
 
 
 def get_type_attribute(
@@ -39,7 +53,7 @@ def get_type_attribute(
             model = get_args(attribute_type)[1]
     else:
         model = attribute_type
-    return model
+    return _unwrap_generic_alias(model)
 
 
 def get_class_inheritance_chain(

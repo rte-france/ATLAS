@@ -45,6 +45,8 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
             for _, equipment_list in portfolio.equipments.iter_by_type():
                 for equipment in equipment_list:
                     equipment_data: dict = {"name": equipment.name, "power": equipment.power}
+                    if self.parameters.use_forecast:
+                        equipment_data["id_po_for_orders"] = equipment.id_po_for_orders
                     if isinstance(equipment, (HydroPO, StoragePO)):
                         equipment_data["stored_energy"] = equipment.stored_energy
                     if isinstance(equipment, ThermalPO):

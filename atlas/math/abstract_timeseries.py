@@ -106,8 +106,11 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         :return: A Timeseries object with the specified parameters
         :rtype: Self
         """
-        if len(values) < 2:
-            raise ValueError("Timeseries must contains at least 2 values")
+        if len(values) == 0:
+            raise ValueError("Timeseries must contains at least 1 value")
+
+        if len(values) == 1:
+            values = [values[0], values[0]]
 
         start = build_datetime(start_date, date_format).in_tz(timezone)
         end = build_datetime(start + (len(values) - 1) * get_duration(frequency)).in_tz(timezone)

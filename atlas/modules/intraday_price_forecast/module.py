@@ -1,6 +1,5 @@
 from typing import cast
 
-import polars as pl
 from loguru import logger
 from pendulum import DateTime
 
@@ -71,7 +70,10 @@ class IntradayPriceForecastModule(
             baseline_price, price_source_label = self._get_baseline_price(market_area, parameters)
 
             intraday_price_forecast = baseline_price + price_sensitivity_ratio * consumption_delta
-            intraday_price_forecast = self._apply_non_negativity_constraint(intraday_price_forecast, parameters)
+            intraday_price_forecast = intraday_price_forecast.slice(
+                parameters.temporal.start_date, parameters.penultimate_date, inplace=False
+            ).clip(lower_bound=0.0)
+
             intraday_price_forecast = self._apply_price_caps(
                 intraday_price_forecast, market_area, time_window, parameters
             )
@@ -275,29 +277,6 @@ class IntradayPriceForecastModule(
             da_price.collect() if isinstance(da_price, LazyTimeseries) else cast(Timeseries, da_price)
         ), "Day Ahead price"
 
-    def _apply_non_negativity_constraint(
-        self, price_forecast: Timeseries, parameters: IntradayPriceForecastParameters
-    ) -> Timeseries:
-        """
-        Ensure all price values are non-negative.
-
-        :param price_forecast: The price forecast timeseries
-        :type price_forecast: Timeseries
-        :param parameters: Module Parameters
-        :type parameters: IntradayPriceForecastParameters
-        :return: Price forecast with non-negative values
-        :rtype: Timeseries
-        """
-        df = price_forecast.slice(
-            parameters.temporal.start_date, parameters.penultimate_date, inplace=False
-        ).dataframe.with_columns(pl.when(pl.col("value") < 0.0).then(0.0).otherwise(pl.col("value")).alias("value"))
-
-        if isinstance(price_forecast, pl.LazyFrame):
-            df = df.collect()
-        price_forecast = Timeseries(cast(pl.DataFrame, df))
-
-        return price_forecast
-
     def _apply_price_caps(
         self,
         price_forecast: Timeseries,
@@ -403,8 +382,6 @@ class IntradayPriceForecastModule(
         :type price_forecast: Timeseries
         """
         if market_area.id_price_forecast is None:
-            market_area.id_price_forecast = ForecastingMatrix(
-                price_forecast.dataframe.rename({"value": parameters.temporal.execution_date.to_datetime_string()})
-            )
+            market_area.id_price_forecast = ForecastingMatrix().add(price_forecast, parameters.temporal.execution_date)
         else:
             market_area.id_price_forecast.add(price_forecast, parameters.temporal.execution_date)

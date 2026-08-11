@@ -14,7 +14,30 @@ import pandas as pd
 import pendulum
 import polars as pl
 
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.objects.business_model import BusinessModel
+
+
+def _drop_all_null_columns(df: pl.DataFrame) -> pl.DataFrame:
+    """Drop columns that are entirely null.
+
+    Useful after filtering a dataset by attribute: files that stack several
+    attributes in the same table (e.g. via a diagonal concat) can leave
+    columns that only belonged to another attribute, all-null once filtered.
+    """
+    return df.select([col for col in df.columns if df[col].null_count() < df.height])
+
+
+def _drop_all_null_columns_lazy(df: pl.LazyFrame) -> pl.LazyFrame:
+    """Lazy equivalent of :func:`_drop_all_null_columns`.
+
+    Computes non-null counts per column in a single pass, then re-selects
+    the columns that have at least one non-null value.
+    """
+    columns = df.collect_schema().names()
+    non_null_counts = df.select(pl.col(col).count().alias(col) for col in columns).collect()
+    return df.select([col for col in columns if non_null_counts[col][0] > 0])
 
 
 def read_data_file(
@@ -22,6 +45,7 @@ def read_data_file(
     filters: tuple[str, str] | None = None,
     separator: str = ";",
     use_lazy: bool = True,
+    drop_null_columns: bool = False,
 ) -> pl.DataFrame:
     """Read a dataframe from csv or parquet with optional lazy scanning for better performance"""
     if isinstance(file_path, str):
@@ -38,7 +62,7 @@ def read_data_file(
 
         # Apply filter lazily and collect
         df = df.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
-        return df.collect()
+        df_eager = df.collect()
 
     else:
         if file_path.suffix == ".csv":
@@ -51,14 +75,18 @@ def read_data_file(
         if filters:
             df_eager = df_eager.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
 
-        return df_eager
+    if filters and drop_null_columns:
+        df_eager = _drop_all_null_columns(df_eager)
+
+    return df_eager
 
 
 def scan_data_file(
     file_path: str | Path,
     filters: tuple[str, str] | None = None,
     separator: str = ";",
-):
+    drop_null_columns: bool = False,
+) -> pl.LazyFrame:
     """Scan a dataframe from csv or parquet"""
     if isinstance(file_path, str):
         file_path = Path(file_path)
@@ -70,6 +98,9 @@ def scan_data_file(
         raise NotImplementedError("Atlas file should be a csv or parquet.")
     if filters:
         df = df.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
+
+        if drop_null_columns:
+            df = _drop_all_null_columns_lazy(df)
 
     return df
 
@@ -210,6 +241,9 @@ def diff_business_model(
     return field_diffs
 
 
+_TIMESERIES_DIFF_RTOL = 1e-9
+
+
 def diff_on_other_than_business_model(
     val: Any, other_val: Any, _visited: set[tuple[int, int]] | None = None
 ) -> dict[str, Any] | None:
@@ -222,6 +256,46 @@ def diff_on_other_than_business_model(
                 return {"self": val, "other": other_val}
         except Exception:
             return {"self": str(val), "other": str(other_val)}
+    elif isinstance(val, AbstractTimeseries) and isinstance(other_val, AbstractTimeseries):
+        # Timeseries accumulate float ops so use tolerance rather than exact equality.
+        try:
+            df_val = val.dataframe
+            df_other = other_val.dataframe
+            if isinstance(df_val, pl.LazyFrame):
+                df_val = df_val.collect()
+            if isinstance(df_other, pl.LazyFrame):
+                df_other = df_other.collect()
+            joined = df_val.join(df_other, on="time", suffix="_other")
+            max_diff = (joined["value"] - joined["value_other"]).abs().max() or 0.0
+            ref = joined["value"].abs().max() or 1.0
+            if max_diff > _TIMESERIES_DIFF_RTOL * ref or joined.height != df_val.height:
+                return {"changed": "not-serializable yet"}
+        except Exception:
+            return {"error": "Couldn't check diff"}
+    elif isinstance(val, AbstractScenarioMatrix) and isinstance(other_val, AbstractScenarioMatrix):
+        # ForecastingMatrix columns accumulate float ops — use tolerance.
+        # val's columns must be a subset of other_val's columns (other_val may have extra
+        # historical columns from prior sessions that val doesn't have yet).
+        try:
+            df_val = val.dataframe
+            df_other = other_val.dataframe
+            if isinstance(df_val, pl.LazyFrame):
+                df_val = df_val.collect()
+            if isinstance(df_other, pl.LazyFrame):
+                df_other = df_other.collect()
+            val_cols = [c for c in df_val.columns if c != "time"]
+            other_cols = set(df_other.columns)
+            missing = [c for c in val_cols if c not in other_cols]
+            if missing:
+                return {"changed": "not-serializable yet"}
+            for col in val_cols:
+                diff = (df_val[col].fill_null(0.0) - df_other[col].fill_null(0.0)).abs()
+                max_diff = diff.max() or 0.0
+                ref = df_val[col].fill_null(0.0).abs().max() or 1.0
+                if max_diff > _TIMESERIES_DIFF_RTOL * ref:
+                    return {"changed": "not-serializable yet"}
+        except Exception:
+            return {"error": "Couldn't check diff"}
     elif hasattr(val, "equals") and hasattr(other_val, "equals"):
         try:
             if not val.equals(other_val):

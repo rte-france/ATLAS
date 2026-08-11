@@ -319,6 +319,41 @@ def test_from_file_with_filters(filtered_df):
             os.remove(file_path)
 
 
+def test_from_file_with_filters_drops_null_columns_inherited_from_other_attribute():
+    """Test that drop_null_columns removes columns left all-null by another stacked attribute."""
+    df = pl.DataFrame(
+        {
+            "time": pl.datetime_range(
+                start=datetime(2025, 1, 1, 0, 0, 0),
+                end=datetime(2025, 1, 1, 2, 0, 0),
+                interval="1h",
+                time_unit="us",
+                eager=True,
+            ),
+            "attribute": ["forecast_a", "forecast_a", "forecast_a"],
+            "2025-01-01 00:00:00": [1.0, 2.0, 3.0],
+            "2025-01-02 00:00:00": [None, None, None],
+        },
+        schema_overrides={"2025-01-02 00:00:00": pl.Float64},
+    )
+    with NamedTemporaryFile(suffix=".parquet", delete=False) as temp_file:
+        file_path = temp_file.name
+
+    try:
+        df.write_parquet(file_path)
+
+        matrix = ForecastingMatrix.from_file(file_path, filters=("attribute", "forecast_a"))
+        assert matrix.matrix.columns == ["time", "2025-01-01 00:00:00", "2025-01-02 00:00:00"]
+
+        matrix_dropped = ForecastingMatrix.from_file(
+            file_path, filters=("attribute", "forecast_a"), drop_null_columns=True
+        )
+        assert matrix_dropped.matrix.columns == ["time", "2025-01-01 00:00:00"]
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+
 def test_from_file_unsupported_extension():
     """Test loading from an unsupported file type."""
     with NamedTemporaryFile(suffix=".txt", delete=False) as temp_file:
@@ -327,6 +362,41 @@ def test_from_file_unsupported_extension():
     try:
         with pytest.raises(NotImplementedError):
             ForecastingMatrix.from_file(file_path)
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+
+def test_lazy_from_file_with_filters_drops_null_columns_inherited_from_other_attribute():
+    """Test that LazyForecastingMatrix.from_file also supports drop_null_columns."""
+    df = pl.DataFrame(
+        {
+            "time": pl.datetime_range(
+                start=datetime(2025, 1, 1, 0, 0, 0),
+                end=datetime(2025, 1, 1, 2, 0, 0),
+                interval="1h",
+                time_unit="us",
+                eager=True,
+            ),
+            "attribute": ["forecast_a", "forecast_a", "forecast_a"],
+            "2025-01-01 00:00:00": [1.0, 2.0, 3.0],
+            "2025-01-02 00:00:00": [None, None, None],
+        },
+        schema_overrides={"2025-01-02 00:00:00": pl.Float64},
+    )
+    with NamedTemporaryFile(suffix=".parquet", delete=False) as temp_file:
+        file_path = temp_file.name
+
+    try:
+        df.write_parquet(file_path)
+
+        matrix = LazyForecastingMatrix.from_file(file_path, filters=("attribute", "forecast_a"))
+        assert matrix.matrix.collect_schema().names() == ["time", "2025-01-01 00:00:00", "2025-01-02 00:00:00"]
+
+        matrix_dropped = LazyForecastingMatrix.from_file(
+            file_path, filters=("attribute", "forecast_a"), drop_null_columns=True
+        )
+        assert matrix_dropped.matrix.collect_schema().names() == ["time", "2025-01-01 00:00:00"]
     finally:
         if os.path.exists(file_path):
             os.remove(file_path)

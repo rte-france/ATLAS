@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 
 import pendulum
-from pydantic import BeforeValidator
+from pydantic import AfterValidator, BeforeValidator, PlainSerializer
 
 from atlas.enums import ThermalStrategy
 from atlas.objects.business_model import BusinessModel
@@ -91,6 +91,32 @@ def serializer_list_float(value: list[float] | None) -> str | None:
     )
 
 
+PipeSeparatedFloats = Annotated[
+    list[float] | None,
+    BeforeValidator(parse_list_float),
+    PlainSerializer(serializer_list_float),
+]
+
+
+def check_date_format(value: str) -> str:
+    """
+    Validate a pendulum date format string.
+
+    ``pendulum``'s ``.format()`` echoes back any unknown token as literal text instead of
+    raising, so it never rejects anything. Formatting the current time with the candidate
+    format and re-parsing it with ``pendulum.from_format`` does reject unsupported or
+    ambiguous tokens, since only genuine format tokens round-trip.
+    """
+    try:
+        pendulum.from_format(pendulum.now().format(value), value)
+    except Exception as e:
+        raise ValueError(f"Invalid date format {value!r}: {e}") from e
+    return value
+
+
+DateFormat = Annotated[str, AfterValidator(check_date_format)]
+
+
 def serializer_business_model(value: BusinessModel | None) -> str | None:
     if value is None:
         return None
@@ -109,6 +135,10 @@ def serializer_list_business_model(value: list[BusinessModel] | None) -> str | N
     raise ValueError(
         f"Expected list of BusinessModel instances, got: {value}",
     )
+
+
+type BusinessModelRef[T] = Annotated[T, PlainSerializer(serializer_business_model)]
+type BusinessModelListRef[T] = Annotated[list[T], PlainSerializer(serializer_list_business_model)]
 
 
 def convert_to_duration(
@@ -170,3 +200,6 @@ def convert_to_duration(
         raise ValueError(f"Zero duration not allowed: {duration_obj}")
 
     return duration_obj
+
+
+DurationField = Annotated[pendulum.Duration, BeforeValidator(convert_to_duration)]

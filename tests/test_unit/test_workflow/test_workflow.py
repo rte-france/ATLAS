@@ -257,6 +257,28 @@ class TestWorkflowFromFile:
             Workflow.from_file(config)
 
 
+class TestWorkflowInlineParameters:
+    def test_step_with_inline_parameters(self, tmp_path):
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+
+        config = tmp_path / "workflow.yaml"
+        config.write_text(
+            f"name: test_workflow\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"steps:\n"
+            f"  - module: MarketClearing\n"
+            f"    parameters:\n"
+            f"      temporal:\n"
+            f"        start_date: '2028-09-27 00:00:00'\n"
+            f"        end_date: '2028-09-28 00:00:00'\n"
+            f"        execution_date: '2028-09-26 12:00:00'\n"
+        )
+
+        workflow = Workflow.from_file(config)
+        assert workflow.jobs[0].parameters.temporal.start_date == build_datetime("2028-09-27 00:00:00")
+
+
 class TestWorkflowRepresentation:
     def test_repr_representation(self, tmp_path):
         dataset_dir = tmp_path / "dataset"

@@ -520,6 +520,25 @@ class TestIO:
         lm = LazyScenarioMatrix.from_file(path, filters=("category", "A"))
         assert lm.collect().shape[0] == 2
 
+    def test_from_file_with_filter_drops_null_columns_inherited_from_other_attribute(self, tmp_path):
+        df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1), datetime(2023, 1, 2)],
+                "attribute": ["load_a", "load_a"],
+                "scenario1": [1.0, 2.0],
+                "scenario2": [None, None],
+            },
+            schema_overrides={"scenario2": pl.Float64},
+        )
+        path = tmp_path / "data.parquet"
+        df.write_parquet(path)
+
+        lm = LazyScenarioMatrix.from_file(path, filters=("attribute", "load_a"))
+        assert lm.matrix.collect_schema().names() == ["time", "scenario1", "scenario2"]
+
+        lm_dropped = LazyScenarioMatrix.from_file(path, filters=("attribute", "load_a"), drop_null_columns=True)
+        assert lm_dropped.matrix.collect_schema().names() == ["time", "scenario1"]
+
     def test_from_file_with_timezone(self, simple_frame, tmp_path):
         path = tmp_path / "data.parquet"
         simple_frame.write_parquet(path)

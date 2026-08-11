@@ -15,7 +15,7 @@ The usual simulation pattern of a **Day-Ahead market** is the following:
 
 1. [Intraday Price Forecast](intraday-price-forecast/index.md)
 2. [Portfolio Optimization 1](portfolio-optimisation/index.md), in `use_forecast` mode. The aim of this first Portfolio Optimization is to compute updated generation and consumption programs for each unit of the portfolio, at the execution date of the Intraday market. Notably, this optimality may have evolved since the last Day-Ahead market, because of forecast updates.
-3. Intraday Orders (still under development), translating updates of step 2 into market orders.
+3. [Intraday Orders](intraday-orders/index.md), translating updates of step 2 into market orders.
 4. [Market Clearing](market-clearing/index.md)
 5. [Portfolio Optimization 2](portfolio-optimisation/index.md), to answer intraday market commitments resulting from step 4.
 
@@ -71,6 +71,18 @@ The usual simulation pattern of a **Day-Ahead market** is the following:
     [:octicons-arrow-right-24: User Guide](intraday-price-forecast/user-guide/overview.md)
 
     [:octicons-arrow-right-24: Architecture](intraday-price-forecast/developer/architecture.md)
+
+-   :material-cart-arrow-up:{ .lg .middle } **Intraday Orders**
+
+    ---
+
+    Generates intraday market orders by translating the updated planning into buy/sell adjustments of each unit's cleared engagement.
+
+    [:octicons-arrow-right-24: Overview](intraday-orders/index.md)
+
+    [:octicons-arrow-right-24: User Guide](intraday-orders/user-guide/overview.md)
+
+    [:octicons-arrow-right-24: Architecture](intraday-orders/developer/architecture.md)
 
 </div>
 

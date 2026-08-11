@@ -274,6 +274,26 @@ def test_from_file_with_filter(tmp_path):
     assert matrix.matrix.shape[0] == 2
 
 
+def test_from_file_with_filter_drops_null_columns_inherited_from_other_attribute(tmp_path):
+    df = pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=3, freq="D"),
+            "attribute": ["load_a", "load_a", "load_a"],
+            "scenario1": [1.0, 2.0, 3.0],
+            "scenario2": [None, None, None],
+        },
+        schema_overrides={"scenario2": pl.Float64},
+    )
+    file_path = tmp_path / "filtered.parquet"
+    df.write_parquet(file_path)
+
+    matrix = ScenarioMatrix.from_file(file_path, filters=("attribute", "load_a"))
+    assert matrix.matrix.columns == ["time", "scenario1", "scenario2"]
+
+    matrix_dropped = ScenarioMatrix.from_file(file_path, filters=("attribute", "load_a"), drop_null_columns=True)
+    assert matrix_dropped.matrix.columns == ["time", "scenario1"]
+
+
 def test_from_file_with_invalid_schema(tmp_path):
     df = pl.DataFrame(
         {

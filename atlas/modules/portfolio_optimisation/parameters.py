@@ -9,15 +9,14 @@ from __future__ import annotations
 from functools import cached_property
 
 from pendulum import DateTime, duration
-from pydantic import Field, field_validator
-from pydantic_extra_types.pendulum_dt import Duration
+from pydantic import Field
 
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.enums import MarketType, StorageType
 from atlas.io_utils.parameters import MultiProcessingParameters, SolverParameters
 from atlas.objects.equipment.equipment import Equipment
 from atlas.timing import generate_datetimes
-from atlas.validators import ExclusionList, ThermalStrategyList, convert_to_duration
+from atlas.validators import DurationField, ExclusionList, ThermalStrategyList
 
 
 class PortfolioOptimisationParameters(AbstractModuleParameters):
@@ -68,35 +67,35 @@ class PortfolioOptimisationParameters(AbstractModuleParameters):
         0.15,
         description="Quantity (%) of imbalance qualified as small, relative to max portfolio energy.",
     )
-    battery_automated_reserve_duration: Duration = Field(
+    battery_automated_reserve_duration: DurationField = Field(
         default_factory=lambda: duration(minutes=60),
         description="Automated reserve duration for battery equipment.",  # type: ignore[assignment]
     )
     battery_nb_fragments: int = Field(
         3, description="Number of power fragments for battery; last fragments are more expensive."
     )
-    battery_reserve_duration: Duration = Field(
+    battery_reserve_duration: DurationField = Field(
         default_factory=lambda: duration(minutes=60),
         description="Manual reserve duration for battery equipment.",  # type: ignore[assignment]
     )
-    electric_vehicle_automated_reserve_duration: Duration = Field(
+    electric_vehicle_automated_reserve_duration: DurationField = Field(
         default_factory=lambda: duration(minutes=1),
         description="Automated reserve duration for electric vehicle equipment.",  # type: ignore[assignment]
     )
     electric_vehicle_nb_fragments: int = Field(3, description="Number of power fragments for electric vehicle.")
-    electric_vehicle_reserve_duration: Duration = Field(
+    electric_vehicle_reserve_duration: DurationField = Field(
         default_factory=lambda: duration(minutes=1),
         description="Manual reserve duration for electric vehicle equipment.",  # type: ignore[assignment]
     )
     hydraulic_minimal_fragment_size: float = Field(
         100, description="Minimal amount of power for an offer to be formulated for hydraulic."
     )
-    pumped_hydraulic_automated_reserve_duration: Duration = Field(
+    pumped_hydraulic_automated_reserve_duration: DurationField = Field(
         default_factory=lambda: duration(minutes=60),
         description="Automated reserve duration for pumped hydraulic equipment.",  # type: ignore[assignment]
     )
     pumped_hydraulic_nb_fragments: int = Field(3, description="Number of power fragments for pumped hydraulic.")
-    pumped_hydraulic_reserve_duration: Duration = Field(
+    pumped_hydraulic_reserve_duration: DurationField = Field(
         default_factory=lambda: duration(minutes=60),
         description="Manual reserve duration for pumped hydraulic equipment.",  # type: ignore[assignment]
     )
@@ -116,20 +115,6 @@ class PortfolioOptimisationParameters(AbstractModuleParameters):
         MarketType.dayahead,
         description='Market during which the Portfolio Optimization is run. Possible values: "DayAhead", "Intraday", "RRActivation", "MFRRActivation".',
     )
-
-    @field_validator(
-        "battery_automated_reserve_duration",
-        "battery_reserve_duration",
-        "electric_vehicle_automated_reserve_duration",
-        "electric_vehicle_reserve_duration",
-        "pumped_hydraulic_automated_reserve_duration",
-        "pumped_hydraulic_reserve_duration",
-        mode="before",
-    )
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
 
     @cached_property
     def portfolio_time_window(self) -> list[DateTime]:
