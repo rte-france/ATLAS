@@ -8,6 +8,7 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 import heapq
+import copy
 from collections.abc import Iterator
 from pathlib import Path
 from typing import cast
@@ -116,8 +117,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
         :return: The list of ActionPlanJob instances.
         """
-        if len(self._priority_queue) == 0:
-            self._build_priority_queue()
+        cc = copy.deepcopy(self._priority_queue)
         while len(self._priority_queue) > 0:
             priority_task_itr = self._pop_iterator()
             jobs = next(priority_task_itr, None)
@@ -125,6 +125,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
                 self._push_iterator(priority_task_itr)
                 for job in jobs:
                     yield cast(ActionPlanJob, job)
+        self._priority_queue = cc
 
     @property
     def jobs_count(self) -> int:
