@@ -157,9 +157,6 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
         equipments_ts, portfolios_ts = {}, {}
         equipments_mapping, portfolios_mapping = {}, {}
 
-        # Seed every equipment / portfolio of the cleared perimeter with zeros, so that the day-ahead cleared
-        # quantity is always defined over the whole clearing horizon, even when no order was accepted at all.
-        # ponytail: day-ahead only, extend to the other products if their outputs need the same guarantee
         if self.input_dataset.parameters.market == Product.DayAhead:
             for equipment in self.input_dataset.input_data.iter_by_equipments():
                 portfolio = equipment.portfolio
