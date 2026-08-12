@@ -12,9 +12,16 @@ import copy
 from collections.abc import Iterator
 from pathlib import Path
 from typing import cast
+from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
-from atlas.orchestrator.actionplan.job import ActionPlanJob, ModuleTaskIterator, TaskIterator, WorkflowTaskIterator
+from atlas.orchestrator.actionplan.job import (
+    ActionPlanJob,
+    ModuleTaskIterator,
+    TaskIterator,
+    WorkflowTaskIterator,
+    TaskIteratorPriority,
+)
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, Task
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
 from atlas.orchestrator.workflow.workflow import Workflow
@@ -123,7 +130,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
     @property
     def jobs_count(self) -> int:
-        return self._jobs_count
+        return sum(len(itr) for _, itr in self._priority_queue)
 
     def __repr__(self) -> str:
         """Return a human-readable string representation of the workflow."""
