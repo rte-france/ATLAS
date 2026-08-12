@@ -35,6 +35,21 @@ class ActionPlanJob(AbstractJob):
         return f"ActionPlanStep(name={self.name!r}, module={module_name}, executed={has_output})"
 
 
+class TaskIteratorPriority:
+    def __init__(self, execution_date: DateTime, task_priority: int):
+        self.execution_date: DateTime = execution_date
+        self.task_priority: int = task_priority
+
+    def __lt__(self, other):
+        if self.execution_date != other.execution_date:
+            return self.execution_date < other.execution_date
+        else:
+            return self.task_priority < other.task_priority
+
+    def __eq__(self, other):
+        return self.execution_date == other.execution_date and self.task_priority == other.task_priority
+
+
 class TaskIterator(ABC):
     def __init__(self, task: Task):
         self.current_iteration = 0
@@ -52,6 +67,10 @@ class TaskIterator(ABC):
     @property
     def next_end_date(self):
         return self.task.offset_end_date + self.next_execution_date
+
+    @property
+    def priority(self) -> TaskIteratorPriority:
+        return TaskIteratorPriority(self.next_execution_date, self.task.priority)
 
     def __iter__(self):
         self.current_iteration = 0
@@ -81,15 +100,6 @@ class TaskIterator(ABC):
         span_seconds = (self.task.until - self.next_execution_date).total_seconds()
         step_seconds = self.task.frequency.total_seconds()
         return int(span_seconds // step_seconds) + 1
-
-    def __lt__(self, other):
-        if self.next_execution_date != other.next_execution_date:
-            return self.next_execution_date < other.next_execution_date
-        else:
-            return self.task.priority < other.task.priority
-
-    def __eq__(self, other):
-        return self.next_execution_date == other.next_execution_date and self.task.priority == other.task.priority
 
 
 class ModuleTaskIterator(TaskIterator):

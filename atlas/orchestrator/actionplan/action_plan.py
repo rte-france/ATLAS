@@ -36,11 +36,12 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         :type parameters: WorkflowParameters
         """
         super().__init__(parameters)
-        self._priority_queue: list[TaskIterator] = []
-        self._build_priority_queue()
+        self._priority_queue: list[tuple[TaskIteratorPriority, TaskIterator]] = []
+        for task in self.parameters.tasks:
+            self.add_task(task)
 
     def _has_concurrent_task_with(self, task: Task) -> bool:
-        return any(Task.are_concurrent(itr.task, task) for itr in self._priority_queue)
+        return any(Task.are_concurrent(itr.task, task) for _, itr in self._priority_queue)
 
     def add_task(self, task: Task) -> int:
         """Add a task to the action plan and return the number of jobs added
@@ -95,20 +96,13 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         """
         if self._has_concurrent_task_with(iterator.task):
             raise ValueError("Try to add a concurrent task to the Action plan")
-        heapq.heappush(self._priority_queue, iterator)
+        heapq.heappush(self._priority_queue, (iterator.priority, iterator))
         return len(iterator)
 
     def _pop_iterator(self) -> TaskIterator:
         """Remove and return the next iterator in the priority queue"""
-        itr = heapq.heappop(self._priority_queue)
+        _, itr = heapq.heappop(self._priority_queue)
         return itr
-
-    def _build_priority_queue(self) -> None:
-        """Build the priority queue and update the number of jobs in the action plan."""
-        self._priority_queue = []
-        self._jobs_count = 0
-        for task in self.parameters.tasks:
-            self._jobs_count += self.add_task(task)
 
     @property
     def jobs(self) -> Iterator[ActionPlanJob]:
