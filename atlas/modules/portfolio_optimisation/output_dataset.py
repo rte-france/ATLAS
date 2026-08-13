@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from atlas.abstract_class.dataset import AbstractModuleOutput
+from atlas.enums import ThermalDispatchState
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
@@ -65,10 +66,10 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                     + optimisation_results.get_variable_value(f"{portfolio.name}_small_imbalance_down_{t}")
                     - optimisation_results.get_variable_value(f"{portfolio.name}_large_imbalance_up_{t}")
                     - optimisation_results.get_variable_value(f"{portfolio.name}_small_imbalance_up_{t}")
-                    for t in self.parameters.target_times
+                    for t in self.parameters.portfolio_time_window
                 ]
                 imbalance_ts = Timeseries.from_values(
-                    start_date=self.parameters.target_times[0],
+                    start_date=self.parameters.portfolio_time_window[0],
                     frequency=self.parameters.temporal.timestep,
                     values=imbalance_values,
                 )
@@ -80,21 +81,21 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                 else:
                     portfolio.imbalance = ForecastingMatrix().add(imbalance_ts, self.parameters.temporal.execution_date)
 
-                power_values = [0.0] * len(self.parameters.target_times)
+                power_values = [0.0] * len(self.parameters.portfolio_time_window)
                 for _, equipment_list in portfolio.equipments.iter_by_type():
                     for e in equipment_list:
                         if e.power:
                             forecast = e.power.get_forecast(
                                 self.parameters.temporal.execution_date,
-                                min(self.parameters.target_times),
-                                max(self.parameters.target_times),
+                                min(self.parameters.portfolio_time_window),
+                                max(self.parameters.portfolio_time_window),
                             )
 
                             for idx, value in enumerate(forecast.values):
                                 power_values[idx] += value
 
                 power_ts = Timeseries.from_values(
-                    start_date=self.parameters.target_times[0],
+                    start_date=self.parameters.portfolio_time_window[0],
                     frequency=self.parameters.temporal.timestep,
                     values=power_values,
                 )
@@ -132,7 +133,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
         if equipment_type == "thermal":
             state_sequence = []
 
-            for t in self.parameters.target_times:
+            for t in self.parameters.portfolio_time_window:
                 power = optimisation_results.get_variable_value(f"{equipment.name}_power_level_{t}")
 
                 if abs(power) <= self.parameters.allowed_round_off_error:
@@ -140,21 +141,21 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                 power_values.append(power)
 
                 if optimisation_results.get_variable_value(f"on_up_{equipment.name}_{t}") == 1:
-                    state_sequence.append(1)
+                    state_sequence.append(ThermalDispatchState.ON_UP)
                 elif optimisation_results.get_variable_value(f"on_down_{equipment.name}_{t}") == 1:
-                    state_sequence.append(2)
+                    state_sequence.append(ThermalDispatchState.ON_DOWN)
                 elif optimisation_results.get_variable_value(f"off_{equipment.name}_{t}") == 1:
-                    state_sequence.append(3)
+                    state_sequence.append(ThermalDispatchState.OFF)
                 elif optimisation_results.get_variable_value(f"on_start_{equipment.name}_{t}") == 1:
-                    state_sequence.append(4)
+                    state_sequence.append(ThermalDispatchState.START)
                 elif optimisation_results.get_variable_value(f"stop_{equipment.name}_{t}") == 1:
-                    state_sequence.append(5)
+                    state_sequence.append(ThermalDispatchState.STOP)
                 elif optimisation_results.get_variable_value(f"on_flat_{equipment.name}_{t}") == 1:
-                    state_sequence.append(6)
+                    state_sequence.append(ThermalDispatchState.ON_FLAT)
 
         elif equipment_type == "hydro":
             fragment_categories = list(equipment.fragment_data.keys())  # type: ignore
-            for t in self.parameters.target_times:
+            for t in self.parameters.portfolio_time_window:
                 activated_power = 0.0
                 for category in fragment_categories:
                     activated_power += optimisation_results.get_variable_value(
@@ -170,7 +171,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                 stored_energy_values.append(stored_energy)
 
         elif equipment_type == "storage":
-            for t in self.parameters.target_times:
+            for t in self.parameters.portfolio_time_window:
                 power = optimisation_results.get_variable_value(
                     f"{equipment.name}_power_level_sell_{t}"
                 ) + optimisation_results.get_variable_value(f"{equipment.name}_power_level_buy_{t}")
@@ -184,7 +185,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                 stored_energy_values.append(stored_energy)
 
         else:
-            for t in self.parameters.target_times:
+            for t in self.parameters.portfolio_time_window:
                 power = optimisation_results.get_variable_value(f"{equipment.name}_power_level_{t}")
 
                 if abs(power) <= self.parameters.allowed_round_off_error:
@@ -200,11 +201,11 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
 
         :param equipment: Equipment instance to update
         :type equipment: EquipmentPO
-        :param power_values: List of power values for target times
+        :param power_values: List of power values for portfolio_time_window
         :type power_values: list[float]
         """
         power_ts = Timeseries.from_values(
-            start_date=self.parameters.target_times[0],
+            start_date=self.parameters.portfolio_time_window[0],
             frequency=self.parameters.temporal.timestep,
             values=power_values,
         )
@@ -223,11 +224,11 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
 
         :param equipment: Equipment instance to update
         :type equipment: EquipmentPO
-        :param power_values: List of power values for target times
+        :param power_values: List of power values for portfolio_time_window
         :type power_values: list[float]
         """
         power_ts = Timeseries.from_values(
-            start_date=self.parameters.target_times[0],
+            start_date=self.parameters.portfolio_time_window[0],
             frequency=self.parameters.temporal.timestep,
             values=power_values,
         )
@@ -248,14 +249,14 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
 
         :param equipment: Equipment instance to update (must be HydroPO or StoragePO)
         :type equipment: HydroPO | StoragePO
-        :param stored_energy_values: List of stored energy values for target times
+        :param stored_energy_values: List of stored energy values for portfolio_time_window
         :type stored_energy_values: list[float]
         """
         if not stored_energy_values:
             return
 
         stored_energy_ts = Timeseries.from_values(
-            start_date=self.parameters.target_times[0],
+            start_date=self.parameters.portfolio_time_window[0],
             frequency=self.parameters.temporal.timestep,
             values=stored_energy_values,
         )
@@ -273,7 +274,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
             return
 
         state_sequence_ts = Timeseries.from_values(
-            start_date=self.parameters.target_times[0],
+            start_date=self.parameters.portfolio_time_window[0],
             frequency=self.parameters.temporal.timestep,
             values=state_sequence,
         )

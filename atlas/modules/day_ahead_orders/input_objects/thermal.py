@@ -5,18 +5,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import Duration
-
+from atlas.common.optimal_dispatch.input_objects.thermal import ThermalDispatchInput
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.objects.equipment.thermal import Thermal
+from atlas.validators import DurationField
 
 
-class ThermalDAO(Thermal):
+class ThermalDAO(ThermalDispatchInput):
     variable_cost: AbstractTimeseries
     startup_cost: AbstractTimeseries
-    minimum_time_on: Duration
-    maximum_power: AbstractTimeseries
-    minimum_power: AbstractTimeseries
-    minimum_stable_power_duration: Duration
-    minimum_time_off: Duration
-    additional_hours: Duration
+    additional_hours: DurationField

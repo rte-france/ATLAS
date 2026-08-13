@@ -154,7 +154,7 @@ def _calculate_new_power(equipment: EquipmentPO, parameters: PortfolioOptimisati
     :rtype: Timeseries
     """
     if equipment.da_cleared_quantity is not None:
-        da_power = equipment.da_cleared_quantity.filter(parameters.target_times, inplace=False)
+        da_power = equipment.da_cleared_quantity.filter(parameters.portfolio_time_window, inplace=False)
         if isinstance(da_power, LazyTimeseries):
             da_power = da_power.collect()
     else:
@@ -170,7 +170,7 @@ def _calculate_new_power(equipment: EquipmentPO, parameters: PortfolioOptimisati
 
     elif parameters.market == MarketType.intraday:
         if equipment.total_id_cleared_quantity is not None:
-            id_power = equipment.total_id_cleared_quantity.filter(parameters.target_times, inplace=False)
+            id_power = equipment.total_id_cleared_quantity.filter(parameters.portfolio_time_window, inplace=False)
             if isinstance(id_power, LazyTimeseries):
                 id_power = id_power.collect()
         else:
@@ -199,7 +199,7 @@ def _calculate_activated_power(equipment: Equipment, parameters: PortfolioOptimi
     """
     if parameters.market == MarketType.dayahead:
         if equipment.da_cleared_quantity is not None:
-            da_power = equipment.da_cleared_quantity.filter(parameters.target_times, inplace=False)
+            da_power = equipment.da_cleared_quantity.filter(parameters.portfolio_time_window, inplace=False)
         else:
             da_power = Timeseries.from_index(
                 parameters.temporal.start_date,
@@ -213,7 +213,7 @@ def _calculate_activated_power(equipment: Equipment, parameters: PortfolioOptimi
         if equipment.id_cleared_quantity is not None:
             id_power = equipment.id_cleared_quantity.get_forecast(
                 parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
-            ).filter(parameters.target_times, inplace=False)
+            ).filter(parameters.portfolio_time_window, inplace=False)
             return id_power
         else:
             return Timeseries.from_index(
@@ -377,7 +377,7 @@ def _update_stored_energy(
     initial_stored_energy = _get_initial_stored_energy(equipment, parameters)
     out_of_bounds_corrections = {}
 
-    for index, time in enumerate(parameters.target_times):
+    for index, time in enumerate(parameters.portfolio_time_window):
         previous_energy = (
             initial_stored_energy if index == 0 else new_stored_energy.get_value(time - parameters.temporal.timestep)
         )

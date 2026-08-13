@@ -9,12 +9,13 @@ import atlas.config as cfg
 from atlas.enums import OrderType, Product
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.wind import WindDAO
-from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
+from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractBiddingStep
+from atlas.modules.day_ahead_orders.steps.result import BiddingResult
 
 
-class WindPVStep(AbstractOrderStep):
-    def formulate(self) -> StepResult:
-        result = StepResult()
+class WindPVBidding(AbstractBiddingStep):
+    def formulate(self) -> BiddingResult:
+        result = BiddingResult()
         equipments_list = self.dataset.wind + self.dataset.solar
 
         for equipment in equipments_list:
