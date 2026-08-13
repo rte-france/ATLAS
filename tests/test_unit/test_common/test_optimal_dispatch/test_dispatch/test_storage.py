@@ -10,8 +10,9 @@ import pytest
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.common.optimal_dispatch.dispatch.storage import StorageDispatch
 from atlas.common.optimal_dispatch.input_objects.storage import StorageDispatchInput
-from atlas.enums import StorageType
+from atlas.enums import SolverStatus, StorageType
 from atlas.io_utils.parameters import DateParameters
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market_operator.portfolio import Portfolio
@@ -321,6 +322,138 @@ class TestStorageDispatchConstraints:
 
         assert f"relative_power_max_{t0}_{ev_equipment.name}" not in model.constraints
         assert f"relative_power_min_{t0}_{ev_equipment.name}" not in model.constraints
+
+
+class TestStorageDispatchLevelEvolutionSolved:
+    """
+    Solve the LP and read the stored energy back, so the *content* of the level
+    evolution constraint is checked — not just that a constraint of that name exists.
+
+    Guards the sign convention introduced by the optimal-dispatch migration:
+    ``power_level_buy`` is negative (charging), where the previous formulation used a
+    positive ``Amount_purchased``. A sign flip here is invisible to name-only assertions.
+    """
+
+    def _solved_stock(self, equipment, model, parameters, time_window, sell: float, buy: float) -> float:
+        d = StorageDispatch(equipment)
+        d.setup(model, parameters)
+        for t in time_window:
+            d.add_variables(t)
+
+        t0 = time_window[0]
+        d.add_constraints(model, t0, parameters)
+
+        # pin the dispatch so the level evolution has a single feasible solution
+        model.add_constraint(d.power_level_sell_var.get_value(t0) == sell, "pin_sell")
+        model.add_constraint(d.power_level_buy_var.get_value(t0) == buy, "pin_buy")
+
+        model.set_direction("minimize")
+        model.set_objective(d.stored_energy_var.get_value(t0) * 0)
+        assert model.solve().status == SolverStatus.OPTIMAL
+
+        return model.get_variable(f"{equipment.name}_stored_energy_{t0}").solution_value()
+
+    def test_discharging_divides_by_discharge_efficiency(
+        self, battery_equipment, model, parameters, time_window
+    ):
+        # initial stock 50 (= 0.5 * 100); selling 9 MW for 1 h draws 9 / 0.9 = 10 MWh
+        stock = self._solved_stock(battery_equipment, model, parameters, time_window, sell=9.0, buy=0.0)
+        assert stock == pytest.approx(40.0)
+
+    def test_charging_multiplies_by_charge_efficiency_with_negative_buy(
+        self, battery_equipment, model, parameters, time_window
+    ):
+        # buy is negative by convention; charging 9 MW for 1 h stores 9 * 0.9 = 8.1 MWh
+        stock = self._solved_stock(battery_equipment, model, parameters, time_window, sell=0.0, buy=-9.0)
+        assert stock == pytest.approx(58.1)
+
+    def test_idle_keeps_initial_stock(self, battery_equipment, model, parameters, time_window):
+        stock = self._solved_stock(battery_equipment, model, parameters, time_window, sell=0.0, buy=0.0)
+        assert stock == pytest.approx(50.0)
+
+
+class TestStorageDispatchInitialStock:
+    def test_initial_stock_from_stored_energy_forecast(self, battery_equipment, parameters, start_date, timestep):
+        """When a stored_energy forecast is available it wins over the storage_initial_level default."""
+        forecast = ForecastingMatrix()
+        forecast.add(
+            Timeseries.from_index(
+                start_date=start_date.subtract(days=1),
+                frequency=timestep,
+                end_date=start_date.add(days=1),
+                default_value=77.0,
+            ),
+            parameters.temporal.execution_date,
+        )
+        battery_equipment.stored_energy = forecast
+
+        d = StorageDispatch(battery_equipment)
+        d._compute_initial_stock(parameters)
+
+        assert d._initial_stock == pytest.approx(77.0)
+
+    def test_initial_stock_falls_back_when_matrix_is_empty(self, battery_equipment, parameters):
+        """An empty matrix must be screened out — get_forecast raises on one."""
+        battery_equipment.stored_energy = ForecastingMatrix()
+
+        d = StorageDispatch(battery_equipment)
+        d._compute_initial_stock(parameters)
+
+        # falls back to storage_initial_level * max_energy = 0.5 * 100
+        assert d._initial_stock == pytest.approx(50.0)
+
+    def test_initial_stock_falls_back_when_forecast_misses_window(
+        self, battery_equipment, parameters, start_date, timestep
+    ):
+        """Matrix holds data, but none covering the instant before start_date."""
+        forecast = ForecastingMatrix()
+        forecast.add(
+            Timeseries.from_index(
+                start_date=start_date.add(days=10),
+                frequency=timestep,
+                end_date=start_date.add(days=11),
+                default_value=77.0,
+            ),
+            parameters.temporal.execution_date,
+        )
+        battery_equipment.stored_energy = forecast
+
+        d = StorageDispatch(battery_equipment)
+        d._compute_initial_stock(parameters)
+
+        assert d._initial_stock == pytest.approx(50.0)
+
+
+class TestStorageDispatchDisplacementEnergy:
+    """Electric vehicles consume energy while driving — displacement is subtracted from the stock."""
+
+    def test_displacement_reduces_stored_energy(self, ev_equipment, model, parameters, start_date, timestep):
+        # displacement grows by 5 MWh between prev and t0
+        ev_equipment.displacement_energy = Timeseries.from_index(
+            start_date=start_date.subtract(days=1),
+            frequency=timestep,
+            end_date=start_date.add(days=1),
+            default_value=0.0,
+        )
+        ev_equipment.displacement_energy.set_value(start_date, 5.0)
+
+        d = StorageDispatch(ev_equipment)
+        d.setup(model, parameters)
+        time_window = [start_date.add(hours=h) for h in range(2)]
+        for t in time_window:
+            d.add_variables(t)
+
+        t0 = time_window[0]
+        d.add_constraints(model, t0, parameters)
+        model.add_constraint(d.power_level_sell_var.get_value(t0) == 0.0, "pin_sell")
+        model.add_constraint(d.power_level_buy_var.get_value(t0) == 0.0, "pin_buy")
+        model.set_direction("minimize")
+        model.set_objective(d.stored_energy_var.get_value(t0) * 0)
+        assert model.solve().status == SolverStatus.OPTIMAL
+
+        # initial stock 30 (= 0.3 * 100), displacement delta +5 → 35
+        stock = model.get_variable(f"{ev_equipment.name}_stored_energy_{t0}").solution_value()
+        assert stock == pytest.approx(35.0)
 
 
 class TestStorageDispatchFragments:

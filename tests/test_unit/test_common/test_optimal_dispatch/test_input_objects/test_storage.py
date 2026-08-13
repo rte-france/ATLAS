@@ -58,3 +58,11 @@ class TestStorageDispatchInput:
         valid_storage_dict["additional_hours"] = "PT2H"
         obj = StorageDispatchInput(**valid_storage_dict)
         assert obj.additional_hours.total_hours() == 2.0
+
+    @pytest.mark.parametrize("field", ["charge_efficiency", "discharge_efficiency"])
+    @pytest.mark.parametrize("value", [0.0, -0.1])
+    def test_non_positive_efficiency_rejected(self, valid_storage_dict, field, value):
+        """The dispatch formulation divides by both efficiencies — zero is not a valid input."""
+        valid_storage_dict[field] = value
+        with pytest.raises(ValidationError):
+            StorageDispatchInput(**valid_storage_dict)

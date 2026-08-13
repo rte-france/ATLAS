@@ -185,8 +185,8 @@ class StorageDispatch:
 
         # power_buy is negative (charging draws power from grid); energy added = -buy * efficiency
         energy_delta = (
-            -power_buy * (eq.charge_efficiency or 1.0) * dt_h
-            - power_sell * dt_h / (eq.discharge_efficiency or 1.0)
+            -power_buy * eq.charge_efficiency * dt_h
+            - power_sell * dt_h / eq.discharge_efficiency
             + (displacement - displacement_prev)
         )
 
@@ -237,8 +237,8 @@ class StorageDispatch:
         """
 
         eq = self._eq
-        charge_eff = eq.charge_efficiency or 1.0
-        discharge_eff = eq.discharge_efficiency or 1.0
+        charge_eff = eq.charge_efficiency
+        discharge_eff = eq.discharge_efficiency
 
         model.add_constraint(
             sum(-self.power_level_buy_var.get_value(t) for t in time_window) * charge_eff
@@ -258,7 +258,7 @@ class StorageDispatch:
         """
         eq = self._eq
         max_p = eq.maximum_power.get_value(time)
-        eff = eq.discharge_efficiency or 1.0
+        eff = eq.discharge_efficiency
         if eq.storage_type == StorageType.ELECTRIC_VEHICLE:
             return (eq.is_v2g or 0.0) * max_p * eff
         return max_p * eff
@@ -274,7 +274,7 @@ class StorageDispatch:
         :rtype: float
         """
         eq = self._eq
-        return eq.minimum_power.get_value(time) / (eq.charge_efficiency or 1.0)
+        return eq.minimum_power.get_value(time) / eq.charge_efficiency
 
     @property
     def name(self) -> str:
@@ -292,7 +292,9 @@ class StorageDispatch:
         prev = temporal.start_date - temporal.timestep
         default = eq.maximum_energy.get_value(prev) * (eq.storage_initial_level or 0.0)
 
-        if eq.stored_energy is None:
+        # an empty matrix raises inside get_forecast, so it is screened out here rather
+        # than relying on the empty-forecast fallback below
+        if eq.stored_energy is None or len(eq.stored_energy) == 0:
             self._initial_stock = default
             return
 
