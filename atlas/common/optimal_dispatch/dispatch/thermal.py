@@ -1032,12 +1032,15 @@ class ThermalDispatch:
             if (self._has_stop or self._has_start) and time == start_date:
                 prev_time = time - ts
                 on_flat_prev = self.on_flat_var.get_value(prev_time)
-                stable_name_time = time if (self._has_start and not self._has_stop) else prev_time
+                # suffix with prev_time, never `time`: this loop shifts local_time one step
+                # further back than the loop above, so reusing `time` collides with the name
+                # it already emitted for s + 1. prev_time sits before the window, so it can
+                # never clash with a suffix produced at another timestep.
                 for s in range(1, self._T_stable - 1):
                     local_time = time - (s + 1) * ts
                     model.add_constraint(
                         self.stable_var.get_value(local_time) <= on_flat_prev,
-                        f"minimum_time_stable_{n}_{local_time}_{stable_name_time}",
+                        f"minimum_time_stable_{n}_{local_time}_{prev_time}",
                     )
 
         if self._has_stop and self._T_stop >= 2:

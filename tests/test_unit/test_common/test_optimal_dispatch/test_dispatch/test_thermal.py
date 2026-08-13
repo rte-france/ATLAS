@@ -502,33 +502,52 @@ class TestThermalDispatchSubTimestepDurations:
         assert d.has_flat is True
 
 
-@pytest.mark.xfail(
-    raises=ValueError,
-    strict=True,
-    reason=(
-        "Combination 6 (START without STOP) reuses a constraint name: at start_date, "
-        "thermal.py:1035 sets stable_name_time = time, so the second minimum_time_stable "
-        "loop re-emits a name already produced by the first one. Triggers as soon as "
-        "T_stable >= 4, i.e. minimum_stable_power_duration >= 3 x timestep. Fixing it "
-        "renames constraints, so it changes the validated LP snapshots — deliberate call."
-    ),
-)
-def test_combination_6_long_stable_duration_name_collision(
-    node, portfolio, power_ts, min_power_ts, model, parameters
-):
-    eq = _make_equipment(
-        node, portfolio, power_ts, min_power_ts,
-        **REALISTIC_MIN_TIMES,
-        startup_duration=pendulum.duration(hours=2),
-        minimum_stable_power_duration=pendulum.duration(hours=3),
-    )
-    d = ThermalDispatch(eq)
-    d.setup(model, parameters)
-    window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
-    for t in window:
-        d.add_variables(t)
-    for t in window:
-        d.add_constraints(model, t, parameters)
+class TestThermalDispatchLongStableDuration:
+    """
+    Regression: the second ``minimum_time_stable`` loop used to suffix its names with
+    ``time`` for START-without-STOP, colliding with the names the first loop had already
+    emitted one step earlier. It raised as soon as ``T_stable >= 4``, i.e. a stable
+    duration of at least three timesteps — a plain unit with a startup ramp and no
+    shutdown ramp. The LP snapshots missed it because they use a shorter stable duration.
+    """
+
+    @pytest.mark.parametrize("stable_hours", [1, 2, 3, 4, 5])
+    def test_stable_duration_does_not_collide(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters, stable_hours
+    ):
+        eq = _make_equipment(
+            node, portfolio, power_ts, min_power_ts,
+            **REALISTIC_MIN_TIMES,
+            startup_duration=pendulum.duration(hours=2),
+            minimum_stable_power_duration=pendulum.duration(hours=stable_hours),
+        )
+        d = ThermalDispatch(eq)
+        d.setup(model, parameters)
+        window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
+        for t in window:
+            d.add_variables(t)
+        for t in window:
+            d.add_constraints(model, t, parameters)
+
+        assert d.combination == 6
+
+    @pytest.mark.parametrize("combination", [5, 8])
+    def test_stop_combinations_also_tolerate_long_stable_duration(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters, combination
+    ):
+        """The has_stop variants already suffixed with prev_time — guard against a regression."""
+        durations = dict(DURATION_BY_COMBINATION[combination])
+        durations["minimum_stable_power_duration"] = pendulum.duration(hours=4)
+        eq = _make_equipment(node, portfolio, power_ts, min_power_ts, **REALISTIC_MIN_TIMES, **durations)
+        d = ThermalDispatch(eq)
+        d.setup(model, parameters)
+        window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
+        for t in window:
+            d.add_variables(t)
+        for t in window:
+            d.add_constraints(model, t, parameters)
+
+        assert d.combination == combination
 
 
 class TestThermalDispatchDailyEnergyConstraint:
