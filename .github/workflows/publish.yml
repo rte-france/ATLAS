@@ -32,6 +32,15 @@ jobs:
             exit 1
           fi
 
+      - name: Verify changelog contains a section for this version
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+
+          if ! grep -qE "^## ${TAG_VERSION}$" docs/changelog.md; then
+            echo "No '## ${TAG_VERSION}' section found in docs/changelog.md"
+            exit 1
+          fi
+
       - run: uv build
 
       - uses: pypa/gh-action-pypi-publish@release/v1
