@@ -347,6 +347,190 @@ class TestThermalDispatchConstraints:
         assert f"unconstrained_downward_gradient_{n}_{prev}" in model.constraints
 
 
+DURATION_BY_COMBINATION = {
+    1: {},
+    2: {"shutdown_duration": pendulum.duration(hours=2)},
+    3: {"minimum_stable_power_duration": pendulum.duration(hours=2)},
+    4: {"startup_duration": pendulum.duration(hours=2)},
+    5: {"shutdown_duration": pendulum.duration(hours=2), "minimum_stable_power_duration": pendulum.duration(hours=2)},
+    6: {"startup_duration": pendulum.duration(hours=2), "minimum_stable_power_duration": pendulum.duration(hours=2)},
+    7: {"shutdown_duration": pendulum.duration(hours=2), "startup_duration": pendulum.duration(hours=2)},
+    8: {
+        "shutdown_duration": pendulum.duration(hours=2),
+        "startup_duration": pendulum.duration(hours=2),
+        "minimum_stable_power_duration": pendulum.duration(hours=2),
+    },
+}
+"""Duration flags that select each combination, with realistic non-zero minimum times."""
+
+REALISTIC_MIN_TIMES = {
+    "minimum_time_on": pendulum.duration(hours=3),
+    "minimum_time_off": pendulum.duration(hours=2),
+}
+
+
+class TestThermalDispatchConstraintsAcrossCombinations:
+    """
+    Build the full constraint set for every combination.
+
+    The other constraint tests all run on combination 1 (every duration flag unset),
+    which leaves the ON_FLAT / START / STOP branches — the bulk of the formulation —
+    unexercised. These run each combination end to end over a window.
+    """
+
+    def _build(self, node, portfolio, power_ts, min_power_ts, model, parameters, combination):
+        eq = _make_equipment(
+            node, portfolio, power_ts, min_power_ts,
+            **REALISTIC_MIN_TIMES,
+            **DURATION_BY_COMBINATION[combination],
+        )
+        d = ThermalDispatch(eq)
+        d.setup(model, parameters)
+        window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
+        for t in window:
+            d.add_variables(t)
+        for t in window:
+            d.add_constraints(model, t, parameters)
+        return d
+
+    @pytest.mark.parametrize("combination", sorted(DURATION_BY_COMBINATION))
+    def test_combination_builds_its_constraints(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters, combination
+    ):
+        d = self._build(node, portfolio, power_ts, min_power_ts, model, parameters, combination)
+
+        assert d.combination == combination
+        assert model.constraints
+
+    @pytest.mark.parametrize("combination", sorted(DURATION_BY_COMBINATION))
+    def test_every_combination_emits_mutual_exclusion(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters, combination
+    ):
+        """Exactly one state is active per timestep, whichever states the combination defines."""
+        self._build(node, portfolio, power_ts, min_power_ts, model, parameters, combination)
+
+        t0 = parameters.temporal.start_date
+        assert f"mutual_exclusion_{t0}_th_unit" in model.constraints
+
+
+class TestThermalDispatchMinimumTimeConstraints:
+    """
+    ``minimum_time_on`` / ``minimum_time_off`` default to zero in the other fixtures,
+    which disables these constraints entirely — they need explicit non-zero durations.
+    """
+
+    def _build(self, node, portfolio, power_ts, min_power_ts, model, parameters, **durations):
+        eq = _make_equipment(node, portfolio, power_ts, min_power_ts, **durations)
+        d = ThermalDispatch(eq)
+        d.setup(model, parameters)
+        window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
+        for t in window:
+            d.add_variables(t)
+        for t in window:
+            d.add_constraints(model, t, parameters)
+        return d
+
+    def test_zero_minimum_time_emits_no_constraint(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters
+    ):
+        self._build(node, portfolio, power_ts, min_power_ts, model, parameters)
+
+        assert not any("minimum_time_on" in c or "minimum_time_off" in c for c in model.constraints)
+
+    def test_minimum_time_on_emits_constraints(self, node, portfolio, power_ts, min_power_ts, model, parameters):
+        d = self._build(
+            node, portfolio, power_ts, min_power_ts, model, parameters,
+            minimum_time_on=pendulum.duration(hours=4),
+        )
+
+        # T_on = ceil(4h / 1h) + 1 = 5
+        assert d._T_on == 5
+        assert any("minimum_time_on" in c for c in model.constraints)
+
+    def test_minimum_time_off_emits_constraints(self, node, portfolio, power_ts, min_power_ts, model, parameters):
+        d = self._build(
+            node, portfolio, power_ts, min_power_ts, model, parameters,
+            minimum_time_off=pendulum.duration(hours=2),
+        )
+
+        assert d._T_off == 3
+        assert any("minimum_time_off" in c for c in model.constraints)
+
+
+class TestThermalDispatchSubTimestepDurations:
+    """
+    Durations shorter than the timestep collapse to "flag unset" rather than raising.
+    Pins that behaviour so the silent downgrade is a deliberate choice, not a surprise.
+    """
+
+    def _combination(self, node, portfolio, power_ts, min_power_ts, model, parameters, **durations):
+        eq = _make_equipment(node, portfolio, power_ts, min_power_ts, **durations)
+        d = ThermalDispatch(eq)
+        d.setup(model, parameters)
+        return d
+
+    def test_stable_duration_below_timestep_disables_flat(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters
+    ):
+        d = self._combination(
+            node, portfolio, power_ts, min_power_ts, model, parameters,
+            minimum_stable_power_duration=pendulum.duration(minutes=30),
+        )
+
+        assert d.has_flat is False
+        assert d.combination == 1
+
+    def test_startup_duration_below_timestep_disables_start(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters
+    ):
+        d = self._combination(
+            node, portfolio, power_ts, min_power_ts, model, parameters,
+            startup_duration=pendulum.duration(minutes=30),
+        )
+
+        assert d.has_start is False
+        assert d.combination == 1
+
+    def test_stable_duration_equal_to_timestep_enables_flat(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters
+    ):
+        d = self._combination(
+            node, portfolio, power_ts, min_power_ts, model, parameters,
+            minimum_stable_power_duration=pendulum.duration(hours=1),
+        )
+
+        assert d.has_flat is True
+
+
+@pytest.mark.xfail(
+    raises=ValueError,
+    strict=True,
+    reason=(
+        "Combination 6 (START without STOP) reuses a constraint name: at start_date, "
+        "thermal.py:1035 sets stable_name_time = time, so the second minimum_time_stable "
+        "loop re-emits a name already produced by the first one. Triggers as soon as "
+        "T_stable >= 4, i.e. minimum_stable_power_duration >= 3 x timestep. Fixing it "
+        "renames constraints, so it changes the validated LP snapshots — deliberate call."
+    ),
+)
+def test_combination_6_long_stable_duration_name_collision(
+    node, portfolio, power_ts, min_power_ts, model, parameters
+):
+    eq = _make_equipment(
+        node, portfolio, power_ts, min_power_ts,
+        **REALISTIC_MIN_TIMES,
+        startup_duration=pendulum.duration(hours=2),
+        minimum_stable_power_duration=pendulum.duration(hours=3),
+    )
+    d = ThermalDispatch(eq)
+    d.setup(model, parameters)
+    window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
+    for t in window:
+        d.add_variables(t)
+    for t in window:
+        d.add_constraints(model, t, parameters)
+
+
 class TestThermalDispatchDailyEnergyConstraint:
     def _make_daily_params(self, start_date, timestep):
         return AbstractModuleParameters(
