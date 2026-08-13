@@ -6,11 +6,10 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pendulum import Duration
-
 from atlas.enums import LoadType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.objects.equipment.load import Load
+from atlas.validators import DurationField
 
 
 class LoadDispatchInput(Load):
@@ -24,4 +23,4 @@ class LoadDispatchInput(Load):
 
     load_type: LoadType
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
-    additional_hours: Duration
+    additional_hours: DurationField

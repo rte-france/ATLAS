@@ -4,13 +4,14 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import DateTime, Duration
+from pendulum import DateTime
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.objects.equipment.wind import Wind
+from atlas.validators import DurationField
 
 
 class WindPO(Wind):
@@ -18,7 +19,7 @@ class WindPO(Wind):
     maximum_afrr: float
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
     maximum_curtailment_ratio: AbstractTimeseries
-    additional_hours: Duration
+    additional_hours: DurationField
 
     _cached_forecast: Timeseries | None = None
 

@@ -4,10 +4,9 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import Duration
-
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.objects.equipment.storage import Storage
+from atlas.validators import DurationField
 
 
 class StorageDispatchInput(Storage):
@@ -22,4 +21,4 @@ class StorageDispatchInput(Storage):
     charge_efficiency: float
     discharge_efficiency: float
     storage_initial_level: float
-    additional_hours: Duration
+    additional_hours: DurationField

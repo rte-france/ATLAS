@@ -4,10 +4,9 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import Duration
-
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.objects.equipment.hydro import Hydro
+from atlas.validators import DurationField
 
 
 class HydroDispatchInput(Hydro):
@@ -23,4 +22,4 @@ class HydroDispatchInput(Hydro):
     maximum_power: AbstractTimeseries
     minimum_power: AbstractTimeseries
     initial_level: AbstractTimeseries
-    additional_hours: Duration
+    additional_hours: DurationField
