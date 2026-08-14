@@ -171,18 +171,15 @@ class TestEquipmentSchedules:
         assert _forecast_values(_equipment_by_name(portfolio, "so").power) == [5.0, 5.0, 5.0]
 
     def test_replaces_an_execution_date_already_present(self, portfolio):
-        # A second forecast is needed because ForecastingMatrix.replace still crashes on a
-        # single-forecast matrix; that fix lands with the upsert PR (#338).
         solar = _equipment_by_name(portfolio, "so")
         solar.power = ForecastingMatrix().add(_timeseries([1.0, 1.0, 1.0]), EXECUTION_DATE)
-        solar.power.add(_timeseries([2.0, 2.0, 2.0]), EXECUTION_DATE.subtract(days=1))
         values = {f"so_power_level_{time}": 9.0 for time in TARGET_TIMES}
         dataset = PortfolioOptimisationOutputDataset(_parameters(), [_result(portfolio, values)])
 
         dataset.build()
 
         assert _forecast_values(solar.power) == [9.0, 9.0, 9.0]
-        assert len(solar.power.index) == 2
+        assert len(solar.power.index) == 1
 
     def test_keeps_other_execution_dates_untouched(self, portfolio):
         earlier = EXECUTION_DATE.subtract(days=1)

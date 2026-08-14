@@ -153,12 +153,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
 
         if equipment.state_sequence is None:
             equipment.state_sequence = ScenarioMatrix()
-
-        # Becomes state_sequence.upsert(execution_date, state_sequence_ts) once #338 lands.
-        if execution_date in equipment.state_sequence:
-            equipment.state_sequence.replace(execution_date, state_sequence_ts)
-        else:
-            equipment.state_sequence.add(state_sequence_ts, execution_date)
+        equipment.state_sequence.upsert(execution_date, state_sequence_ts)
 
     def _write_portfolio_imbalance(
         self, portfolio: PortfolioPO, optimisation_result: PortfolioOptimisationResult
@@ -237,9 +232,5 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
         if matrix is None:
             return ForecastingMatrix().add(timeseries, execution_date)
 
-        # Becomes matrix.upsert(execution_date, timeseries) once #338 lands.
-        if execution_date in matrix:
-            matrix.replace(execution_date, timeseries)
-        else:
-            matrix.add(timeseries, execution_date)
+        matrix.upsert(execution_date, timeseries)
         return matrix
