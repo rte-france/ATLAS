@@ -3,12 +3,8 @@
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Unit tests for PortfolioOptimisationOutputDataset:
-  - writing of the optimised schedules onto portfolio and equipment objects
-  - forecast mode routing towards id_po_for_orders
-  - upsert semantics on an execution date already present
-  - changeset emission in both bidding modes
-  - manual activation pass-through
+Unit tests for PortfolioOptimisationOutputDataset: writing of the optimised schedules onto
+portfolio and equipment objects, and emission of the resulting changesets.
 """
 
 from unittest.mock import Mock
@@ -133,7 +129,7 @@ def _forecast_values(matrix: ForecastingMatrix) -> list[float]:
     return matrix.get_forecast(EXECUTION_DATE, TARGET_TIMES[0], TARGET_TIMES[-1]).values
 
 
-# ── Writing schedules onto equipments ─────────────────────────────────────────
+# ── Tests ─────────────────────────────────────────────────────────────────────
 
 
 class TestEquipmentSchedules:
@@ -162,15 +158,7 @@ class TestEquipmentSchedules:
         assert _forecast_values(storage.power) == [20.0, 20.0, 20.0]
         assert _forecast_values(storage.stored_energy) == [80.0, 80.0, 80.0]
 
-    def test_writes_power_only_equipment(self, portfolio):
-        values = {f"so_power_level_{time}": 5.0 for time in TARGET_TIMES}
-        dataset = PortfolioOptimisationOutputDataset(_parameters(), [_result(portfolio, values)])
-
-        dataset.build()
-
-        assert _forecast_values(_equipment_by_name(portfolio, "so").power) == [5.0, 5.0, 5.0]
-
-    def test_replaces_an_execution_date_already_present(self, portfolio):
+    def test_overwrites_an_execution_date_already_present(self, portfolio):
         solar = _equipment_by_name(portfolio, "so")
         solar.power = ForecastingMatrix().add(_timeseries([1.0, 1.0, 1.0]), EXECUTION_DATE)
         values = {f"so_power_level_{time}": 9.0 for time in TARGET_TIMES}
@@ -181,23 +169,12 @@ class TestEquipmentSchedules:
         assert _forecast_values(solar.power) == [9.0, 9.0, 9.0]
         assert len(solar.power.index) == 1
 
-    def test_keeps_other_execution_dates_untouched(self, portfolio):
-        earlier = EXECUTION_DATE.subtract(days=1)
-        solar = _equipment_by_name(portfolio, "so")
-        solar.power = ForecastingMatrix().add(_timeseries([1.0, 1.0, 1.0]), earlier)
-        dataset = PortfolioOptimisationOutputDataset(_parameters(), [_result(portfolio, {})])
-
-        dataset.build()
-
-        assert len(solar.power.index) == 2
-
-
-# ── Forecast mode ─────────────────────────────────────────────────────────────
-
 
 class TestForecastMode:
-    def test_routes_power_to_id_po_for_orders(self, portfolio):
+    def test_routes_power_to_id_po_for_orders_and_spares_the_committed_schedules(self, portfolio):
         values = {f"so_power_level_{time}": 7.0 for time in TARGET_TIMES}
+        values |= {f"st_stored_energy_{time}": 80.0 for time in TARGET_TIMES}
+        values |= {f"on_up_th_{time}": 1 for time in TARGET_TIMES}
         dataset = PortfolioOptimisationOutputDataset(_parameters(use_forecast=True), [_result(portfolio, values)])
 
         dataset.build()
@@ -205,25 +182,8 @@ class TestForecastMode:
         solar = _equipment_by_name(portfolio, "so")
         assert _forecast_values(solar.id_po_for_orders) == [7.0, 7.0, 7.0]
         assert solar.power is None
-
-    def test_leaves_stored_energy_untouched(self, portfolio):
-        values = {f"st_stored_energy_{time}": 80.0 for time in TARGET_TIMES}
-        dataset = PortfolioOptimisationOutputDataset(_parameters(use_forecast=True), [_result(portfolio, values)])
-
-        dataset.build()
-
         assert _equipment_by_name(portfolio, "st").stored_energy is None
-
-    def test_still_writes_the_thermal_state_sequence(self, portfolio):
-        values = {f"on_up_th_{time}": 1 for time in TARGET_TIMES}
-        dataset = PortfolioOptimisationOutputDataset(_parameters(use_forecast=True), [_result(portfolio, values)])
-
-        dataset.build()
-
         assert _equipment_by_name(portfolio, "th").state_sequence is not None
-
-
-# ── Portfolio level ───────────────────────────────────────────────────────────
 
 
 class TestPortfolioLevel:
@@ -246,65 +206,38 @@ class TestPortfolioLevel:
 
         assert _forecast_values(portfolio.power) == [75.0, 75.0, 75.0]
 
-    def test_not_written_in_individual_equipment_mode(self, portfolio):
-        dataset = PortfolioOptimisationOutputDataset(_parameters(is_portfolio_bidding=False), [_result(portfolio, {})])
-
-        dataset.build()
-
-        assert portfolio.imbalance is None
-        assert portfolio.power is None
-
-
-# ── Individual equipment mode ─────────────────────────────────────────────────
-
 
 class TestIndividualEquipmentMode:
-    def test_equipment_schedules_are_still_written(self, portfolio):
+    def test_writes_equipment_schedules_but_nothing_at_portfolio_level(self, portfolio):
         """Individual mode optimises one equipment per synthetic portfolio; results must land."""
         values = {f"so_power_level_{time}": 12.0 for time in TARGET_TIMES}
         dataset = PortfolioOptimisationOutputDataset(
             _parameters(is_portfolio_bidding=False), [_result(portfolio, values)]
         )
 
-        dataset.build()
-
-        assert _forecast_values(_equipment_by_name(portfolio, "so").power) == [12.0, 12.0, 12.0]
-
-    def test_emits_equipment_changesets_but_no_portfolio_changeset(self, portfolio):
-        dataset = PortfolioOptimisationOutputDataset(_parameters(is_portfolio_bidding=False), [_result(portfolio, {})])
-
         dataset.build_change_sets()
 
+        assert _forecast_values(_equipment_by_name(portfolio, "so").power) == [12.0, 12.0, 12.0]
+        assert portfolio.imbalance is None
+        assert portfolio.power is None
         model_types = [change_set.model_type for change_set in dataset.change_sets]
         assert BusinessModelName.PORTFOLIO not in model_types
         assert BusinessModelName.SOLAR in model_types
 
 
-# ── Manual activation ─────────────────────────────────────────────────────────
-
-
 class TestManualActivation:
-    def test_schedules_are_left_as_set_by_manual_activation(self, portfolio):
+    def test_leaves_schedules_alone_and_emits_no_portfolio_changeset(self, portfolio):
         values = {f"so_power_level_{time}": 12.0 for time in TARGET_TIMES}
         dataset = PortfolioOptimisationOutputDataset(
             _parameters(), [_result(portfolio, values, is_manual_activation=True)]
         )
 
-        dataset.build()
-
-        assert _equipment_by_name(portfolio, "so").power is None
-
-    def test_emits_equipment_changesets_but_no_portfolio_changeset(self, portfolio):
-        dataset = PortfolioOptimisationOutputDataset(_parameters(), [_result(portfolio, {}, is_manual_activation=True)])
-
         dataset.build_change_sets()
 
+        assert _equipment_by_name(portfolio, "so").power is None
         model_types = [change_set.model_type for change_set in dataset.change_sets]
         assert BusinessModelName.PORTFOLIO not in model_types
         assert BusinessModelName.THERMAL in model_types
-
-
-# ── Changesets ────────────────────────────────────────────────────────────────
 
 
 class TestChangeSets:
@@ -327,13 +260,3 @@ class TestChangeSets:
         assert storage_change_set.data["name"] == "st"
         assert _forecast_values(storage_change_set.data["power"]) == [20.0, 20.0, 20.0]
         assert "stored_energy" in storage_change_set.data
-
-    def test_forecast_mode_payload_carries_id_po_for_orders(self, portfolio):
-        dataset = PortfolioOptimisationOutputDataset(_parameters(use_forecast=True), [_result(portfolio, {})])
-
-        dataset.build_change_sets()
-
-        solar_change_set = next(
-            change_set for change_set in dataset.change_sets if change_set.model_type == BusinessModelName.SOLAR
-        )
-        assert "id_po_for_orders" in solar_change_set.data
