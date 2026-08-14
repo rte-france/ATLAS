@@ -44,7 +44,8 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
 
     def build_change_sets(self) -> None:
         """Run in-place mutations then export each modified object as an UpdateObject changeset."""
-        self.build()
+        self.update_equipments()
+        self.update_portfolios()
 
         for optimisation_result in self.optimisation_results:
             portfolio = optimisation_result.portfolio
@@ -81,9 +82,9 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
 
         return equipment_data
 
-    def build(self) -> None:
+    def update_equipments(self) -> None:
         """
-        Write every optimised schedule onto its portfolio and equipment objects.
+        Write the optimised schedule of every equipment onto the equipment itself.
 
         Manually activated portfolios are skipped: their schedules are already set by
         :func:`atlas.modules.portfolio_optimisation.utils.manual_activation.set_manual_activation`.
@@ -92,17 +93,28 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
             if optimisation_result.is_manual_activation:
                 continue
 
-            portfolio = optimisation_result.portfolio
-
-            for _, equipment_list in portfolio.equipments.iter_by_type_for_optimisation():
+            for _, equipment_list in optimisation_result.portfolio.equipments.iter_by_type_for_optimisation():
                 for equipment in equipment_list:
                     self._write_equipment_schedule(equipment, optimisation_result)
 
-            # In individual equipment mode the portfolio is a synthetic single-equipment wrapper,
-            # so portfolio-level results are neither meaningful nor exported as changesets.
-            if self.parameters.is_portfolio_bidding:
-                self._write_portfolio_imbalance(portfolio, optimisation_result)
-                self._write_portfolio_power(portfolio)
+    def update_portfolios(self) -> None:
+        """
+        Write the imbalance and the aggregated power onto every optimised portfolio.
+
+        Must run after :meth:`update_equipments`, since the portfolio power is the sum of the
+        equipment schedules. Does nothing in individual equipment mode, where the portfolio is a
+        synthetic single-equipment wrapper: portfolio-level results are neither meaningful there
+        nor exported as changesets.
+        """
+        if not self.parameters.is_portfolio_bidding:
+            return
+
+        for optimisation_result in self.optimisation_results:
+            if optimisation_result.is_manual_activation:
+                continue
+
+            self._write_portfolio_imbalance(optimisation_result.portfolio, optimisation_result)
+            self._write_portfolio_power(optimisation_result.portfolio)
 
     def _write_equipment_schedule(
         self, equipment: EquipmentPO, optimisation_result: PortfolioOptimisationResult

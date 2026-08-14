@@ -138,7 +138,7 @@ class TestEquipmentSchedules:
         values |= {f"on_flat_th_{time}": 1 for time in TARGET_TIMES}
         dataset = PortfolioOptimisationOutputDataset(_parameters(), [_result(portfolio, values)])
 
-        dataset.build()
+        dataset.update_equipments()
 
         thermal = _equipment_by_name(portfolio, "th")
         assert _forecast_values(thermal.power) == [50.0, 50.0, 50.0]
@@ -152,7 +152,7 @@ class TestEquipmentSchedules:
         values |= {f"st_stored_energy_{time}": 80.0 for time in TARGET_TIMES}
         dataset = PortfolioOptimisationOutputDataset(_parameters(), [_result(portfolio, values)])
 
-        dataset.build()
+        dataset.update_equipments()
 
         storage = _equipment_by_name(portfolio, "st")
         assert _forecast_values(storage.power) == [20.0, 20.0, 20.0]
@@ -164,7 +164,7 @@ class TestEquipmentSchedules:
         values = {f"so_power_level_{time}": 9.0 for time in TARGET_TIMES}
         dataset = PortfolioOptimisationOutputDataset(_parameters(), [_result(portfolio, values)])
 
-        dataset.build()
+        dataset.update_equipments()
 
         assert _forecast_values(solar.power) == [9.0, 9.0, 9.0]
         assert len(solar.power.index) == 1
@@ -177,7 +177,7 @@ class TestForecastMode:
         values |= {f"on_up_th_{time}": 1 for time in TARGET_TIMES}
         dataset = PortfolioOptimisationOutputDataset(_parameters(use_forecast=True), [_result(portfolio, values)])
 
-        dataset.build()
+        dataset.update_equipments()
 
         solar = _equipment_by_name(portfolio, "so")
         assert _forecast_values(solar.id_po_for_orders) == [7.0, 7.0, 7.0]
@@ -192,7 +192,7 @@ class TestPortfolioLevel:
         values |= {f"pf_small_imbalance_up_{time}": 4.0 for time in TARGET_TIMES}
         dataset = PortfolioOptimisationOutputDataset(_parameters(), [_result(portfolio, values)])
 
-        dataset.build()
+        dataset.update_portfolios()
 
         assert _forecast_values(portfolio.imbalance) == [6.0, 6.0, 6.0]
 
@@ -202,7 +202,8 @@ class TestPortfolioLevel:
         values |= {f"st_power_level_sell_{time}": 20.0 for time in TARGET_TIMES}
         dataset = PortfolioOptimisationOutputDataset(_parameters(), [_result(portfolio, values)])
 
-        dataset.build()
+        dataset.update_equipments()
+        dataset.update_portfolios()
 
         assert _forecast_values(portfolio.power) == [75.0, 75.0, 75.0]
 
