@@ -6,7 +6,7 @@ temporal:
 market: "Intraday"
 solver:
   solver_name: "SCIP"
-  export_lp: false
+  export_lp: true
 multiprocessing:
   enable: false
 use_forecast: true

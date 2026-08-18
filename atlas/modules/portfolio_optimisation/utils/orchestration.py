@@ -92,7 +92,10 @@ def optimise_single_portfolio(
             output_path.mkdir(parents=True, exist_ok=True)
             model.export_model(output_path / f"po_{portfolio.name}.lp")
 
-        model.solve()
+        solution_info = model.solve()
+
+        if solution_info.status not in (SolverStatus.OPTIMAL, SolverStatus.FEASIBLE):
+            raise RuntimeError(f"Solver returned status {solution_info.status.name}")
 
         variable_values = {var_name: model.get_variable_value(var_name) for var_name in model._variables_name}
 
