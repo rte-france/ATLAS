@@ -102,7 +102,7 @@ def optimise_single_portfolio(
         result = PortfolioOptimisationResult(
             portfolio=model.portfolio,
             variable_values=variable_values,
-            solution_info=model.solution_info,
+            solution_info=solution_info,
             is_manual_activation=False,
         )
 
