@@ -1,5 +1,6 @@
 import pytest
 from pendulum import duration
+from pydantic import BaseModel, ValidationError
 
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.equipment.equipment import Equipment
@@ -8,6 +9,8 @@ from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
 from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.validators import (
+    DateFormat,
+    PipeSeparatedFloats,
     convert_to_duration,
     serializer_business_model,
     serializer_list_business_model,
@@ -180,3 +183,39 @@ def test_field_serializer_integration():
     assert dumped["node"] == "test_node"
     assert dumped["portfolio"] == "test_portfolio"
     assert dumped["co2_emission_factor"] == 0.5
+
+
+class _PipeModel(BaseModel):
+    values: PipeSeparatedFloats = None
+
+
+def test_pipe_separated_floats_round_trip():
+    """PipeSeparatedFloats parses "a|b" on validation and re-emits it on dump."""
+    assert _PipeModel.model_validate({"values": "1.0|2.5"}).values == [1.0, 2.5]
+    assert _PipeModel.model_validate({"values": [1.0, 2.5]}).values == [1.0, 2.5]
+    assert _PipeModel(values=[1.0, 2.5]).model_dump(mode="json")["values"] == "1.0|2.5"
+
+    assert _PipeModel.model_validate({"values": None}).values is None
+    assert _PipeModel().model_dump(mode="json")["values"] is None
+
+    with pytest.raises(ValidationError):
+        _PipeModel.model_validate({"values": "a|b"})
+
+
+class _DateFormatModel(BaseModel):
+    fmt: DateFormat = "YYYY-MM-DD HH:mm:ss"
+
+
+def test_date_format_accepts_pendulum_tokens():
+    """Genuine pendulum format tokens round-trip through format/parse."""
+    assert _DateFormatModel(fmt="YYYY-MM-DD HH:mm:ss").fmt == "YYYY-MM-DD HH:mm:ss"
+    assert _DateFormatModel(fmt="DD/MM/YYYY").fmt == "DD/MM/YYYY"
+
+
+def test_date_format_rejects_garbage():
+    """Strings with no or malformed date tokens fail the format/parse round-trip."""
+    with pytest.raises(ValidationError, match="Invalid date format"):
+        _DateFormatModel(fmt="hello world")
+
+    with pytest.raises(ValidationError, match="Invalid date format"):
+        _DateFormatModel(fmt="ZZZZZZZ")

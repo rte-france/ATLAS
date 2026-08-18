@@ -11,13 +11,13 @@ from pathlib import Path
 from typing import Self
 
 import yaml
-from pendulum import Duration
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pendulum import duration
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.enums import SolverEnum
 from atlas.io_utils.utils import deep_update
-from atlas.validators import convert_to_duration
+from atlas.validators import DurationField
 
 
 class Parameters(BaseModel):
@@ -45,8 +45,21 @@ class Parameters(BaseModel):
         else:
             raise ValueError(f"Unsupported file extension: {file_extension}")
 
+        return cls.from_dict(parameters, context)
+
+    @classmethod
+    def from_dict(cls, parameters: dict | None, context: ContextParameters | None = None) -> Self:
+        """Build parameters from an in-memory dict, applying an optional context.
+
+        :param parameters: Raw parameter values.
+        :type parameters: dict or None
+        :param context: Context parameters to use.
+        :type context: ContextParameters or None
+        :return: A Parameters object containing the parsed and validated parameters.
+        :rtype: Parameters
+        """
         if context is None:
-            return cls(**parameters)
+            return cls(**(parameters or {}))
 
         if parameters is None:
             parameters = {}
@@ -83,8 +96,9 @@ class DateParameters(BaseModel):
     start_date: DateTime
     end_date: DateTime
     execution_date: DateTime
-    timestep: Duration = Field(
-        default_factory=lambda: Duration(minutes=60), description="Discretization step of the simulated time interval"
+    timestep: DurationField = Field(
+        default_factory=lambda: duration(minutes=60),
+        description="Discretization step of the simulated time interval",
     )
 
     @model_validator(mode="after")
@@ -102,15 +116,6 @@ class DateParameters(BaseModel):
             )
         return self
 
-    @field_validator(
-        "timestep",
-        mode="before",
-    )
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
-
 
 class SolverParameters(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -119,13 +124,9 @@ class SolverParameters(BaseModel):
     export_lp: bool = False
     use_presolve: bool = False
     duality_gap: float = Field(0.0001, description="duality gap used for the optimization.")
-    timeout: Duration = Field(default_factory=lambda: Duration(minutes=4), description="Timeout of the optimization.")
-
-    @field_validator("timeout", mode="before")
-    @classmethod
-    def parse_timeout(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
+    timeout: DurationField = Field(
+        default_factory=lambda: duration(minutes=4), description="Timeout of the optimization."
+    )
 
 
 class MultiProcessingParameters(BaseModel):

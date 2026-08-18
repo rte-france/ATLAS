@@ -4,15 +4,13 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import Any
-
-from pydantic import BaseModel, Field, field_serializer, field_validator
+from pydantic import BaseModel, Field
 
 from atlas.enums import InflowFrequency
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.objects.equipment.equipment import Equipment
-from atlas.validators import parse_list_float, serializer_list_float
+from atlas.validators import PipeSeparatedFloats
 
 
 class FragmentData(BaseModel):
@@ -54,11 +52,11 @@ class Hydro(Equipment):
     :type energy_target_frequency: InflowFrequency
     """
 
-    fragment_prices: list[float] | None = Field(
+    fragment_prices: PipeSeparatedFloats = Field(
         None,
         description="List of positive prices",
     )
-    fragment_volumes: list[float] | None = Field(None, description="List of positive volumes")
+    fragment_volumes: PipeSeparatedFloats = Field(None, description="List of positive volumes")
 
     stored_energy: ForecastingMatrix | LazyForecastingMatrix | None = None
 
@@ -75,16 +73,6 @@ class Hydro(Equipment):
     minimum_energy: AbstractTimeseries | None = None
     maximum_power: AbstractTimeseries | None = None
     minimum_power: AbstractTimeseries | None = None
-
-    @field_validator("fragment_prices", "fragment_volumes", mode="before")
-    @classmethod
-    def validate_fragment_prices_and_volumes(cls, value: Any):
-        return parse_list_float(value)
-
-    @field_serializer("fragment_prices", "fragment_volumes", mode="plain")
-    def serialize_fragment_prices_and_volumes(self, value: list[float] | None) -> str | None:
-        """Serialize fragment prices and volumes to a string."""
-        return serializer_list_float(value)
 
     @property
     def fragment_data(self) -> dict[int, FragmentData]:

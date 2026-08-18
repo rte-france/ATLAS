@@ -156,6 +156,20 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
         # Create accepted power TS for equipment and portfolio
         equipments_ts, portfolios_ts = {}, {}
         equipments_mapping, portfolios_mapping = {}, {}
+
+        if self.input_dataset.parameters.market == Product.DayAhead:
+            for equipment in self.input_dataset.input_data.iter_by_equipments():
+                portfolio = equipment.portfolio
+                if portfolio is None or portfolio.market_area is None:
+                    continue
+                if portfolio.market_area.name not in self.input_dataset.mc_market_areas:
+                    continue
+                equipments_ts[equipment.name] = self.zero_timeseries()
+                equipments_mapping[equipment.name] = equipment
+                if portfolio.name not in portfolios_ts:
+                    portfolios_ts[portfolio.name] = self.zero_timeseries()
+                    portfolios_mapping[portfolio.name] = portfolio
+
         for order_name, mc_order in self.input_dataset.mc_orders.items():
             accepted_power = self.accepted_powers[mc_order.market_area.name, order_name]
             # At this point, unaccepted orders can be skipped:
@@ -169,20 +183,10 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                 if portfolio is None:
                     continue
                 if equipment.name not in equipments_ts:
-                    equipments_ts[equipment.name] = Timeseries.from_index(
-                        self.input_dataset.times[0],
-                        self.input_dataset.parameters.temporal.timestep,
-                        self.input_dataset.times[-1],
-                        0.0,
-                    )
+                    equipments_ts[equipment.name] = self.zero_timeseries()
                     equipments_mapping[equipment.name] = equipment
                 if portfolio.name not in portfolios_ts:
-                    portfolios_ts[portfolio.name] = Timeseries.from_index(
-                        self.input_dataset.times[0],
-                        self.input_dataset.parameters.temporal.timestep,
-                        self.input_dataset.times[-1],
-                        0.0,
-                    )
+                    portfolios_ts[portfolio.name] = self.zero_timeseries()
                     portfolios_mapping[portfolio.name] = portfolio
 
                 indexes = generate_datetimes(
@@ -434,12 +438,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
 
         for mc_critical_branch in self.input_dataset.mc_critical_branches.values():
             updated_values = {"name": mc_critical_branch.name}
-            flow = Timeseries.from_index(
-                self.input_dataset.times[0],
-                self.input_dataset.parameters.temporal.timestep,
-                self.input_dataset.times[-1],
-                0.0,
-            )
+            flow = self.zero_timeseries()
             for mc_market_area_ptdf in mc_critical_branch.market_area_ptdf:
                 if mc_market_area_ptdf.da_ptdf is None:
                     continue
@@ -461,6 +460,20 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                     )
             # Update the Critical branch
             self.change_sets.append(UpdateObject(updated_values, CriticalBranch))
+
+    def zero_timeseries(self) -> Timeseries:
+        """
+        Build a zero filled Timeseries covering the whole clearing horizon.
+
+        :return: Timeseries of 0.0 on every timestep of the clearing
+        :rtype: Timeseries
+        """
+        return Timeseries.from_index(
+            self.input_dataset.times[0],
+            self.input_dataset.parameters.temporal.timestep,
+            self.input_dataset.times[-1],
+            0.0,
+        )
 
     def add_indexes(self, ts_obj: AbstractTimeseries | None, other: AbstractTimeseries) -> AbstractTimeseries:
         if ts_obj is None:
@@ -487,13 +500,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
         elif other.timestep > ts_obj.timestep:
             other.upsample(ts_obj.timestep)
         if other.index[0] not in ts_obj:
-            null_ts = Timeseries.from_index(
-                self.input_dataset.times[0],
-                self.input_dataset.parameters.temporal.timestep,
-                self.input_dataset.times[-1],
-                0.0,
-            )
-            return self.add_indexes(ts_obj, null_ts)
+            return self.add_indexes(ts_obj, self.zero_timeseries())
         else:
             ts_obj += other
             return ts_obj
