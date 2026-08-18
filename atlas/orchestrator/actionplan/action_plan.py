@@ -17,10 +17,10 @@ from pydantic_extra_types.pendulum_dt import DateTime
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.orchestrator.actionplan.job import (
     ActionPlanJob,
-    ModuleTaskIterator,
-    TaskIterator,
-    WorkflowTaskIterator,
-    TaskIteratorPriority,
+    ModuleTaskJobsGenerator,
+    TaskJobsGenerator,
+    WorkflowTaskJobsGenerator,
+    TaskIterationPriority,
 )
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, Task
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
@@ -43,12 +43,11 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         :type parameters: WorkflowParameters
         """
         super().__init__(parameters)
-        self._priority_queue: list[tuple[TaskIteratorPriority, TaskIterator]] = []
-        for task in self.parameters.tasks:
-            self.add_task(task)
+        self._priority_queue: list[tuple[TaskIterationPriority, int, TaskJobsGenerator]] = []
+        self._build_priority_queue()
 
     def _has_concurrent_task_with(self, task: Task) -> bool:
-        return any(Task.are_concurrent(itr.task, task) for _, itr in self._priority_queue)
+        return any(Task.are_concurrent(itr.task, task) for _, _, itr in self._priority_queue)
 
     def add_task(self, task: Task) -> int:
         """Add a task to the action plan and return the number of jobs added
@@ -57,17 +56,19 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         """
         root_output_dir = self.parameters.resolve_path(self.parameters.output_dir) / task.name
         if task.module is not None:
-            return self._add_task_module(task, root_output_dir)
+            return self._add_task_module(task, root_output_dir, 0)
         elif task.workflow is not None:
-            return self._add_task_workflow(task, root_output_dir)
+            return self._add_task_workflow(task, root_output_dir, 0)
         return 0
 
-    def _add_task_module(self, task: Task, root_output_dir: Path) -> int:
-        """Add a task, that run a module, to the action plan and return the number of job add
+    def _add_task_module(self, task: Task, root_output_dir: Path, next_iteration: int) -> int:
+        """Add a task, that run a module, and the iteration progress on it to the action plan and return the number of job add
         :param task: task that run a module
         :type task: Task
         :param root_output_dir: path to the root output directory used for the task
         :type root_output_dir: Path
+        :param next_iteration: next iteration for which the task will be used
+        :type next_iteration: int
         """
         if task.module is None:
             raise ValueError("_add_task_module called without a module")
@@ -78,38 +79,47 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
             .get_parameters_class()
             .from_file(self.parameters.resolve_path(task.module_parameters_path), self.parameters.context)
         )
-        module_iterator = ModuleTaskIterator(task, module_parameters, root_output_dir)
-        return self._push_iterator(module_iterator)
+        module_iterator = ModuleTaskJobsGenerator(task, module_parameters, root_output_dir)
+        return self._push_iterator(module_iterator, next_iteration)
 
-    def _add_task_workflow(self, task: Task, root_output_dir: Path) -> int:
+    def _add_task_workflow(self, task: Task, root_output_dir: Path, next_iteration: int) -> int:
         """Add a task, that run a workflow, to the action plan and return the number of job add
         :param task: task that run a workflow
         :type task: Task
         :param root_output_dir: path to the root output directory used for the task
         :type root_output_dir: Path
+        :param next_iteration: next iteration for which the task will be used
+        :type next_iteration: int
         """
         if isinstance(task.workflow, Path):
             workflow_parameters = WorkflowParameters.from_file(self.parameters.resolve_path(task.workflow))
         elif isinstance(task.workflow, Workflow):
             workflow_parameters = task.workflow.parameters
         workflow_parameters.context.use(self.parameters.context)
-        workflow_iterator = WorkflowTaskIterator(task, workflow_parameters, root_output_dir)
-        return self._push_iterator(workflow_iterator)
+        workflow_iterator = WorkflowTaskJobsGenerator(task, workflow_parameters, root_output_dir)
+        return self._push_iterator(workflow_iterator, next_iteration)
 
-    def _push_iterator(self, iterator: TaskIterator) -> int:
+    def _push_iterator(self, iterator: TaskJobsGenerator, next_iteration: int) -> int:
         """Add an iterator to the priority queue and return the number of jobs added
         :param iterator: iterator to add
-        :type iterator: TaskIterator
+        :type iterator: TaskGenerator
+        :param next_iteration: next iteration for which the task will be used
+        :type next_iteration: int
         """
         if self._has_concurrent_task_with(iterator.task):
             raise ValueError("Try to add a concurrent task to the Action plan")
-        heapq.heappush(self._priority_queue, (iterator.priority, iterator))
+        heapq.heappush(self._priority_queue, (iterator.priority(next_iteration), next_iteration, iterator))
         return len(iterator)
 
-    def _pop_iterator(self) -> TaskIterator:
+    def _pop_iterator(self):
         """Remove and return the next iterator in the priority queue"""
-        _, itr = heapq.heappop(self._priority_queue)
-        return itr
+        _, iteration, task_generator = heapq.heappop(self._priority_queue)
+        return iteration, task_generator
+
+    def _build_priority_queue(self):
+        self._priority_queue.clear()
+        for task in self.parameters.tasks:
+            self.add_task(task)
 
     @property
     def jobs(self) -> Iterator[ActionPlanJob]:
@@ -120,17 +130,17 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         """
         cc = copy.deepcopy(self._priority_queue)
         while len(self._priority_queue) > 0:
-            priority_task_itr = self._pop_iterator()
-            jobs = next(priority_task_itr, None)
+            next_iteration, job_generator = self._pop_iterator()
+            jobs = job_generator.build_jobs(next_iteration)
             if jobs is not None:
-                self._push_iterator(priority_task_itr)
+                self._push_iterator(job_generator, next_iteration + 1)
                 for job in jobs:
                     yield cast(ActionPlanJob, job)
         self._priority_queue = cc
 
     @property
     def jobs_count(self) -> int:
-        return sum(len(itr) for _, itr in self._priority_queue)
+        return sum(len(itr) for _, _, itr in self._priority_queue)
 
     def __repr__(self) -> str:
         """Return a human-readable string representation of the workflow."""

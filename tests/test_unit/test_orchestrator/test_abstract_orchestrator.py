@@ -15,7 +15,7 @@ import pytest
 from atlas import AtlasDataset, WorkflowParameters
 from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.actionplan.action_plan import ActionPlan
-from atlas.orchestrator.actionplan.job import TaskIterator
+from atlas.orchestrator.actionplan.job import TaskGenerator
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters
 from atlas.orchestrator.workflow.workflow import Workflow
 from tests.test_unit.test_orchestrator.orchestrator_factory import (
@@ -63,7 +63,7 @@ def make_mock_action_plan(
     params = ActionPlanParameters.from_file(config, overall_context)
     action_plan = ActionPlan.__new__(ActionPlan)
     action_plan.parameters = params
-    priority_queue: list[TaskIterator] = []
+    priority_queue: list[TaskGenerator] = []
     for priority, job in enumerate(jobs):
         task = MockTaskBuilder().with_priority(priority).build()
         heapq.heappush(priority_queue, ConcreteTaskIterator(task, job))

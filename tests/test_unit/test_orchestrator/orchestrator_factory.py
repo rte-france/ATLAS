@@ -11,7 +11,7 @@ from atlas.abstract_class.job import AbstractJob
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.io_utils.parameters import ContextParameters
-from atlas.orchestrator.actionplan.job import Task, TaskIterator
+from atlas.orchestrator.actionplan.job import Task, TaskGenerator
 
 
 class ConcreteJob(AbstractJob):
@@ -21,8 +21,8 @@ class ConcreteJob(AbstractJob):
         return self.name
 
 
-class ConcreteTaskIterator(TaskIterator):
-    """Minimalist implementation of TaskIterator"""
+class ConcreteTaskIterator(TaskGenerator):
+    """Minimalist implementation of TaskGenerator"""
 
     def __init__(self, task: Task, job = None, module_parameters = None):
         super().__init__(task)
