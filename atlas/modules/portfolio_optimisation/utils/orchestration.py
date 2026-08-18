@@ -109,7 +109,10 @@ def optimise_single_portfolio(
         return result
 
     except Exception as e:
-        cfg.logger.error(f"Optimisation failed for portfolio {portfolio.name}. Falling back to manual activation: {e}")
+        cfg.logger.warning(
+            f"Optimisation failed for portfolio {portfolio.name}, falling back to heuristic computation "
+            f"(degraded result, workflow continues):{e}"
+        )
 
         set_manual_activation(portfolio.equipments.get_all_equipment(), parameters)
 
