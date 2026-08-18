@@ -97,7 +97,7 @@ class TestOptimiseSinglePortfolio:
         mock_model.portfolio = mock_portfolio
         mock_model._variables_name = ["var1", "var2"]
         mock_model.get_variable_value = Mock(side_effect=lambda x: 10.0 if x == "var1" else 20.0)
-        mock_model.solution_info = SolutionInfo(status=SolverStatus.OPTIMAL)
+        mock_model.solve.return_value = SolutionInfo(status=SolverStatus.OPTIMAL)
         mock_model_class.return_value = mock_model
 
         result = optimise_single_portfolio(mock_portfolio, mock_parameters)
@@ -149,7 +149,7 @@ class TestOptimiseSinglePortfolio:
         mock_model = Mock()
         mock_model.portfolio = mock_portfolio
         mock_model._variables_name = []
-        mock_model.solution_info = SolutionInfo(status=SolverStatus.OPTIMAL)
+        mock_model.solve.return_value = SolutionInfo(status=SolverStatus.OPTIMAL)
         mock_model_class.return_value = mock_model
 
         optimise_single_portfolio(mock_portfolio, mock_parameters)
@@ -176,7 +176,7 @@ class TestOptimiseSinglePortfolio:
         mock_model = Mock()
         mock_model.portfolio = test_portfolio
         mock_model._variables_name = []
-        mock_model.solution_info = SolutionInfo(status=SolverStatus.OPTIMAL)
+        mock_model.solve.return_value = SolutionInfo(status=SolverStatus.OPTIMAL)
         mock_model_class.return_value = mock_model
 
         with patch("pathlib.Path.mkdir"):
@@ -196,7 +196,7 @@ class TestOptimiseSinglePortfolio:
         mock_model = Mock()
         mock_model.portfolio = mock_portfolio
         mock_model._variables_name = []
-        mock_model.solution_info = SolutionInfo(status=SolverStatus.OPTIMAL)
+        mock_model.solve.return_value = SolutionInfo(status=SolverStatus.OPTIMAL)
         mock_model_class.return_value = mock_model
 
         optimise_single_portfolio(mock_portfolio, mock_parameters)
