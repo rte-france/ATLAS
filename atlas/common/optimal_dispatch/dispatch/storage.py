@@ -186,7 +186,7 @@ class StorageDispatch:
         energy_delta = (
             -power_buy * eq.charge_efficiency * dt_h
             - power_sell * dt_h / eq.discharge_efficiency
-            + (displacement - displacement_prev)
+            - (displacement - displacement_prev)
         )
 
         if time == parameters.temporal.start_date:
