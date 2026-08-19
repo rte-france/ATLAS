@@ -38,7 +38,7 @@ class StorageDispatch:
         for time in time_window:
             dispatch.add_constraints(model, time, parameters)
             dispatch.add_fragment_sum_constraints(time, power_sell, power_buy)
-        dispatch.add_cycle_balance_constraint(model, time_window)  # non-EV only
+        dispatch.add_cycle_balance_constraint(model, time_window, parameters)
     """
 
     def __init__(self, equipment: StorageDispatchInput) -> None:
@@ -218,31 +218,50 @@ class StorageDispatch:
         if self._eq.storage_type != StorageType.ELECTRIC_VEHICLE:
             self._add_sell_buy_separation(model, time)
 
-    def add_cycle_balance_constraint(self, model: OptimisationModel, time_window: list[DateTime]) -> None:
+    def add_cycle_balance_constraint(
+        self, model: OptimisationModel, time_window: list[DateTime], parameters: AbstractModuleParameters
+    ) -> None:
         """
         Add the cycle balance constraint over *time_window*.
 
         Ensures the storage returns to its initial state of charge at the end of the
         optimisation horizon: total energy charged equals total energy discharged
-        (accounting for efficiencies).
+        (accounting for efficiencies), net of the displacement energy accumulated over
+        the window.
+
+        ``Σ (−power_buy) × charge_efficiency × Δt
+        = Σ power_sell × Δt / discharge_efficiency − Δdisplacement``
+
+        The displacement term is the telescoped sum of the per-timestep contributions of
+        :meth:`add_storage_level_evolution`, i.e.
+        ``displacement[t_last] − displacement[t_first − Δt]``. Omitting it contradicts the
+        level evolution and makes the model infeasible as soon as a vehicle drives.
 
         In DA, electric vehicles use a displacement-energy fill-up constraint instead —
         callers are responsible for not invoking this method for EV units in that context.
 
-        ``Σ (−power_buy) × charge_efficiency = Σ power_sell / discharge_efficiency``
-
         :param model: The optimisation model
         :param time_window: Ordered list of timesteps covering the optimisation horizon
         :type time_window: list[DateTime]
+        :param parameters: Module parameters — must expose ``temporal.timestep``
         """
 
         eq = self._eq
+        ts = parameters.temporal.timestep
+        dt_h = ts.total_hours()
         charge_eff = eq.charge_efficiency
         discharge_eff = eq.discharge_efficiency
 
+        displacement_delta = 0
+        if eq.displacement_energy:
+            displacement_delta = int(eq.displacement_energy.get_value(time_window[-1])) - int(
+                eq.displacement_energy.get_value(time_window[0] - ts)
+            )
+
         model.add_constraint(
-            sum(-self.power_level_buy_var.get_value(t) for t in time_window) * charge_eff
-            == sum(self.power_level_sell_var.get_value(t) for t in time_window) / discharge_eff,
+            sum(-self.power_level_buy_var.get_value(t) for t in time_window) * charge_eff * dt_h
+            == sum(self.power_level_sell_var.get_value(t) for t in time_window) * dt_h / discharge_eff
+            - displacement_delta,
             f"cycle_balance_{eq.name}",
         )
 
