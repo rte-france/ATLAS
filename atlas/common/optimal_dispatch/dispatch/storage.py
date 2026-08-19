@@ -59,8 +59,7 @@ class StorageDispatch:
         Must be called before :meth:`add_variables` or :meth:`add_constraints`.
 
         :param model: The optimisation model
-        :param parameters: Module parameters — must expose ``temporal.timestep``,
-            ``temporal.start_date``, ``temporal.execution_date``
+        :param parameters: Module parameters
         :param nb_fragments: Number of power fragments for piecewise-linear bid modelling.
             Pass 0 (default) when fragments are not used.
         :type nb_fragments: int
@@ -237,13 +236,17 @@ class StorageDispatch:
         ``displacement[t_last] − displacement[t_first − Δt]``. Omitting it contradicts the
         level evolution and makes the model infeasible as soon as a vehicle drives.
 
-        In DA, electric vehicles use a displacement-energy fill-up constraint instead —
-        callers are responsible for not invoking this method for EV units in that context.
+        DA does not apply this constraint to electric vehicles. It bounds purchases from
+        below instead (``Σ purchased × charge_efficiency ≥ Δdisplacement × ev_energy_coef``),
+        which only guarantees the driving is paid back — the vehicle is free to end the
+        horizon above or below its initial state of charge. That is a strictly weaker
+        constraint, not a variant of this one, so callers must not invoke this method for
+        EV units in a DA context.
 
         :param model: The optimisation model
         :param time_window: Ordered list of timesteps covering the optimisation horizon
         :type time_window: list[DateTime]
-        :param parameters: Module parameters — must expose ``temporal.timestep``
+        :param parameters: Module parameters
         """
 
         eq = self._eq
