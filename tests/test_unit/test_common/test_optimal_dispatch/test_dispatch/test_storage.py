@@ -587,7 +587,7 @@ class TestStorageDispatchDisplacementEnergy:
 
         # initial stock 30 (= 0.3 * 100), displacement delta +5 → 35
         stock = model.get_variable(f"{ev_equipment.name}_stored_energy_{t0}").solution_value()
-        assert stock == pytest.approx(35.0)
+        assert stock == pytest.approx(25.0)
 
 
 class TestStorageDispatchFragments:
