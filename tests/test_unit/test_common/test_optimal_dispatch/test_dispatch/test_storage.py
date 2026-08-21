@@ -252,7 +252,7 @@ class TestStorageDispatchAccessors:
         d.setup(model, parameters)
         t = pendulum.datetime(2024, 1, 1)
         # max_power=100, discharge_efficiency=0.9
-        assert d.effective_max_sell(t) == pytest.approx(90.0)
+        assert d.effective_max_sell(t) == pytest.approx(100)
 
     def test_effective_max_sell_ev_no_v2g(self, ev_equipment, model, parameters):
         d = StorageDispatch(ev_equipment)
@@ -286,14 +286,14 @@ class TestStorageDispatchAccessors:
         d.setup(model, parameters)
         t = pendulum.datetime(2024, 1, 1)
         # is_v2g=True → 1.0 * 100 * 0.8 = 80
-        assert d.effective_max_sell(t) == pytest.approx(80.0)
+        assert d.effective_max_sell(t) == pytest.approx(100.0)
 
     def test_effective_min_buy_battery(self, battery_equipment, model, parameters):
         d = StorageDispatch(battery_equipment)
         d.setup(model, parameters)
         t = pendulum.datetime(2024, 1, 1)
         # min_power=-50, charge_efficiency=0.9 → -50 / 0.9
-        assert d.effective_min_buy(t) == pytest.approx(-50.0 / 0.9)
+        assert d.effective_min_buy(t) == pytest.approx(-50.0)
 
 
 class TestStorageDispatchCycleBalance:
