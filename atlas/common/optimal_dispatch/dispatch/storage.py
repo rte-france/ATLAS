@@ -280,10 +280,9 @@ class StorageDispatch:
         """
         eq = self._eq
         max_p = eq.maximum_power.get_value(time)
-        eff = eq.discharge_efficiency
         if eq.storage_type == StorageType.ELECTRIC_VEHICLE:
-            return (eq.is_v2g or 0.0) * max_p * eff
-        return max_p * eff
+            return (eq.is_v2g or 0.0) * max_p
+        return max_p
 
     def effective_min_buy(self, time: DateTime) -> float:
         """
@@ -296,7 +295,7 @@ class StorageDispatch:
         :rtype: float
         """
         eq = self._eq
-        return eq.minimum_power.get_value(time) / eq.charge_efficiency
+        return eq.minimum_power.get_value(time)
 
     @property
     def name(self) -> str:
