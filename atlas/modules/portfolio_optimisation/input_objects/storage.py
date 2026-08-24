@@ -39,7 +39,7 @@ class StoragePO(Storage):
             return default_energy
 
         if self._cached_energy_forecast:
-            return self._cached_energy_forecast.dataframe.select("time").head(1).item()
+            return self._cached_energy_forecast.first_value()
 
         return default_energy
 

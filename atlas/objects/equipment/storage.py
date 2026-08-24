@@ -4,14 +4,13 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import Duration
-from pydantic import Field, field_validator
+from pydantic import Field
 
 from atlas.enums import StorageType
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.objects.equipment.equipment import Equipment
-from atlas.validators import convert_to_duration
+from atlas.validators import DurationField
 
 
 class Storage(Equipment):
@@ -68,7 +67,7 @@ class Storage(Equipment):
         description="Initial storage level (positive or zero)",
     )
     storage_type: StorageType | None = None
-    transition_duration: Duration | None = Field(
+    transition_duration: DurationField | None = Field(
         None,
         description="Transition duration (must be positive)",
     )
@@ -82,12 +81,3 @@ class Storage(Equipment):
     maximum_power: AbstractTimeseries | None = None
     minimum_power: AbstractTimeseries | None = None
     minimum_state_of_charge: AbstractTimeseries | None = None
-
-    @field_validator(
-        "transition_duration",
-        mode="before",
-    )
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)

@@ -183,6 +183,10 @@ def constraint_4_3a_constraint_name(border_name: str, time: pendulum.DateTime) -
     return f"Constraint_4.3a_at_time_{time}_on_market_border_{border_name}"
 
 
+def constraint_4_3b_constraint_name(border_name: str, time: pendulum.DateTime) -> str:
+    return f"Constraint_4.3b_at_time_{time}_on_market_border_{border_name}"
+
+
 def constraint_4_3d_min_constraint_name(border_name: str, time: pendulum.DateTime) -> str:
     return f"Constraint_4.3d_(min)_at_time_{time}_on_market_border {border_name}"
 
@@ -197,6 +201,10 @@ def constraint_4_3e_min_constraint_name(border_name: str, time: pendulum.DateTim
 
 def constraint_4_3e_max_constraint_name(border_name: str, time: pendulum.DateTime) -> str:
     return f"Constraint_4.3e_(max)_at_time_{time}_on_market_border_{border_name}"
+
+
+def border_exchanges_constraint_name(border_name: str, time: pendulum.DateTime) -> str:
+    return f"Constraint_4.5_at_time_{time}_on_market_border_{border_name}"
 
 
 ##################################

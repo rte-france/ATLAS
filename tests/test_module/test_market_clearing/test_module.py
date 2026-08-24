@@ -13,13 +13,26 @@ import math
 
 import pytest
 
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
+from atlas.orchestrator.change_set import UpdateObject
 from tests.utils import load_threshold_for_module
 
 
 def _is_finite(value: float) -> bool:
     return isinstance(value, float) and math.isfinite(value)
+
+
+def _perimeter_equipment_names(input_dataset: MarketClearingInputDataset) -> set[str]:
+    """Names of the equipment whose portfolio belongs to a cleared market area."""
+    return {
+        equipment.name
+        for equipment in input_dataset.input_data.iter_by_equipments()
+        if equipment.portfolio is not None
+        and equipment.portfolio.market_area is not None
+        and equipment.portfolio.market_area.name in input_dataset.market_areas
+    }
 
 
 class TestOutputShape:
@@ -100,6 +113,41 @@ class TestChangeSets:
     ) -> None:
         assert isinstance(output_dataset[0].change_sets, list)
         assert len(output_dataset[0].change_sets) > 0
+
+    def test_every_equipment_of_the_perimeter_gets_a_da_cleared_quantity(
+        self,
+        input_dataset: MarketClearingInputDataset,
+        output_dataset: tuple[MarketClearingOutputDataset, float],
+    ) -> None:
+        expected = _perimeter_equipment_names(input_dataset)
+        assert expected, "No equipment in the cleared perimeter, test dataset is not relevant anymore"
+
+        updated = {
+            change_set.data["name"]
+            for change_set in output_dataset[0].change_sets
+            if isinstance(change_set, UpdateObject) and "da_cleared_quantity" in change_set.data
+        }
+        assert not expected - updated
+
+    def test_da_cleared_quantity_covers_the_whole_clearing_horizon(
+        self,
+        input_dataset: MarketClearingInputDataset,
+        output_dataset: tuple[MarketClearingOutputDataset, float],
+    ) -> None:
+        expected_times = set(input_dataset.times)
+        perimeter = _perimeter_equipment_names(input_dataset)
+
+        for change_set in output_dataset[0].change_sets:
+            if not isinstance(change_set, UpdateObject) or "da_cleared_quantity" not in change_set.data:
+                continue
+            if change_set.data["name"] not in perimeter:
+                continue
+            timeseries = change_set.data["da_cleared_quantity"]
+            if isinstance(timeseries, LazyTimeseries):
+                timeseries = timeseries.collect()
+            assert not expected_times - set(timeseries.index), (
+                f"{change_set.data['name']}: da_cleared_quantity does not cover the whole clearing horizon"
+            )
 
 
 def test_execution_time_within_threshold(output_dataset):

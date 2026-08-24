@@ -171,9 +171,10 @@ class ExchangesFixing:
                     )
 
     def create_borders_constraints(self):
+        timestep_minutes = self.parameters.temporal.timestep.total_minutes()
         for time in self.input_dataset.times:
             for border_name, border in self.input_dataset.market_borders.items():
-                if border.loss_factor <= 0.0:
+                if border.loss_factor <= 0.0 or not border.loss_factor:
                     continue
                 relative_max_flow = border.max_flow.get_value(time)
                 relative_min_flow = border.min_flow.get_value(time)
@@ -191,12 +192,17 @@ class ExchangesFixing:
                     constants.constraint_4_4a_max_constraint_name(border_name, time),
                 )
 
-                import_after_losses = (
+                tmp_rhs = (
                     (1.0 - border.loss_factor) - 1.0 / (1.0 - border.loss_factor)
                 ) * timed_xsis + timed_export / (1.0 - border.loss_factor)
+
                 self.model.add_constraint(
-                    timed_import >= import_after_losses,
-                    constants.constraint_4_3a_constraint_name(border_name, time),
+                    timed_import == tmp_rhs, constants.constraint_4_3a_constraint_name(border_name, time)
+                )
+
+                self.model.add_constraint(
+                    timed_xsis >= 0.5 * timed_export,
+                    constants.constraint_4_3b_constraint_name(border_name, time),
                 )
 
                 self.model.add_constraint(
@@ -216,6 +222,21 @@ class ExchangesFixing:
                     (1 - timed_nus) * relative_max_flow >= timed_export - timed_xsis,
                     constants.constraint_4_3e_max_constraint_name(border_name, time),
                 )
+
+                # Compute the constraint (4.5) that considers the time
+                # resolution of exchanges across the border:
+                if border.time_resolution is not None and border.resolution_time > timestep_minutes:
+                    minutes_elapsed = (time - self.parameters.temporal.start_date).in_minutes()
+                    minutes_into_block = minutes_elapsed % border.resolution_time
+                    if minutes_into_block:
+                        block_start = time.subtract(minutes=minutes_into_block)
+                        self.model.add_constraint(
+                            self.model.get_variable(constants.border_exchange_variable_name(border_name, time))
+                            == self.model.get_variable(
+                                constants.border_exchange_variable_name(border_name, block_start)
+                            ),
+                            constants.border_exchanges_constraint_name(border_name, time),
+                        )
 
     def get_n_borders_with_losses(self):
         n_borders_with_losses = 0
