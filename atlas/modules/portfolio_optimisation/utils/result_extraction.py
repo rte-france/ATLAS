@@ -87,13 +87,8 @@ def extract_equipment_schedule(
     >>> schedule.state_sequence[0]  # doctest: +SKIP
     <ThermalDispatchState.ON_FLAT: 6>
     """
-    if isinstance(equipment, ThermalPO):
-        return _extract_thermal(equipment, optimisation_result, target_times, allowed_round_off_error)
-    if isinstance(equipment, HydroPO):
-        return _extract_hydro(equipment, optimisation_result, target_times, allowed_round_off_error)
-    if isinstance(equipment, StoragePO):
-        return _extract_storage(equipment, optimisation_result, target_times, allowed_round_off_error)
-    return _extract_power_only(equipment, optimisation_result, target_times, allowed_round_off_error)
+    extractor = _EXTRACTORS.get(type(equipment), _extract_power_only)
+    return extractor(equipment, optimisation_result, target_times, allowed_round_off_error)
 
 
 def _snap_to_zero(power: float, allowed_round_off_error: float) -> float:
@@ -205,3 +200,11 @@ def _extract_power_only(
         schedule.power.append(_snap_to_zero(power, allowed_round_off_error))
 
     return schedule
+
+
+#: Equipment types with a dedicated extractor; anything else falls back to :func:`_extract_power_only`.
+_EXTRACTORS = {
+    ThermalPO: _extract_thermal,
+    HydroPO: _extract_hydro,
+    StoragePO: _extract_storage,
+}
