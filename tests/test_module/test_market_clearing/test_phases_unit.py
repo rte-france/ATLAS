@@ -21,6 +21,7 @@ from atlas.modules.market_clearing.input_dataset import MarketClearingInputDatas
 from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.order_links import OrderLinkResolver
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
+from atlas.modules.market_clearing.phases.clearing import Clearing
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
 from atlas.modules.market_clearing.phases.pricing import Pricing, third_attempt
 from tests.test_module.test_market_clearing.factories import (
@@ -75,9 +76,9 @@ class _PricingAlgorithms:
     def get_market_area_neighbours(self, mc_market_area_name):
         return Pricing.get_market_area_neighbours(self, mc_market_area_name)  # type: ignore[arg-type]
 
-    def propagate_through_unsaturated(self, mc_market_area, time_index, area_price_group, price_group):
+    def propagate_through_unsaturated(self, mc_market_area, time, area_price_group, price_group):
         return Pricing.propagate_through_unsaturated(  # type: ignore[arg-type]
-            self, mc_market_area, time_index, area_price_group, price_group
+            self, mc_market_area, time, area_price_group, price_group
         )
 
     def create_price_groups(self):
@@ -219,10 +220,10 @@ class TestOrderIsFeasible:
         assert not OrderMC.is_feasible(order, input_dataset.times, restricted_parameters)
 
 
-class TestGetOrdersTimeIndex:
-    """`MarketClearingInputDataset.get_orders` — time_index assignment for a feasible order."""
+class TestGetOrdersFeasibleOrder:
+    """`MarketClearingInputDataset.get_orders` — a feasible order is kept, start date untouched."""
 
-    def test_time_index_matches_the_order_start_date_position(
+    def test_feasible_order_is_kept_with_its_start_date(
         self, parameters: MarketClearingParameters, input_dataset
     ) -> None:
         fake_dataset = MarketClearingInputDataset.__new__(MarketClearingInputDataset)
@@ -242,7 +243,8 @@ class TestGetOrdersTimeIndex:
 
         orders = fake_dataset.get_orders([order])
 
-        assert orders["o1"].time_index == input_dataset.times.index(start_date)
+        assert orders["o1"].start_date == start_date
+        assert start_date in input_dataset.times
 
 
 class TestCreatePriceGroups:
@@ -279,7 +281,7 @@ class TestCreatePriceGroups:
             market_areas={"ma_a": area_a, "ma_b": area_b, "ma_c": area_c},
             market_borders={"ab": border_ab, "bc": border_bc},
         )
-        exchanges = {("ab", 0): ab_flow, ("bc", 0): bc_flow}
+        exchanges = {("ab", times[0]): ab_flow, ("bc", times[0]): bc_flow}
         return input_dataset, exchanges
 
     @pytest.mark.xfail(
@@ -302,7 +304,7 @@ class TestCreatePriceGroups:
         input_dataset, exchanges = self._build_network(times, ab_flow=0.0, bc_flow=100.0)
         pricing = _PricingAlgorithms(input_dataset, parameters, clearing_border_exchanges=exchanges)
 
-        price_groups = pricing.create_price_groups()[0]
+        price_groups = pricing.create_price_groups()[times[0]]
 
         groups_by_area = {area: frozenset(pg.market_area_names) for pg in price_groups for area in pg.market_area_names}
         assert groups_by_area["ma_a"] == frozenset({"ma_a", "ma_b"})
@@ -313,7 +315,7 @@ class TestCreatePriceGroups:
         input_dataset, exchanges = self._build_network(times, ab_flow=0.0, bc_flow=0.0)
         pricing = _PricingAlgorithms(input_dataset, parameters, clearing_border_exchanges=exchanges)
 
-        price_groups = pricing.create_price_groups()[0]
+        price_groups = pricing.create_price_groups()[times[0]]
 
         assert len(price_groups) == 1
         assert set(price_groups[0].market_area_names) == {"ma_a", "ma_b", "ma_c"}
@@ -323,7 +325,7 @@ class TestCreatePriceGroups:
         input_dataset, exchanges = self._build_network(times, ab_flow=100.0, bc_flow=100.0)
         pricing = _PricingAlgorithms(input_dataset, parameters, clearing_border_exchanges=exchanges)
 
-        price_groups = pricing.create_price_groups()[0]
+        price_groups = pricing.create_price_groups()[times[0]]
 
         assert {frozenset(pg.market_area_names) for pg in price_groups} == {
             frozenset({"ma_a"}),
@@ -350,9 +352,9 @@ class TestIsNeighbour:
         input_dataset = self._network(times)
         pricing = _PricingAlgorithms(input_dataset, parameters)
 
-        group_a = PriceGroup(0, 0)
+        group_a = PriceGroup(0, times[0])
         group_a.market_area_names = ["ma_a"]
-        group_bc = PriceGroup(1, 0)
+        group_bc = PriceGroup(1, times[0])
         group_bc.market_area_names = ["ma_b", "ma_c"]
 
         assert pricing.is_neighbour(group_a, group_bc)
@@ -362,9 +364,9 @@ class TestIsNeighbour:
         input_dataset = self._network(times)
         pricing = _PricingAlgorithms(input_dataset, parameters)
 
-        group_a = PriceGroup(0, 0)
+        group_a = PriceGroup(0, times[0])
         group_a.market_area_names = ["ma_a"]
-        group_c = PriceGroup(1, 0)
+        group_c = PriceGroup(1, times[0])
         group_c.market_area_names = ["ma_c"]
 
         assert not pricing.is_neighbour(group_a, group_c)
@@ -543,7 +545,6 @@ class TestCreateOppositeDeltaP:
             end_date=times[0] + ONE_HOUR,
             is_parent=True,
             group_index=0,
-            time_index=0,
         )
         child = make_order(
             "child",
@@ -553,7 +554,6 @@ class TestCreateOppositeDeltaP:
             start_date=times[0],
             end_date=times[0] + ONE_HOUR,
             group_index=0,
-            time_index=0,
         )
         coupling = make_order_coupling("pc_1", CouplingType.PARENT_CHILDREN, [parent, child])
         input_dataset = _FakeInputDataset(
@@ -589,3 +589,98 @@ class TestCreateOppositeDeltaP:
         pricing.create_delta_price_pc_variables(opposite_delta_p_dict)
 
         assert constants.delta_p_pc(next(iter(pricing.dict_parent_child_orders))) in pricing.model._variables
+
+
+class _RecordingVariable:
+    """Stand-in for a solver variable that reports which pair of names an equality tied together."""
+
+    def __init__(self, name: str):
+        self.name = name
+
+    def __eq__(self, other):
+        return (self.name, other.name)
+
+
+class _RecordingModel:
+    """Duck-typed `OptimisationModel` recording the constraints a phase creates, so the constraint
+    set can be asserted without a solver."""
+
+    def __init__(self):
+        self._variables: dict = {}
+        self.constraints: dict = {}
+
+    def get_variable(self, name):
+        return self._variables.setdefault(name, _RecordingVariable(name))
+
+    def add_constraint(self, expression, name):
+        self.constraints[name] = expression
+
+
+class _ClearingAlgorithms:
+    """Duck-typed stand-in for `Clearing`, bound to the real unbound method under test — same
+    technique as `_PricingAlgorithms`, since `Clearing.__init__` builds a live OR-Tools model."""
+
+    def __init__(self, input_dataset, parameters):
+        self.input_dataset = input_dataset
+        self.parameters = parameters
+        self.model = _RecordingModel()
+
+    def create_exchange_across_border_constraints(self):
+        return Clearing.create_exchange_across_border_constraints(self)  # type: ignore[arg-type]
+
+
+class TestExchangeAcrossBorderConstraints:
+    """`Clearing.create_exchange_across_border_constraints` — a border coarser than the clearing
+    timestep carries a single exchange per resolution block, so every timestep inside a block is
+    tied back to the timestep opening it."""
+
+    def _build(self, parameters: MarketClearingParameters, time_resolution: float, n_times: int = 4):
+        times = [parameters.temporal.start_date.add(hours=hour) for hour in range(n_times)]
+        area_a = make_market_area("ma_a", ONE_HOUR, times)
+        area_b = make_market_area("ma_b", ONE_HOUR, times)
+        border = make_market_border("ab", area_a, area_b, ONE_HOUR, times, time_resolution=time_resolution)
+        input_dataset = _FakeInputDataset(
+            times=times,
+            market_areas={"ma_a": area_a, "ma_b": area_b},
+            market_borders={"ab": border},
+        )
+        return _ClearingAlgorithms(input_dataset, parameters), times
+
+    def test_border_at_the_clearing_resolution_is_left_free(self, parameters: MarketClearingParameters) -> None:
+        clearing, _ = self._build(parameters, time_resolution=0.0)
+
+        clearing.create_exchange_across_border_constraints()
+
+        assert clearing.model.constraints == {}
+
+    def test_two_hour_border_ties_each_odd_hour_to_the_hour_opening_its_block(
+        self, parameters: MarketClearingParameters
+    ) -> None:
+        clearing, times = self._build(parameters, time_resolution=120.0)
+
+        clearing.create_exchange_across_border_constraints()
+
+        # Blocks are [t0, t1] and [t2, t3]: only the second hour of each block is constrained.
+        assert set(clearing.model.constraints) == {
+            constants.exchange_across_border_constraint_name("ab", times[1]),
+            constants.exchange_across_border_constraint_name("ab", times[3]),
+        }
+        assert clearing.model.constraints[constants.exchange_across_border_constraint_name("ab", times[1])] == (
+            constants.border_exchange_variable_name("ab", times[1]),
+            constants.border_exchange_variable_name("ab", times[0]),
+        )
+        assert clearing.model.constraints[constants.exchange_across_border_constraint_name("ab", times[3])] == (
+            constants.border_exchange_variable_name("ab", times[3]),
+            constants.border_exchange_variable_name("ab", times[2]),
+        )
+
+    def test_four_hour_border_ties_every_later_hour_to_the_first(self, parameters: MarketClearingParameters) -> None:
+        clearing, times = self._build(parameters, time_resolution=240.0)
+
+        clearing.create_exchange_across_border_constraints()
+
+        for time in times[1:]:
+            assert clearing.model.constraints[constants.exchange_across_border_constraint_name("ab", time)] == (
+                constants.border_exchange_variable_name("ab", time),
+                constants.border_exchange_variable_name("ab", times[0]),
+            )

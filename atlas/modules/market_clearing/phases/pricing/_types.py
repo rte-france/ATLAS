@@ -10,6 +10,8 @@ type-checked against `Pricing` without importing it back (`Pricing` imports the 
 from enum import IntEnum
 from typing import Protocol
 
+import pendulum
+
 from atlas.modules.market_clearing.data_classes import PriceGroup
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
@@ -32,9 +34,9 @@ class _PricingPhase(Protocol):
     model: OptimisationModel
     parameters: MarketClearingParameters
     input_dataset: MarketClearingInputDataset
-    price_groups: dict[int, list[PriceGroup]]
-    saturated_critical_branch: dict[tuple[str, int], float]
-    clearing_border_exchanges: dict[tuple[str, int], float]
+    price_groups: dict[pendulum.DateTime, list[PriceGroup]]
+    saturated_critical_branch: dict[tuple[str, pendulum.DateTime], float]
+    clearing_border_exchanges: dict[tuple[str, pendulum.DateTime], float]
     clearing_accepted_powers: dict[tuple[str, str], float]
     dict_linked_orders: dict[int, list[Order]]
     dict_parent_child_orders: dict[int, tuple[list[Order], list[Order]]]

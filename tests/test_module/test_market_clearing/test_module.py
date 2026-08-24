@@ -28,11 +28,7 @@ class TestOutputShape:
         input_dataset: MarketClearingInputDataset,
         output_dataset: tuple[MarketClearingOutputDataset, float],
     ) -> None:
-        expected_keys = {
-            (area_name, time_index)
-            for area_name in input_dataset.market_areas
-            for time_index in range(len(input_dataset.times))
-        }
+        expected_keys = {(area_name, time) for area_name in input_dataset.market_areas for time in input_dataset.times}
         assert set(output_dataset[0].local_balances) == expected_keys
 
     def test_one_market_price_per_market_area_and_time(
@@ -40,11 +36,7 @@ class TestOutputShape:
         input_dataset: MarketClearingInputDataset,
         output_dataset: tuple[MarketClearingOutputDataset, float],
     ) -> None:
-        expected_keys = {
-            (area_name, time_index)
-            for area_name in input_dataset.market_areas
-            for time_index in range(len(input_dataset.times))
-        }
+        expected_keys = {(area_name, time) for area_name in input_dataset.market_areas for time in input_dataset.times}
         assert set(output_dataset[0].market_prices) == expected_keys
 
     def test_one_border_exchange_per_border_and_time(
@@ -53,9 +45,7 @@ class TestOutputShape:
         output_dataset: tuple[MarketClearingOutputDataset, float],
     ) -> None:
         expected_keys = {
-            (border_name, time_index)
-            for border_name in input_dataset.market_borders
-            for time_index in range(len(input_dataset.times))
+            (border_name, time) for border_name in input_dataset.market_borders for time in input_dataset.times
         }
         assert set(output_dataset[0].border_exchanges) == expected_keys
 
@@ -87,9 +77,8 @@ class TestOutputValues:
         output_dataset: tuple[MarketClearingOutputDataset, float],
     ) -> None:
         tolerance = input_dataset.parameters.allowed_round_off_error
-        for (border_name, time_index), exchange in output_dataset[0].border_exchanges.items():
+        for (border_name, time), exchange in output_dataset[0].border_exchanges.items():
             border = input_dataset.market_borders[border_name]
-            time = input_dataset.times[time_index]
             assert exchange <= border.max_flow.get_value(time) + tolerance
             assert exchange >= border.min_flow.get_value(time) - tolerance
 
@@ -99,9 +88,8 @@ class TestOutputValues:
         output_dataset: tuple[MarketClearingOutputDataset, float],
     ) -> None:
         tolerance = input_dataset.parameters.allowed_round_off_error
-        for (area_name, time_index), price in output_dataset[0].market_prices.items():
+        for (area_name, time), price in output_dataset[0].market_prices.items():
             market_area = input_dataset.market_areas[area_name]
-            time = input_dataset.times[time_index]
             assert price <= market_area.max_price.get_value(time) + tolerance
             assert price >= market_area.min_price.get_value(time) - tolerance
 

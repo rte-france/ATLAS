@@ -60,7 +60,6 @@ class TestOrders:
         times = set(input_dataset.times)
         for order in input_dataset.orders.values():
             assert order.start_date in times
-            assert order.time_index == input_dataset.times.index(order.start_date)
 
 
 class TestOrderCouplings:

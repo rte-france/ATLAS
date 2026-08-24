@@ -13,6 +13,8 @@ ExchangesFixing creates them unconditionally.
 from collections.abc import Callable
 from typing import Protocol
 
+import pendulum
+
 import atlas.modules.market_clearing.constants as constants
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.input_objects.market_border import DEFAULT_MAX_FLOW, DEFAULT_MIN_FLOW
@@ -28,11 +30,11 @@ class _BorderVariablePhase(Protocol):
 
 def create_border_exchange_variables(phase: _BorderVariablePhase, is_atc: bool) -> None:
     for border_name, border in phase.input_dataset.market_borders.items():
-        for time_index, time in enumerate(phase.input_dataset.times):
+        for time in phase.input_dataset.times:
             relative_max_flow = border.max_flow.get_value(time) if is_atc else float("inf")
             relative_min_flow = border.min_flow.get_value(time) if is_atc else float("-inf")
             phase.model.add_continuous_variable(
-                constants.border_exchange_variable_name(border_name, time_index),
+                constants.border_exchange_variable_name(border_name, time),
                 relative_min_flow,
                 relative_max_flow,
             )
@@ -40,29 +42,29 @@ def create_border_exchange_variables(phase: _BorderVariablePhase, is_atc: bool) 
 
 def create_border_pos_exchanges_variables(phase: _BorderVariablePhase, is_atc: bool) -> None:
     for border_name, border in phase.input_dataset.market_borders.items():
-        for time_index, time in enumerate(phase.input_dataset.times):
+        for time in phase.input_dataset.times:
             relative_max_flow = border.max_flow.get_value(time) if is_atc else DEFAULT_MAX_FLOW
             phase.model.add_continuous_variable(
-                constants.border_pos_exchange_variable_name(border_name, time_index), 0.0, relative_max_flow
+                constants.border_pos_exchange_variable_name(border_name, time), 0.0, relative_max_flow
             )
 
 
 def create_border_neg_exchanges_variables(phase: _BorderVariablePhase, is_atc: bool) -> None:
     for border_name, border in phase.input_dataset.market_borders.items():
-        for time_index, time in enumerate(phase.input_dataset.times):
+        for time in phase.input_dataset.times:
             relative_min_flow = border.min_flow.get_value(time) if is_atc else DEFAULT_MIN_FLOW
             phase.model.add_continuous_variable(
-                constants.border_neg_exchange_variable_name(border_name, time_index), relative_min_flow, 0.0
+                constants.border_neg_exchange_variable_name(border_name, time), relative_min_flow, 0.0
             )
 
 
 def create_border_loss_variables(
     phase: _BorderVariablePhase,
-    variable_name: Callable[[str, int], str],
+    variable_name: Callable[[str, pendulum.DateTime], str],
     only_borders_with_losses: bool,
 ) -> None:
     for border_name, border in phase.input_dataset.market_borders.items():
         if only_borders_with_losses and not (border.loss_factor and border.loss_factor != 0.0):
             continue
-        for time_index, _ in enumerate(phase.input_dataset.times):
-            phase.model.add_continuous_variable(variable_name(border_name, time_index), -float("inf"), float("inf"))
+        for time in phase.input_dataset.times:
+            phase.model.add_continuous_variable(variable_name(border_name, time), -float("inf"), float("inf"))
