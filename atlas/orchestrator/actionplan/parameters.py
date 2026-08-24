@@ -12,7 +12,7 @@ from math import gcd
 from pathlib import Path
 from typing import Any
 
-from pendulum import Duration
+from pendulum import Duration, duration
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 
@@ -21,7 +21,7 @@ from atlas.custom_errors import DataQualityWarning
 from atlas.orchestrator.hook.hook import Hook
 from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.orchestrator.workflow.workflow import Workflow
-from atlas.validators import convert_to_duration
+from atlas.validators import DurationField
 
 
 class ActionPlanParameters(AbstractOrchestratorParameters):
@@ -74,9 +74,18 @@ class Task(BaseModel):
     priority: int = 0
     from_: DateTime = Field(validation_alias=AliasChoices("from", "from_"))
     until: DateTime
-    frequency: Duration
-    offset_start_date: Duration
-    offset_end_date: Duration
+    frequency: DurationField = Field(
+        default_factory=lambda: duration(minutes=1),
+        description="Discretization step of the execution date",
+    )
+    offset_start_date: DurationField = Field(
+        default_factory=lambda: duration(minutes=0),
+        description="Offset duration from the execution date the start date have",
+    )
+    offset_end_date: DurationField = Field(
+        default_factory=lambda: duration(minutes=0),
+        description="Offset duration from the execution date the end date have",
+    )
 
     @classmethod
     def are_concurrent(cls, task1: Task, task2: Task) -> bool:
@@ -130,17 +139,6 @@ class Task(BaseModel):
             if not v.exists():
                 raise ValueError(f"Workflow parameter file not found at {v}")
         return v
-
-    @field_validator(
-        "frequency",
-        "offset_start_date",
-        "offset_end_date",
-        mode="before",
-    )
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
 
     @model_validator(mode="after")
     def default_name(self) -> Task:
