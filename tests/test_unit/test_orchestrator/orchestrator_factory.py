@@ -11,7 +11,7 @@ from atlas.abstract_class.job import AbstractJob
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.io_utils.parameters import ContextParameters
-from atlas.orchestrator.actionplan.job import Task, TaskGenerator
+from atlas.orchestrator.actionplan.job import Task, TaskJobsGenerator, ModuleTaskJobsGenerator, WorkflowTaskJobsGenerator
 
 
 class ConcreteJob(AbstractJob):
@@ -20,8 +20,7 @@ class ConcreteJob(AbstractJob):
     def __repr__(self) -> str:
         return self.name
 
-
-class ConcreteTaskIterator(TaskGenerator):
+class ConcreteTaskGenerator(TaskJobsGenerator):
     """Minimalist implementation of TaskGenerator"""
 
     def __init__(self, task: Task, job = None, module_parameters = None):
@@ -59,7 +58,7 @@ class ConcreteOrchestrator(AbstractOrchestrator[ConcreteOrchestratorParameters, 
         return len(self._jobs)
 
     @classmethod
-    def get_param_class(cls) -> ConcreteOrchestratorParameters:
+    def get_param_class(cls):
         return ConcreteOrchestratorParameters
 
 

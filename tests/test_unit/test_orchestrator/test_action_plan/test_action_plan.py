@@ -15,13 +15,13 @@ from pendulum import DateTime, Duration
 
 from atlas import Workflow
 from atlas.orchestrator.module_registry import ModuleRegistry
-from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, MockTaskBuilder, ConcreteTaskIterator, MockModuleBuilder, OrchestratorConfigBuilder, ModuleConfigBuilder
+from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, MockTaskBuilder, ConcreteTaskGenerator, MockModuleBuilder, OrchestratorConfigBuilder, ModuleConfigBuilder
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.actionplan.action_plan import ActionPlan
 from atlas.orchestrator.actionplan.job import ActionPlanJob
-from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, Task
+from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, TaskModule, TaskWorkflow
 from atlas.timing import build_datetime
 
 
@@ -31,7 +31,6 @@ class ActionPlanMockFactory:
         params = ActionPlanMockFactory.make_minimal_parameters(tmp_path)
         ap = ActionPlan.__new__(ActionPlan)
         ap.parameters = params
-        ap._jobs_count = 0
         ap._priority_queue = []
         return ap
 
@@ -86,7 +85,7 @@ class TestActionPlanPushIterator:
                     until=DateTime(2000, 1, 1),
                     frequency=Duration(days=1))
                 .with_priority(1).build())
-        itr = ConcreteTaskIterator(task, job)
+        itr = ConcreteTaskGenerator(task, job)
         ap._push_iterator(itr)
         assert next(ap.jobs) == job
 
@@ -99,7 +98,7 @@ class TestActionPlanPushIterator:
                     until=DateTime(2000, 1, 3),
                     frequency=Duration(days=1))
                 .with_priority(1).build())
-        itr = ConcreteTaskIterator(task, job)
+        itr = ConcreteTaskGenerator(task, job)
         ap._push_iterator(itr)
         assert len(ap._priority_queue) == 1
         assert next(ap.jobs) == job
@@ -116,9 +115,9 @@ class TestActionPlanPushIterator:
                     from_=DateTime(2000, 1, 1),
                     until=DateTime(2000, 1, 1),
                     frequency=Duration(days=1)))
-        ap._push_iterator(ConcreteTaskIterator(common_task_info.with_priority(1).build(), jobs[0]))
-        ap._push_iterator(ConcreteTaskIterator(common_task_info.with_priority(3).build(), jobs[2]))
-        ap._push_iterator(ConcreteTaskIterator(common_task_info.with_priority(2).build(), jobs[1]))
+        ap._push_iterator(ConcreteTaskGenerator(common_task_info.with_priority(1).build(), jobs[0]))
+        ap._push_iterator(ConcreteTaskGenerator(common_task_info.with_priority(3).build(), jobs[2]))
+        ap._push_iterator(ConcreteTaskGenerator(common_task_info.with_priority(2).build(), jobs[1]))
         assert next(ap.jobs) == jobs[0]
         assert next(ap.jobs) == jobs[1]
         assert next(ap.jobs) == jobs[2]
@@ -134,9 +133,9 @@ class TestActionPlanPushIterator:
                     frequency=Duration(days=1))
                 .with_priority(1))
 
-        ap._push_iterator(ConcreteTaskIterator(common_task_info.build(), jobs[0]))
+        ap._push_iterator(ConcreteTaskGenerator(common_task_info.build(), jobs[0]))
         with pytest.raises(ValueError):
-            ap._push_iterator(ConcreteTaskIterator(common_task_info.build(), jobs[1]))
+            ap._push_iterator(ConcreteTaskGenerator(common_task_info.build(), jobs[1]))
 
     def test_raise_push_concurrent_jobs(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
@@ -152,9 +151,9 @@ class TestActionPlanPushIterator:
             until=DateTime(2000, 1, 5),
             frequency=Duration(days=2)).with_priority(1)).build()
 
-        ap._push_iterator(ConcreteTaskIterator(task1, jobs[0]))
+        ap._push_iterator(ConcreteTaskGenerator(task1, jobs[0]))
         with pytest.raises(ValueError):
-            ap._push_iterator(ConcreteTaskIterator(task2, jobs[1]))
+            ap._push_iterator(ConcreteTaskGenerator(task2, jobs[1]))
 
     def test_not_raise_concurrent_jobs_outside_from_until(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
@@ -170,9 +169,9 @@ class TestActionPlanPushIterator:
             until=DateTime(2000, 1, 11),
             frequency=Duration(days=5)).with_priority(1)).build()
 
-        ap._push_iterator(ConcreteTaskIterator(task1, jobs[0]))
+        ap._push_iterator(ConcreteTaskGenerator(task1, jobs[0]))
         with pytest.raises(ValueError):
-            ap._push_iterator(ConcreteTaskIterator(task2, jobs[1]))
+            ap._push_iterator(ConcreteTaskGenerator(task2, jobs[1]))
 
 class TestActionPlanPopIterator:
     def test_pop_single_job_iterator(self, tmp_path):
@@ -184,7 +183,7 @@ class TestActionPlanPopIterator:
                     until=DateTime(2000, 1, 1),
                     frequency=Duration(days=1))
                 .with_priority(1).build())
-        itr = ConcreteTaskIterator(task, job)
+        itr = ConcreteTaskGenerator(task, job)
 
         ap._push_iterator(itr)
         assert len(ap._priority_queue) == 1
@@ -202,7 +201,7 @@ class TestActionPlanPopIterator:
                     until=DateTime(2000, 1, 7),
                     frequency=Duration(days=1))
                 .with_priority(1).build())
-        itr = ConcreteTaskIterator(task, job)
+        itr = ConcreteTaskGenerator(task, job)
 
         ap._push_iterator(itr)
         assert len(ap._priority_queue) == 1
@@ -225,8 +224,8 @@ class TestActionPlanPopIterator:
         task1 = common_task_info.with_priority(1).build()
         task2 = common_task_info.with_priority(2).build()
 
-        itr1 = ConcreteTaskIterator(task1, jobs[0])
-        itr2 = ConcreteTaskIterator(task2, jobs[1])
+        itr1 = ConcreteTaskGenerator(task1, jobs[0])
+        itr2 = ConcreteTaskGenerator(task2, jobs[1])
 
         ap._push_iterator(itr1)
         ap._push_iterator(itr2)
@@ -243,7 +242,7 @@ class TestActionPlanPopIterator:
 class TestActionPlanAddTask:
     def test_add_task_module(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        task = Task(
+        task = TaskModule(
                 module="PortfolioOptimisation",
                 module_parameters_path=ModuleConfigBuilder().build(tmp_path),
                 priority=1,
@@ -261,7 +260,7 @@ class TestActionPlanAddTask:
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
         workflow_config = OrchestratorConfigBuilder().build_workflow(tmp_path)
         workflow = Workflow.from_file(workflow_config)
-        task = Task(
+        task = TaskWorkflow(
                 workflow=workflow,
                 priority=1,
                 from_=DateTime(2000, 1, 1),
@@ -278,7 +277,7 @@ class TestActionPlanAddTask:
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
         workflow_config = OrchestratorConfigBuilder().build_workflow(tmp_path)
         workflow = Workflow.from_file(workflow_config)
-        task = Task(
+        task = TaskWorkflow(
                 workflow=workflow_config,
                 priority=1,
                 from_=DateTime(2000, 1, 1),
@@ -293,7 +292,7 @@ class TestActionPlanAddTask:
 
     def test_add_various_task(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        task1 = Task(
+        task1 = TaskModule(
                 name="1",
                 module="PortfolioOptimisation",
                 module_parameters_path=ModuleConfigBuilder().build(tmp_path),
@@ -304,7 +303,7 @@ class TestActionPlanAddTask:
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
         )
-        task2 = Task(
+        task2 = TaskModule(
                 name="2",
                 module="PortfolioOptimisation",
                 module_parameters_path=ModuleConfigBuilder().build(tmp_path),
@@ -315,7 +314,7 @@ class TestActionPlanAddTask:
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
         )
-        task3 = Task(
+        task3 = TaskModule(
                 name="3",
                 module="PortfolioOptimisation",
                 module_parameters_path=ModuleConfigBuilder().build(tmp_path),
@@ -346,7 +345,7 @@ class TestActionPlanAddTask:
 
     def test_add_various_task_with_multiple_date(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        task1 = Task(
+        task1 = TaskModule(
             name="1",
             module="PortfolioOptimisation",
             module_parameters_path=ModuleConfigBuilder().build(tmp_path),
@@ -358,7 +357,7 @@ class TestActionPlanAddTask:
             offset_end_date=Duration(days=2),
         )
 
-        task2 = Task(
+        task2 = TaskModule(
             name="2",
             module="PortfolioOptimisation",
             module_parameters_path=ModuleConfigBuilder().build(tmp_path),

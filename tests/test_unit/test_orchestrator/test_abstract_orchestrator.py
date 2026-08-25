@@ -15,11 +15,11 @@ import pytest
 from atlas import AtlasDataset, WorkflowParameters
 from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.actionplan.action_plan import ActionPlan
-from atlas.orchestrator.actionplan.job import TaskGenerator
+from atlas.orchestrator.actionplan.job import TaskJobsGenerator, TaskIterationPriority
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters
 from atlas.orchestrator.workflow.workflow import Workflow
 from tests.test_unit.test_orchestrator.orchestrator_factory import (
-    ConcreteTaskIterator,
+    ConcreteTaskGenerator,
     ConcreteOrchestrator,
     ConcreteOrchestratorParameters,
     MockOutPutBuilder,
@@ -28,54 +28,53 @@ from tests.test_unit.test_orchestrator.orchestrator_factory import (
     OrchestratorConfigBuilder
 )
 
-
-@staticmethod
-def make_mock_orchestrator(
-    tmp_path, jobs: list, yaml_context: str = "", overall_context: ContextParameters | None = None
-) -> ConcreteOrchestrator:
-    config = OrchestratorConfigBuilder().with_context(yaml_context).build(tmp_path)
-    params = ConcreteOrchestratorParameters.from_file(config)
-    orchestrator = ConcreteOrchestrator.__new__(ConcreteOrchestrator)
-    orchestrator.parameters = params
-    if overall_context is not None:
-        orchestrator.parameters.context.use(overall_context)
-    orchestrator._jobs = jobs
-    return orchestrator
-
-
-@staticmethod
-def make_mock_workflow(
-    tmp_path, jobs: list, yaml_context: str = "", overall_context: ContextParameters | None = None
-) -> Workflow:
-    config = OrchestratorConfigBuilder().with_context(yaml_context).build_workflow(tmp_path)
-    params = WorkflowParameters.from_file(config, overall_context)
-    workflow = Workflow.__new__(Workflow)
-    workflow.parameters = params
-    workflow._jobs = jobs
-    return workflow
+class _OrchestratorBuilder():
+    @staticmethod
+    def make_mock_orchestrator(
+        tmp_path, jobs: list, yaml_context: str = "", overall_context: ContextParameters | None = None
+    ) -> ConcreteOrchestrator:
+        config = OrchestratorConfigBuilder().with_context(yaml_context).build(tmp_path)
+        params = ConcreteOrchestratorParameters.from_file(config)
+        orchestrator = ConcreteOrchestrator.__new__(ConcreteOrchestrator)
+        orchestrator.parameters = params
+        if overall_context is not None:
+            orchestrator.parameters.context.use(overall_context)
+        orchestrator._jobs = jobs
+        return orchestrator
 
 
-@staticmethod
-def make_mock_action_plan(
-    tmp_path, jobs: list, yaml_context: str = "", overall_context: ContextParameters | None = None
-) -> ActionPlan:
-    config = OrchestratorConfigBuilder().with_context(yaml_context).build_action_plan(tmp_path)
-    params = ActionPlanParameters.from_file(config, overall_context)
-    action_plan = ActionPlan.__new__(ActionPlan)
-    action_plan.parameters = params
-    priority_queue: list[TaskGenerator] = []
-    for priority, job in enumerate(jobs):
-        task = MockTaskBuilder().with_priority(priority).build()
-        heapq.heappush(priority_queue, ConcreteTaskIterator(task, job))
-    action_plan._priority_queue = priority_queue
-    action_plan._jobs_count = len(jobs)
-    return action_plan
+    @staticmethod
+    def make_mock_workflow(
+        tmp_path, jobs: list, yaml_context: str = "", overall_context: ContextParameters | None = None
+    ) -> Workflow:
+        config = OrchestratorConfigBuilder().with_context(yaml_context).build_workflow(tmp_path)
+        params = WorkflowParameters.from_file(config, overall_context)
+        workflow = Workflow.__new__(Workflow)
+        workflow.parameters = params
+        workflow._jobs = jobs
+        return workflow
+
+
+    @staticmethod
+    def make_mock_action_plan(
+        tmp_path, jobs: list, yaml_context: str = "", overall_context: ContextParameters | None = None
+    ) -> ActionPlan:
+        config = OrchestratorConfigBuilder().with_context(yaml_context).build_action_plan(tmp_path)
+        params = ActionPlanParameters.from_file(config, overall_context)
+        action_plan = ActionPlan.__new__(ActionPlan)
+        action_plan.parameters = params
+        priority_queue: list[tuple[TaskIterationPriority, int, TaskJobsGenerator]] = []
+        for priority, job in enumerate(jobs):
+            task = MockTaskBuilder().with_priority(priority).build()
+            heapq.heappush(priority_queue, (task.priority, 0, ConcreteTaskGenerator(task, job)))
+        action_plan._priority_queue = priority_queue
+        return action_plan
 
 
 CONCRETE_ORCHESTRATOR_BUILDERS = [
-    make_mock_orchestrator,
-    make_mock_action_plan,
-    make_mock_workflow,
+    _OrchestratorBuilder.make_mock_orchestrator,
+    _OrchestratorBuilder.make_mock_action_plan,
+    _OrchestratorBuilder.make_mock_workflow,
 ]
 
 

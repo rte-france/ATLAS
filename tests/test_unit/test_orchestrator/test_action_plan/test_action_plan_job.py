@@ -14,19 +14,19 @@ from pendulum import DateTime, Duration
 
 from atlas import MarketClearingModule
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.orchestrator.actionplan.job import ActionPlanJob, ModuleTaskIterator, WorkflowTaskIterator
-from atlas.orchestrator.actionplan.parameters import Task
+from atlas.orchestrator.actionplan.job import ActionPlanJob, ModuleTaskJobsGenerator, WorkflowTaskJobsGenerator
+from atlas.orchestrator.actionplan.parameters import TaskModule, TaskWorkflow
 from atlas.timing import build_datetime
 from tests.test_unit.test_orchestrator.orchestrator_factory import ModuleConfigBuilder
 from tests.test_unit.test_orchestrator.orchestrator_factory import MockModuleBuilder, MockModuleParametersBuilder, \
-    MockTaskBuilder, ConcreteTaskIterator
+    MockTaskBuilder, ConcreteTaskGenerator
 from atlas.orchestrator.workflow.workflow import Workflow
 from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, OrchestratorConfigBuilder
 
 class TestTaskIterator:
     @pytest.fixture
     def task(self, tmp_path):
-        return Task(
+        return TaskModule(
                 module="PortfolioOptimisation",
                 module_parameters_path=ModuleConfigBuilder().build(tmp_path),
                 priority=1,
@@ -39,7 +39,7 @@ class TestTaskIterator:
 
 
     def test_next_execution_date(self, task):
-        task_iterator = ConcreteTaskIterator(task)
+        task_iterator = ConcreteTaskGenerator(task)
         expected_next_execution_date =(
             [build_datetime("2016-09-01 00:00:00"),
              build_datetime("2016-09-02 00:00:00"),
@@ -52,7 +52,7 @@ class TestTaskIterator:
 
     def test_next_start_date(self, task):
         task.offset_start_date = Duration(days=0, hours=3, minutes=7)
-        task_iterator = ConcreteTaskIterator(task)
+        task_iterator = ConcreteTaskGenerator(task)
         expected_next_start_date = (
             [build_datetime("2016-09-01 03:07:00"),
             build_datetime("2016-09-02 03:07:00"),
@@ -67,7 +67,7 @@ class TestTaskIterator:
 
     def test_next_end_date(self, task):
         task.offset_end_date = Duration(days=0, hours=5, minutes=11)
-        task_iterator = ConcreteTaskIterator(task)
+        task_iterator = ConcreteTaskGenerator(task)
         expected_next_end_date = (
             [build_datetime("2016-09-01 05:11:00"),
             build_datetime("2016-09-02 05:11:00"),
@@ -79,14 +79,14 @@ class TestTaskIterator:
                 assert task_iterator.next_end_date == expected_next_end_date[idx+1]
 
     def test_iter_reset_iterator(self, task):
-        task_iterator = ConcreteTaskIterator(task)
+        task_iterator = ConcreteTaskGenerator(task)
         itr = task_iterator.__iter__()
         job = next(itr)
         itr = task_iterator.__iter__()
         assert job == next(itr)
 
     def test_lesser_than_different_execution_date(self, tmp_path):
-        task1 = Task(
+        task1 = TaskModule(
                 module="PortfolioOptimisation",
                 module_parameters_path=ModuleConfigBuilder().build(tmp_path),
                 priority=1,
@@ -96,7 +96,7 @@ class TestTaskIterator:
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
         )
-        task2 = Task(
+        task2 = TaskModule(
                 module="PortfolioOptimisation",
                 module_parameters_path=ModuleConfigBuilder().build(tmp_path),
                 priority=1,
@@ -106,19 +106,19 @@ class TestTaskIterator:
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
         )
-        task_iterator1 = ConcreteTaskIterator(task1)
-        task_iterator2 = ConcreteTaskIterator(task2)
+        task_iterator1 = ConcreteTaskGenerator(task1)
+        task_iterator2 = ConcreteTaskGenerator(task2)
 
         assert task_iterator1.__lt__(task_iterator2)
 
     def test_lesser_than_different_priority(self, task):
         task1 = copy.copy(task)
         task1.priority = 1
-        task_iterator1 = ConcreteTaskIterator(task1)
+        task_iterator1 = ConcreteTaskGenerator(task1)
 
         task2 = copy.copy(task)
         task2.priority = 2
-        task_iterator2 = ConcreteTaskIterator(task2)
+        task_iterator2 = ConcreteTaskGenerator(task2)
 
         assert task_iterator1.__lt__(task_iterator2)
 
@@ -130,11 +130,11 @@ class TestTaskIterator:
     def test_not_equal_priority_diff(self, task):
         task1 = copy.copy(task)
         task1.priority = 1
-        task_iterator1 = ConcreteTaskIterator(task1)
+        task_iterator1 = ConcreteTaskGenerator(task1)
 
         task2 = copy.copy(task)
         task2.priority = 2
-        task_iterator2 = ConcreteTaskIterator(task2)
+        task_iterator2 = ConcreteTaskGenerator(task2)
 
         assert not task1.__eq__(task2)
 
@@ -154,7 +154,7 @@ class TestTaskIterator:
 class TestModuleTaskIterator:
     def test_build_current_parameters(self, tmp_path):
         parameters = MockModuleParametersBuilder().build()
-        task = Task(
+        task = TaskModule(
                 module="PortfolioOptimisation",
                 module_parameters_path=ModuleConfigBuilder().build(tmp_path),
                 priority=1,
@@ -165,7 +165,7 @@ class TestModuleTaskIterator:
                 offset_end_date=Duration(hours=24),
         )
 
-        itr = ModuleTaskIterator(task, parameters, tmp_path)
+        itr = ModuleTaskJobsGenerator(task, parameters, tmp_path)
         generated_parameters = itr._build_current_parameters()
         assert generated_parameters.temporal.execution_date == build_datetime("2000-01-01 00:00:00")
         assert generated_parameters.temporal.start_date == build_datetime("2000-01-01 12:00:00")
@@ -175,7 +175,7 @@ class TestModuleTaskIterator:
     def test_build_jobs_has_good_parameters(self, tmp_path):
         parameters_path = ModuleConfigBuilder().build(tmp_path)
         parameters = PortfolioOptimisationParameters.from_file(parameters_path)
-        task = Task(
+        task = TaskModule(
                 module="PortfolioOptimisation",
                 module_parameters_path=ModuleConfigBuilder().build(tmp_path),
                 priority=1,
@@ -185,7 +185,7 @@ class TestModuleTaskIterator:
                 offset_start_date=Duration(hours=12),
                 offset_end_date=Duration(hours=24),
         )
-        itr = ModuleTaskIterator(task, parameters, tmp_path)
+        itr = ModuleTaskJobsGenerator(task, parameters, tmp_path)
         job = itr.build_jobs()[0]
         generated_parameters = job.parameters
         assert generated_parameters.temporal.execution_date == build_datetime("2000-01-01 00:00:00")
@@ -202,7 +202,7 @@ class TestModuleTaskIterator:
                 .with_priority(1)
                 .with_module_and_parameters(None, None).build())
         with pytest.raises(TypeError):
-            ModuleTaskIterator(task)
+            ModuleTaskJobsGenerator(task)
 
     def test_iterator_len(self, tmp_path):
         date = DateTime(2000, 1, 1)
@@ -214,28 +214,28 @@ class TestModuleTaskIterator:
                     from_=date,
                     until=date + Duration(days=1),
                     frequency=Duration(days=1)).build()
-        itr = ModuleTaskIterator(task1, parameters, tmp_path)
+        itr = ModuleTaskJobsGenerator(task1, parameters, tmp_path)
         assert itr.__len__() == 2
 
         task2 = partial_task.with_from_until_frequency(
                     from_=date,
                     until=date + Duration(days=9),
                     frequency=Duration(days=1)).build()
-        itr = ModuleTaskIterator(task2, parameters, tmp_path)
+        itr = ModuleTaskJobsGenerator(task2, parameters, tmp_path)
         assert itr.__len__() == 10
 
         task3 = partial_task.with_from_until_frequency(
                     from_=date,
                     until=date + Duration(days=10),
                     frequency=Duration(days=7)).build()
-        itr = ModuleTaskIterator(task3, parameters, tmp_path)
+        itr = ModuleTaskJobsGenerator(task3, parameters, tmp_path)
         assert itr.__len__() == 2
 
         task4 = partial_task.with_from_until_frequency(
                     from_=date,
                     until=date + Duration(days=1),
                     frequency=Duration(days=5)).build()
-        itr = ModuleTaskIterator(task4, parameters, tmp_path)
+        itr = ModuleTaskJobsGenerator(task4, parameters, tmp_path)
         assert itr.__len__() == 1
 
 
@@ -243,7 +243,7 @@ class TestWorkflowTaskIterator:
     def test_build_current_parameters(self, tmp_path):
         parameters = OrchestratorConfigBuilder().build_workflow(tmp_path)
         workflow = Workflow.from_file(parameters)
-        task = Task(
+        task = TaskWorkflow(
                 workflow=workflow,
                 priority=1,
                 from_=build_datetime("2000-01-01 00:00:00"),
@@ -253,8 +253,8 @@ class TestWorkflowTaskIterator:
                 offset_end_date=Duration(hours=24),
         )
 
-        itr = WorkflowTaskIterator(task, workflow.parameters, tmp_path)
-        generated_parameters = itr._build_current_parameters()
+        itr = ModuleTaskJobsGenerator(task, workflow.parameters, tmp_path)
+        generated_parameters = itr._build_parameters(0)
         assert generated_parameters.context.forced["temporal"]["execution_date"] == build_datetime("2000-01-01 00:00:00")
         assert generated_parameters.context.forced["temporal"]["start_date"] == build_datetime("2000-01-01 12:00:00")
         assert generated_parameters.context.forced["temporal"]["end_date"] == build_datetime("2000-01-02 00:00:00")
@@ -276,7 +276,7 @@ class TestWorkflowTaskIterator:
             f"    parameters_path: {params_file}\n"
         ).build(tmp_path)
         workflow = Workflow.from_file(config)
-        task = Task(
+        task = TaskWorkflow(
                 workflow=workflow,
                 priority=1,
                 from_=build_datetime("2000-01-01 00:00:00"),
@@ -286,7 +286,7 @@ class TestWorkflowTaskIterator:
                 offset_end_date=Duration(hours=24),
         )
 
-        itr = WorkflowTaskIterator(task, workflow.parameters, tmp_path)
+        itr = WorkflowTaskJobsGenerator(task, workflow.parameters, tmp_path)
         job = itr.build_jobs()[0]
         generated_parameters = job.parameters
         assert generated_parameters.temporal.execution_date == build_datetime("2000-01-01 00:00:00")
@@ -312,28 +312,28 @@ class TestWorkflowTaskIterator:
                     from_=date,
                     until=date + Duration(days=1),
                     frequency=Duration(days=1)).build()
-        itr = WorkflowTaskIterator(task1, wf.parameters, tmp_path)
+        itr = WorkflowTaskJobsGenerator(task1, wf.parameters, tmp_path)
         assert itr.__len__() == 2
 
         task2 = partial_task.with_from_until_frequency(
                     from_=date,
                     until=date + Duration(days=9),
                     frequency=Duration(days=1)).build()
-        itr = WorkflowTaskIterator(task2, wf.parameters, tmp_path)
+        itr = WorkflowTaskJobsGenerator(task2, wf.parameters, tmp_path)
         assert itr.__len__() == 10
 
         task3 = partial_task.with_from_until_frequency(
                     from_=date,
                     until=date + Duration(days=10),
                     frequency=Duration(days=7)).build()
-        itr = WorkflowTaskIterator(task3, wf.parameters, tmp_path)
+        itr = WorkflowTaskJobsGenerator(task3, wf.parameters, tmp_path)
         assert itr.__len__() == 2
 
         task4 = partial_task.with_from_until_frequency(
                     from_=date,
                     until=date + Duration(days=2),
                     frequency=Duration(days=7)).build()
-        itr = WorkflowTaskIterator(task4, wf.parameters, tmp_path)
+        itr = WorkflowTaskJobsGenerator(task4, wf.parameters, tmp_path)
         assert itr.__len__() == 1
 
 class TestTestActionPlanJobRepresentation:
