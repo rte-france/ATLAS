@@ -84,7 +84,7 @@ class TestTask:
 
     def test_parameters_path_is_path_object_module(self, tmp_path, params_file):
         task = TestTask.build_task(module="PortfolioOptimisation", module_parameters_path=str(params_file))
-        assert isinstance(task.module_parameters_path, Path)
+        assert isinstance(task.parameters_path, Path)
 
     def test_datetime_are_preserved(self, params_file, empty_workflow):
         from_ = pendulum.DateTime(year=1, month=1, day=1)

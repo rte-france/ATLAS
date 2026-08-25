@@ -7,22 +7,21 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-import heapq
 import copy
+import heapq
 from collections.abc import Iterator
 from pathlib import Path
 from typing import cast
-from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.orchestrator.actionplan.job import (
     ActionPlanJob,
     ModuleTaskJobsGenerator,
+    TaskIterationPriority,
     TaskJobsGenerator,
     WorkflowTaskJobsGenerator,
-    TaskIterationPriority,
 )
-from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, Task
+from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, Task, TaskModule, TaskWorkflow
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
 from atlas.orchestrator.workflow.workflow import Workflow
 
@@ -49,22 +48,28 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
     def _has_concurrent_task_with(self, task: Task) -> bool:
         return any(Task.are_concurrent(itr.task, task) for _, _, itr in self._priority_queue)
 
-    def add_task(self, task: Task) -> int:
+    def add_task(self, task: TaskModule | TaskWorkflow) -> int:
         """Add a task to the action plan and return the number of jobs added
         :param task: task to add
         :type task: Task
         """
         root_output_dir = self.parameters.resolve_path(self.parameters.output_dir) / task.name
-        if task.module is not None:
-            return self._add_task_module(task, root_output_dir, 0)
-        elif task.workflow is not None:
-            return self._add_task_workflow(task, root_output_dir, 0)
-        return 0
 
-    def _add_task_module(self, task: Task, root_output_dir: Path, next_iteration: int) -> int:
+        _TASK_ADDER = {
+            TaskModule: self._add_task_module,
+            TaskWorkflow: self._add_task_workflow,
+        }
+
+        task_adder = _TASK_ADDER.get(type(task), lambda _: None)
+        if task_adder is None:
+            raise ValueError(f"Unknown type {type(task)} when adding {task} to Action Plan {self}")
+
+        return task_adder(task, root_output_dir, 0)
+
+    def _add_task_module(self, task: TaskModule, root_output_dir: Path, next_iteration: int) -> int:
         """Add a task, that run a module, and the iteration progress on it to the action plan and return the number of job add
         :param task: task that run a module
-        :type task: Task
+        :type task: TaskModule
         :param root_output_dir: path to the root output directory used for the task
         :type root_output_dir: Path
         :param next_iteration: next iteration for which the task will be used
@@ -72,20 +77,20 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         """
         if task.module is None:
             raise ValueError("_add_task_module called without a module")
-        if task.module_parameters_path is None:
+        if task.parameters_path is None:
             raise ValueError("_add_task_module called without a module parameter path")
         module_parameters = (
             task.module.value()
             .get_parameters_class()
-            .from_file(self.parameters.resolve_path(task.module_parameters_path), self.parameters.context)
+            .from_file(self.parameters.resolve_path(task.parameters_path), self.parameters.context)
         )
         module_iterator = ModuleTaskJobsGenerator(task, module_parameters, root_output_dir)
         return self._push_iterator(module_iterator, next_iteration)
 
-    def _add_task_workflow(self, task: Task, root_output_dir: Path, next_iteration: int) -> int:
+    def _add_task_workflow(self, task: TaskWorkflow, root_output_dir: Path, next_iteration: int) -> int:
         """Add a task, that run a workflow, to the action plan and return the number of job add
         :param task: task that run a workflow
-        :type task: Task
+        :type task: TaskWorkflow
         :param root_output_dir: path to the root output directory used for the task
         :type root_output_dir: Path
         :param next_iteration: next iteration for which the task will be used

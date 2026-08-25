@@ -8,6 +8,7 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 import warnings
+from abc import ABC
 from math import gcd
 from pathlib import Path
 from typing import Any
@@ -32,7 +33,7 @@ class ActionPlanParameters(AbstractOrchestratorParameters):
     :type hooks: list[Hook]
     """
 
-    tasks: list[Task]
+    tasks: list[TaskModule | TaskWorkflow]
     hooks: list[Hook] = []
 
     @model_validator(mode="after")
@@ -44,17 +45,11 @@ class ActionPlanParameters(AbstractOrchestratorParameters):
         return self
 
 
-class Task(BaseModel):
-    """Definition of a single task
+class Task(BaseModel, ABC):
+    """Base definition of any task
 
     :param name: Name of the action plan task.
     :type name: str
-    :param module: Module to be executed (if any) in this task.
-    :type module: AbstractModule | None
-    :param parameters_path: Parameters of the module or the workflow associated with this task.
-    :type parameters_path: str
-    :param workflow: Workflow to be executed (if any) in this task.
-    :type workflow: string | None
     :param priority: Priority of the action plan task.
     :type priority: int
     :param from_: First date time to execute this task.
@@ -68,9 +63,6 @@ class Task(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: str | None = None
-    module: ModuleRegistry | None = None
-    workflow: Workflow | Path | None = None
-    module_parameters_path: Path | None = None
     priority: int = 0
     from_: DateTime = Field(validation_alias=AliasChoices("from", "from_"))
     until: DateTime
@@ -117,57 +109,6 @@ class Task(BaseModel):
                 date2 = date2 + task2.frequency
         return date1 == date2
 
-    @field_validator("module", mode="before")
-    @classmethod
-    def coerce_module(cls, v: Any) -> ModuleRegistry | None:
-        if v is not None and isinstance(v, str):
-            return ModuleRegistry(ModuleRegistry.get(v))
-        return v
-
-    @field_validator("module_parameters_path", mode="before")
-    @classmethod
-    def validate_module_path_exist(cls, v: Any) -> Path | None:
-        if v is not None and isinstance(v, Path):
-            if not v.exists():
-                raise ValueError(f"Module parameters file not found at {v}")
-        return v
-
-    @field_validator("workflow", mode="before")
-    @classmethod
-    def validate_workflow_exist(cls, v: Any) -> Workflow | None:
-        if v is not None and isinstance(v, Path):
-            if not v.exists():
-                raise ValueError(f"Workflow parameter file not found at {v}")
-        return v
-
-    @model_validator(mode="after")
-    def default_name(self) -> Task:
-        if self.name is None:
-            if self.module is not None:
-                self.name = self.module.name
-            if self.workflow is not None:
-                if isinstance(self.workflow, Path):
-                    self.name = self.workflow.name
-                elif isinstance(self.workflow, Workflow):
-                    self.name = self.workflow.parameters.name
-        return self
-
-    @model_validator(mode="after")
-    def module_or_workflow(self) -> Task:
-        if self.module is not None and self.module_parameters_path is None:
-            raise ValueError(f"Task {self.name} have a module {self.module} but no parameter file")
-        if self.module is None and self.module_parameters_path is not None:
-            raise ValueError(
-                f"Task {self.name} do not have a module but has a module parameter file {self.module_parameters_path}"
-            )
-        if self.module is None and self.workflow is None:
-            raise ValueError(
-                f"Task {self.name} doesn't contains either a module or a workflow, expected exactly one of them"
-            )
-        if self.module is not None and self.workflow is not None:
-            raise ValueError(f"Task {self.name} contains both a module or a workflow, expected exactly one of them")
-        return self
-
     @model_validator(mode="after")
     def until_from_frequency(self) -> Task:
         if self.until < self.from_:
@@ -183,4 +124,70 @@ class Task(BaseModel):
                 DataQualityWarning,
                 stacklevel=2,
             )
+        return self
+
+
+class TaskModule(Task):
+    """Definition of a single task that run a module
+
+    :param module: Module to be executed (if any) in this task.
+    :type module: AbstractModule | None
+    :param parameters_path: Parameters of the module associated with this task.
+    :type parameters_path: Path
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    module: ModuleRegistry | None = None
+    parameters_path: Path | None = None
+
+    @field_validator("module", mode="before")
+    @classmethod
+    def coerce_module(cls, v: Any) -> ModuleRegistry | None:
+        if v is not None and isinstance(v, str):
+            return ModuleRegistry(ModuleRegistry.get(v))
+        return v
+
+    @field_validator("parameters_path", mode="before")
+    @classmethod
+    def validate_module_path_exist(cls, v: Any) -> Path | None:
+        if v is not None and isinstance(v, Path):
+            if not v.exists():
+                raise ValueError(f"Module parameters file not found at {v}")
+        return v
+
+    @model_validator(mode="after")
+    def default_name(self) -> TaskModule:
+        if self.name is None and self.module is not None:
+            self.name = self.module.name
+        return self
+
+
+class TaskWorkflow(Task):
+    """Definition of a single task that run a workflow
+
+    :param workflow: Workflow to be executed, can be a path to a config file to build it.
+    :type workflow: Workflow | Path | None
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    workflow: Workflow | Path | None = None
+
+    @field_validator("workflow", mode="before")
+    @classmethod
+    def validate_workflow_exist(cls, v: Any) -> Workflow | None:
+        if v is not None and isinstance(v, Path):
+            if not v.exists():
+                raise ValueError(f"Workflow parameter file not found at {v}")
+        return v
+
+    @model_validator(mode="after")
+    def default_name(self) -> TaskWorkflow:
+        if self.name is None:
+            if self.workflow is not None:
+                if isinstance(self.workflow, Path):
+                    self.name = self.workflow.name
+                elif isinstance(self.workflow, Workflow):
+                    self.name = self.workflow.parameters.name
         return self

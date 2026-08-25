@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -19,7 +18,7 @@ from atlas.abstract_class.module import AbstractModule
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.io_utils.parameters import DateParameters
 from atlas.io_utils.utils import deep_update
-from atlas.orchestrator.actionplan.parameters import Task
+from atlas.orchestrator.actionplan.parameters import Task, TaskModule, TaskWorkflow
 from atlas.orchestrator.workflow.workflow import Workflow
 
 
@@ -86,7 +85,7 @@ class TaskJobsGenerator(ABC):
 
 
 class ModuleTaskJobsGenerator(TaskJobsGenerator):
-    def __init__(self, task: Task, parameters: AbstractModuleParameters, root_output_dir: Path):
+    def __init__(self, task: TaskModule, parameters: AbstractModuleParameters, root_output_dir: Path):
         super().__init__(task)
         if task.module is None:
             raise AttributeError(f"Task {task.name} must have a module.")
@@ -123,7 +122,7 @@ class ModuleTaskJobsGenerator(TaskJobsGenerator):
 
 
 class WorkflowTaskJobsGenerator(TaskJobsGenerator):
-    def __init__(self, task: Task, parameters: WorkflowParameters, root_output_dir: Path):
+    def __init__(self, task: TaskWorkflow, parameters: WorkflowParameters, root_output_dir: Path):
         super().__init__(task)
         if task.workflow is None:
             raise AttributeError(f"Task {task.name} must have a workflow.")
