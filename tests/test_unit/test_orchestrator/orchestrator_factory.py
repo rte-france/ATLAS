@@ -28,7 +28,7 @@ class ConcreteTaskGenerator(TaskJobsGenerator):
         self._job: ConcreteJob = job
         self.parameters = module_parameters
 
-    def build_jobs(self):
+    def _build_jobs(self, iteration):
         return [self._job]
 
     def __lt__(self, other):

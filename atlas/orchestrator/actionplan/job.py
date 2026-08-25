@@ -72,11 +72,21 @@ class TaskJobsGenerator(ABC):
         """Return the iteration priority associated to the given iteration for the task"""
         return TaskIterationPriority(self.execution_date(iteration), self.task.priority)
 
+    def build_jobs(self, iteration) -> list[AbstractJob] | None:
+        """
+        Build and return the list of ActionPlanJob for the given iteration.
+        Return None if no job for the given iteration exists.
+        """
+        if iteration < 0 or iteration >= len(self):
+            return None
+        return self._build_jobs(iteration)
+
     @abstractmethod
-    def build_jobs(self, iteration) -> list[AbstractJob]:
+    def _build_jobs(self, iteration) -> list[AbstractJob]:
         """
         Build and return the list of ActionPlanJob for the given iteration.
         """
+        pass
 
     def __len__(self):
         span_seconds = (self.task.until - self.task.from_).total_seconds()
@@ -94,8 +104,10 @@ class ModuleTaskJobsGenerator(TaskJobsGenerator):
         self.parameters: AbstractModuleParameters = parameters
         self.root_output_dir = root_output_dir
 
-    def build_jobs(self, iteration) -> list[AbstractJob]:
+    def _build_jobs(self, iteration) -> list[AbstractJob]:
         """Build and return the list of ActionPlanJob for the given iteration."""
+        if iteration < 0 or iteration < len(self):
+            return None
         return [
             ActionPlanJob(
                 f"task {self.task.name} iteration {iteration}",
@@ -148,7 +160,7 @@ class WorkflowTaskJobsGenerator(TaskJobsGenerator):
         )
         return parameters
 
-    def build_jobs(self, iteration) -> list[AbstractJob]:
+    def _build_jobs(self, iteration) -> list[AbstractJob]:
         """Build and return the list of ActionPlanJob for the given iteration."""
         workflow = Workflow(self._build_parameters(iteration), f"task {self.task.name} iteration {iteration}")
         return list(workflow.jobs)
