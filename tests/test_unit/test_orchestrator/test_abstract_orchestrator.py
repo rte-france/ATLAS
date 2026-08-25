@@ -66,7 +66,7 @@ class _OrchestratorBuilder():
         priority_queue: list[tuple[TaskIterationPriority, int, TaskJobsGenerator]] = []
         for priority, job in enumerate(jobs):
             task = MockTaskBuilder().with_priority(priority).build()
-            heapq.heappush(priority_queue, (task.priority, 0, ConcreteTaskGenerator(task, job)))
+            heapq.heappush(priority_queue, (TaskIterationPriority(task.from_, task.priority), 0, ConcreteTaskGenerator(task, job)))
         action_plan._priority_queue = priority_queue
         return action_plan
 

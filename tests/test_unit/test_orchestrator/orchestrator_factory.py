@@ -31,12 +31,6 @@ class ConcreteTaskGenerator(TaskJobsGenerator):
     def _build_jobs(self, iteration):
         return [self._job]
 
-    def __lt__(self, other):
-        return super().__lt__(other)
-
-    def __eq__(self, other):
-        return super().__eq__(other)
-
 class ConcreteOrchestratorParameters(AbstractOrchestratorParameters):
     """Minimalist implementation of AbstractOrchestratorParameters"""
 
@@ -263,6 +257,7 @@ class OrchestratorConfigBuilder:
             self.output_dir.mkdir(exist_ok=True)
         content = (
             f"name: {self.name}\n"
+            f"path_from_orchestrator: False\n"
             f"dataset_path: {self.dataset_dir}\n"
             f"output_dataset_path: {self.output_dir}\n"
             f"{self.context}\n"
