@@ -22,7 +22,7 @@ class AbstractOrchestratorParameters(Parameters):
     :type name: str
     :param dataset_path: Path of the Dataset to use in the orchestrator
     :type dataset_path: str
-    :param path_from_orchestrator: If True, resolve relative paths from orchestrator file location
+    :param path_from_orchestrator: If True, resolve relative paths from orchestrator file location (i.e. orchestrator_path)
     :type path_from_orchestrator: bool
     :param orchestrator_path: Absolute path to use as a root path for any related path for this orchestrator.
     :type orchestrator_path: Path
@@ -45,7 +45,7 @@ class AbstractOrchestratorParameters(Parameters):
         validation_alias=AliasChoices("path_from_orchestrator", "path_from_workflow", "path_from_action_plan"),
     )
     orchestrator_path: Path = Field(
-        default=Path(),
+        default=Path.cwd(),
         validation_alias=AliasChoices("orchestrator_path", "workflow_path", "action_plan_path"),
     )
     output_dir: Path = Path()
@@ -56,18 +56,20 @@ class AbstractOrchestratorParameters(Parameters):
 
     @model_validator(mode="after")
     def validate_use_of_relative_path(self) -> AbstractOrchestratorParameters:
-        if not self.path_from_orchestrator:
+        if self.path_from_orchestrator:
             return self
 
         if not self.orchestrator_path.is_absolute():
             raise DataValidationError(
-                f"Path {self.orchestrator_path} is not an absolute path."
-                f'This path used for orchestrator {self.name} parameter "orchestrator_path" and has to be an absolute path.'
+                f"In orchestrator {self.name}"
+                f"Parameter path_from_orchestrator (alias path_from_workflow or path_from_action_plan) is set to False."
+                f"Current parameter orchestrator_path (alias workflow_path or action_plan_path) is {self.orchestrator_path} and is not an absolute path."
+                f"If path_from_orchestrator is set to False, then orchestrator_path must be an absolute Path."
             )
         elif not self.orchestrator_path.exists():
             raise DataValidationError(
                 f"Path {self.orchestrator_path} doesn't exist."
-                f'This path used for orchestrator {self.name} parameter "orchestrator_path" and has to be an existing path.'
+                f"This path is used for orchestrator {self.name} parameter orchestrator_path (alias workflow_path or action_plan_path) and has to be an existing path."
             )
         return self
 
