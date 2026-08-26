@@ -99,6 +99,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
             cis.create_snapshot(f"{self.__class__.__name__}_input")
             logger.debug(f"Created initial {self.__class__.__name__} snapshot")
 
+        last_executed_job = None
         for job_idx, job in enumerate(self.jobs):
             logger.info(f"Launching :'{job.name}' ({job_idx + 1}/{self.jobs_count})")
 
@@ -110,6 +111,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
 
             try:
                 self._execute_job(job, cis)
+                last_executed_job = job
             except WorkflowJobError:
                 if self.parameters.create_job_snapshots:
                     logger.info(f"Available snapshots: {cis.list_snapshots()}")
@@ -128,7 +130,9 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
 
             logger.info(f"Finishing job :'{job.name}'")
 
-        self.final_dataset = job.output_dataset
+        if last_executed_job is not None:
+            self.final_dataset = last_executed_job.output_dataset
+
         if self.parameters.export_output:
             logger.info(
                 f"Exporting final {self.__class__.__name__.lower()} output to {self.parameters.resolve_path(self.parameters.output_dir)}"
