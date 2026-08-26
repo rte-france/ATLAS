@@ -5,6 +5,8 @@ from pydantic import BaseModel, ValidationError
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.equipment.equipment import Equipment
 from atlas.objects.market.market_area import MarketArea
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
 from atlas.objects.network_operator.control_block import ControlBlock
@@ -183,6 +185,91 @@ def test_field_serializer_integration():
     assert dumped["node"] == "test_node"
     assert dumped["portfolio"] == "test_portfolio"
     assert dumped["co2_emission_factor"] == 0.5
+
+
+class DummyEquipment(Equipment):
+    """Equipment subclass, to check that a reference typed with the base class accepts it."""
+
+
+def test_resolve_by_name_round_trip():
+    """A dumped reference is a name, and resolves back to the very same instance."""
+    control_block = ControlBlock(name="test_cb")
+    market_area = MarketArea(name="test_ma", control_block=control_block)
+    registry = {"test_cb": [control_block], "test_ma": [market_area]}
+
+    dumped = Node(name="test_node", control_block=control_block, market_area=market_area).model_dump()
+    assert dumped["control_block"] == "test_cb"
+
+    node = Node.model_validate(dumped, context={"registry": registry})
+
+    assert node.control_block is control_block
+    assert node.market_area is market_area
+
+
+def test_resolve_by_name_list_round_trip():
+    """List references are serialized pipe-separated and resolved back in order."""
+    control_block = ControlBlock(name="cb")
+    market_area = MarketArea(name="ma", control_block=control_block)
+    orders = [Order(name="order_1", market_area=market_area), Order(name="order_2", market_area=market_area)]
+    registry = {"order_1": [orders[0]], "order_2": [orders[1]]}
+
+    dumped = OrderCoupling(name="coupling", orders=orders).model_dump()
+    assert dumped["orders"] == "order_1|order_2"
+
+    coupling = OrderCoupling.model_validate(dumped, context={"registry": registry})
+
+    assert coupling.orders == orders
+
+
+def test_resolve_by_name_uses_the_annotated_type():
+    """Objects of different types may share a name: the field annotation picks the right one."""
+    control_block = ControlBlock(name="fr")
+    market_area = MarketArea(name="fr", control_block=control_block)
+    registry = {"fr": [control_block, market_area]}
+
+    node = Node.model_validate(
+        {"name": "node_fr", "control_block": "fr", "market_area": "fr"}, context={"registry": registry}
+    )
+
+    assert node.control_block is control_block
+    assert node.market_area is market_area
+
+
+def test_resolve_by_name_accepts_a_subclass():
+    """A reference typed with a base class resolves to any registered subclass."""
+    control_block = ControlBlock(name="cb")
+    market_area = MarketArea(name="ma", control_block=control_block)
+    node = Node(name="node", control_block=control_block, market_area=market_area)
+    portfolio = Portfolio(name="portfolio", control_block=control_block, market_area=market_area)
+    equipment = DummyEquipment(name="eq", node=node, portfolio=portfolio)
+    registry = {"ma": [market_area], "eq": [equipment]}
+
+    order = Order.model_validate(
+        {"name": "order", "market_area": "ma", "equipment": "eq"}, context={"registry": registry}
+    )
+
+    assert order.equipment is equipment
+
+
+def test_resolve_by_name_unknown_reference():
+    control_block = ControlBlock(name="cb")
+    registry = {"cb": [control_block], "ma": [MarketArea(name="ma", control_block=control_block)]}
+
+    with pytest.raises(ValidationError, match="No ControlBlock named 'typo'"):
+        Node.model_validate(
+            {"name": "node", "control_block": "typo", "market_area": "ma"}, context={"registry": registry}
+        )
+
+
+def test_resolve_by_name_without_registry_is_a_passthrough():
+    """Direct construction from real objects is unaffected, and a name stays an invalid value."""
+    control_block = ControlBlock(name="cb")
+    market_area = MarketArea(name="ma", control_block=control_block)
+
+    assert Node(name="node", control_block=control_block, market_area=market_area).control_block is control_block
+
+    with pytest.raises(ValidationError, match="ControlBlock"):
+        Node.model_validate({"name": "node", "control_block": "cb", "market_area": "ma"})
 
 
 class _PipeModel(BaseModel):
