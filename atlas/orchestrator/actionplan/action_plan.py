@@ -76,9 +76,9 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         :type next_iteration: int
         """
         if task.module is None:
-            raise ValueError("_add_task_module called without a module")
+            raise ValueError(f"Fail to add Task {task.name}, a TaskModule with module value None.")
         if task.parameters_path is None:
-            raise ValueError("_add_task_module called without a module parameter path")
+            raise ValueError(f"Fail to add Task {task.name}, a TaskModule with parameter path value None.")
         module_parameters = (
             task.module.value()
             .get_parameters_class()
