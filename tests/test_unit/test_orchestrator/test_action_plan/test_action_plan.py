@@ -244,7 +244,7 @@ class TestActionPlanAddTask:
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
         task = TaskModule(
                 module="PortfolioOptimisation",
-                module_parameters_path=ModuleConfigBuilder().build(tmp_path),
+                parameters_path=ModuleConfigBuilder().build(tmp_path),
                 priority=1,
                 from_=DateTime(2000, 1, 1),
                 until=DateTime(2000, 1, 1),
@@ -295,7 +295,7 @@ class TestActionPlanAddTask:
         task1 = TaskModule(
                 name="1",
                 module="PortfolioOptimisation",
-                module_parameters_path=ModuleConfigBuilder().build(tmp_path),
+                parameters_path=ModuleConfigBuilder().build(tmp_path),
                 priority=1,
                 from_=DateTime(2000, 1, 1),
                 until=DateTime(2000, 1, 1),
@@ -306,7 +306,7 @@ class TestActionPlanAddTask:
         task2 = TaskModule(
                 name="2",
                 module="PortfolioOptimisation",
-                module_parameters_path=ModuleConfigBuilder().build(tmp_path),
+                parameters_path=ModuleConfigBuilder().build(tmp_path),
                 priority=2,
                 from_=DateTime(2000, 1, 1),
                 until=DateTime(2000, 1, 1),
@@ -317,7 +317,7 @@ class TestActionPlanAddTask:
         task3 = TaskModule(
                 name="3",
                 module="PortfolioOptimisation",
-                module_parameters_path=ModuleConfigBuilder().build(tmp_path),
+                parameters_path=ModuleConfigBuilder().build(tmp_path),
                 priority=3,
                 from_=DateTime(2000, 1, 1),
                 until=DateTime(2000, 1, 1),
@@ -348,7 +348,7 @@ class TestActionPlanAddTask:
         task1 = TaskModule(
             name="1",
             module="PortfolioOptimisation",
-            module_parameters_path=ModuleConfigBuilder().build(tmp_path),
+            parameters_path=ModuleConfigBuilder().build(tmp_path),
             priority=1,
             from_=DateTime(2000, 1, 1),
             until=DateTime(2000, 1, 10),
@@ -360,7 +360,7 @@ class TestActionPlanAddTask:
         task2 = TaskModule(
             name="2",
             module="PortfolioOptimisation",
-            module_parameters_path=ModuleConfigBuilder().build(tmp_path),
+            parameters_path=ModuleConfigBuilder().build(tmp_path),
             priority=2,
             from_=DateTime(2000, 1, 1),
             until=DateTime(2000, 1, 11),
@@ -395,7 +395,7 @@ class TestActionPlanFromFile:
             f"output_dataset_path: {output_dir}\n"
             f"tasks:\n"
             f"  - module: PortfolioOptimisation\n"
-            f"    module_parameters_path: /nonexistent/path/params.yaml\n"
+            f"    parameters_path: /nonexistent/path/params.yaml\n"
             f"    from_: '2028-01-01 00:00:00'\n"
             f"    until: '2028-01-03 00:00:00'\n"
             f"    frequency: '1d'\n"
@@ -431,7 +431,7 @@ class TestActionPlanRepresentation:
             f"output_dataset_path: {output_dir}\n"
             f"tasks:\n"
             f"  - module: MarketClearing\n"
-            f"    module_parameters_path: {params_file}\n"
+            f"    parameters_path: {params_file}\n"
             f"    from_: '2028-01-01 00:00:00'\n"
             f"    until: '2028-01-03 00:00:00'\n"
             f"    frequency: '1d'\n"
@@ -471,7 +471,7 @@ class TestActionPlanContextParameters:
             f"output_dataset_path: {output_dir}\n"
             f"tasks:\n"
             f"  - module: MarketClearing\n"
-            f"    module_parameters_path: {params_file}\n"
+            f"    parameters_path: {params_file}\n"
             f"    from_: '2028-09-26 00:00:00'\n"
             f"    until: '2028-09-27 00:00:00'\n"
             f"    frequency: '1d'\n"
@@ -713,7 +713,7 @@ class TestActionPlanPathFromActionPlan:
             f"output_dir: results\n"
             f"tasks:\n"
             f"  - module: MarketClearing\n"
-            f"    module_parameters_path: {params_file}\n"
+            f"    parameters_path: {params_file}\n"
             f"    from_: '2028-01-01 00:00:00'\n"
             f"    until: '2028-01-03 00:00:00'\n"
             f"    frequency: '1d'\n"

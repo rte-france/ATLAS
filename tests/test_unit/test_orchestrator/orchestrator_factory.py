@@ -257,7 +257,6 @@ class OrchestratorConfigBuilder:
             self.output_dir.mkdir(exist_ok=True)
         content = (
             f"name: {self.name}\n"
-            f"path_from_orchestrator: False\n"
             f"dataset_path: {self.dataset_dir}\n"
             f"output_dataset_path: {self.output_dir}\n"
             f"{self.context}\n"
@@ -279,7 +278,7 @@ class MockTaskBuilder:
         self.priority = 1
         self.module = None
         self.workflow = None
-        self.module_parameters_path = None
+        self.parameters_path = None
 
     def with_name(self, name) -> Self:
         self.name = name
@@ -308,9 +307,9 @@ class MockTaskBuilder:
         self.priority = priority
         return self
 
-    def with_module_and_parameters(self, module, module_parameters_path) -> Self:
+    def with_module_and_parameters(self, module, parameters_path) -> Self:
         self.module = module
-        self.module_parameters_path = module_parameters_path
+        self.parameters_path = parameters_path
         return self
 
     def with_workflow(self, workflow) -> Self:
