@@ -86,7 +86,7 @@ class TestActionPlanPushIterator:
                     frequency=Duration(days=1))
                 .with_priority(1).build())
         itr = ConcreteTaskGenerator(task, job)
-        ap._push_iterator(itr)
+        ap._push_iterator(itr, 0)
         assert next(ap.jobs) == job
 
     def test_push_single_job_iterator_with_multiple_date(self, tmp_path):
@@ -99,7 +99,7 @@ class TestActionPlanPushIterator:
                     frequency=Duration(days=1))
                 .with_priority(1).build())
         itr = ConcreteTaskGenerator(task, job)
-        ap._push_iterator(itr)
+        ap._push_iterator(itr, 0)
         assert len(ap._priority_queue) == 1
         assert next(ap.jobs) == job
         assert next(ap.jobs) == job
@@ -115,9 +115,9 @@ class TestActionPlanPushIterator:
                     from_=DateTime(2000, 1, 1),
                     until=DateTime(2000, 1, 1),
                     frequency=Duration(days=1)))
-        ap._push_iterator(ConcreteTaskGenerator(common_task_info.with_priority(1).build(), jobs[0]))
-        ap._push_iterator(ConcreteTaskGenerator(common_task_info.with_priority(3).build(), jobs[2]))
-        ap._push_iterator(ConcreteTaskGenerator(common_task_info.with_priority(2).build(), jobs[1]))
+        ap._push_iterator(ConcreteTaskGenerator(common_task_info.with_priority(1).build(), jobs[0]), 0)
+        ap._push_iterator(ConcreteTaskGenerator(common_task_info.with_priority(3).build(), jobs[2]), 0)
+        ap._push_iterator(ConcreteTaskGenerator(common_task_info.with_priority(2).build(), jobs[1]), 0)
         assert next(ap.jobs) == jobs[0]
         assert next(ap.jobs) == jobs[1]
         assert next(ap.jobs) == jobs[2]
@@ -133,9 +133,9 @@ class TestActionPlanPushIterator:
                     frequency=Duration(days=1))
                 .with_priority(1))
 
-        ap._push_iterator(ConcreteTaskGenerator(common_task_info.build(), jobs[0]))
+        ap._push_iterator(ConcreteTaskGenerator(common_task_info.build(), jobs[0]), 0)
         with pytest.raises(ValueError):
-            ap._push_iterator(ConcreteTaskGenerator(common_task_info.build(), jobs[1]))
+            ap._push_iterator(ConcreteTaskGenerator(common_task_info.build(), jobs[1]), 0)
 
     def test_raise_push_concurrent_jobs(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
@@ -151,9 +151,9 @@ class TestActionPlanPushIterator:
             until=DateTime(2000, 1, 5),
             frequency=Duration(days=2)).with_priority(1)).build()
 
-        ap._push_iterator(ConcreteTaskGenerator(task1, jobs[0]))
+        ap._push_iterator(ConcreteTaskGenerator(task1, jobs[0]), 0)
         with pytest.raises(ValueError):
-            ap._push_iterator(ConcreteTaskGenerator(task2, jobs[1]))
+            ap._push_iterator(ConcreteTaskGenerator(task2, jobs[1]), 0)
 
     def test_not_raise_concurrent_jobs_outside_from_until(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
@@ -169,9 +169,9 @@ class TestActionPlanPushIterator:
             until=DateTime(2000, 1, 11),
             frequency=Duration(days=5)).with_priority(1)).build()
 
-        ap._push_iterator(ConcreteTaskGenerator(task1, jobs[0]))
+        ap._push_iterator(ConcreteTaskGenerator(task1, jobs[0]), 0)
         with pytest.raises(ValueError):
-            ap._push_iterator(ConcreteTaskGenerator(task2, jobs[1]))
+            ap._push_iterator(ConcreteTaskGenerator(task2, jobs[1]), 0)
 
 class TestActionPlanPopIterator:
     def test_pop_single_job_iterator(self, tmp_path):
@@ -185,12 +185,13 @@ class TestActionPlanPopIterator:
                 .with_priority(1).build())
         itr = ConcreteTaskGenerator(task, job)
 
-        ap._push_iterator(itr)
+        ap._push_iterator(itr, 0)
         assert len(ap._priority_queue) == 1
 
-        res = ap._pop_iterator()
+        itr_number, res = ap._pop_iterator()
         assert len(ap._priority_queue) == 0
-        assert itr == res
+        assert res == itr
+        assert itr_number == 0
 
     def test_pop_multi_job_iterator(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
@@ -203,12 +204,13 @@ class TestActionPlanPopIterator:
                 .with_priority(1).build())
         itr = ConcreteTaskGenerator(task, job)
 
-        ap._push_iterator(itr)
+        ap._push_iterator(itr, 0)
         assert len(ap._priority_queue) == 1
 
-        res = ap._pop_iterator()
+        itr_number, res = ap._pop_iterator()
         assert len(ap._priority_queue) == 0
-        assert itr == res
+        assert res == itr
+        assert itr_number == 0
 
     def test_pop_multiple_iterator(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
@@ -227,14 +229,14 @@ class TestActionPlanPopIterator:
         itr1 = ConcreteTaskGenerator(task1, jobs[0])
         itr2 = ConcreteTaskGenerator(task2, jobs[1])
 
-        ap._push_iterator(itr1)
-        ap._push_iterator(itr2)
+        ap._push_iterator(itr1, 0)
+        ap._push_iterator(itr2, 0)
 
         assert len(ap._priority_queue) == 2
-        res = ap._pop_iterator()
+        _, res = ap._pop_iterator()
         assert len(ap._priority_queue) == 1
         assert res == itr1
-        res = ap._pop_iterator()
+        _, res = ap._pop_iterator()
         assert len(ap._priority_queue) == 0
         assert res == itr2
 

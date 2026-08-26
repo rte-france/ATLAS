@@ -101,7 +101,7 @@ class TestWorkflowInlineParameters:
         )
 
         workflow = Workflow.from_file(config)
-        assert workflow.jobs[0].parameters.temporal.start_date == build_datetime("2028-09-27 00:00:00")
+        assert next(workflow.jobs).parameters.temporal.start_date == build_datetime("2028-09-27 00:00:00")
 
 
 class TestWorkflowRepresentation:
