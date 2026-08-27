@@ -45,10 +45,8 @@ class TestTaskIterator:
              build_datetime("2016-09-02 00:00:00"),
              build_datetime("2016-09-03 00:00:00")])
 
-        assert task_iterator.next_execution_date == expected_next_execution_date[0]
-        for idx, job in enumerate(task_iterator):
-            if task_iterator.has_next_execution_date():
-                assert task_iterator.next_execution_date == expected_next_execution_date[idx+1]
+        for i in [0, 1, 2]:
+            assert task_iterator.execution_date(i) == expected_next_execution_date[i]
 
     def test_next_start_date(self, task):
         task.offset_start_date = Duration(days=0, hours=3, minutes=7)

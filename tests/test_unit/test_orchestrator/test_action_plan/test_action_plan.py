@@ -31,7 +31,7 @@ class ActionPlanMockFactory:
         params = ActionPlanMockFactory.make_minimal_parameters(tmp_path)
         ap = ActionPlan.__new__(ActionPlan)
         ap.parameters = params
-        ap._priority_queue = []
+        ap._task_job_generators = []
         return ap
 
     @staticmethod
@@ -75,172 +75,6 @@ class ActionPlanMockFactory:
         return ActionPlanParameters.from_file(config)
 
 
-class TestActionPlanPushIterator:
-    def test_push_single_job_iterator(self, tmp_path):
-        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        job = MockJobBuilder().with_name("job").build()
-        task = (MockTaskBuilder()
-                .with_from_until_frequency(
-                    from_=DateTime(2000, 1, 1),
-                    until=DateTime(2000, 1, 1),
-                    frequency=Duration(days=1))
-                .with_priority(1).build())
-        itr = ConcreteTaskGenerator(task, job)
-        ap._push_iterator(itr, 0)
-        assert next(ap.jobs) == job
-
-    def test_push_single_job_iterator_with_multiple_date(self, tmp_path):
-        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        job = MockJobBuilder().with_name("job").build()
-        task = (MockTaskBuilder()
-                .with_from_until_frequency(
-                    from_=DateTime(2000, 1, 1),
-                    until=DateTime(2000, 1, 3),
-                    frequency=Duration(days=1))
-                .with_priority(1).build())
-        itr = ConcreteTaskGenerator(task, job)
-        ap._push_iterator(itr, 0)
-        assert len(ap._priority_queue) == 1
-        assert next(ap.jobs) == job
-        assert next(ap.jobs) == job
-        assert next(ap.jobs) == job
-
-    def test_push_various_single_job_iterator(self, tmp_path):
-        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        jobs = [MockJobBuilder().with_name("job1").build(),
-            MockJobBuilder().with_name("job2").build(),
-            MockJobBuilder().with_name("job3").build()]
-        common_task_info = (MockTaskBuilder()
-                .with_from_until_frequency(
-                    from_=DateTime(2000, 1, 1),
-                    until=DateTime(2000, 1, 1),
-                    frequency=Duration(days=1)))
-        ap._push_iterator(ConcreteTaskGenerator(common_task_info.with_priority(1).build(), jobs[0]), 0)
-        ap._push_iterator(ConcreteTaskGenerator(common_task_info.with_priority(3).build(), jobs[2]), 0)
-        ap._push_iterator(ConcreteTaskGenerator(common_task_info.with_priority(2).build(), jobs[1]), 0)
-        assert next(ap.jobs) == jobs[0]
-        assert next(ap.jobs) == jobs[1]
-        assert next(ap.jobs) == jobs[2]
-
-    def test_raise_push_concurrent_jobs_first_execution_date(self, tmp_path):
-        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        jobs = [MockJobBuilder().with_name("job1").build(),
-            MockJobBuilder().with_name("job2").build()]
-        common_task_info = (MockTaskBuilder()
-                .with_from_until_frequency(
-                    from_=DateTime(2000, 1, 1),
-                    until=DateTime(2000, 1, 1),
-                    frequency=Duration(days=1))
-                .with_priority(1))
-
-        ap._push_iterator(ConcreteTaskGenerator(common_task_info.build(), jobs[0]), 0)
-        with pytest.raises(ValueError):
-            ap._push_iterator(ConcreteTaskGenerator(common_task_info.build(), jobs[1]), 0)
-
-    def test_raise_push_concurrent_jobs(self, tmp_path):
-        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        jobs = [MockJobBuilder().with_name("job1").build(),
-                MockJobBuilder().with_name("job2").build()]
-        task1 = (MockTaskBuilder().with_from_until_frequency(
-            from_=DateTime(2000, 1, 1),
-            until=DateTime(2000, 1, 5),
-            frequency=Duration(days=1)).with_priority(1)).build()
-
-        task2 = (MockTaskBuilder().with_from_until_frequency(
-            from_=DateTime(2000, 1, 2),
-            until=DateTime(2000, 1, 5),
-            frequency=Duration(days=2)).with_priority(1)).build()
-
-        ap._push_iterator(ConcreteTaskGenerator(task1, jobs[0]), 0)
-        with pytest.raises(ValueError):
-            ap._push_iterator(ConcreteTaskGenerator(task2, jobs[1]), 0)
-
-    def test_not_raise_concurrent_jobs_outside_from_until(self, tmp_path):
-        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        jobs = [MockJobBuilder().with_name("job1").build(),
-                MockJobBuilder().with_name("job2").build()]
-        task1 = (MockTaskBuilder().with_from_until_frequency(
-            from_=DateTime(2000, 1, 1),
-            until=DateTime(2000, 1, 10),
-            frequency=Duration(days=3)).with_priority(1)).build()
-
-        task2 = (MockTaskBuilder().with_from_until_frequency(
-            from_=DateTime(2000, 1, 1),
-            until=DateTime(2000, 1, 11),
-            frequency=Duration(days=5)).with_priority(1)).build()
-
-        ap._push_iterator(ConcreteTaskGenerator(task1, jobs[0]), 0)
-        with pytest.raises(ValueError):
-            ap._push_iterator(ConcreteTaskGenerator(task2, jobs[1]), 0)
-
-class TestActionPlanPopIterator:
-    def test_pop_single_job_iterator(self, tmp_path):
-        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        job = MockJobBuilder().with_name("job").build()
-        task = (MockTaskBuilder()
-                .with_from_until_frequency(
-                    from_=DateTime(2000, 1, 1),
-                    until=DateTime(2000, 1, 1),
-                    frequency=Duration(days=1))
-                .with_priority(1).build())
-        itr = ConcreteTaskGenerator(task, job)
-
-        ap._push_iterator(itr, 0)
-        assert len(ap._priority_queue) == 1
-
-        itr_number, res = ap._pop_iterator()
-        assert len(ap._priority_queue) == 0
-        assert res == itr
-        assert itr_number == 0
-
-    def test_pop_multi_job_iterator(self, tmp_path):
-        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        job = MockJobBuilder().with_name("job").build()
-        task = (MockTaskBuilder()
-                .with_from_until_frequency(
-                    from_=DateTime(2000, 1, 1),
-                    until=DateTime(2000, 1, 7),
-                    frequency=Duration(days=1))
-                .with_priority(1).build())
-        itr = ConcreteTaskGenerator(task, job)
-
-        ap._push_iterator(itr, 0)
-        assert len(ap._priority_queue) == 1
-
-        itr_number, res = ap._pop_iterator()
-        assert len(ap._priority_queue) == 0
-        assert res == itr
-        assert itr_number == 0
-
-    def test_pop_multiple_iterator(self, tmp_path):
-        ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        jobs = [MockJobBuilder().with_name("job1").build(),
-                MockJobBuilder().with_name("job2").build()]
-
-        common_task_info = (MockTaskBuilder()
-                .with_from_until_frequency(
-                    from_=DateTime(2000, 1, 1),
-                    until=DateTime(2000, 1, 1),
-                    frequency=Duration(days=1)))
-
-        task1 = common_task_info.with_priority(1).build()
-        task2 = common_task_info.with_priority(2).build()
-
-        itr1 = ConcreteTaskGenerator(task1, jobs[0])
-        itr2 = ConcreteTaskGenerator(task2, jobs[1])
-
-        ap._push_iterator(itr1, 0)
-        ap._push_iterator(itr2, 0)
-
-        assert len(ap._priority_queue) == 2
-        _, res = ap._pop_iterator()
-        assert len(ap._priority_queue) == 1
-        assert res == itr1
-        _, res = ap._pop_iterator()
-        assert len(ap._priority_queue) == 0
-        assert res == itr2
-
-
 class TestActionPlanAddTask:
     def test_add_task_module(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
@@ -255,8 +89,8 @@ class TestActionPlanAddTask:
                 offset_end_date=Duration(days=2),
         )
         ap.add_task(task)
-        assert len(ap._priority_queue) == 1
-        assert ap._priority_queue[0].task.module == ModuleRegistry.PortfolioOptimisation
+        assert len(ap._task_job_generators) == 1
+        assert ap._task_job_generators[0]._task.module == ModuleRegistry.PortfolioOptimisation
 
     def test_add_task_workflow(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
@@ -272,8 +106,8 @@ class TestActionPlanAddTask:
                 offset_end_date=Duration(days=2),
         )
         ap.add_task(task)
-        assert len(ap._priority_queue) == 1
-        assert ap._priority_queue[0].task.workflow == workflow
+        assert len(ap._task_job_generators) == 1
+        assert ap._task_job_generators[0]._task.workflow == workflow
 
     def test_add_task_workflow_with_path(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
@@ -289,8 +123,8 @@ class TestActionPlanAddTask:
                 offset_end_date=Duration(days=2),
         )
         ap.add_task(task)
-        assert len(ap._priority_queue) == 1
-        assert ap._priority_queue[0].task.workflow == workflow_config
+        assert len(ap._task_job_generators) == 1
+        assert ap._task_job_generators[0]._task.workflow == workflow_config
 
     def test_add_various_task(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
@@ -334,14 +168,14 @@ class TestActionPlanAddTask:
                 until=DateTime(2000, 1, 1),
                 frequency=Duration(days=1))
         ap.add_task(task1)
-        assert len(ap._priority_queue) == 1
+        assert len(ap._task_job_generators) == 1
         ap.add_task(task2)
-        assert len(ap._priority_queue) == 2
+        assert len(ap._task_job_generators) == 2
         ap.add_task(task3)
-        assert len(ap._priority_queue) == 3
-        expected_job_order = ["task 1 iteration 0",
-                              "task 2 iteration 0",
-                              "task 3 iteration 0"]
+        assert len(ap._task_job_generators) == 3
+        expected_job_order = ["task 1 iteration 1",
+                              "task 2 iteration 1",
+                              "task 3 iteration 1"]
         for idx, job in enumerate(ap.jobs):
             assert job.name == expected_job_order[idx]
 

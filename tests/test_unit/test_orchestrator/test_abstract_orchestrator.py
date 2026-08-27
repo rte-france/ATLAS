@@ -63,11 +63,11 @@ class _OrchestratorBuilder():
         params = ActionPlanParameters.from_file(config, overall_context)
         action_plan = ActionPlan.__new__(ActionPlan)
         action_plan.parameters = params
-        priority_queue: list[tuple[TaskIterationPriority, int, TaskJobsGenerator]] = []
+        job_generators: list[TaskJobsGenerator] = []
         for priority, job in enumerate(jobs):
             task = MockTaskBuilder().with_priority(priority).build()
-            heapq.heappush(priority_queue, (TaskIterationPriority(task.from_, task.priority), 0, ConcreteTaskGenerator(task, job)))
-        action_plan._priority_queue = priority_queue
+            job_generators.append(ConcreteTaskGenerator(task, job))
+        action_plan._task_job_generators = job_generators
         return action_plan
 
 
