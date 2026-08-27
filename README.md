@@ -31,7 +31,17 @@ Modules are grouped into market chains, each representing a full simulation cycl
 | **Market Clearing** | Determines market equilibrium by matching supply and demand across interconnected areas, under ATC or flow-based network constraints. |
 | **Portfolio Optimisation** | Optimises energy asset portfolios (thermal, hydro, storage, solar, wind, load) to maximise profit under market conditions. |
 
-**Intraday** — in development :rocket:
+**Intraday** — available
+
+| Module | Description |
+|---|---|
+| **Intraday Price Forecast** | Forecasts intraday prices per market area from the deviation between the latest load, wind and solar forecasts and the day-ahead baseline, using a price sensitivity ratio and price caps. |
+| **Portfolio Optimisation** | Re-optimises the portfolio against the forecast prices, starting from the day-ahead cleared position. |
+| **Intraday Orders** | Formulates intraday orders (thermal, hydro, storage, solar, wind, load, non-dispatchable) from the gap between the optimised schedule and the current engagement. |
+| **Market Clearing** | Clears the intraday market over the remaining horizon. |
+| **Portfolio Optimisation** | Final re-optimisation against the intraday cleared position. |
+
+Both chains reuse the same **Market Clearing** and **Portfolio Optimisation** modules — only the parameters and the position they hold in the workflow differ.
 
 ## Stack
 
@@ -139,6 +149,41 @@ steps:
 atlas workflow list workflow.yaml # List all workflow steps
 
 atlas workflow run workflow.yaml
+```
+
+### 5. Run a full intraday workflow
+
+The intraday chain starts from a price forecast and re-optimises the portfolio twice — once against the
+forecast prices, once against the intraday cleared position. The same module can appear several times in
+a workflow with different parameters.
+
+```yaml
+# intraday_workflow.yaml
+name: intraday
+dataset_path: ./data/input/
+output_dataset_path: ./data/output/
+output_dir: ./results/
+steps:
+  - module: IntradayPriceForecast
+    parameters_path: ./parameters/intraday_price_forecast.yml
+  - module: PortfolioOptimisation
+    parameters_path: ./parameters/portfolio_optimisation_1.yml
+  - module: IntradayOrders
+    parameters_path: ./parameters/intraday_orders.yml
+  - module: MarketClearing
+    parameters_path: ./parameters/market_clearing.yml
+  - module: PortfolioOptimisation
+    parameters_path: ./parameters/portfolio_optimisation_2.yml
+```
+
+```bash
+atlas workflow run intraday_workflow.yaml
+```
+
+A runnable example is available in the test dataset:
+
+```bash
+uv run atlas workflow run tests/dataset/parameters/intraday/workflow.yml
 ```
 
 ## Documentation
