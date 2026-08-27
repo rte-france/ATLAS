@@ -120,6 +120,8 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         while len(priority_queue) > 0:
             _, current_iteration, job_generator = heapq.heappop(priority_queue)
             jobs = job_generator.build_jobs(current_iteration)
+            if jobs is None:
+                continue
             for job in jobs:
                 yield cast(ActionPlanJob, job)
             next_iteration = current_iteration + 1
