@@ -55,26 +55,30 @@ class TaskJobsGenerator(ABC):
     """Generator associated to a Task to generate jobs based on an iteration number."""
 
     def __init__(self, task: Task):
-        self.task: Task = task
+        self._task: Task = task
+
+    def concurrent_with(self, task: Task) -> bool:
+        """Return true if given task and this generator task have the same priority and, at some point, have to be executed with the same execution."""
+        return Task.are_concurrent(self._task, task)
 
     def start_date(self, iteration):
-        """Return the start date associated to the given iteration for the task"""
-        return self.execution_date(iteration) + self.task.offset_start_date
+        """Return the start date associated to the given iteration for the _task"""
+        return self.execution_date(iteration) + self._task.offset_start_date
 
     def execution_date(self, iteration):
-        """Return the execution date associated to the given iteration for the task"""
-        return self.task.from_ + (iteration-1) * self.task.frequency
+        """Return the execution date associated to the given iteration for the _task"""
+        return self._task.from_ + (iteration - 1) * self._task.frequency
 
     def end_date(self, iteration):
-        """Return the end date associated to the given iteration for the task"""
-        return self.execution_date(iteration) + self.task.offset_end_date
+        """Return the end date associated to the given iteration for the _task"""
+        return self.execution_date(iteration) + self._task.offset_end_date
 
     def priority(self, iteration) -> TaskIterationPriority:
-        """Return the iteration priority associated to the given iteration for the task"""
-        return TaskIterationPriority(self.execution_date(iteration), self.task.priority)
+        """Return the iteration priority associated to the given iteration for the _task"""
+        return TaskIterationPriority(self.execution_date(iteration), self._task.priority)
 
     def is_valid_iteration(self, iteration) -> bool:
-        """Return true the task have the given iteration and false otherwise."""
+        """Return true the _task have the given iteration and false otherwise."""
         return 1 <= iteration <= len(self)
 
     def build_jobs(self, iteration) -> list[AbstractJob] | None:
@@ -95,8 +99,8 @@ class TaskJobsGenerator(ABC):
 
     @cached_property
     def _length(self) -> int:
-        span_seconds = (self.task.until - self.task.from_).total_seconds()
-        step_seconds = self.task.frequency.total_seconds()
+        span_seconds = (self._task.until - self._task.from_).total_seconds()
+        step_seconds = self._task.frequency.total_seconds()
         return int(span_seconds // step_seconds) + 1
 
     def __len__(self):
@@ -117,7 +121,7 @@ class ModuleTaskJobsGenerator(TaskJobsGenerator):
         """Build and return the list of ActionPlanJob for the given iteration."""
         return [
             ActionPlanJob(
-                f"task {self.task.name} iteration {iteration}",
+                f"_task {self._task.name} iteration {iteration}",
                 self.module,
                 self._build_parameters(iteration),
             )
@@ -169,5 +173,5 @@ class WorkflowTaskJobsGenerator(TaskJobsGenerator):
 
     def _build_jobs(self, iteration) -> list[AbstractJob]:
         """Build and return the list of ActionPlanJob for the given iteration."""
-        workflow = Workflow(self._build_parameters(iteration), f"task {self.task.name} iteration {iteration}")
+        workflow = Workflow(self._build_parameters(iteration), f"_task {self._task.name} iteration {iteration}")
         return list(workflow.jobs)

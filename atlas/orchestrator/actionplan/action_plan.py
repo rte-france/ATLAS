@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-import copy
 import heapq
 from collections.abc import Iterator
 from pathlib import Path
@@ -46,14 +45,20 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         for task in self.parameters.tasks:
             self.add_task(task)
 
-    def _has_concurrent_task_with(self, task: Task) -> bool:
-        return any(Task.are_concurrent(itr.task, task) for itr in self._task_job_generators)
+    def has_task_concurrent_with(self, task: Task) -> bool:
+        """Return true if given task and a task from this action plan have the same priority and, at some point, have to be executed with the same execution."""
+        return any(task_job_generator.concurrent_with(task) for task_job_generator in self._task_job_generators)
 
     def add_task(self, task: TaskModule | TaskWorkflow):
         """Add a task to the action plan
         :param task: task to add
         :type task: Task
         """
+        if self.has_task_concurrent_with(task):
+            raise ValueError(
+                f"Trying to add task {task} which is concurrent to existing tasks in Action plan {self.parameters.name}."
+            )
+
         root_output_dir = self.parameters.resolve_path(self.parameters.output_dir) / task.name
 
         _TASK_ADDER = {

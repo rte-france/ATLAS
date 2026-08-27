@@ -81,6 +81,7 @@ class Task(BaseModel, ABC):
 
     @classmethod
     def are_concurrent(cls, task1: Task, task2: Task) -> bool:
+        """Return true if both task are concurrent, meaning they both have the same priority and, at some point, have to be executed with the same execution."""
         # Different priority are ignored
         if task1.priority != task2.priority:
             return False
