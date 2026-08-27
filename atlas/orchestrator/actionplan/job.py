@@ -8,6 +8,7 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from functools import cached_property
 from pathlib import Path
 
 from pydantic_extra_types.pendulum_dt import DateTime
@@ -62,7 +63,7 @@ class TaskJobsGenerator(ABC):
 
     def execution_date(self, iteration):
         """Return the execution date associated to the given iteration for the task"""
-        return self.task.from_ + iteration * self.task.frequency
+        return self.task.from_ + (iteration-1) * self.task.frequency
 
     def end_date(self, iteration):
         """Return the end date associated to the given iteration for the task"""
@@ -72,12 +73,16 @@ class TaskJobsGenerator(ABC):
         """Return the iteration priority associated to the given iteration for the task"""
         return TaskIterationPriority(self.execution_date(iteration), self.task.priority)
 
+    def is_valid_iteration(self, iteration) -> bool:
+        """Return true the task have the given iteration and false otherwise."""
+        return 1 <= iteration <= len(self)
+
     def build_jobs(self, iteration) -> list[AbstractJob] | None:
         """
         Build and return the list of ActionPlanJob for the given iteration.
         Return None if no job for the given iteration exists.
         """
-        if iteration < 0 or iteration >= len(self):
+        if not self.is_valid_iteration(iteration):
             return None
         return self._build_jobs(iteration)
 
@@ -88,10 +93,14 @@ class TaskJobsGenerator(ABC):
         """
         pass
 
-    def __len__(self):
+    @cached_property
+    def _length(self) -> int:
         span_seconds = (self.task.until - self.task.from_).total_seconds()
         step_seconds = self.task.frequency.total_seconds()
         return int(span_seconds // step_seconds) + 1
+
+    def __len__(self):
+        return self._length
 
 
 class ModuleTaskJobsGenerator(TaskJobsGenerator):
@@ -106,8 +115,6 @@ class ModuleTaskJobsGenerator(TaskJobsGenerator):
 
     def _build_jobs(self, iteration) -> list[AbstractJob]:
         """Build and return the list of ActionPlanJob for the given iteration."""
-        if iteration < 0 or iteration < len(self):
-            return None
         return [
             ActionPlanJob(
                 f"task {self.task.name} iteration {iteration}",
