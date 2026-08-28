@@ -11,7 +11,7 @@ import warnings
 from abc import ABC
 from math import gcd
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pendulum import Duration, duration
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -139,7 +139,7 @@ class TaskModule(Task):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    module: ModuleRegistry | None = None
+    module: ModuleRegistry
     parameters_path: Path | None = None
 
     @field_validator("module", mode="before")
@@ -168,27 +168,21 @@ class TaskWorkflow(Task):
     """Definition of a single task that run a workflow
 
     :param workflow: Workflow to be executed, can be a path to a config file to build it.
-    :type workflow: Workflow | Path | None
+    :type workflow: Workflow | Path
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    workflow: Workflow | Path | None = None
+    workflow: Workflow
 
     @field_validator("workflow", mode="before")
     @classmethod
-    def validate_workflow_exist(cls, v: Any) -> Workflow | None:
-        if v is not None and isinstance(v, Path):
-            if not v.exists():
-                raise ValueError(f"Workflow parameter file not found at {v}")
+    def build_workflow(cls, v: Any) -> Workflow:
+        if v is isinstance(v, Path):
+            return cast(Workflow, Workflow.from_file(cast(Path, v)))
         return v
 
     @model_validator(mode="after")
     def default_name(self) -> TaskWorkflow:
         if self.name is None:
-            if self.workflow is not None:
-                if isinstance(self.workflow, Path):
-                    self.name = self.workflow.name
-                elif isinstance(self.workflow, Workflow):
-                    self.name = self.workflow.parameters.name
+            self.name = self.workflow.parameters.name
         return self
