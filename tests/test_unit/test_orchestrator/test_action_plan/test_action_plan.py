@@ -126,7 +126,7 @@ class TestActionPlanAddTask:
 
     def test_add_various_task(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        task1 = TaskModule(
+        ap.add_task(TaskModule(
                 name="1",
                 module="PortfolioOptimisation",
                 parameters_path=ModuleConfigBuilder().build(tmp_path),
@@ -136,8 +136,8 @@ class TestActionPlanAddTask:
                 frequency=Duration(days=1),
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
-        )
-        task2 = TaskModule(
+        ))
+        ap.add_task(TaskModule(
                 name="2",
                 module="PortfolioOptimisation",
                 parameters_path=ModuleConfigBuilder().build(tmp_path),
@@ -147,8 +147,8 @@ class TestActionPlanAddTask:
                 frequency=Duration(days=1),
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
-        )
-        task3 = TaskModule(
+        ))
+        ap.add_task(TaskModule(
                 name="3",
                 module="PortfolioOptimisation",
                 parameters_path=ModuleConfigBuilder().build(tmp_path),
@@ -158,19 +158,8 @@ class TestActionPlanAddTask:
                 frequency=Duration(days=1),
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
-        )
-
-
-        partial_task = MockTaskBuilder().with_from_until_frequency(
-                from_=DateTime(2000, 1, 1),
-                until=DateTime(2000, 1, 1),
-                frequency=Duration(days=1))
-        ap.add_task(task1)
-        assert len(ap._task_job_generators) == 1
-        ap.add_task(task2)
-        assert len(ap._task_job_generators) == 2
-        ap.add_task(task3)
-        assert len(ap._task_job_generators) == 3
+        ))
+        assert ap.jobs_count == 3
         expected_job_order = ["task 1 iteration 1",
                               "task 2 iteration 1",
                               "task 3 iteration 1"]
@@ -179,38 +168,36 @@ class TestActionPlanAddTask:
 
     def test_add_various_task_with_multiple_date(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        task1 = TaskModule(
-            name="1",
-            module="PortfolioOptimisation",
-            parameters_path=ModuleConfigBuilder().build(tmp_path),
-            priority=1,
-            from_=DateTime(2000, 1, 1),
-            until=DateTime(2000, 1, 10),
-            frequency=Duration(days=3),
-            offset_start_date=Duration(days=1),
-            offset_end_date=Duration(days=2),
-        )
-
-        task2 = TaskModule(
-            name="2",
-            module="PortfolioOptimisation",
-            parameters_path=ModuleConfigBuilder().build(tmp_path),
-            priority=2,
-            from_=DateTime(2000, 1, 1),
-            until=DateTime(2000, 1, 11),
-            frequency=Duration(days=5),
-            offset_start_date=Duration(days=1),
-            offset_end_date=Duration(days=2),
-        )
-        assert ap.add_task(task1) == 4
-        assert ap.add_task(task2) == 3
-        expected_job_order = ["task 1 iteration 0",
-                              "task 2 iteration 0",
-                              "task 1 iteration 1",
+        ap.add_task(TaskModule(
+                name="1",
+                module="PortfolioOptimisation",
+                parameters_path=ModuleConfigBuilder().build(tmp_path),
+                priority=1,
+                from_=DateTime(2000, 1, 1),
+                until=DateTime(2000, 1, 10),
+                frequency=Duration(days=3),
+                offset_start_date=Duration(days=1),
+                offset_end_date=Duration(days=2),
+        ))
+        ap.add_task(TaskModule(
+                name="2",
+                module="PortfolioOptimisation",
+                parameters_path=ModuleConfigBuilder().build(tmp_path),
+                priority=2,
+                from_=DateTime(2000, 1, 1),
+                until=DateTime(2000, 1, 11),
+                frequency=Duration(days=5),
+                offset_start_date=Duration(days=1),
+                offset_end_date=Duration(days=2),
+        ))
+        assert ap.jobs_count == 7
+        expected_job_order = ["task 1 iteration 1",
                               "task 2 iteration 1",
                               "task 1 iteration 2",
+                              "task 2 iteration 2",
                               "task 1 iteration 3",
-                              "task 2 iteration 2"]
+                              "task 1 iteration 4",
+                              "task 2 iteration 3"]
         for idx, job in enumerate(ap.jobs):
             assert job.name == expected_job_order[idx]
 

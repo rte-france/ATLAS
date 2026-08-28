@@ -119,7 +119,7 @@ class TestTask:
         assert task.offset_start_date == offset_start_date
         assert task.offset_end_date == offset_end_date
 
-        task = TestTask.build_workflow(frequency=frequency, offset_start_date=offset_start_date, offset_end_date=offset_end_date, workflow=empty_workflow)
+        task = TestTask.build_task_workflow(frequency=frequency, offset_start_date=offset_start_date, offset_end_date=offset_end_date, workflow=empty_workflow)
         assert task.frequency == frequency
         assert task.offset_start_date == offset_start_date
         assert task.offset_end_date == offset_end_date

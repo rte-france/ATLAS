@@ -38,50 +38,39 @@ class TestTaskIterator:
         )
 
 
-    def test_next_execution_date(self, task):
+    def test_execution_date(self, task):
         task_iterator = ConcreteTaskGenerator(task)
-        expected_next_execution_date =(
+        expected_execution_date =(
             [build_datetime("2016-09-01 00:00:00"),
              build_datetime("2016-09-02 00:00:00"),
              build_datetime("2016-09-03 00:00:00")])
 
-        for i in [0, 1, 2]:
-            assert task_iterator.execution_date(i) == expected_next_execution_date[i]
+        for index, expected_result in enumerate(expected_execution_date):
+            assert task_iterator.execution_date(index+1) == expected_result
 
-    def test_next_start_date(self, task):
+    def test_start_date(self, task):
         task.offset_start_date = Duration(days=0, hours=3, minutes=7)
         task_iterator = ConcreteTaskGenerator(task)
-        expected_next_start_date = (
+        expected_start_date = (
             [build_datetime("2016-09-01 03:07:00"),
             build_datetime("2016-09-02 03:07:00"),
             build_datetime("2016-09-03 03:07:00")])
 
-        assert task_iterator.next_start_date == expected_next_start_date[0]
-        for idx, job in enumerate(task_iterator):
-            if task_iterator.has_next_execution_date():
-                assert task_iterator.next_start_date == expected_next_start_date[idx+1]
+        for index, expected_result in enumerate(expected_start_date):
+            assert task_iterator.start_date(index+1) == expected_result
 
 
 
     def test_next_end_date(self, task):
         task.offset_end_date = Duration(days=0, hours=5, minutes=11)
         task_iterator = ConcreteTaskGenerator(task)
-        expected_next_end_date = (
+        expected_end_date = (
             [build_datetime("2016-09-01 05:11:00"),
             build_datetime("2016-09-02 05:11:00"),
             build_datetime("2016-09-03 05:11:00")])
 
-        assert task_iterator.next_end_date == expected_next_end_date[0]
-        for idx, job in enumerate(task_iterator):
-            if task_iterator.has_next_execution_date():
-                assert task_iterator.next_end_date == expected_next_end_date[idx+1]
-
-    def test_iter_reset_iterator(self, task):
-        task_iterator = ConcreteTaskGenerator(task)
-        itr = task_iterator.__iter__()
-        job = next(itr)
-        itr = task_iterator.__iter__()
-        assert job == next(itr)
+        for index, expected_result in enumerate(expected_end_date):
+            assert task_iterator.end_date(index+1) == expected_result
 
     def test_lesser_than_different_execution_date(self, tmp_path):
         task1 = TaskModule(
@@ -164,7 +153,7 @@ class TestModuleTaskIterator:
         )
 
         itr = ModuleTaskJobsGenerator(task, parameters, tmp_path)
-        generated_parameters = itr._build_current_parameters()
+        generated_parameters = itr._build_parameters(1)
         assert generated_parameters.temporal.execution_date == build_datetime("2000-01-01 00:00:00")
         assert generated_parameters.temporal.start_date == build_datetime("2000-01-01 12:00:00")
         assert generated_parameters.temporal.end_date == build_datetime("2000-01-02 00:00:00")
@@ -184,7 +173,7 @@ class TestModuleTaskIterator:
                 offset_end_date=Duration(hours=24),
         )
         itr = ModuleTaskJobsGenerator(task, parameters, tmp_path)
-        job = itr.build_jobs()[0]
+        job = itr.build_jobs(1)[0]
         generated_parameters = job.parameters
         assert generated_parameters.temporal.execution_date == build_datetime("2000-01-01 00:00:00")
         assert generated_parameters.temporal.start_date == build_datetime("2000-01-01 12:00:00")
@@ -251,7 +240,7 @@ class TestWorkflowTaskIterator:
                 offset_end_date=Duration(hours=24),
         )
 
-        itr = ModuleTaskJobsGenerator(task, workflow.parameters, tmp_path)
+        itr = WorkflowTaskJobsGenerator(task, workflow.parameters, tmp_path)
         generated_parameters = itr._build_parameters(0)
         assert generated_parameters.context.forced["temporal"]["execution_date"] == build_datetime("2000-01-01 00:00:00")
         assert generated_parameters.context.forced["temporal"]["start_date"] == build_datetime("2000-01-01 12:00:00")
@@ -285,7 +274,7 @@ class TestWorkflowTaskIterator:
         )
 
         itr = WorkflowTaskJobsGenerator(task, workflow.parameters, tmp_path)
-        job = itr.build_jobs()[0]
+        job = itr.build_jobs(1)[0]
         generated_parameters = job.parameters
         assert generated_parameters.temporal.execution_date == build_datetime("2000-01-01 00:00:00")
         assert generated_parameters.temporal.start_date == build_datetime("2000-01-01 12:00:00")
