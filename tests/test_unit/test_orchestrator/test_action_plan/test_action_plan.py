@@ -29,9 +29,7 @@ class ActionPlanMockFactory:
     @staticmethod
     def make_minimal_action_plan(tmp_path) -> ActionPlan:
         params = ActionPlanMockFactory.make_minimal_parameters(tmp_path)
-        ap = ActionPlan.__new__(ActionPlan)
-        ap.parameters = params
-        ap._task_job_generators = []
+        ap = ActionPlan(params)
         return ap
 
     @staticmethod
