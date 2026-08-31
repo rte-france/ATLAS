@@ -23,7 +23,7 @@ from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilde
 class TestWorkflowAddStep:
     @pytest.fixture
     def empty_workflow(self, tmp_path):
-        conf = OrchestratorConfigBuilder().build_workflow(tmp_path)
+        conf = OrchestratorConfigBuilder().build_workflow_config(tmp_path)
         params = Workflow.from_file(conf)
         wf = Workflow.__new__(Workflow)
         wf.parameters = params

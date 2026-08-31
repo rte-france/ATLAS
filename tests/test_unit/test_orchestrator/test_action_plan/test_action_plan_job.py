@@ -28,7 +28,7 @@ class TestTaskIterator:
     def task(self, tmp_path):
         return TaskModule(
                 module="PortfolioOptimisation",
-                parameters_path=ModuleConfigBuilder().build(tmp_path),
+                parameters=ModuleConfigBuilder().build(tmp_path),
                 priority=1,
                 from_=DateTime(2016, 9, 1),
                 until=DateTime(2016, 9, 3),
@@ -75,7 +75,7 @@ class TestTaskIterator:
     def test_lesser_than_different_execution_date(self, tmp_path):
         task1 = TaskModule(
                 module="PortfolioOptimisation",
-                parameters_path=ModuleConfigBuilder().build(tmp_path),
+                parameters=ModuleConfigBuilder().build(tmp_path),
                 priority=1,
                 from_=build_datetime("2016-01-01 00:00:00"),
                 until=build_datetime("2020-01-01 00:00:00"),
@@ -85,7 +85,7 @@ class TestTaskIterator:
         )
         task2 = TaskModule(
                 module="PortfolioOptimisation",
-                parameters_path=ModuleConfigBuilder().build(tmp_path),
+                parameters=ModuleConfigBuilder().build(tmp_path),
                 priority=1,
                 from_=build_datetime("2018-01-01 00:00:00"),
                 until=build_datetime("2019-01-01 00:00:00"),
@@ -140,10 +140,10 @@ class TestTaskIterator:
 
 class TestModuleTaskIterator:
     def test_build_current_parameters(self, tmp_path):
-        parameters = MockModuleParametersBuilder().build()
+        parameters_path = ModuleConfigBuilder().build(tmp_path)
         task = TaskModule(
                 module="PortfolioOptimisation",
-                parameters_path=ModuleConfigBuilder().build(tmp_path),
+                parameters=parameters_path,
                 priority=1,
                 from_=build_datetime("2000-01-01 00:00:00"),
                 until=build_datetime("2000-01-02 00:00:00"),
@@ -152,6 +152,7 @@ class TestModuleTaskIterator:
                 offset_end_date=Duration(hours=24),
         )
 
+        parameters = PortfolioOptimisationParameters.from_file(parameters_path)
         itr = ModuleTaskJobsGenerator(task, parameters, tmp_path)
         generated_parameters = itr._build_parameters(1)
         assert generated_parameters.temporal.execution_date == build_datetime("2000-01-01 00:00:00")
@@ -164,7 +165,7 @@ class TestModuleTaskIterator:
         parameters = PortfolioOptimisationParameters.from_file(parameters_path)
         task = TaskModule(
                 module="PortfolioOptimisation",
-                parameters_path=ModuleConfigBuilder().build(tmp_path),
+                parameters=ModuleConfigBuilder().build(tmp_path),
                 priority=1,
                 from_=build_datetime("2000-01-01 00:00:00"),
                 until=build_datetime("2000-01-02 00:00:00"),
@@ -228,7 +229,7 @@ class TestModuleTaskIterator:
 
 class TestWorkflowTaskIterator:
     def test_build_current_parameters(self, tmp_path):
-        parameters = OrchestratorConfigBuilder().build_workflow(tmp_path)
+        parameters = OrchestratorConfigBuilder().build_workflow_config(tmp_path)
         workflow = Workflow.from_file(parameters)
         task = TaskWorkflow(
                 workflow=workflow,
@@ -241,7 +242,7 @@ class TestWorkflowTaskIterator:
         )
 
         itr = WorkflowTaskJobsGenerator(task, workflow.parameters, tmp_path)
-        generated_parameters = itr._build_parameters(0)
+        generated_parameters = itr._build_parameters(1)
         assert generated_parameters.context.forced["temporal"]["execution_date"] == build_datetime("2000-01-01 00:00:00")
         assert generated_parameters.context.forced["temporal"]["start_date"] == build_datetime("2000-01-01 12:00:00")
         assert generated_parameters.context.forced["temporal"]["end_date"] == build_datetime("2000-01-02 00:00:00")
@@ -288,7 +289,7 @@ class TestWorkflowTaskIterator:
                              .with_end_date(date + Duration(years=3))
                              .build())
 
-        conf = OrchestratorConfigBuilder().build_workflow(tmp_path)
+        conf = OrchestratorConfigBuilder().build_workflow_config(tmp_path)
         wf = Workflow.__new__(Workflow)
         wf.parameters = Workflow.from_file(conf)
         wf._jobs = [MockJobBuilder().with_module_parameters(module_parameters).build()]

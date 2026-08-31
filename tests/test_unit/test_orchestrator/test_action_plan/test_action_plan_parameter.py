@@ -27,7 +27,7 @@ class TestTask:
 
     @pytest.fixture
     def empty_workflow(self, tmp_path):
-        return OrchestratorConfigBuilder().build_workflow(tmp_path)
+        return Workflow.from_file(OrchestratorConfigBuilder().build_workflow_config(tmp_path))
 
     @staticmethod
     def build_task_module(
@@ -43,7 +43,7 @@ class TestTask:
         return TaskModule(
             name=name,
             module=module,
-            parameters_path=parameters_path,
+            parameters=parameters_path,
             priority=priority,
             from_=from_ or DateTime(2026, 1, 1),
             until=until or DateTime(2026, 1, 1),
@@ -54,8 +54,8 @@ class TestTask:
 
     @staticmethod
     def build_task_workflow(
+            workflow: Workflow,
             name: str | None = None,
-            workflow: Workflow | Path | None = None,
             priority: int = 1,
             from_: DateTime | None = None,
             until: DateTime | None = None,
@@ -93,9 +93,9 @@ class TestTask:
         with pytest.raises(Exception):
             TestTask.build_task_workflow(workflow="DoesNotExist")
 
-    def test_parameters_path_is_path_object_module(self, tmp_path, params_file):
+    def test_parameters_is_str_object_module(self, tmp_path, params_file):
         task = TestTask.build_task_module(module="PortfolioOptimisation", parameters_path=str(params_file))
-        assert isinstance(task.parameters_path, Path)
+        assert isinstance(task.parameters, str)
 
     def test_datetime_are_preserved(self, params_file, empty_workflow):
         from_ = pendulum.DateTime(year=1, month=1, day=1)

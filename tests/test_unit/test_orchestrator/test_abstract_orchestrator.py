@@ -47,7 +47,7 @@ class _OrchestratorBuilder():
     def make_mock_workflow(
         tmp_path, jobs: list, yaml_context: str = "", overall_context: ContextParameters | None = None
     ) -> Workflow:
-        config = OrchestratorConfigBuilder().with_context(yaml_context).build_workflow(tmp_path)
+        config = OrchestratorConfigBuilder().with_context(yaml_context).build_workflow_config(tmp_path)
         params = WorkflowParameters.from_file(config, overall_context)
         workflow = Workflow.__new__(Workflow)
         workflow.parameters = params
@@ -59,7 +59,7 @@ class _OrchestratorBuilder():
     def make_mock_action_plan(
         tmp_path, jobs: list, yaml_context: str = "", overall_context: ContextParameters | None = None
     ) -> ActionPlan:
-        config = OrchestratorConfigBuilder().with_context(yaml_context).build_action_plan(tmp_path)
+        config = OrchestratorConfigBuilder().with_context(yaml_context).build_action_plan_config(tmp_path)
         params = ActionPlanParameters.from_file(config, overall_context)
         action_plan = ActionPlan.__new__(ActionPlan)
         action_plan.parameters = params

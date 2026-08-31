@@ -236,12 +236,12 @@ class OrchestratorConfigBuilder:
         self.misc = misc
         return self
 
-    def build_workflow(self, tmp_path):
+    def build_workflow_config(self, tmp_path):
         if self.misc == "":
             self.misc = "steps: []"
         return self.build(tmp_path)
 
-    def build_action_plan(self, tmp_path):
+    def build_action_plan_config(self, tmp_path):
         if self.misc == "":
             self.misc = "tasks: []"
         return self.build(tmp_path)

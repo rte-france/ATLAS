@@ -22,7 +22,12 @@ class AbstractJob:
     and producing an output dataset from an input dataset.
     """
 
-    def __init__(self, name: str, module: type[AbstractModule], parameters: dict[str, Any] | str | Path | AbstractModuleParameters):
+    def __init__(
+        self,
+        name: str,
+        module: type[AbstractModule],
+        parameters: dict[str, Any] | str | Path | AbstractModuleParameters,
+    ):
         """
         Initialize an AbstractJob.
 

@@ -88,9 +88,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
             )
         elif isinstance(task.parameters, dict):
             module_parameters = (
-                task.module.value()
-                .get_parameters_class()
-                .from_dict(task.parameters, self.parameters.context)
+                task.module.value().get_parameters_class().from_dict(task.parameters, self.parameters.context)
             )
         else:
             module_parameters = self.parameters.context.apply_on_parameters(task.parameters, deepcopy=True)

@@ -78,7 +78,7 @@ class TestActionPlanAddTask:
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
         task = TaskModule(
                 module="PortfolioOptimisation",
-                parameters_path=ModuleConfigBuilder().build(tmp_path),
+                parameters=ModuleConfigBuilder().build(tmp_path),
                 priority=1,
                 from_=DateTime(2000, 1, 1),
                 until=DateTime(2000, 1, 1),
@@ -92,7 +92,7 @@ class TestActionPlanAddTask:
 
     def test_add_task_workflow(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        workflow_config = OrchestratorConfigBuilder().build_workflow(tmp_path)
+        workflow_config = OrchestratorConfigBuilder().build_workflow_config(tmp_path)
         workflow = Workflow.from_file(workflow_config)
         task = TaskWorkflow(
                 workflow=workflow,
@@ -109,10 +109,10 @@ class TestActionPlanAddTask:
 
     def test_add_task_workflow_with_path(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        workflow_config = OrchestratorConfigBuilder().build_workflow(tmp_path)
+        workflow_config = OrchestratorConfigBuilder().build_workflow_config(tmp_path)
         workflow = Workflow.from_file(workflow_config)
         task = TaskWorkflow(
-                workflow=workflow_config,
+                workflow=workflow,
                 priority=1,
                 from_=DateTime(2000, 1, 1),
                 until=DateTime(2000, 1, 1),
@@ -122,14 +122,14 @@ class TestActionPlanAddTask:
         )
         ap.add_task(task)
         assert len(ap._task_job_generators) == 1
-        assert ap._task_job_generators[0]._task.workflow == workflow_config
+        assert ap._task_job_generators[0]._task.workflow == workflow
 
     def test_add_various_task(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
         ap.add_task(TaskModule(
                 name="1",
                 module="PortfolioOptimisation",
-                parameters_path=ModuleConfigBuilder().build(tmp_path),
+                parameters=ModuleConfigBuilder().build(tmp_path),
                 priority=1,
                 from_=DateTime(2000, 1, 1),
                 until=DateTime(2000, 1, 1),
@@ -140,7 +140,7 @@ class TestActionPlanAddTask:
         ap.add_task(TaskModule(
                 name="2",
                 module="PortfolioOptimisation",
-                parameters_path=ModuleConfigBuilder().build(tmp_path),
+                parameters=ModuleConfigBuilder().build(tmp_path),
                 priority=2,
                 from_=DateTime(2000, 1, 1),
                 until=DateTime(2000, 1, 1),
@@ -151,7 +151,7 @@ class TestActionPlanAddTask:
         ap.add_task(TaskModule(
                 name="3",
                 module="PortfolioOptimisation",
-                parameters_path=ModuleConfigBuilder().build(tmp_path),
+                parameters=ModuleConfigBuilder().build(tmp_path),
                 priority=3,
                 from_=DateTime(2000, 1, 1),
                 until=DateTime(2000, 1, 1),
@@ -171,7 +171,7 @@ class TestActionPlanAddTask:
         ap.add_task(TaskModule(
                 name="1",
                 module="PortfolioOptimisation",
-                parameters_path=ModuleConfigBuilder().build(tmp_path),
+                parameters=ModuleConfigBuilder().build(tmp_path),
                 priority=1,
                 from_=DateTime(2000, 1, 1),
                 until=DateTime(2000, 1, 10),
@@ -182,7 +182,7 @@ class TestActionPlanAddTask:
         ap.add_task(TaskModule(
                 name="2",
                 module="PortfolioOptimisation",
-                parameters_path=ModuleConfigBuilder().build(tmp_path),
+                parameters=ModuleConfigBuilder().build(tmp_path),
                 priority=2,
                 from_=DateTime(2000, 1, 1),
                 until=DateTime(2000, 1, 11),
@@ -216,7 +216,7 @@ class TestActionPlanFromFile:
             f"output_dataset_path: {output_dir}\n"
             f"tasks:\n"
             f"  - module: PortfolioOptimisation\n"
-            f"    parameters_path: /nonexistent/path/params.yaml\n"
+            f"    parameters: /nonexistent/path/params.yaml\n"
             f"    from_: '2028-01-01 00:00:00'\n"
             f"    until: '2028-01-03 00:00:00'\n"
             f"    frequency: '1d'\n"
@@ -252,7 +252,7 @@ class TestActionPlanRepresentation:
             f"output_dataset_path: {output_dir}\n"
             f"tasks:\n"
             f"  - module: MarketClearing\n"
-            f"    parameters_path: {params_file}\n"
+            f"    parameters: {params_file}\n"
             f"    from_: '2028-01-01 00:00:00'\n"
             f"    until: '2028-01-03 00:00:00'\n"
             f"    frequency: '1d'\n"
@@ -292,7 +292,7 @@ class TestActionPlanContextParameters:
             f"output_dataset_path: {output_dir}\n"
             f"tasks:\n"
             f"  - module: MarketClearing\n"
-            f"    parameters_path: {params_file}\n"
+            f"    parameters: {params_file}\n"
             f"    from_: '2028-09-26 00:00:00'\n"
             f"    until: '2028-09-27 00:00:00'\n"
             f"    frequency: '1d'\n"
@@ -534,7 +534,7 @@ class TestActionPlanPathFromActionPlan:
             f"output_dir: results\n"
             f"tasks:\n"
             f"  - module: MarketClearing\n"
-            f"    parameters_path: {params_file}\n"
+            f"    parameters: {params_file}\n"
             f"    from_: '2028-01-01 00:00:00'\n"
             f"    until: '2028-01-03 00:00:00'\n"
             f"    frequency: '1d'\n"
