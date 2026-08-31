@@ -18,6 +18,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
+from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.custom_errors import DataQualityWarning
 from atlas.orchestrator.hook.hook import Hook
 from atlas.orchestrator.module_registry import ModuleRegistry
@@ -133,14 +134,13 @@ class TaskModule(Task):
 
     :param module: Module to be executed (if any) in this task.
     :type module: AbstractModule | None
-    :param parameters_path: Parameters of the module associated with this task.
-    :type parameters_path: Path
+    :param parameters: Parameters of the module associated with this task.
+    :type parameters: AbstractModuleParameters | dict[str, Any] | str | Path
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-
     module: ModuleRegistry
-    parameters_path: Path | None = None
+    parameters: AbstractModuleParameters | dict[str, Any] | str | Path
 
     @field_validator("module", mode="before")
     @classmethod
@@ -149,7 +149,7 @@ class TaskModule(Task):
             return ModuleRegistry(ModuleRegistry.get(v))
         return v
 
-    @field_validator("parameters_path", mode="before")
+    @field_validator("parameters", mode="before")
     @classmethod
     def validate_module_path_exist(cls, v: Any) -> Path | None:
         if v is not None and isinstance(v, Path):

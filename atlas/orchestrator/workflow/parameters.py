@@ -27,7 +27,7 @@ class Step(BaseModel):
     :type name: str
     :param parameters_path: Path to the parameters file for the job. Mutually exclusive with `parameters`.
     :type parameters_path: str | None
-    :param parameters: Inline parameters for the job. Mutually exclusive with `parameters_path`.
+    :param parameters: Inline parameters for the job. Mutually exclusive with `parameters`.
     :type parameters: dict | None
     """
 
@@ -52,7 +52,7 @@ class Step(BaseModel):
     @model_validator(mode="after")
     def check_parameters_source(self) -> Step:
         if (self.parameters_path is None) == (self.parameters is None):
-            raise ValueError("Exactly one of 'parameters_path' or 'parameters' must be set.")
+            raise ValueError("Exactly one of 'parameters' or 'parameters' must be set.")
         return self
 
     @staticmethod

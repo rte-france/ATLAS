@@ -79,15 +79,23 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         :param root_output_dir: path to the root output directory used for the task
         :type root_output_dir: Path
         """
-        if task.module is None:
-            raise ValueError(f"Fail to add Task {task.name}, a TaskModule with module value None.")
-        if task.parameters_path is None:
-            raise ValueError(f"Fail to add Task {task.name}, a TaskModule with parameter path value None.")
-        module_parameters = (
-            task.module.value()
-            .get_parameters_class()
-            .from_file(self.parameters.resolve_path(task.parameters_path), self.parameters.context)
-        )
+        if isinstance(task.parameters, str) or isinstance(task.parameters, Path):
+            path = task.parameters if isinstance(task.parameters, Path) else Path(task.parameters)
+            module_parameters = (
+                task.module.value()
+                .get_parameters_class()
+                .from_file(self.parameters.resolve_path(path), self.parameters.context)
+            )
+        elif isinstance(task.parameters, dict):
+            module_parameters = (
+                task.module.value()
+                .get_parameters_class()
+                .from_dict(task.parameters, self.parameters.context)
+            )
+        else:
+            module_parameters = task.parameters
+            # TODO apply context on task.parameters
+
         module_iterator = ModuleTaskJobsGenerator(task, module_parameters, root_output_dir)
         self._task_job_generators.append(module_iterator)
 
