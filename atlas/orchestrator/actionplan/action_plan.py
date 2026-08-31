@@ -93,8 +93,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
                 .from_dict(task.parameters, self.parameters.context)
             )
         else:
-            module_parameters = task.parameters
-            # TODO apply context on task.parameters
+            module_parameters = self.parameters.context.apply_on_parameters(task.parameters, deepcopy=True)
 
         module_iterator = ModuleTaskJobsGenerator(task, module_parameters, root_output_dir)
         self._task_job_generators.append(module_iterator)

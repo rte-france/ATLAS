@@ -65,7 +65,7 @@ class Parameters(BaseModel):
         if parameters is None:
             parameters = {}
 
-        parameters = context.apply_on(parameters, True)
+        parameters = context.apply_on_dict(parameters, True)
         return cls(**parameters)
 
     @staticmethod
@@ -156,7 +156,7 @@ class ContextParameters(BaseModel):
         deep_update(self.default, context.default, True)
         deep_update(self.forced, context.forced, True)
 
-    def apply_on(self, base: dict, inplace: bool = False) -> dict:
+    def apply_on_dict(self, base: dict, inplace: bool = False) -> dict:
         """
         Return the resulting dictionary obtained by applying this context to the given dictionary,
         return a deepcopy if inplace is False.
@@ -171,3 +171,26 @@ class ContextParameters(BaseModel):
         deep_update(updated_dict, self.default, False)
         deep_update(updated_dict, self.forced, True)
         return updated_dict
+
+    def apply_on_parameters(self, parameter: Parameters, deepcopy: bool = False) -> Parameters:
+        """
+        Copy and update parameters based on this context, return a deepcopy if deepcopy is True.
+        Any default value in this context will be added if value is None in the parameter.
+        Override any forced value from this context that are also present in given parameter.
+        :param parameter: parameter to copy and update using this context
+        :type parameter: Parameters
+        :param deepcopy: If True, return a deepcopy object of given parameter. If False, returns a swallow copy.
+        :type deepcopy: bool
+        """
+        # prune self.default to field that exist and value is None
+        applicable_defaults = {
+            k: v for k, v in self.default.items() if hasattr(parameter, k) and getattr(parameter, k) is None
+        }
+
+        # create a copy of dict applicable_defaults, then append self.forced and override existing field
+        fields_to_update = {**applicable_defaults, **self.forced}
+
+        # prune fields_to_update to field that exist
+        applicable_update = {k: v for k, v in fields_to_update if hasattr(parameter, k)}
+
+        return parameter.model_copy(update=applicable_update, deep=deepcopy)
