@@ -469,7 +469,8 @@ class TestActionPlanPathFromActionPlan:
             "dataset_path: dataset\n"
             "output_dataset_path: output\n"
             "path_from_action_plan: true\n"
-            f"tasks: []\n"
+            f"action_plan_path: {tmp_path}\n"
+            "tasks: []\n"
         )
 
         action_plan = ActionPlan.from_file(config)
@@ -528,13 +529,14 @@ class TestActionPlanPathFromActionPlan:
         config = tmp_path / "action_plan.yaml"
         config.write_text(
             f"name: test_action_plan\n"
-            f"dataset_path: {dataset_dir}\n"
-            f"output_dataset_path: {output_dir}\n"
+            f"dataset_path: dataset\n"
+            f"output_dataset_path: output\n"
             f"path_from_action_plan: true\n"
+            f"action_plan_path: {tmp_path}\n"
             f"output_dir: results\n"
             f"tasks:\n"
             f"  - module: MarketClearing\n"
-            f"    parameters: {params_file}\n"
+            f"    parameters: params.yaml\n"
             f"    from_: '2028-01-01 00:00:00'\n"
             f"    until: '2028-01-03 00:00:00'\n"
             f"    frequency: '1d'\n"

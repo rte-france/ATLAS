@@ -318,6 +318,7 @@ class TestWorkflowPathFromWorkflow:
             "dataset_path: dataset\n"
             "output_dataset_path: output\n"
             "path_from_workflow: true\n"
+            f"workflow_path: {tmp_path}\n"
             "steps: []\n"
         )
 
@@ -377,9 +378,10 @@ class TestWorkflowPathFromWorkflow:
         config = tmp_path / "workflow.yaml"
         config.write_text(
             f"name: test_workflow\n"
-            f"dataset_path: {dataset_dir}\n"
-            f"output_dataset_path: {output_dir}\n"
+            f"dataset_path: dataset\n"
+            f"output_dataset_path: output\n"
             f"path_from_workflow: true\n"
+            f"workflow_path: {tmp_path}\n"
             f"output_dir: results\n"
             f"steps:\n"
             f"  - module: MarketClearing\n"
