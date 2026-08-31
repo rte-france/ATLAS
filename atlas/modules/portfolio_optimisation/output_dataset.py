@@ -5,20 +5,35 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from atlas.abstract_class.dataset import AbstractModuleOutput
-from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
 from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
 from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.utils.orchestration import PortfolioOptimisationResult
+from atlas.modules.portfolio_optimisation.utils.result_extraction import EquipmentSchedule, extract_equipment_schedule
 from atlas.orchestrator.change_set import UpdateObject
+
+if TYPE_CHECKING:
+    from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
+    from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
+    from atlas.modules.portfolio_optimisation.utils.orchestration import PortfolioOptimisationResult
 
 
 class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisationParameters]):
+    """
+    Output of the portfolio optimisation module.
+
+    Writes the solved schedules onto the portfolio and equipment objects, then exports the
+    modified objects as changesets for the orchestrator to apply onto the current input state.
+    """
+
     def __init__(
         self,
         parameters: PortfolioOptimisationParameters,
@@ -29,11 +44,13 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
 
     def build_change_sets(self) -> None:
         """Run in-place mutations then export each modified object as an UpdateObject changeset."""
-        self.build()
+        self.update_equipments()
+        self.update_portfolios()
 
-        for optimisation_results in self.optimisation_results:
-            portfolio = optimisation_results.portfolio
-            if self.parameters.is_portfolio_bidding and not optimisation_results.is_manual_activation:
+        for optimisation_result in self.optimisation_results:
+            portfolio = optimisation_result.portfolio
+
+            if self.parameters.is_portfolio_bidding and not optimisation_result.is_manual_activation:
                 portfolio_data: dict = {
                     "name": portfolio.name,
                     "imbalance": portfolio.imbalance,
@@ -43,281 +60,189 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
 
             for _, equipment_list in portfolio.equipments.iter_by_type():
                 for equipment in equipment_list:
-                    equipment_data: dict = {"name": equipment.name, "power": equipment.power}
-                    if self.parameters.use_forecast:
-                        equipment_data["id_po_for_orders"] = equipment.id_po_for_orders
-                    if isinstance(equipment, (HydroPO, StoragePO)):
-                        equipment_data["stored_energy"] = equipment.stored_energy
-                    if isinstance(equipment, ThermalPO):
-                        equipment_data["state_sequence"] = equipment.state_sequence
-                    self.change_sets.append(UpdateObject(equipment_data, type(equipment)))
+                    self.change_sets.append(UpdateObject(self._equipment_data(equipment), type(equipment)))
 
-    def build(self):
-        for optimisation_results in self.optimisation_results:
-            if optimisation_results.is_manual_activation:
+    def _equipment_data(self, equipment: EquipmentPO) -> dict:
+        """
+        Build the payload of the changeset updating an equipment.
+
+        :param equipment: Equipment carrying the optimised schedule.
+        :type equipment: EquipmentPO
+        :return: Attributes to write onto the corresponding current input state object.
+        :rtype: dict
+        """
+        equipment_data: dict = {"name": equipment.name, "power": equipment.power}
+
+        if self.parameters.use_forecast:
+            equipment_data["id_po_for_orders"] = equipment.id_po_for_orders
+        if isinstance(equipment, (HydroPO, StoragePO)):
+            equipment_data["stored_energy"] = equipment.stored_energy
+        if isinstance(equipment, ThermalPO):
+            equipment_data["state_sequence"] = equipment.state_sequence
+
+        return equipment_data
+
+    def update_equipments(self) -> None:
+        """
+        Write the optimised schedule of every equipment onto the equipment itself.
+
+        Manually activated portfolios are skipped: their schedules are already set by
+        :func:`atlas.modules.portfolio_optimisation.utils.manual_activation.set_manual_activation`.
+        """
+        for optimisation_result in self.optimisation_results:
+            if optimisation_result.is_manual_activation:
                 continue
 
-            portfolio = optimisation_results.portfolio
+            for _, equipment_list in optimisation_result.portfolio.equipments.iter_by_type_for_optimisation():
+                for equipment in equipment_list:
+                    self._write_equipment_schedule(equipment, optimisation_result)
 
-            if self.parameters.is_portfolio_bidding:
-                imbalance_values = [
-                    optimisation_results.get_variable_value(f"{portfolio.name}_large_imbalance_down_{t}")
-                    + optimisation_results.get_variable_value(f"{portfolio.name}_small_imbalance_down_{t}")
-                    - optimisation_results.get_variable_value(f"{portfolio.name}_large_imbalance_up_{t}")
-                    - optimisation_results.get_variable_value(f"{portfolio.name}_small_imbalance_up_{t}")
-                    for t in self.parameters.target_times
-                ]
-                imbalance_ts = Timeseries.from_values(
-                    start_date=self.parameters.target_times[0],
-                    frequency=self.parameters.temporal.timestep,
-                    values=imbalance_values,
-                )
-                if portfolio.imbalance:
-                    if self.parameters.temporal.execution_date in portfolio.imbalance:
-                        portfolio.imbalance.replace(self.parameters.temporal.execution_date, imbalance_ts)
-                    else:
-                        portfolio.imbalance.add(imbalance_ts, self.parameters.temporal.execution_date)
-                else:
-                    portfolio.imbalance = ForecastingMatrix().add(imbalance_ts, self.parameters.temporal.execution_date)
-
-                for equipment_type, equipment_list in portfolio.equipments.iter_by_type():
-                    self.update_equipment(optimisation_results, equipment_type, equipment_list)
-
-                power_ts = Timeseries.from_values(
-                    start_date=self.parameters.target_times[0],
-                    frequency=self.parameters.temporal.timestep,
-                    values=[0.0] * len(self.parameters.target_times),
-                )
-                for _, equipment_list in portfolio.equipments.iter_by_type():
-                    for e in equipment_list:
-                        if e.power:
-                            power_ts = power_ts + e.power.get_forecast(
-                                self.parameters.temporal.execution_date,
-                                min(self.parameters.target_times),
-                                max(self.parameters.target_times),
-                            )
-
-                if portfolio.power:
-                    if self.parameters.temporal.execution_date in portfolio.power:
-                        portfolio.power.replace(self.parameters.temporal.execution_date, power_ts)
-                    else:
-                        portfolio.power.add(power_ts, self.parameters.temporal.execution_date)
-                else:
-                    portfolio.power = ForecastingMatrix().add(power_ts, self.parameters.temporal.execution_date)
-
-    def _extract_values(
-        self, equipment: EquipmentPO, equipment_type: str, optimisation_results: PortfolioOptimisationResult
-    ) -> tuple[list[float], list[float], list[float]]:
+    def update_portfolios(self) -> None:
         """
-        Extract power and stored energy values from optimization variables.
+        Write the imbalance and the aggregated power onto every optimised portfolio.
 
-        :param equipment: Equipment instance
+        Must run after :meth:`update_equipments`, since the portfolio power is the sum of the
+        equipment schedules. Does nothing in individual equipment mode, where the portfolio is a
+        synthetic single-equipment wrapper: portfolio-level results are neither meaningful there
+        nor exported as changesets.
+        """
+        if not self.parameters.is_portfolio_bidding:
+            return
+
+        for optimisation_result in self.optimisation_results:
+            if optimisation_result.is_manual_activation:
+                continue
+
+            self._write_portfolio_imbalance(optimisation_result.portfolio, optimisation_result)
+            self._write_portfolio_power(optimisation_result.portfolio)
+
+    def _write_equipment_schedule(
+        self, equipment: EquipmentPO, optimisation_result: PortfolioOptimisationResult
+    ) -> None:
+        """
+        Read the optimised schedule of an equipment and store it on the equipment itself.
+
+        In forecast mode the schedule feeds ``id_po_for_orders`` and leaves the committed
+        ``power`` and ``stored_energy`` untouched, since the optimisation is only run to build
+        orders ahead of a market.
+
+        :param equipment: Equipment to update.
         :type equipment: EquipmentPO
-        :param equipment_type: Type of equipment
-        :type equipment_type: str
-        :param optimisation_results: Optimization result containing the solved variables
-        :type optimisation_results: PortfolioOptimisationResult
-        :return: Tuple of (power_values, stored_energy_values, state_sequence)
-        :rtype: tuple[list[float], list[float], list[float]]
+        :param optimisation_result: Solved optimisation holding the variable values.
+        :type optimisation_result: PortfolioOptimisationResult
         """
-        power_values: list[float] = []
-        stored_energy_values: list[float] = []
-        state_sequence: list[float] = []
+        schedule = extract_equipment_schedule(
+            equipment,
+            optimisation_result,
+            self.parameters.target_times,
+            self.parameters.allowed_round_off_error,
+        )
 
-        if equipment_type == "thermal":
-            state_sequence = []
+        if self.parameters.use_forecast:
+            equipment.id_po_for_orders = self._upsert_forecast(equipment.id_po_for_orders, schedule.power)
+        else:
+            equipment.power = self._upsert_forecast(equipment.power, schedule.power)
+            if isinstance(equipment, (HydroPO, StoragePO)):
+                equipment.stored_energy = self._upsert_forecast(equipment.stored_energy, schedule.stored_energy)
 
-            for t in self.parameters.target_times:
-                power = optimisation_results.get_variable_value(f"{equipment.name}_power_level_{t}")
+        if isinstance(equipment, ThermalPO):
+            self._write_state_sequence(equipment, schedule)
 
-                if abs(power) <= self.parameters.allowed_round_off_error:
-                    power = 0.0
-                power_values.append(power)
+    def _write_state_sequence(self, equipment: ThermalPO, schedule: EquipmentSchedule) -> None:
+        """
+        Store the operating state sequence of a thermal unit, indexed by execution date.
 
-                if optimisation_results.get_variable_value(f"on_up_{equipment.name}_{t}") == 1:
-                    state_sequence.append(1)
-                elif optimisation_results.get_variable_value(f"on_down_{equipment.name}_{t}") == 1:
-                    state_sequence.append(2)
-                elif optimisation_results.get_variable_value(f"off_{equipment.name}_{t}") == 1:
-                    state_sequence.append(3)
-                elif optimisation_results.get_variable_value(f"on_start_{equipment.name}_{t}") == 1:
-                    state_sequence.append(4)
-                elif optimisation_results.get_variable_value(f"stop_{equipment.name}_{t}") == 1:
-                    state_sequence.append(5)
-                elif optimisation_results.get_variable_value(f"on_flat_{equipment.name}_{t}") == 1:
-                    state_sequence.append(6)
+        :param equipment: Thermal unit to update.
+        :type equipment: ThermalPO
+        :param schedule: Optimised schedule holding the state sequence.
+        :type schedule: EquipmentSchedule
+        """
+        if not schedule.state_sequence:
+            return
 
-        elif equipment_type == "hydro":
-            fragment_categories = list(equipment.fragment_data.keys())  # type: ignore
-            for t in self.parameters.target_times:
-                activated_power = 0.0
-                for category in fragment_categories:
-                    activated_power += optimisation_results.get_variable_value(
-                        f"{equipment.name}_power_level_frag_{category}_{t}"
+        state_sequence_ts = self._to_timeseries([float(state) for state in schedule.state_sequence])
+        execution_date = self.parameters.temporal.execution_date.to_datetime_string()
+
+        if equipment.state_sequence is None:
+            equipment.state_sequence = ScenarioMatrix()
+        equipment.state_sequence.upsert(execution_date, state_sequence_ts)
+
+    def _write_portfolio_imbalance(
+        self, portfolio: PortfolioPO, optimisation_result: PortfolioOptimisationResult
+    ) -> None:
+        """
+        Store the net imbalance of a portfolio, counted positively when the portfolio is short.
+
+        :param portfolio: Portfolio to update.
+        :type portfolio: PortfolioPO
+        :param optimisation_result: Solved optimisation holding the variable values.
+        :type optimisation_result: PortfolioOptimisationResult
+        """
+        imbalance_values = [
+            optimisation_result.get_variable_value(f"{portfolio.name}_large_imbalance_down_{time}")
+            + optimisation_result.get_variable_value(f"{portfolio.name}_small_imbalance_down_{time}")
+            - optimisation_result.get_variable_value(f"{portfolio.name}_large_imbalance_up_{time}")
+            - optimisation_result.get_variable_value(f"{portfolio.name}_small_imbalance_up_{time}")
+            for time in self.parameters.target_times
+        ]
+
+        portfolio.imbalance = self._upsert_forecast(portfolio.imbalance, imbalance_values)
+
+    def _write_portfolio_power(self, portfolio: PortfolioPO) -> None:
+        """
+        Store the portfolio power as the sum of the power of its equipments.
+
+        Must run after the equipments have been updated, since it reads back their schedules.
+
+        :param portfolio: Portfolio to update.
+        :type portfolio: PortfolioPO
+        """
+        power_ts = self._to_timeseries([0.0] * len(self.parameters.target_times))
+
+        for _, equipment_list in portfolio.equipments.iter_by_type():
+            for equipment in equipment_list:
+                if equipment.power:
+                    power_ts = power_ts + equipment.power.get_forecast(
+                        self.parameters.temporal.execution_date,
+                        min(self.parameters.target_times),
+                        max(self.parameters.target_times),
                     )
 
-                if activated_power <= self.parameters.allowed_round_off_error:
-                    activated_power = 0.0
+        portfolio.power = self._upsert_forecast(portfolio.power, power_ts)
 
-                power_values.append(activated_power)
-
-                stored_energy = optimisation_results.get_variable_value(f"{equipment.name}_stored_energy_{t}")
-                stored_energy_values.append(stored_energy)
-
-        elif equipment_type == "storage":
-            for t in self.parameters.target_times:
-                power = optimisation_results.get_variable_value(
-                    f"{equipment.name}_power_level_sell_{t}"
-                ) + optimisation_results.get_variable_value(f"{equipment.name}_power_level_buy_{t}")
-
-                if abs(power) <= self.parameters.allowed_round_off_error:
-                    power = 0.0
-
-                power_values.append(power)
-
-                stored_energy = optimisation_results.get_variable_value(f"{equipment.name}_stored_energy_{t}")
-                stored_energy_values.append(stored_energy)
-
-        else:
-            for t in self.parameters.target_times:
-                power = optimisation_results.get_variable_value(f"{equipment.name}_power_level_{t}")
-
-                if abs(power) <= self.parameters.allowed_round_off_error:
-                    power = 0.0
-
-                power_values.append(power)
-
-        return power_values, stored_energy_values, state_sequence
-
-    def _update_power_forecasting_matrix(self, equipment: EquipmentPO, power_values: list[float]):
+    def _to_timeseries(self, values: list[float]) -> Timeseries:
         """
-        Update equipment's power forecasting matrix with optimized power values.
+        Build a timeseries spanning the target times.
 
-        :param equipment: Equipment instance to update
-        :type equipment: EquipmentPO
-        :param power_values: List of power values for target times
-        :type power_values: list[float]
+        :param values: One value per target time.
+        :type values: list[float]
+        :return: The corresponding timeseries.
+        :rtype: Timeseries
         """
-        power_ts = Timeseries.from_values(
+        return Timeseries.from_values(
             start_date=self.parameters.target_times[0],
             frequency=self.parameters.temporal.timestep,
-            values=power_values,
+            values=values,
         )
 
-        if equipment.power:
-            if self.parameters.temporal.execution_date in equipment.power:
-                equipment.power.replace(self.parameters.temporal.execution_date, power_ts)
-            else:
-                equipment.power.add(power_ts, self.parameters.temporal.execution_date)
-        else:
-            equipment.power = ForecastingMatrix().add(power_ts, self.parameters.temporal.execution_date)
-
-    def _update_id_po_orders_forecasting_matrix(self, equipment: EquipmentPO, power_values: list[float]):
+    def _upsert_forecast(
+        self, matrix: ForecastingMatrix | LazyForecastingMatrix | None, values: list[float] | Timeseries
+    ) -> ForecastingMatrix | LazyForecastingMatrix:
         """
-        Update equipment's id po orders forecasting matrix with optimized power values.
+        Write a forecast at the execution date, creating the matrix if the attribute is still empty.
 
-        :param equipment: Equipment instance to update
-        :type equipment: EquipmentPO
-        :param power_values: List of power values for target times
-        :type power_values: list[float]
+        :param matrix: Existing forecasting matrix, or None if the object carries none yet.
+        :type matrix: ForecastingMatrix | LazyForecastingMatrix | None
+        :param values: One value per target time, or an already-built timeseries.
+        :type values: list[float] | Timeseries
+        :return: The matrix holding the new forecast.
+        :rtype: ForecastingMatrix | LazyForecastingMatrix
         """
-        power_ts = Timeseries.from_values(
-            start_date=self.parameters.target_times[0],
-            frequency=self.parameters.temporal.timestep,
-            values=power_values,
-        )
+        timeseries = values if isinstance(values, Timeseries) else self._to_timeseries(values)
+        execution_date = self.parameters.temporal.execution_date
 
-        if equipment.id_po_for_orders:
-            if self.parameters.temporal.execution_date in equipment.id_po_for_orders:
-                equipment.id_po_for_orders.replace(self.parameters.temporal.execution_date, power_ts)
-            else:
-                equipment.id_po_for_orders.add(power_ts, self.parameters.temporal.execution_date)
-        else:
-            equipment.id_po_for_orders = ForecastingMatrix().add(power_ts, self.parameters.temporal.execution_date)
+        if matrix is None:
+            return ForecastingMatrix().add(timeseries, execution_date)
 
-    def _update_stored_energy_forecasting_matrix(
-        self, equipment: HydroPO | StoragePO, stored_energy_values: list[float]
-    ):
-        """
-        Update equipment's stored energy forecasting matrix.
-
-        :param equipment: Equipment instance to update (must be HydroPO or StoragePO)
-        :type equipment: HydroPO | StoragePO
-        :param stored_energy_values: List of stored energy values for target times
-        :type stored_energy_values: list[float]
-        """
-        if not stored_energy_values:
-            return
-
-        stored_energy_ts = Timeseries.from_values(
-            start_date=self.parameters.target_times[0],
-            frequency=self.parameters.temporal.timestep,
-            values=stored_energy_values,
-        )
-
-        if equipment.stored_energy:
-            if self.parameters.temporal.execution_date in equipment.stored_energy:
-                equipment.stored_energy.replace(self.parameters.temporal.execution_date, stored_energy_ts)
-            else:
-                equipment.stored_energy.add(stored_energy_ts, self.parameters.temporal.execution_date)
-        else:
-            equipment.stored_energy = ForecastingMatrix().add(stored_energy_ts, self.parameters.temporal.execution_date)
-
-    def _update_state_sequence(self, equipment: ThermalPO, state_sequence: list[float]):
-        if len(state_sequence) < 2:
-            return
-
-        state_sequence_ts = Timeseries.from_values(
-            start_date=self.parameters.target_times[0],
-            frequency=self.parameters.temporal.timestep,
-            values=state_sequence,
-        )
-
-        exec_date_str = self.parameters.temporal.execution_date.to_datetime_string()
-        if equipment.state_sequence:
-            if exec_date_str in equipment.state_sequence:
-                equipment.state_sequence.replace(exec_date_str, state_sequence_ts)
-            else:
-                equipment.state_sequence.add(state_sequence_ts, exec_date_str)
-        else:
-            equipment.state_sequence = ScenarioMatrix().add(state_sequence_ts, exec_date_str)
-
-    def update_equipment(
-        self, optimisation_results: PortfolioOptimisationResult, equipment_type: str, equipment_list: list[EquipmentPO]
-    ):
-        """
-        Update equipment output with optimization results.
-
-        Extracts power and stored energy values from optimization variables and updates
-        the equipment's forecasting matrices.
-
-        :param optimisation_results: Optimization result containing the solved variables
-        :type optimisation_results: PortfolioOptimisationResult
-        :param equipment_type: Type of equipment (e.g., 'thermal', 'hydro', 'storage', etc.)
-        :type equipment_type: str
-        :param equipment_list: List of equipment instances to update
-        :type equipment_list: list[EquipmentPO]
-        """
-        if equipment_type in ["other_non_dispatchable", "non_dispatchable_load"]:
-            return
-
-        for equipment in equipment_list:
-            power_values, stored_energy_values, state_sequence = self._extract_values(
-                equipment, equipment_type, optimisation_results
-            )
-
-            if not self.parameters.use_forecast:
-                self._update_power_forecasting_matrix(equipment, power_values)
-
-                if isinstance(equipment, (HydroPO, StoragePO)):
-                    self._update_stored_energy_forecasting_matrix(equipment, stored_energy_values)
-                elif isinstance(equipment, ThermalPO):
-                    self._update_state_sequence(equipment, state_sequence)
-                else:
-                    continue
-            else:
-                self._update_id_po_orders_forecasting_matrix(equipment, power_values)
-                if isinstance(equipment, ThermalPO):
-                    self._update_state_sequence(equipment, state_sequence)
-                else:
-                    continue
+        matrix.upsert(execution_date, timeseries)
+        return matrix
