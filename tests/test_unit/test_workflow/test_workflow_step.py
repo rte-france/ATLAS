@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic import ValidationError
 
 from atlas.abstract_class.module import AbstractModule
 from atlas.io_utils.atlas_dataset import AtlasDataset
@@ -85,6 +86,25 @@ class TestStep:
 
         step = Step(module="PortfolioOptimisation", parameters_path=str(params_file))
         assert isinstance(step.parameters_path, Path)
+
+    def test_step_accepts_inline_parameters(self):
+        step = Step(module="PortfolioOptimisation", parameters={"export_result": False})
+        assert step.parameters == {"export_result": False}
+        assert step.parameters_path is None
+
+    def test_step_requires_exactly_one_parameters_source(self, tmp_path):
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("export_result: false\n")
+
+        with pytest.raises(ValidationError):
+            Step(module="PortfolioOptimisation")
+
+        with pytest.raises(ValidationError):
+            Step(
+                module="PortfolioOptimisation",
+                parameters_path=params_file,
+                parameters={"export_result": False},
+            )
 
 
 class TestWorkflowJobInit:

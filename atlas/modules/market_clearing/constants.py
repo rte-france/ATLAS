@@ -165,7 +165,7 @@ def constraint_4_3a_constraint_name(border_name: str, time_index: int) -> str:
     return f"Constraint_4.3a_at_time_{time_index}_on_market_border_{border_name}"
 
 
-def constraint_4_3b_constraint_name(border_name: str, time_index: int) -> str:
+def constraint4_3b_constraint_name(border_name: str, time_index: int) -> str:
     return f"Constraint_4.3b_at_time_{time_index}_on_market_border_{border_name}"
 
 

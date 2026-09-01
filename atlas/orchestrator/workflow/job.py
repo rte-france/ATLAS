@@ -34,13 +34,16 @@ class Step(BaseModel):
 
     :param name: Name identifying the job. Defaults to the module name if not provided.
     :type name: str
-    :param parameters_path: Path to the parameters file for the job.
-    :type parameters_path: str
+    :param parameters_path: Path to the parameters file for the job. Mutually exclusive with `parameters`.
+    :type parameters_path: str | None
+    :param parameters: Inline parameters for the job. Mutually exclusive with `parameters_path`.
+    :type parameters: dict | None
     """
 
     name: str | None = None
     module: ModuleRegistry
-    parameters_path: Path
+    parameters_path: Path | None = None
+    parameters: dict | None = None
 
     @field_validator("module", mode="before")
     @classmethod
@@ -53,6 +56,12 @@ class Step(BaseModel):
     def set_default_name(self) -> Step:
         if self.name is None:
             self.name = self.module.name
+        return self
+
+    @model_validator(mode="after")
+    def check_parameters_source(self) -> Step:
+        if (self.parameters_path is None) == (self.parameters is None):
+            raise ValueError("Exactly one of 'parameters_path' or 'parameters' must be set.")
         return self
 
     @staticmethod

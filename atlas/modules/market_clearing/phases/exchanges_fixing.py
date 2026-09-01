@@ -21,7 +21,6 @@ class ExchangesFixing(OptimisationModel):
         super().__init__(parameters.solver.solver_name, options=solver_options, name="ExchangesFixing")
         self.input_dataset = input_dataset
         self.parameters = parameters
-        self.exchange_fixing = None
 
     def compute(self, clearing_local_balances: dict[tuple[str, int], float]):
         self.build(clearing_local_balances)
@@ -63,7 +62,7 @@ class ExchangesFixing(OptimisationModel):
             self.create_borders_constraints()
 
     def build_objective(self):
-        """Create objective function for the clearing phase model"""
+        """Create objective function for the exchanges fixing phase model"""
         objective = []
         for border_name in self.input_dataset.mc_market_borders.keys():
             for time_index, _time in enumerate(self.input_dataset.times):
@@ -239,7 +238,12 @@ class ExchangesFixing(OptimisationModel):
                     (1.0 - mc_border.loss_factor) - 1.0 / (1.0 - mc_border.loss_factor)
                 ) * timed_xsis + timed_export / (1.0 - mc_border.loss_factor)
                 self.add_constraint(
-                    timed_import >= tmp_rhs, constants.constraint_4_3a_constraint_name(border_name, time_index)
+                    timed_import == tmp_rhs, constants.constraint_4_3a_constraint_name(border_name, time_index)
+                )
+
+                self.add_constraint(
+                    timed_xsis >= 0.5 * timed_export,
+                    constants.constraint4_3b_constraint_name(border_name, time_index),
                 )
 
                 self.add_constraint(
@@ -260,23 +264,17 @@ class ExchangesFixing(OptimisationModel):
                     constants.constraint_4_3e_max_constraint_name(border_name, time_index),
                 )
 
-    def create_borders_exchanges_constraints(self):
-        for time_index, _time in enumerate(self.input_dataset.times):
-            for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-                if mc_border.time_resolution > self.parameters.temporal.timestep:
-                    time_elapsed = _time - self.parameters.temporal.start_date
+                # Compute the constraint (4.5) that considers the time
+                # resolution of exchanges across the border:
+                if mc_border.time_resolution > self.parameters.time_resolution:
+                    time_elapsed = self.input_dataset.times[time_index] - self.parameters.start_datetime
                     # % and / have same precedence => parsed left to right
-                    res_offset = (
-                        time_elapsed.minutes
-                        % mc_border.time_resolution
-                        / self.parameters.temporal.timestep.total_minutes()
-                    )
+                    res_offset = time_elapsed.TotalMinutes % mc_border.time_resolution / self.parameters.time_step
                     if res_offset != 0:
-                        precedent_time_index = res_offset * self.parameters.temporal.timestep.total_minutes()
                         self.add_constraint(
                             self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
                             == self.get_variable(
-                                constants.border_exchange_variable_name(border_name, precedent_time_index)
+                                constants.border_exchange_variable_name(border_name, time_index - res_offset)
                             ),
                             constants.border_exchanges_constraint_name(border_name, time_index),
                         )
