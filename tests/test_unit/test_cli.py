@@ -159,7 +159,7 @@ class TestRunCommandWorkflowMode:
             dataset_path: ./dataset
             steps:
             - module: PortfolioOptimisation
-                parameters_path: params.yaml
+                parameters: params.yaml
             """
         )
 

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from pathlib import Path
 
+from atlas.abstract_class.dataset import AbstractDataset
 from atlas.abstract_class.job import AbstractJob
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.config import logger
 from atlas.custom_errors import WorkflowJobError
+from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.timing import timer
@@ -15,13 +19,65 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
     """Placeholder abstract class for orchestrator."""
 
     parameters: PO
+    final_dataset: AbstractDataset | None = None
+    PARAMETERS_CLASS: type[PO]
+
+    def __init__(self, parameters: PO):
+        """Initialize a Orchestrator instance.
+
+        :param parameters: orchestrator parameters
+        :type parameters: AbstractOrchestratorParameters
+        """
+        self.parameters = parameters
 
     @property
     @abstractmethod
-    def jobs(self) -> list[J]:
+    def jobs(self) -> Iterator[J]:
         """
         Return jobs to execute.
         """
+
+    @property
+    @abstractmethod
+    def jobs_count(self) -> int:
+        """
+        Return the number of jobs to execute.
+        """
+
+    @classmethod
+    @abstractmethod
+    def get_param_class(cls) -> PO:
+        """
+        Return the parameter class
+        """
+
+    @classmethod
+    def from_file(cls, file_path: str | Path, context: ContextParameters | None = None) -> AbstractOrchestrator:
+        """
+        :param file_path: path to the config file
+        :type: str | Path
+        :param context: context parameters to merge with the context from config file, this context parameters will
+        take priority over the one existing in the config file.
+        """
+        file_path = Path(file_path)
+        parameters = cls.get_param_class().from_file(file_path)
+        if context is not None:
+            parameters.context.apply(context)
+        parameters.orchestrator_path = file_path.parent
+        return cls(parameters=parameters)
+
+    def get_output_dataset(self) -> AbstractDataset | None:
+        """
+        Returns the final dataset of the workflow, return None if the orchestrator hasn't been executed to the end.
+        """
+        return self.final_dataset
+
+    def use_context(self, context: ContextParameters) -> None:
+        """
+        :param context: add this context parameters to the existing one, overwriting any parameters if it exists.
+        :type context: ContextParameters
+        """
+        self.parameters.context.apply(context)
 
     def execute(self) -> CurrentInputState:
         """
@@ -43,8 +99,9 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
             cis.create_snapshot(f"{self.__class__.__name__}_input")
             logger.debug(f"Created initial {self.__class__.__name__} snapshot")
 
+        last_executed_job = None
         for job_idx, job in enumerate(self.jobs):
-            logger.info(f"Launching :'{job.name}' ({job_idx + 1}/{len(self.jobs)})")
+            logger.info(f"Launching :'{job.name}' ({job_idx + 1}/{self.jobs_count})")
 
             # Create snapshot before job if requested
             if self.parameters.create_job_snapshots:
@@ -54,6 +111,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
 
             try:
                 self._execute_job(job, cis)
+                last_executed_job = job
             except WorkflowJobError:
                 if self.parameters.create_job_snapshots:
                     logger.info(f"Available snapshots: {cis.list_snapshots()}")
@@ -71,6 +129,9 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
                 ) from e
 
             logger.info(f"Finishing job :'{job.name}'")
+
+        if last_executed_job is not None:
+            self.final_dataset = last_executed_job.output_dataset
 
         if self.parameters.export_output:
             logger.info(
