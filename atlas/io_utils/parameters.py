@@ -147,7 +147,7 @@ class ContextParameters(BaseModel):
     default: dict = Field(default_factory=lambda: {})
     forced: dict = Field(default_factory=lambda: {})
 
-    def use(self, context: ContextParameters):
+    def apply(self, context: ContextParameters, inplace: bool = True):
         """
         Override any value in this context that are also present in given context.
         :param context: context to use for this parameter
