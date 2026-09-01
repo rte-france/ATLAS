@@ -152,6 +152,8 @@ class ContextParameters(BaseModel):
         Override any value in this context that are also present in given context.
         :param context: context to use for this parameter
         :type context: ContextParameters
+        :param inplace: If True, modifies this object. If False, returns a deep copy with modified attributes.
+        :type inplace: bool
         """
         deep_update(self.default, context.default, True)
         deep_update(self.forced, context.forced, True)
@@ -164,7 +166,7 @@ class ContextParameters(BaseModel):
         Override any forced value from this context that are also present in given dict.
         :param base: dictionary to use as base result
         :type base: dict
-        :param inplace: If True, modifies objects in place. If False, returns a deep copy with modified frequencies.
+        :param inplace: If True, modifies given dict. If False, returns a deep copy with modified attributes.
         :type inplace: bool
         """
         updated_dict = base if inplace else copy.deepcopy(base)
@@ -172,15 +174,15 @@ class ContextParameters(BaseModel):
         deep_update(updated_dict, self.forced, True)
         return updated_dict
 
-    def apply_on_parameters(self, parameter: Parameters, deepcopy: bool = False) -> Parameters:
+    def apply_on_parameters(self, parameter: Parameters, inplace: bool = False) -> Parameters:
         """
         Copy and update parameters based on this context, return a deepcopy if deepcopy is True.
         Any default value in this context will be added if value is None in the parameter.
         Override any forced value from this context that are also present in given parameter.
         :param parameter: parameter to copy and update using this context
         :type parameter: Parameters
-        :param deepcopy: If True, return a deepcopy object of given parameter. If False, returns a swallow copy.
-        :type deepcopy: bool
+        :param inplace: If True, modifies given parameter. If False, returns a deep copy with modified attributes.
+        :type inplace: bool
         """
         # prune self.default to field that exist and value is None
         applicable_defaults = {
@@ -193,4 +195,4 @@ class ContextParameters(BaseModel):
         # prune fields_to_update to field that exist
         applicable_update = {k: v for k, v in fields_to_update if hasattr(parameter, k)}
 
-        return parameter.model_copy(update=applicable_update, deep=deepcopy)
+        return parameter.model_copy(update=applicable_update, deep=inplace)

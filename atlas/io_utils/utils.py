@@ -343,14 +343,25 @@ def diff_lists(
     return diffs if diffs else None
 
 
-def deep_update(base: dict, updates: dict, override: bool):
+def deep_update(base: dict, updates: dict, override: bool, inplace: bool = True) -> dict:
     """
     Similar to function update from dictionary but works with nested dictionaries.
     If override is True, any value in dictionary base will be overwritten.
     Otherwise, all value in dictionary base will stay intact.
+    :param base: dictionary to update
+    :type base: dict
+    :param updates: dictionary used as data for the update
+    :type updates: ContextParameters
+    :param override: if True, any value in base dictionary will be overwritten. If False, only add new values to base dictionary.
+    :type override: ContextParameters
+    :param inplace: If True, modifies base dictionary. If False, returns a deep copy with modified attributes.
+    :type inplace: bool
     """
+    if not inplace:
+        base = copy.deepcopy(base)
     for key, value in updates.items():
         if key in base and isinstance(base[key], dict) and isinstance(value, dict):
-            deep_update(base[key], value, override)
+            deep_update(base[key], value, override, inplace=True)
         elif override or key not in base:
             base[key] = copy.copy(value)
+    return base

@@ -50,8 +50,8 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         return any(task_job_generator.concurrent_with(task) for task_job_generator in self._task_job_generators)
 
     def add_task(self, task: TaskModule | TaskWorkflow):
-        """Add a task to the action plan
-        :param task: task to add
+        """Add a task to the action plan, raise an error if the given task is concurrent with any existing Task
+        :param task: Task to add
         :type task: Task
         """
         if self.has_task_concurrent_with(task):
