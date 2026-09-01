@@ -151,9 +151,11 @@ class TaskModule(Task):
 
     @field_validator("parameters", mode="before")
     @classmethod
-    def validate_module_path_exist(cls, v: Any) -> Path | None:
-        if v is not None and isinstance(v, Path):
-            if not v.exists():
+    def validate_module_path_exist_if_absolute(cls, v: Any) -> Path | None:
+        if v is not None:
+            if isinstance(v, Path) and v.is_absolute() and not v.exists():
+                raise ValueError(f"Module parameters file not found at {v}")
+            if isinstance(v, str) and Path(v).is_absolute() and not Path(v).exists():
                 raise ValueError(f"Module parameters file not found at {v}")
         return v
 
@@ -172,7 +174,7 @@ class TaskWorkflow(Task):
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    workflow: Workflow
+    workflow: Workflow | dict[str, Any] | str | Path
 
     @field_validator("workflow", mode="before")
     @classmethod
@@ -181,8 +183,23 @@ class TaskWorkflow(Task):
             return cast(Workflow, Workflow.from_file(cast(Path, v)))
         return v
 
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def validate_workflow_path_exist_if_absolute(cls, v: Any) -> Path | None:
+        if v is not None:
+            if isinstance(v, Path) and v.is_absolute() and not v.exists():
+                raise ValueError(f"Workflow parameters file not found at {v}")
+            if isinstance(v, str) and Path(v).is_absolute() and not Path(v).exists():
+                raise ValueError(f"Workflow parameters file not found at {v}")
+        return v
+
     @model_validator(mode="after")
     def default_name(self) -> TaskWorkflow:
         if self.name is None:
-            self.name = self.workflow.parameters.name
+            if isinstance(self.workflow, Workflow):
+                self.name = self.workflow.parameters.name
+            if isinstance(self.workflow, dict) and "name" in self.workflow:
+                self.name = self.workflow["name"]
+            if isinstance(self.workflow, (Path, str)):
+                self.name = Path(self.workflow).name
         return self
