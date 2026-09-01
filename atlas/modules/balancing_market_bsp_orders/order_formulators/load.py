@@ -31,10 +31,10 @@ class LoadOrderFormulator(AbstractOrderFormulator):
     def __init__(
         self,
         equipment: BalancingLoad,
-        time_index: list[DateTime],
+        target_times: list[DateTime],
         parameters: BSPBalancingOrdersParameters,
     ) -> None:
-        super().__init__(equipment, time_index, parameters)
+        super().__init__(equipment, target_times, parameters)
         self.equipment: BalancingLoad = equipment
 
     def formulate(self) -> tuple[list[Order], list[OrderCoupling]]:
@@ -61,7 +61,7 @@ class LoadOrderFormulator(AbstractOrderFormulator):
 
         orders: list[Order] = []
 
-        for time in self.time_index:
+        for time in self.target_times:
             if not self.is_after_setup_delay(time):  # TODO : setup_delay is not only for going from 0 to x ?
                 continue
 

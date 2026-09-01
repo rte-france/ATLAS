@@ -124,10 +124,10 @@ class StorageOrderFormulator(AbstractOrderFormulator):
     def __init__(
         self,
         equipment: BalancingStorage,
-        time_index: list[DateTime],
+        target_times: list[DateTime],
         parameters: BSPBalancingOrdersParameters,
     ) -> None:
-        super().__init__(equipment, time_index, parameters)
+        super().__init__(equipment, target_times, parameters)
         self.equipment: BalancingStorage = equipment
 
     def formulate(self) -> tuple[list[Order], list[OrderCoupling]]:
@@ -156,7 +156,7 @@ class StorageOrderFormulator(AbstractOrderFormulator):
 
         orders: list[Order] = []
 
-        for time in self.time_index:
+        for time in self.target_times:
             if not self.is_after_setup_delay(time):
                 continue
 
@@ -389,8 +389,8 @@ class StorageOrderFormulator(AbstractOrderFormulator):
         market_area = self.equipment.portfolio.market_area
         order_price = compute_average_clearing_prices(market_area, time)
 
-        average_maximum_energy = sum(self.equipment.maximum_energy.get_value(t) for t in self.time_index) / len(
-            self.time_index
+        average_maximum_energy = sum(self.equipment.maximum_energy.get_value(t) for t in self.target_times) / len(
+            self.target_times
         )
 
         balancing_energy_activated = compute_daily_balancing_energy(self.equipment, self.parameters)

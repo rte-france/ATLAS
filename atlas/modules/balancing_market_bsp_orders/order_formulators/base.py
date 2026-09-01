@@ -33,11 +33,11 @@ class AbstractOrderFormulator(ABC):
     def __init__(
         self,
         equipment,  # TODO : typing
-        time_index: list[DateTime],
+        target_times: list[DateTime],
         parameters: BSPBalancingOrdersParameters,
     ) -> None:
         self.equipment = equipment
-        self.time_index = time_index
+        self.target_times = target_times
         self.parameters = parameters
 
     @abstractmethod

@@ -59,7 +59,7 @@ class WindPvOrderFormulator(AbstractOrderFormulator):
 
         orders: list[Order] = []
 
-        for time in self.time_index:
+        for time in self.target_times:
             if not self.is_after_setup_delay(time):
                 continue
 
