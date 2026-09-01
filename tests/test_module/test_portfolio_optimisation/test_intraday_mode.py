@@ -34,6 +34,7 @@ from atlas.modules.portfolio_optimisation.utils.manual_activation import (
     _calculate_new_power,
 )
 from atlas.modules.portfolio_optimisation.utils.orchestration import PortfolioOptimisationResult
+from atlas.objects.network.node import Node
 from atlas.objects.network_operator.control_block import ControlBlock
 
 # 24 hourly target times (2024-01-01 00:00 → 23:00), issued the day before as in
@@ -91,10 +92,40 @@ def _equipment(da: float | None = None, total_id: float | None = None, id_cleare
     )
 
 
-def _output_equipment(spec: type, **attributes) -> Mock:
-    """Equipment stub with empty output attributes (``name`` cannot be passed to ``Mock``)."""
-    equipment = Mock(spec=spec, power=None, id_po_for_orders=None, **attributes)
-    equipment.name = "unit_1"
+def _node(portfolio: PortfolioPO) -> Node:
+    return Node(name="test_node", control_block=portfolio.control_block, market_area=portfolio.market_area)
+
+
+def _wind_equipment() -> WindPO:
+    """Wind unit attached to a fresh portfolio, with empty output attributes."""
+    portfolio = _portfolio()
+    equipment = WindPO(
+        name="unit_1",
+        node=_node(portfolio),
+        portfolio=portfolio,
+        maximum_fcr=0.0,
+        maximum_afrr=0.0,
+        maximum_power_forecast=_fm(100.0),
+        maximum_curtailment_ratio=_ts(1.0),
+        additional_hours=pendulum.duration(hours=0),
+    )
+    portfolio.equipments.add("wind", equipment)
+    return equipment
+
+
+def _thermal_equipment() -> ThermalPO:
+    """Thermal unit attached to a fresh portfolio, with empty output attributes."""
+    portfolio = _portfolio()
+    equipment = ThermalPO(
+        name="unit_1",
+        node=_node(portfolio),
+        portfolio=portfolio,
+        maximum_fcr=0.0,
+        maximum_afrr=0.0,
+        maximum_power=_ts(100.0),
+        variable_cost=_ts(50.0),
+    )
+    portfolio.equipments.add("thermal", equipment)
     return equipment
 
 
@@ -232,27 +263,29 @@ class TestOutputRoutingIntraday:
     """In intraday (``use_forecast=True``) results land in ``id_po_for_orders``."""
 
     @staticmethod
-    def _update(parameters, equipment_type: str, equipment: Mock, power: float = 7.0) -> None:
+    def _update(parameters, equipment: WindPO | ThermalPO, power: float = 7.0) -> None:
+        """Write the schedules of the portfolio holding ``equipment``, every solver value being ``power``."""
         result = Mock(spec=PortfolioOptimisationResult)
         result.get_variable_value.return_value = power
-        PortfolioOptimisationOutputDataset(parameters=parameters, optimisation_results=[]).update_equipment(
-            result, equipment_type, [equipment]
-        )
+        result.portfolio = equipment.portfolio
+        result.is_manual_activation = False
+        PortfolioOptimisationOutputDataset(parameters=parameters, optimisation_results=[result]).update_equipments()
 
     @pytest.mark.parametrize(
         "use_forecast, written, untouched",
         [(True, "id_po_for_orders", "power"), (False, "power", "id_po_for_orders")],
     )
     def test_result_attribute_depends_on_forecast_mode(self, use_forecast, written, untouched):
-        equipment = _output_equipment(WindPO)
-        self._update(_parameters(use_forecast=use_forecast), "wind", equipment)
+        equipment = _wind_equipment()
+        self._update(_parameters(use_forecast=use_forecast), equipment)
 
         assert getattr(equipment, untouched) is None
         assert getattr(equipment, written).get_forecast(EXECUTION, START, END - TIMESTEP).values == [7.0] * NB_STEPS
 
     def test_thermal_state_sequence_still_written_in_intraday(self):
-        equipment = _output_equipment(ThermalPO, state_sequence=None)
-        self._update(_parameters(), "thermal", equipment, power=1.0)
+        equipment = _thermal_equipment()
+        # A solver value of 1.0 also sets a thermal state indicator, which is read as an operating state.
+        self._update(_parameters(), equipment, power=1.0)
 
         assert equipment.power is None
         assert equipment.id_po_for_orders is not None

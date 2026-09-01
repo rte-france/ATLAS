@@ -1,4 +1,4 @@
-from typing import get_args, get_origin
+from typing import Annotated, get_args, get_origin
 
 import atlas.type as atlas_typing
 
@@ -16,6 +16,7 @@ class DummyModel:
         "list_attr": type("Field", (), {"annotation": list[str]}),
         "referenced_attr": type("Field", (), {"annotation": DummyReferenced}),
         "list_referenced_attr": type("Field", (), {"annotation": list[DummyReferenced]}),
+        "annotated_optional_attr": type("Field", (), {"annotation": Annotated[int, "meta"] | None}),
     }
 
 
@@ -72,3 +73,9 @@ def test_get_type_attribute_list_referenced():
 
     assert get_origin(result) is list
     assert get_args(result)[0] is DummyReferenced
+
+
+def test_get_type_attribute_annotated_optional():
+    result = atlas_typing.get_type_attribute("dummy", "annotated_optional_attr")
+
+    assert result is int
