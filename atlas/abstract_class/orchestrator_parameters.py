@@ -44,8 +44,8 @@ class AbstractOrchestratorParameters(Parameters):
         default=False,
         validation_alias=AliasChoices("path_from_orchestrator", "path_from_workflow", "path_from_action_plan"),
     )
-    orchestrator_path: Path | None = Field(
-        default=None,
+    orchestrator_path: Path = Field(
+        default=Path.cwd(),
         validation_alias=AliasChoices("orchestrator_path", "workflow_path", "action_plan_path"),
     )
     output_dir: Path = Path()
