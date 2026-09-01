@@ -9,50 +9,50 @@
 Maximize
  Obj: +1 positive_exchange_on_a_b_at_0 +1 positive_exchange_on_a_b_at_1 +1 positive_exchange_on_a_b_at_2 +1 positive_exchange_on_a_b_at_3 +1 positive_exchange_on_a_b_at_4 +1 positive_exchange_on_a_b_at_5 +1 positive_exchange_on_a_b_at_6 +1 positive_exchange_on_a_b_at_7 +1 positive_exchange_on_a_b_at_8 +1 positive_exchange_on_a_b_at_9 +1 positive_exchange_on_a_b_at_10 +1 positive_exchange_on_a_b_at_11 +1 positive_exchange_on_a_b_at_12 +1 positive_exchange_on_a_b_at_13 +1 positive_exchange_on_a_b_at_14 +1 positive_exchange_on_a_b_at_15 +1 positive_exchange_on_a_b_at_16 +1 positive_exchange_on_a_b_at_17 +1 positive_exchange_on_a_b_at_18 +1 positive_exchange_on_a_b_at_19 +1 positive_exchange_on_a_b_at_20 +1 positive_exchange_on_a_b_at_21 +1 positive_exchange_on_a_b_at_22 +1 positive_exchange_on_a_b_at_23 -1 negative_exchange_on_a_b_at_0 -1 negative_exchange_on_a_b_at_1 -1 negative_exchange_on_a_b_at_2 -1 negative_exchange_on_a_b_at_3 -1 negative_exchange_on_a_b_at_4 -1 negative_exchange_on_a_b_at_5 -1 negative_exchange_on_a_b_at_6 -1 negative_exchange_on_a_b_at_7 -1 negative_exchange_on_a_b_at_8 -1 negative_exchange_on_a_b_at_9 -1 negative_exchange_on_a_b_at_10 -1 negative_exchange_on_a_b_at_11 -1 negative_exchange_on_a_b_at_12 -1 negative_exchange_on_a_b_at_13 -1 negative_exchange_on_a_b_at_14 -1 negative_exchange_on_a_b_at_15 -1 negative_exchange_on_a_b_at_16 -1 negative_exchange_on_a_b_at_17 -1 negative_exchange_on_a_b_at_18 -1 negative_exchange_on_a_b_at_19 -1 negative_exchange_on_a_b_at_20 -1 negative_exchange_on_a_b_at_21 -1 negative_exchange_on_a_b_at_22 -1 negative_exchange_on_a_b_at_23
 Subject to
- Constraint_4.2_at_time_0_on_market_area_ma_a: +1 exchange_on_a_b_at_0  = -937.6
- Constraint_4.2_at_time_0_on_market_area_ma_b: -1 exchange_on_a_b_at_0  = 937.6
+ Constraint_4.2_at_time_0_on_market_area_ma_a: +1 exchange_on_a_b_at_0  = -1000
+ Constraint_4.2_at_time_0_on_market_area_ma_b: -1 exchange_on_a_b_at_0  = 1000
  Constraint_4.2_at_time_1_on_market_area_ma_a: +1 exchange_on_a_b_at_1  = -512
  Constraint_4.2_at_time_1_on_market_area_ma_b: -1 exchange_on_a_b_at_1  = 512
  Constraint_4.2_at_time_2_on_market_area_ma_a: +1 exchange_on_a_b_at_2  = -994.2
  Constraint_4.2_at_time_2_on_market_area_ma_b: -1 exchange_on_a_b_at_2  = 994.2
  Constraint_4.2_at_time_3_on_market_area_ma_a: +1 exchange_on_a_b_at_3  = 669.92
  Constraint_4.2_at_time_3_on_market_area_ma_b: -1 exchange_on_a_b_at_3  = -669.92
- Constraint_4.2_at_time_4_on_market_area_ma_a: +1 exchange_on_a_b_at_4  = 1000
- Constraint_4.2_at_time_4_on_market_area_ma_b: -1 exchange_on_a_b_at_4  = -1000
+ Constraint_4.2_at_time_4_on_market_area_ma_a: +1 exchange_on_a_b_at_4  = 0
+ Constraint_4.2_at_time_4_on_market_area_ma_b: -1 exchange_on_a_b_at_4  = 0
  Constraint_4.2_at_time_5_on_market_area_ma_a: +1 exchange_on_a_b_at_5  = 0
  Constraint_4.2_at_time_5_on_market_area_ma_b: -1 exchange_on_a_b_at_5  = 0
  Constraint_4.2_at_time_6_on_market_area_ma_a: +1 exchange_on_a_b_at_6  = 147.62
  Constraint_4.2_at_time_6_on_market_area_ma_b: -1 exchange_on_a_b_at_6  = -147.62
- Constraint_4.2_at_time_7_on_market_area_ma_a: +1 exchange_on_a_b_at_7  = -2095.61
- Constraint_4.2_at_time_7_on_market_area_ma_b: -1 exchange_on_a_b_at_7  = 2095.61
- Constraint_4.2_at_time_8_on_market_area_ma_a: +1 exchange_on_a_b_at_8  = -975.38
- Constraint_4.2_at_time_8_on_market_area_ma_b: -1 exchange_on_a_b_at_8  = 975.38
+ Constraint_4.2_at_time_7_on_market_area_ma_a: +1 exchange_on_a_b_at_7  = -2086.8
+ Constraint_4.2_at_time_7_on_market_area_ma_b: -1 exchange_on_a_b_at_7  = 2086.8
+ Constraint_4.2_at_time_8_on_market_area_ma_a: +1 exchange_on_a_b_at_8  = -1451.01
+ Constraint_4.2_at_time_8_on_market_area_ma_b: -1 exchange_on_a_b_at_8  = 1451.01
  Constraint_4.2_at_time_9_on_market_area_ma_a: +1 exchange_on_a_b_at_9  = 712.75
  Constraint_4.2_at_time_9_on_market_area_ma_b: -1 exchange_on_a_b_at_9  = -712.75
  Constraint_4.2_at_time_10_on_market_area_ma_a: +1 exchange_on_a_b_at_10  = 0
  Constraint_4.2_at_time_10_on_market_area_ma_b: -1 exchange_on_a_b_at_10  = 0
- Constraint_4.2_at_time_11_on_market_area_ma_a: +1 exchange_on_a_b_at_11  = 3046.75
- Constraint_4.2_at_time_11_on_market_area_ma_b: -1 exchange_on_a_b_at_11  = -3046.75
- Constraint_4.2_at_time_12_on_market_area_ma_a: +1 exchange_on_a_b_at_12  = -804.296
- Constraint_4.2_at_time_12_on_market_area_ma_b: -1 exchange_on_a_b_at_12  = 804.296
- Constraint_4.2_at_time_13_on_market_area_ma_a: +1 exchange_on_a_b_at_13  = -1677.95
- Constraint_4.2_at_time_13_on_market_area_ma_b: -1 exchange_on_a_b_at_13  = 1677.95
- Constraint_4.2_at_time_14_on_market_area_ma_a: +1 exchange_on_a_b_at_14  = -1056.91
- Constraint_4.2_at_time_14_on_market_area_ma_b: -1 exchange_on_a_b_at_14  = 1056.91
+ Constraint_4.2_at_time_11_on_market_area_ma_a: +1 exchange_on_a_b_at_11  = 7000
+ Constraint_4.2_at_time_11_on_market_area_ma_b: -1 exchange_on_a_b_at_11  = -7000
+ Constraint_4.2_at_time_12_on_market_area_ma_a: +1 exchange_on_a_b_at_12  = -4027.4
+ Constraint_4.2_at_time_12_on_market_area_ma_b: -1 exchange_on_a_b_at_12  = 4027.4
+ Constraint_4.2_at_time_13_on_market_area_ma_a: +1 exchange_on_a_b_at_13  = -2277.95
+ Constraint_4.2_at_time_13_on_market_area_ma_b: -1 exchange_on_a_b_at_13  = 2277.95
+ Constraint_4.2_at_time_14_on_market_area_ma_a: +1 exchange_on_a_b_at_14  = -7000
+ Constraint_4.2_at_time_14_on_market_area_ma_b: -1 exchange_on_a_b_at_14  = 7000
  Constraint_4.2_at_time_15_on_market_area_ma_a: +1 exchange_on_a_b_at_15  = 2809.72
  Constraint_4.2_at_time_15_on_market_area_ma_b: -1 exchange_on_a_b_at_15  = -2809.72
  Constraint_4.2_at_time_16_on_market_area_ma_a: +1 exchange_on_a_b_at_16  = 0
  Constraint_4.2_at_time_16_on_market_area_ma_b: -1 exchange_on_a_b_at_16  = 0
  Constraint_4.2_at_time_17_on_market_area_ma_a: +1 exchange_on_a_b_at_17  = -1886.03
  Constraint_4.2_at_time_17_on_market_area_ma_b: -1 exchange_on_a_b_at_17  = 1886.03
- Constraint_4.2_at_time_18_on_market_area_ma_a: +1 exchange_on_a_b_at_18  = -1026.68
- Constraint_4.2_at_time_18_on_market_area_ma_b: -1 exchange_on_a_b_at_18  = 1026.68
- Constraint_4.2_at_time_19_on_market_area_ma_a: +1 exchange_on_a_b_at_19  = -1707.99
- Constraint_4.2_at_time_19_on_market_area_ma_b: -1 exchange_on_a_b_at_19  = 1707.99
- Constraint_4.2_at_time_20_on_market_area_ma_a: +1 exchange_on_a_b_at_20  = 280.53
- Constraint_4.2_at_time_20_on_market_area_ma_b: -1 exchange_on_a_b_at_20  = -280.53
- Constraint_4.2_at_time_21_on_market_area_ma_a: +1 exchange_on_a_b_at_21  = -321.98
- Constraint_4.2_at_time_21_on_market_area_ma_b: -1 exchange_on_a_b_at_21  = 321.98
+ Constraint_4.2_at_time_18_on_market_area_ma_a: +1 exchange_on_a_b_at_18  = -969.32
+ Constraint_4.2_at_time_18_on_market_area_ma_b: -1 exchange_on_a_b_at_18  = 969.32
+ Constraint_4.2_at_time_19_on_market_area_ma_a: +1 exchange_on_a_b_at_19  = -1129.58
+ Constraint_4.2_at_time_19_on_market_area_ma_b: -1 exchange_on_a_b_at_19  = 1129.58
+ Constraint_4.2_at_time_20_on_market_area_ma_a: +1 exchange_on_a_b_at_20  = 1139.67
+ Constraint_4.2_at_time_20_on_market_area_ma_b: -1 exchange_on_a_b_at_20  = -1139.67
+ Constraint_4.2_at_time_21_on_market_area_ma_a: +1 exchange_on_a_b_at_21  = -722.32
+ Constraint_4.2_at_time_21_on_market_area_ma_b: -1 exchange_on_a_b_at_21  = 722.32
  Constraint_4.2_at_time_22_on_market_area_ma_a: +1 exchange_on_a_b_at_22  = 0
  Constraint_4.2_at_time_22_on_market_area_ma_b: -1 exchange_on_a_b_at_22  = 0
  Constraint_4.2_at_time_23_on_market_area_ma_a: +1 exchange_on_a_b_at_23  = 1465.06
@@ -90,18 +90,18 @@ Bounds
  0 <= exchange_on_a_b_at_5 <= 7000
  -1869.17 <= exchange_on_a_b_at_6 <= 5130.83
  -7000 <= exchange_on_a_b_at_7 <= 0
- -5457.9 <= exchange_on_a_b_at_8 <= 1542.1
+ -5933.53 <= exchange_on_a_b_at_8 <= 1066.47
  -5171.6 <= exchange_on_a_b_at_9 <= 1828.4
  -7000 <= exchange_on_a_b_at_10 <= 0
  0 <= exchange_on_a_b_at_11 <= 7000
- -2056.96 <= exchange_on_a_b_at_12 <= 4943.04
- -6218.42 <= exchange_on_a_b_at_13 <= 781.58
- -2993.49 <= exchange_on_a_b_at_14 <= 4006.51
+ -7000 <= exchange_on_a_b_at_12 <= 0
+ -5495.44 <= exchange_on_a_b_at_13 <= 1504.56
+ -7000 <= exchange_on_a_b_at_14 <= 0
  -2550.4 <= exchange_on_a_b_at_15 <= 4449.6
  -7000 <= exchange_on_a_b_at_16 <= 0
  -7000 <= exchange_on_a_b_at_17 <= 0
  -7000 <= exchange_on_a_b_at_18 <= 0
- -4857.64 <= exchange_on_a_b_at_19 <= 2142.36
+ -3178.52 <= exchange_on_a_b_at_19 <= 3821.48
  -3369.07 <= exchange_on_a_b_at_20 <= 3630.93
  -5253.8 <= exchange_on_a_b_at_21 <= 1746.2
  0 <= exchange_on_a_b_at_22 <= 7000
@@ -114,18 +114,18 @@ Bounds
  0 <= positive_exchange_on_a_b_at_5 <= 7000
  0 <= positive_exchange_on_a_b_at_6 <= 5130.83
  0 <= positive_exchange_on_a_b_at_7 <= 0
- 0 <= positive_exchange_on_a_b_at_8 <= 1542.1
+ 0 <= positive_exchange_on_a_b_at_8 <= 1066.47
  0 <= positive_exchange_on_a_b_at_9 <= 1828.4
  0 <= positive_exchange_on_a_b_at_10 <= 0
  0 <= positive_exchange_on_a_b_at_11 <= 7000
- 0 <= positive_exchange_on_a_b_at_12 <= 4943.04
- 0 <= positive_exchange_on_a_b_at_13 <= 781.58
- 0 <= positive_exchange_on_a_b_at_14 <= 4006.51
+ 0 <= positive_exchange_on_a_b_at_12 <= 0
+ 0 <= positive_exchange_on_a_b_at_13 <= 1504.56
+ 0 <= positive_exchange_on_a_b_at_14 <= 0
  0 <= positive_exchange_on_a_b_at_15 <= 4449.6
  0 <= positive_exchange_on_a_b_at_16 <= 0
  0 <= positive_exchange_on_a_b_at_17 <= 0
  0 <= positive_exchange_on_a_b_at_18 <= 0
- 0 <= positive_exchange_on_a_b_at_19 <= 2142.36
+ 0 <= positive_exchange_on_a_b_at_19 <= 3821.48
  0 <= positive_exchange_on_a_b_at_20 <= 3630.93
  0 <= positive_exchange_on_a_b_at_21 <= 1746.2
  0 <= positive_exchange_on_a_b_at_22 <= 7000
@@ -138,18 +138,18 @@ Bounds
  0 <= negative_exchange_on_a_b_at_5 <= 0
  -1869.17 <= negative_exchange_on_a_b_at_6 <= 0
  -7000 <= negative_exchange_on_a_b_at_7 <= 0
- -5457.9 <= negative_exchange_on_a_b_at_8 <= 0
+ -5933.53 <= negative_exchange_on_a_b_at_8 <= 0
  -5171.6 <= negative_exchange_on_a_b_at_9 <= 0
  -7000 <= negative_exchange_on_a_b_at_10 <= 0
  0 <= negative_exchange_on_a_b_at_11 <= 0
- -2056.96 <= negative_exchange_on_a_b_at_12 <= 0
- -6218.42 <= negative_exchange_on_a_b_at_13 <= 0
- -2993.49 <= negative_exchange_on_a_b_at_14 <= 0
+ -7000 <= negative_exchange_on_a_b_at_12 <= 0
+ -5495.44 <= negative_exchange_on_a_b_at_13 <= 0
+ -7000 <= negative_exchange_on_a_b_at_14 <= 0
  -2550.4 <= negative_exchange_on_a_b_at_15 <= 0
  -7000 <= negative_exchange_on_a_b_at_16 <= 0
  -7000 <= negative_exchange_on_a_b_at_17 <= 0
  -7000 <= negative_exchange_on_a_b_at_18 <= 0
- -4857.64 <= negative_exchange_on_a_b_at_19 <= 0
+ -3178.52 <= negative_exchange_on_a_b_at_19 <= 0
  -3369.07 <= negative_exchange_on_a_b_at_20 <= 0
  -5253.8 <= negative_exchange_on_a_b_at_21 <= 0
  0 <= negative_exchange_on_a_b_at_22 <= 0
