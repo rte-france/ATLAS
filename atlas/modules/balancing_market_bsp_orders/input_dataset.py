@@ -50,7 +50,7 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
     Equipment instances are typed as local subclasses that enforce the presence
     of all attributes required by their respective order formulators.
 
-    :param time_index: Ordered list of DateTime steps covering the balancing time frame,
+    :param target_times: Ordered list of DateTime steps covering the balancing time frame,
         from start_date (inclusive) to end_date - time_step (inclusive)
     :type target_times: list[DateTime]
     :param hydro_equipments: Hydro equipment instances eligible for order formulation,

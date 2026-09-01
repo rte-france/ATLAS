@@ -10,6 +10,7 @@ from pydantic import Field, field_validator
 
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.enums import MarketType
+from atlas.validators import ExclusionList
 
 
 class BSPBalancingOrdersParameters(AbstractModuleParameters):
@@ -28,12 +29,12 @@ class BSPBalancingOrdersParameters(AbstractModuleParameters):
     :param market_area_names: Market area names to include. Accepts 'all' to include all,
         or a list like '[FR, BE]'. Default: 'all'
     :type market_area_names: str | list[str]
-    :param excluded_equipments_: Equipment names to exclude, semicolon-separated or as a list.
+    :param excluded_equipments: Equipment names to exclude, semicolon-separated or as a list.
         'None' and ['none'] resolve to an empty list. Default: None
-    :type excluded_equipments_: list[str] | None
-    :param excluded_technologies_: Technology class names to exclude, semicolon-separated or
+    :type excluded_equipments: ExclusionList
+    :param excluded_technologies: Technology class names to exclude, semicolon-separated or
         as a list. 'None' and ['none'] resolve to an empty list. Default: None
-    :type excluded_technologies_: list[str] | None
+    :type excluded_technologies: ExclusionList
     :param hydro_storage_quantity_percentage: Fraction of available power offered for hydraulic
         and storage units. Should be kept at 1 unless used in specific studies. Default: 1.0
     :type hydro_storage_quantity_percentage: float
@@ -79,15 +80,15 @@ class BSPBalancingOrdersParameters(AbstractModuleParameters):
             "or a list like '[FR, BE]'."
         ),
     )
-    excluded_equipments_: list[str] | None = Field(
-        None,
+    excluded_equipments: ExclusionList = Field(
+        default_factory=list,
         description=(
             "Equipment names to exclude from order formulation. 'None' and ['none'] resolve to an empty list."
         ),
         alias="excluded_equipments",
     )
-    excluded_technologies_: list[str] | None = Field(
-        None,
+    excluded_technologies: ExclusionList = Field(
+        default_factory=list,
         description=(
             "Technology class names to exclude from order formulation. 'None' and ['none'] resolve to an empty list."
         ),
@@ -133,30 +134,6 @@ class BSPBalancingOrdersParameters(AbstractModuleParameters):
             "When True, enables upward orders and specific downward self-balancing orders for RES."
         ),
     )
-
-    @property
-    def excluded_equipments(self) -> list[str]:
-        """List of equipment names excluded from order formulation."""
-        val = self.excluded_equipments_
-        if val is None:
-            return []
-        if len(val) == 1 and val[0].lower() == "none":
-            return []
-        if len(val) == 1 and val[0].lower() == "all":
-            return ["all"]
-        return val
-
-    @property
-    def excluded_technologies(self) -> list[str]:
-        """List of technology class names excluded from order formulation."""
-        val = self.excluded_technologies_
-        if val is None:
-            return []
-        if len(val) == 1 and val[0].lower() == "none":
-            return []
-        if len(val) == 1 and val[0].lower() == "all":
-            return ["all"]
-        return val
 
     @field_validator("market_area_names", mode="before")
     @classmethod
