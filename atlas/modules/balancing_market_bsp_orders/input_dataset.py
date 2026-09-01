@@ -52,7 +52,7 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
 
     :param time_index: Ordered list of DateTime steps covering the balancing time frame,
         from start_date (inclusive) to end_date - time_step (inclusive)
-    :type time_index: list[DateTime]
+    :type target_times: list[DateTime]
     :param hydro_equipments: Hydro equipment instances eligible for order formulation,
         keyed by equipment name
     :type hydro_equipments: dict[str, BalancingHydro]
@@ -79,7 +79,7 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
     def __init__(self, input_data: AtlasDataset, parameters: BSPBalancingOrdersParameters):
         self.input_data = input_data
         self.parameters = parameters
-        self.time_index: list[DateTime] = generate_datetimes(
+        self.target_times: list[DateTime] = generate_datetimes(
             parameters.temporal.start_date,
             parameters.temporal.end_date - parameters.temporal.timestep,
             parameters.temporal.timestep,
@@ -207,7 +207,7 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
         """
         if equipment.maximum_power is None or equipment.minimum_power is None:
             return False
-        for time in self.time_index:
+        for time in self.target_times:
             max_power = equipment.maximum_power.get_value(time)
             min_power = equipment.minimum_power.get_value(time)
             if max_power < 0.01 or max_power < min_power:

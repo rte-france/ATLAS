@@ -67,23 +67,23 @@ class BSPBalancingOrdersModule(
         output_dataset = BSPBalancingOrdersOutputDataset()
 
         for load in input_dataset.load_equipments.values():
-            orders, _ = LoadOrderFormulator(load, input_dataset.time_index, parameters).formulate()
+            orders, _ = LoadOrderFormulator(load, input_dataset.target_times, parameters).formulate()
             output_dataset.orders.extend(orders)
 
         for wind in input_dataset.wind_equipments.values():
-            orders, _ = WindPvOrderFormulator(wind, input_dataset.time_index, parameters).formulate()
+            orders, _ = WindPvOrderFormulator(wind, input_dataset.target_times, parameters).formulate()
             output_dataset.orders.extend(orders)
 
         for solar in input_dataset.solar_equipments.values():
-            orders, _ = WindPvOrderFormulator(solar, input_dataset.time_index, parameters).formulate()
+            orders, _ = WindPvOrderFormulator(solar, input_dataset.target_times, parameters).formulate()
             output_dataset.orders.extend(orders)
 
         for storage in input_dataset.storage_equipments.values():
-            orders, _ = StorageOrderFormulator(storage, input_dataset.time_index, parameters).formulate()
+            orders, _ = StorageOrderFormulator(storage, input_dataset.target_times, parameters).formulate()
             output_dataset.orders.extend(orders)
 
         for hydro in input_dataset.hydro_equipments.values():
-            orders, _ = HydraulicOrderFormulator(hydro, input_dataset.time_index, parameters).formulate()
+            orders, _ = HydraulicOrderFormulator(hydro, input_dataset.target_times, parameters).formulate()
             output_dataset.orders.extend(orders)
 
         return output_dataset
