@@ -93,7 +93,7 @@ class TaskJobsGenerator(ABC):
     @abstractmethod
     def _build_jobs(self, iteration) -> list[AbstractJob]:
         """
-        Build and return the list of ActionPlanJob for the given iteration.
+        Build and return the list of ActionPlanJob for the given, assumed valid, iteration.
         """
         pass
 
@@ -155,7 +155,7 @@ class WorkflowTaskJobsGenerator(TaskJobsGenerator):
     def _build_parameters(self, iteration) -> WorkflowParameters:
         """Build and return parameters to use for the workflow for the given iteration."""
         parameters = self.parameters.model_copy(deep=True)
-        deep_update(
+        deep_update(  # Update only the forced context of parameters
             parameters.context.forced,
             {
                 "temporal": {
@@ -167,7 +167,8 @@ class WorkflowTaskJobsGenerator(TaskJobsGenerator):
                     "output_dir": self.root_output_dir / str(self.execution_date(iteration).isoformat()),
                 },
             },
-            True,
+            override=True,
+            inplace=True,
         )
         return parameters
 

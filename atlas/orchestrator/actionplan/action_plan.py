@@ -8,6 +8,7 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 import heapq
+from collections import namedtuple
 from collections.abc import Iterator
 from pathlib import Path
 from typing import cast
@@ -16,13 +17,10 @@ from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.orchestrator.actionplan.job import (
     ActionPlanJob,
     ModuleTaskJobsGenerator,
-    TaskIterationPriority,
     TaskJobsGenerator,
     WorkflowTaskJobsGenerator,
 )
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, Task, TaskModule, TaskWorkflow
-from atlas.orchestrator.workflow.parameters import WorkflowParameters
-from atlas.orchestrator.workflow.workflow import Workflow
 
 
 class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
@@ -47,7 +45,9 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
     def has_task_concurrent_with(self, task: Task) -> bool:
         """Return true if given task and a task from this action plan have the same priority and, at some point, have to be executed with the same execution."""
-        return any(task_job_generator.concurrent_with(task) for task_job_generator in self._task_job_generators)
+        return any(
+            existing_task_generator.concurrent_with(task) for existing_task_generator in self._task_job_generators
+        )
 
     def add_task(self, task: TaskModule | TaskWorkflow):
         """Add a task to the action plan, raise an error if the given task is concurrent with any existing Task
@@ -79,22 +79,22 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         :param root_output_dir: path to the root output directory used for the task
         :type root_output_dir: Path
         """
-        if isinstance(task.parameters, str) or isinstance(task.parameters, Path):
+        if isinstance(task.parameters, (str, Path)):
             path = task.parameters if isinstance(task.parameters, Path) else Path(task.parameters)
-            module_parameters = (
+            task_parameters = (
                 task.module.value()
                 .get_parameters_class()
                 .from_file(self.parameters.resolve_path(path), self.parameters.context)
             )
         elif isinstance(task.parameters, dict):
-            module_parameters = (
+            task_parameters = (
                 task.module.value().get_parameters_class().from_dict(task.parameters, self.parameters.context)
             )
         else:
-            module_parameters = self.parameters.context.apply_on_parameters(task.parameters, deepcopy=True)
+            task_parameters = self.parameters.context.apply_on_parameters(task.parameters, inplace=True)
 
-        module_iterator = ModuleTaskJobsGenerator(task, module_parameters, root_output_dir)
-        self._task_job_generators.append(module_iterator)
+        task_generator = ModuleTaskJobsGenerator(task, task_parameters, root_output_dir)
+        self._task_job_generators.append(task_generator)
 
     def _add_task_workflow(self, task: TaskWorkflow, root_output_dir: Path):
         """Add a task, that run a workflow, to the action plan
@@ -103,12 +103,8 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         :param root_output_dir: path to the root output directory used for the task
         :type root_output_dir: Path
         """
-        if isinstance(task.workflow, Path):
-            workflow_parameters = WorkflowParameters.from_file(self.parameters.resolve_path(task.workflow))
-        elif isinstance(task.workflow, Workflow):
-            workflow_parameters = task.workflow.parameters
-        workflow_parameters.context.use(self.parameters.context)
-        workflow_iterator = WorkflowTaskJobsGenerator(task, workflow_parameters, root_output_dir)
+        task_parameters = task.workflow.parameters.context.apply(self.parameters.context, inplace=False)
+        workflow_iterator = WorkflowTaskJobsGenerator(task, task_parameters, root_output_dir)
         self._task_job_generators.append(workflow_iterator)
 
     @property
@@ -118,9 +114,14 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
         :return: The list of ActionPlanJob instances.
         """
-        priority_queue: list[tuple[TaskIterationPriority, int, TaskJobsGenerator]] = []
+        TaskGeneratorTracker = namedtuple("TaskGeneratorTracker", ["priority", "iteration", "generator"])
+
+        priority_queue: list[TaskGeneratorTracker] = []
         for task_generator in self._task_job_generators:
-            heapq.heappush(priority_queue, (task_generator.priority(1), 1, task_generator))
+            heapq.heappush(
+                priority_queue,
+                TaskGeneratorTracker(priority=task_generator.priority(1), iteration=1, generator=task_generator),
+            )
 
         while len(priority_queue) > 0:
             _, current_iteration, job_generator = heapq.heappop(priority_queue)
@@ -131,7 +132,14 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
                 yield cast(ActionPlanJob, job)
             next_iteration = current_iteration + 1
             if job_generator.is_valid_iteration(next_iteration):
-                heapq.heappush(priority_queue, (job_generator.priority(next_iteration), next_iteration, job_generator))
+                heapq.heappush(
+                    priority_queue,
+                    TaskGeneratorTracker(
+                        priority=job_generator.priority(next_iteration),
+                        iteration=next_iteration,
+                        generator=job_generator,
+                    ),
+                )
 
     @property
     def jobs_count(self) -> int:

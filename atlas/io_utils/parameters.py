@@ -65,7 +65,7 @@ class Parameters(BaseModel):
         if parameters is None:
             parameters = {}
 
-        parameters = context.apply_on_dict(parameters, True)
+        parameters = context.apply_on_dict(parameters)
         return cls(**parameters)
 
     @staticmethod
@@ -155,8 +155,9 @@ class ContextParameters(BaseModel):
         :param inplace: If True, modifies this object. If False, returns a deep copy with modified attributes.
         :type inplace: bool
         """
-        deep_update(self.default, context.default, True)
-        deep_update(self.forced, context.forced, True)
+        updated_default = deep_update(self.default, context.default, override=True, inplace=inplace)
+        updated_forced = deep_update(self.forced, context.forced, override=True, inplace=inplace)
+        return self if inplace else ContextParameters(default=updated_default, forced=updated_forced)
 
     def apply_on_dict(self, base: dict, inplace: bool = False) -> dict:
         """

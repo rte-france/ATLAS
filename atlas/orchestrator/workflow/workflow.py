@@ -33,7 +33,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         self._jobs: list[WorkflowJob] = []
         self.build_jobs(prefix_job_name)
 
-    def build_jobs(self, prefix_job_name: str):
+    def build_jobs(self, prefix_job_name: str | None = None):
         Step.add_index_in_step_name(self.parameters.steps)
 
         for step in self.parameters.steps:
@@ -45,10 +45,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
             else:
                 parameters = parameters_class.from_dict(step.parameters, self.parameters.context)
             parameters.output.output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
-            if prefix_job_name == "":
-                job_name = step.name
-            else:
-                job_name = f"{prefix_job_name} {step.name}"
+            job_name = f"{prefix_job_name} {step.name}" if prefix_job_name else step.name
             workflow_job = WorkflowJob(f"{job_name!r}", step.module.value, parameters)
             self.add_job(workflow_job)
 
