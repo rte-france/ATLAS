@@ -13,7 +13,6 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import cast
 
-from atlas import WorkflowParameters
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.orchestrator.actionplan.job import (
     ActionPlanJob,
@@ -22,6 +21,7 @@ from atlas.orchestrator.actionplan.job import (
     WorkflowTaskJobsGenerator,
 )
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, Task, TaskModule, TaskWorkflow
+from atlas.orchestrator.workflow.parameters import WorkflowParameters
 
 
 class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
