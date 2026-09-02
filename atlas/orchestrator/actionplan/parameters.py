@@ -179,7 +179,7 @@ class TaskWorkflow(Task):
     @field_validator("workflow", mode="before")
     @classmethod
     def build_workflow(cls, v: Any) -> Workflow:
-        if v is isinstance(v, Path):
+        if isinstance(v, Path):
             return cast(Workflow, Workflow.from_file(cast(Path, v)))
         return v
 
