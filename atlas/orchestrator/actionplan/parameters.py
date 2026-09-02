@@ -11,7 +11,7 @@ import warnings
 from abc import ABC
 from math import gcd
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from pendulum import Duration, duration
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -180,7 +180,7 @@ class TaskWorkflow(Task):
     @classmethod
     def build_workflow(cls, v: Any) -> Workflow:
         if isinstance(v, Path):
-            return cast(Workflow, Workflow.from_file(cast(Path, v)))
+            return Workflow.from_file(v)
         return v
 
     @field_validator("workflow", mode="before")
