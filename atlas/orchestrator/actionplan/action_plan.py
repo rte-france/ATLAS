@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+import copy
 import heapq
 from collections import namedtuple
 from collections.abc import Iterator
@@ -111,7 +112,9 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         elif isinstance(task.workflow, dict):
             task_parameters = WorkflowParameters.from_dict(task.workflow, self.parameters.context)
         else:
-            task_parameters = task.workflow.parameters.context.apply(self.parameters.context, inplace=False)
+            task_parameters = copy.deepcopy(task.workflow.parameters)
+            task_parameters.context.apply(self.parameters.context, inplace=True)
+
         workflow_iterator = WorkflowTaskJobsGenerator(task, task_parameters, root_output_dir)
         self._task_job_generators.append(workflow_iterator)
 
