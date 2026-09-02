@@ -91,7 +91,7 @@ class TestTask:
 
     def test_invalid_workflow_raise(self, params_file):
         with pytest.raises(Exception):
-            TestTask.build_task_workflow(workflow="DoesNotExist")
+            TestTask.build_task_workflow(workflow="/Does/Not/Exist/")
 
     def test_parameters_is_str_object_module(self, tmp_path, params_file):
         task = TestTask.build_task_module(module="PortfolioOptimisation", parameters_path=str(params_file))
