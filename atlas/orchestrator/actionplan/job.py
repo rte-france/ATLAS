@@ -13,14 +13,13 @@ from pathlib import Path
 
 from pydantic_extra_types.pendulum_dt import DateTime
 
-from atlas import WorkflowParameters
 from atlas.abstract_class.job import AbstractJob
 from atlas.abstract_class.module import AbstractModule
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.io_utils.parameters import DateParameters
 from atlas.io_utils.utils import deep_update
 from atlas.orchestrator.actionplan.parameters import Task, TaskModule, TaskWorkflow
-from atlas.orchestrator.workflow.workflow import Workflow
+from atlas.orchestrator.workflow.workflow import Workflow, WorkflowParameters
 
 
 class ActionPlanJob(AbstractJob):

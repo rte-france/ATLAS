@@ -198,8 +198,8 @@ class TaskWorkflow(Task):
         if self.name is None:
             if isinstance(self.workflow, Workflow):
                 self.name = self.workflow.parameters.name
-            if isinstance(self.workflow, dict) and "name" in self.workflow:
+            elif isinstance(self.workflow, dict) and "name" in self.workflow:
                 self.name = self.workflow["name"]
-            if isinstance(self.workflow, (Path, str)):
-                self.name = Path(self.workflow).name
+            elif isinstance(self.workflow, (Path, str)):
+                self.name = Path(self.workflow).stem
         return self
