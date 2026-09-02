@@ -183,7 +183,7 @@ class TaskWorkflow(Task):
             return cast(Workflow, Workflow.from_file(cast(Path, v)))
         return v
 
-    @field_validator("parameters", mode="before")
+    @field_validator("workflow", mode="before")
     @classmethod
     def validate_workflow_path_exist_if_absolute(cls, v: Any) -> Path | None:
         if v is not None:
