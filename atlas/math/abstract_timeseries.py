@@ -483,6 +483,27 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         )
         return self._return(result, inplace)  # type: ignore [arg-type]
 
+    def add_on_union(self, other: Self, default: float = 0.0, inplace: bool = True) -> Self:
+        """Add `other` after aligning both operands on the union of their time indexes.
+
+        Unlike ``+``, which requires the index of `other` to be contained in self's,
+        this extends the index: timestamps present on only one side are filled with
+        `default` before the addition. Use it to accumulate a series over a time
+        window that only partially overlaps the current one.
+
+        The frequencies must still match and the union must be a regular index.
+
+        :param other: Timeseries to add
+        :param default: Value used for timestamps missing from either side, defaults to 0.0
+        :param inplace: Whether to modify the current instance, defaults to True
+        :raises ValueError: If frequencies don't match or the union index is not regular
+        :return: The sum of both timeseries over the union of their indexes
+        :rtype: Self
+        """
+        times = sorted(set(self.index) | set(other.index))
+        result = self.reindex(times, default, inplace=False) + other.reindex(times, default, inplace=False)
+        return self._return(result._get_data(), inplace)
+
     def _times_to_frame(
         self,
         times: AbstractTimeseries | pl.Series | list,
@@ -634,10 +655,7 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         inplace: bool = True,
     ) -> Self:
         """
-        Add indexes to the Timeseries based on another timeseries.
-
-        Indexes from ``other`` already present in the current Timeseries are ignored; only the
-        missing ones are added.
+        Add indexes to the Timeseries based on another timeseries
 
         :param other: Other timeseries with indexes / values to add to the current Timeseries
         :param inplace: Whether to modify the current instance, defaults to True

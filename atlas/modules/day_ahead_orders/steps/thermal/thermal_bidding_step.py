@@ -210,15 +210,17 @@ class ThermalBiddingStep(AbstractOrderStep):
                 if equipment.da_sell_submitted_volume is None:
                     equipment.da_sell_submitted_volume = da_sell_submitted_volume
                 else:
-                    equipment.da_sell_submitted_volume.add_indexes(da_sell_submitted_volume)
-                    equipment.da_sell_submitted_volume += da_sell_submitted_volume
+                    equipment.da_sell_submitted_volume = equipment.da_sell_submitted_volume.add_on_union(
+                        da_sell_submitted_volume, inplace=False
+                    )
 
             else:
                 if equipment.da_sell_submitted_volume is None:
                     equipment.da_sell_submitted_volume = da_sell_submitted_volumes[equipment.name]
                 else:
-                    equipment.da_sell_submitted_volume.add_indexes(da_sell_submitted_volumes[equipment.name])
-                    equipment.da_sell_submitted_volume += da_sell_submitted_volumes[equipment.name]
+                    equipment.da_sell_submitted_volume = equipment.da_sell_submitted_volume.add_on_union(
+                        da_sell_submitted_volumes[equipment.name], inplace=False
+                    )
 
     def graph_search_of_connected_orders(
         self,

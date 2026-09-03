@@ -121,8 +121,9 @@ class HydraulicStep(AbstractOrderStep):
             if equipment.da_sell_submitted_volume is None:
                 equipment.da_sell_submitted_volume = submitted_volumes
             else:
-                equipment.da_sell_submitted_volume.add_indexes(submitted_volumes)
-                equipment.da_sell_submitted_volume += submitted_volumes
+                equipment.da_sell_submitted_volume = equipment.da_sell_submitted_volume.add_on_union(
+                    submitted_volumes, inplace=False
+                )
 
         return result
 

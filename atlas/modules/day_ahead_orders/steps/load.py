@@ -26,11 +26,13 @@ class LoadStep(AbstractOrderStep):
                     self.parameters.temporal.timestep,
                 )
 
+                submitted_volumes = consumption_forecast.abs(inplace=False)
                 if load.da_buy_submitted_volume is None:
-                    load.da_buy_submitted_volume = consumption_forecast.abs()
+                    load.da_buy_submitted_volume = submitted_volumes
                 else:
-                    load.da_buy_submitted_volume.add_indexes(consumption_forecast.abs())
-                    load.da_buy_submitted_volume += consumption_forecast.abs()
+                    load.da_buy_submitted_volume = load.da_buy_submitted_volume.add_on_union(
+                        submitted_volumes, inplace=False
+                    )
 
                 if len(consumption_forecast) == 0:
                     cfg.logger.debug(f"consumption_forecast is empty for load {load.name}, {load.load_type}")
