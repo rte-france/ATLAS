@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+import copy
 import heapq
 from collections import namedtuple
 from collections.abc import Iterator
@@ -21,6 +22,7 @@ from atlas.orchestrator.actionplan.job import (
     WorkflowTaskJobsGenerator,
 )
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, Task, TaskModule, TaskWorkflow
+from atlas.orchestrator.workflow.parameters import WorkflowParameters
 
 
 class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
@@ -103,7 +105,16 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         :param root_output_dir: path to the root output directory used for the task
         :type root_output_dir: Path
         """
-        task_parameters = task.workflow.parameters.context.apply(self.parameters.context, inplace=False)
+        if isinstance(task.workflow, (str, Path)):
+            task_parameters = WorkflowParameters.from_file(
+                self.parameters.resolve_path(Path(task.workflow)), self.parameters.context
+            )
+        elif isinstance(task.workflow, dict):
+            task_parameters = WorkflowParameters.from_dict(task.workflow, self.parameters.context)
+        else:
+            task_parameters = copy.deepcopy(task.workflow.parameters)
+            task_parameters.context.apply(self.parameters.context, inplace=True)
+
         workflow_iterator = WorkflowTaskJobsGenerator(task, task_parameters, root_output_dir)
         self._task_job_generators.append(workflow_iterator)
 

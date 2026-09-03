@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Self
 
 from atlas.abstract_class.dataset import AbstractDataset
 from atlas.abstract_class.job import AbstractJob
@@ -52,7 +53,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
         """
 
     @classmethod
-    def from_file(cls, file_path: str | Path, context: ContextParameters | None = None) -> AbstractOrchestrator:
+    def from_file(cls, file_path: str | Path, context: ContextParameters | None = None) -> Self:
         """
         :param file_path: path to the config file
         :type: str | Path
