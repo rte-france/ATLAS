@@ -2,8 +2,6 @@
 
 <img src="docs/assets/logo.svg" alt="ATLAS" />
 
-Developed by [Artelys](https://www.artelys.com) for [RTE](https://www.rte-france.com)
-
 [![CI](https://github.com/rte-france/ATLAS/actions/workflows/test.yml/badge.svg)](https://github.com/rte-france/ATLAS/actions)
 [![codecov](https://codecov.io/gh/rte-france/ATLAS/branch/main/graph/badge.svg)](https://codecov.io/gh/rte-france/ATLAS)
 ![Python](https://img.shields.io/badge/python-3.13%2B-blue)

@@ -12,8 +12,6 @@ hide:
 
 <p class="hero-tagline">Power market simulator for day-ahead, intraday, and reserve markets.</p>
 
-<p class="hero-subtitle">Developed by <strong>Artelys</strong> for <strong>RTE</strong></p>
-
 <div class="hero-badges">
   <a href="https://github.com/rte-france/ATLAS/actions/workflows/test.yml" target="_blank" rel="noopener noreferrer">
     <img src="https://github.com/rte-france/ATLAS/actions/workflows/test.yml/badge.svg" alt="Tests">
