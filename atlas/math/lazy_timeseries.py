@@ -552,6 +552,9 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         """
         Add indexes to the LazyTimeseries based on another timeseries.
 
+        Indexes from ``other`` already present in the current LazyTimeseries are ignored; only
+        the missing ones are added.
+
         ⚠️ WARNING: This method materializes all data into memory.
 
         :param other: Other timeseries with indexes / values to add

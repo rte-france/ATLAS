@@ -615,14 +615,16 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         inplace: bool = True,
     ) -> Timeseries:
         """
-        Add indexes to the Timeseries based on another timeseries
+        Add indexes to the Timeseries based on another timeseries.
+
+        Indexes from ``other`` that are already present in the current Timeseries are ignored;
+        only the missing ones are added.
 
         :param other: Other timeseries with indexes / values to add to the current Timeseries
         :type other: Timeseries
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
-        :raises ValueError: If frequency doesn't match or at least one time of the other Timeseries is in the
-        current one
+        :raises ValueError: If frequency doesn't match
         :return: Timeseries with the added indexes
         :rtype: Timeseries
         """
@@ -634,12 +636,9 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         other_ts = Timeseries(other)
         if self.frequency != other_ts.frequency:
             raise ValueError("Could not perform add indexes on Timeseries because frequency does not match")
-        if other_ts.dataframe["time"].is_in(self.dataframe["time"]).any():
-            raise ValueError(
-                "Could not add indexes on Timeseries because some indexes to add are not present in Timeseries"
-            )
 
-        df = pl.concat([self.timeseries, other_ts.dataframe])
+        missing_indexes = other_ts.dataframe.filter(~pl.col("time").is_in(self.dataframe["time"]))
+        df = pl.concat([self.timeseries, missing_indexes])
 
         return self._return(df, inplace)
 

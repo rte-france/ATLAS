@@ -701,7 +701,7 @@ class TestTimeseriesBasicOperations:
         sample_ts.add_indexes(new_ts)
         assert sample_ts["value"] == [10.0, 20.0, 30.0, 40.0, 50.0, 60.0]
 
-    def test_add_indexes_with_existing_timestamp(self, sample_ts):
+    def test_add_indexes_ignores_existing_timestamp(self, sample_ts):
         df = pl.DataFrame(
             {
                 "time": [
@@ -712,8 +712,9 @@ class TestTimeseriesBasicOperations:
             },
         )
         new_ts = Timeseries(df)
-        with pytest.raises(ValueError):
-            sample_ts.add_indexes(new_ts)
+        sample_ts.add_indexes(new_ts)
+        # Existing timestamp (hour 3) keeps its original value, only the missing one (hour 4) is added
+        assert sample_ts["value"] == [10.0, 20.0, 30.0, 40.0, 60.0]
 
     def test_add_indexes_with_wrong_frequency(self, sample_ts):
         df = pl.DataFrame(

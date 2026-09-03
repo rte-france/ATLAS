@@ -634,7 +634,10 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         inplace: bool = True,
     ) -> Self:
         """
-        Add indexes to the Timeseries based on another timeseries
+        Add indexes to the Timeseries based on another timeseries.
+
+        Indexes from ``other`` already present in the current Timeseries are ignored; only the
+        missing ones are added.
 
         :param other: Other timeseries with indexes / values to add to the current Timeseries
         :param inplace: Whether to modify the current instance, defaults to True

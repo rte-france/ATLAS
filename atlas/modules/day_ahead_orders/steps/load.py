@@ -29,6 +29,7 @@ class LoadStep(AbstractOrderStep):
                 if load.da_buy_submitted_volume is None:
                     load.da_buy_submitted_volume = consumption_forecast.abs()
                 else:
+                    load.da_buy_submitted_volume.add_indexes(consumption_forecast.abs())
                     load.da_buy_submitted_volume += consumption_forecast.abs()
 
                 if len(consumption_forecast) == 0:

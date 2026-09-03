@@ -40,11 +40,13 @@ class StorageStep(AbstractOrderStep):
             if storage.da_buy_submitted_volume is None:
                 storage.da_buy_submitted_volume = unit_result.buy_submitted_volumes
             else:
+                storage.da_buy_submitted_volume.add_indexes(unit_result.buy_submitted_volumes)
                 storage.da_buy_submitted_volume += unit_result.buy_submitted_volumes
 
             if storage.da_sell_submitted_volume is None:
                 storage.da_sell_submitted_volume = unit_result.sell_submitted_volumes
             else:
+                storage.da_sell_submitted_volume.add_indexes(unit_result.sell_submitted_volumes)
                 storage.da_sell_submitted_volume += unit_result.sell_submitted_volumes
 
             if unit_result.variable_cost is not None:

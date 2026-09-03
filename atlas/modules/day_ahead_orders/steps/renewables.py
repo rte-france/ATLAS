@@ -29,6 +29,7 @@ class WindPVStep(AbstractOrderStep):
                 if equipment.da_sell_submitted_volume is None:
                     equipment.da_sell_submitted_volume = production_forecast
                 else:
+                    equipment.da_sell_submitted_volume.add_indexes(production_forecast)
                     equipment.da_sell_submitted_volume += production_forecast
 
                 for t in self.orders_time:

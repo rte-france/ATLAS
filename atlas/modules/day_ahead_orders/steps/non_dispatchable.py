@@ -29,6 +29,7 @@ class NonDispatchableStep(AbstractOrderStep):
                 if unit.da_sell_submitted_volume is None:
                     unit.da_sell_submitted_volume = production_forecast
                 else:
+                    unit.da_sell_submitted_volume.add_indexes(production_forecast)
                     unit.da_sell_submitted_volume += production_forecast
 
                 for t in self.orders_time:
