@@ -39,6 +39,7 @@ The following fields are conditionally required depending on the `market` and `u
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `maximum_power` | `AbstractTimeseries` | — | Maximum dispatchable power (MW). |
+| `minimum_power` | `AbstractTimeseries` | — | Minimum dispatchable power when ON (MW). |
 | `variable_cost` | `AbstractTimeseries` | — | Variable production cost (€/MWh). |
 | `maximum_fcr` | `float` | — | Maximum FCR (Frequency Containment Reserve) capacity, as a ratio of `maximum_power`. |
 | `maximum_afrr` | `float` | — | Maximum aFRR (automatic Frequency Restoration Reserve) capacity, as a ratio of `maximum_power`. |
@@ -63,6 +64,7 @@ Includes Battery, Pumped Hydraulic Storage, and Electric Vehicle types.
 | `minimum_state_of_charge` | `AbstractTimeseries` | Minimum state-of-charge, as a ratio applied to `maximum_energy`. |
 | `discharge_efficiency` | `float` | Ratio of energy injected to the system to energy withdrawn from storage. |
 | `charge_efficiency` | `float` | Ratio of energy stored to energy withdrawn from the grid. |
+| `storage_initial_level` | `float` | Initial state-of-charge, as a ratio applied to `maximum_energy`. Used when no `stored_energy` forecast is available. |
 | `maximum_fcr` | `float` | Maximum FCR capacity, as a ratio of `maximum_power`. |
 | `maximum_afrr` | `float` | Maximum aFRR capacity (MW), as a ratio of `maximum_power`. |
 | `additional_hours` | `Duration` | Extended optimization horizon appended after `end_date`, to ensure that decisions made during the interval [`start_date`, `end_date`] are relevant with the following time steps. |
