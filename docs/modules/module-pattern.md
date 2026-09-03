@@ -6,21 +6,34 @@ All ATLAS modules follow the `AbstractModule` pattern, providing a consistent in
 
 ## Standard Module Interface
 
-Every ATLAS module can be run using the same simple pattern:
+Every ATLAS module is run through `ModuleRun`, which executes the module lifecycle
+and applies the resulting change sets back onto the dataset:
 
 ```python
-from atlas import AtlasDataset, <ModuleName>Module
+from atlas import AtlasDataset
+from atlas.modules.module_run import ModuleRun
+from atlas.modules.<module_name> import <ModuleName>Module
 
-module = <ModuleName>Module()
 input_data = AtlasDataset.from_directory("path/to/dataset")
-module.run(input_data, "path/to/parameters.yml")
+result = ModuleRun(
+    module=<ModuleName>Module(),
+    dataset=input_data,
+    parameters="path/to/parameters.yml",
+).run()
 ```
+
+!!! warning "Always go through `ModuleRun`"
+    Calling `module.run(...)` directly only executes the lifecycle — it does **not**
+    apply the produced change sets. `ModuleRun.run()` wraps it with the `CISHandler`
+    so results are propagated and returns the updated `AtlasDataset`.
+
+See [Running Modules](running-modules.md) for the full execution guide.
 
 ## Module Lifecycle
 
 The `run()` method executes these standard steps:
 
-1. **Import Parameters**: Load module-specific parameters (inherits from `AbstractParameters`)
+1. **Import Parameters**: Load module-specific parameters (inherits from `AbstractModuleParameters`)
 2. **Import Data**: Convert `AtlasDataset` to module-specific input dataset
 3. **Validate**: Perform data validation (typically timestep consistency checks)
 4. **Execute**: Run the module's core logic

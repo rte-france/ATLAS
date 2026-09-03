@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from enum import Enum, StrEnum
+from enum import Enum, IntEnum, StrEnum
 
 
 class BusinessModelName(StrEnum):
@@ -28,7 +28,7 @@ class BusinessModelName(StrEnum):
     WIND = "wind"
 
 
-class LoadType(str, Enum):
+class LoadType(StrEnum):
     """
     Represents different types of electrical loads.
 
@@ -42,7 +42,7 @@ class LoadType(str, Enum):
     OTHER_NON_DISPATCHABLE_LOAD = "OtherNonDispatchableLoad"
 
 
-class StorageType(str, Enum):
+class StorageType(StrEnum):
     """
     Represents different energy storage technologies.
 
@@ -56,7 +56,29 @@ class StorageType(str, Enum):
     ELECTRIC_VEHICLE = "ElectricVehicle"
 
 
-class ThermalStrategy(str, Enum):
+class ThermalDispatchState(IntEnum):
+    """
+    State encoding stored in the :class:`~atlas.math.matrix.ScenarioMatrix` after LP solving.
+
+    :cvar UNKNOWN: State undetermined (default fill value).
+    :cvar ON_UP: Unit online, upward headroom available.
+    :cvar ON_DOWN: Unit online, downward headroom available.
+    :cvar OFF: Unit offline.
+    :cvar START: Unit in startup ramp.
+    :cvar STOP: Unit in shutdown ramp.
+    :cvar ON_FLAT: Unit online in flat stable state.
+    """
+
+    UNKNOWN = 0
+    ON_UP = 1
+    ON_DOWN = 2
+    OFF = 3
+    START = 4
+    STOP = 5
+    ON_FLAT = 6
+
+
+class ThermalStrategy(StrEnum):
     """
     Thermal generation strategy classification.
 
@@ -70,7 +92,7 @@ class ThermalStrategy(str, Enum):
     PEAK = "Peak"
 
 
-class ReservesTypes(str, Enum):
+class ReservesTypes(StrEnum):
     """
     Types of reserves used in grid balancing.
 
@@ -84,7 +106,7 @@ class ReservesTypes(str, Enum):
     aFRR = "aFRR"  # noqa: N815
 
 
-class ComplementDirection(str, Enum):
+class ComplementDirection(StrEnum):
     """
     Direction used in complementarity constraints.
 
@@ -98,7 +120,7 @@ class ComplementDirection(str, Enum):
     LesserThan = "LesserThan"
 
 
-class CouplingType(str, Enum):
+class CouplingType(StrEnum):
     """
     Type of coupling constraints between energy assets.
 
@@ -117,7 +139,7 @@ class CouplingType(str, Enum):
     ATC = "ATC"
 
 
-class OrderType(str, Enum):
+class OrderType(StrEnum):
     """
     Market order type.
 
@@ -129,7 +151,7 @@ class OrderType(str, Enum):
     Sell = "Sell"
 
 
-class Product(str, Enum):
+class Product(StrEnum):
     """
     Enumeration of electricity market products.
 
@@ -177,7 +199,7 @@ class SolverStatus(Enum):
     MODEL_INVALID = "model_invalid"
 
 
-class InflowFrequency(str, Enum):
+class InflowFrequency(StrEnum):
     """
     Frequency of inflow data.
 
@@ -189,7 +211,7 @@ class InflowFrequency(str, Enum):
     Monthly = "Monthly"
 
 
-class MarketType(str, Enum):
+class MarketType(StrEnum):
     """
     Enumeration of market types.
 
@@ -205,7 +227,7 @@ class MarketType(str, Enum):
     mfrr_activation = "MFRRActivation"
 
 
-class SolverEnum(str, Enum):
+class SolverEnum(StrEnum):
     """
     Enumeration of solver types.
 

@@ -4,14 +4,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pathlib import Path
+from pydantic import Field
 
-from pendulum import Duration, duration
-from pydantic import Field, field_validator
-
-from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.enums import Enum, Product, SolverEnum
-from atlas.validators import convert_to_duration
+from atlas.abstract_class.parameters import AbstractModuleParameters
+from atlas.enums import Enum, Product
+from atlas.io_utils.parameters import SolverParameters
+from atlas.validators import InclusionList
 
 
 class ExchangeConstraintsType(str, Enum):
@@ -26,11 +24,9 @@ class ExchangeConstraintsType(str, Enum):
     FB = "FB"
 
 
-class MarketClearingParameters(AbstractParameters):
+class MarketClearingParameters(AbstractModuleParameters):
     """Parameters of for Market Clearing module
 
-    :param timestep: Timestep of the studied market, in minutes : must be superior to 0, default value is 60
-    :type timestep: int
     :param price_modifier_lambda_1: Price modifier that allows to alter prices for a better optimization :
     default value is 0
     :type price_modifier_lambda_1: float
@@ -50,9 +46,6 @@ class MarketClearingParameters(AbstractParameters):
     :param prevent_adverse_flows: Boolean to indicate whether the pricing should prevent adverse flows.
     It may be possible to leave out these constraints in some FB cases : default value is False
     :type prevent_adverse_flows: bool
-    :param use_presolve: Boolean indicating if a presolve step is desired or not before solving the clearing phase :
-    default value is False
-    :type use_presolve: bool
     :param allowed_round_off_error: Threshold, in MW, below which the value of accepted power is considered equal to 0.
     Typical values: 0.001, 0.0001 or 0.00001 : default value is 0.001
     :type allowed_round_off_error: float
@@ -88,23 +81,10 @@ class MarketClearingParameters(AbstractParameters):
     :param market_area_names: Custom selection of market areas to be included in the computation or string 'All' to
     select all market area. the default value is 'All'
     :type market_area_names: str | list[str]
-    :param export_lp: True if lp/variables must be exported
-    :type export_lp: bool
-    :param export_csv: True if csv output must be exported
-    :type export_csv: bool
-    :param output_dataset_path: Path where to export the output dataset. None if no export
-    :type output_dataset_path: Path | None
-    :param output_path: Path where to export the outputs (csv/lp/...)
-    :type output_path: Path
     """
 
-    solver_name: SolverEnum = Field(
-        SolverEnum.XPRESS, description="Name of the solver to use : default value is Xpress"
-    )
-    timestep: Duration = Field(
-        default_factory=lambda: duration(hours=1),
-        description="Timestep of the studied market",
-    )
+    solver: SolverParameters = SolverParameters()  # type: ignore[call-arg, arg-type]
+
     price_modifier_lambda_1: float = Field(
         0, description="Price modifier that allows to alter prices for a better optimization : default value is 0"
     )
@@ -133,11 +113,6 @@ class MarketClearingParameters(AbstractParameters):
         False,
         description="Boolean to indicate whether the pricing should prevent adverse flows. It may be possible to leave "
         "out these constraints in some FB cases : default value is False",
-    )
-    use_presolve: bool = Field(
-        True,
-        description="Boolean indicating if a presolve step is desired or not before solving the clearing phase : "
-        "default value is False",
     )
     allowed_round_off_error: float = Field(
         0.001,
@@ -178,8 +153,8 @@ class MarketClearingParameters(AbstractParameters):
         "the order formulation of the previous market and the current Clearing : must be superior to 0, "
         "default value is 5",
     )
-    control_block_names: str | list[str] = Field(
-        "All",
+    control_block_names: InclusionList = Field(
+        "all",
         description="Custom selection of control blocks to be included in the computation or string 'All' to select "
         "all control block. the default value is 'All'",
     )
@@ -193,8 +168,8 @@ class MarketClearingParameters(AbstractParameters):
         description="Name of the market to be considered. Only orders matching the entered market name will be "
         "considered (not case sensitive) : Default value is 'DayAhead'",
     )
-    market_area_names: str | list[str] = Field(
-        "All",
+    market_area_names: InclusionList = Field(
+        "all",
         description="Custom selection of market areas to be included in the computation or string 'All' to select all "
         "market area. the default value is 'All'",
     )
@@ -206,53 +181,3 @@ class MarketClearingParameters(AbstractParameters):
         -int(1e8),
         description="Min price : default value is - 100 000 000",
     )
-    export_lp: bool = Field(
-        False,
-        description="True if we want all lp files to be exported else false ",
-    )
-    export_csv: bool = Field(
-        False,
-        description="True if we want the 4 csv files (offers, market areas, order couplings and market borders) "
-        "to be exported else false ",
-    )
-    output_dataset_path: Path | None = Field(
-        None,
-        description="Path where to export the output dataset generated by the market clearing",
-    )
-    output_path: Path = Field(
-        Path(),
-        description="Path where to export the 4 csv files (offers, market areas, order couplings and market borders), "
-        "lp and optimization variables",
-    )
-
-    @field_validator("timestep", mode="before")
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
-
-    @field_validator("market_area_names", "control_block_names", mode="before")
-    @classmethod
-    def parse_included_objects(cls, v):
-        # case default
-        if isinstance(v, str) and v.lower() == "all":
-            return v.lower()
-
-        # already a list
-        if isinstance(v, list):
-            return v
-
-        # string like "[es, fr]"
-        if isinstance(v, str):
-            v = v.strip()
-
-            if not (v.startswith("[") and v.endswith("]")):
-                raise ValueError("market_area_names must be 'All' or a list like [es, fr]")
-
-            content = v[1:-1].strip()
-            if not content:
-                return []
-
-            return [item.strip() for item in content.split(",")]
-
-        raise ValueError("Invalid value for market_area_names")

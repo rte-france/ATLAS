@@ -91,7 +91,7 @@ def pendulum_to_datetime(fmt: str) -> str:
 
 
 @contextmanager
-def timer() -> Generator[Callable[[], str], None, None]:
+def timer() -> Generator[Callable[[], str]]:
     """Context manager to measure elapsed time with milliseconds precision."""
     start = pendulum.now()
     yield lambda: f"{(pendulum.now() - start).total_seconds():.3f}s"
@@ -141,7 +141,7 @@ def build_datetime(dt: str | datetime | pendulum.DateTime, date_format="YYYY-MM-
     if isinstance(dt, datetime):
         return pendulum.instance(dt)
     if isinstance(dt, pendulum.DateTime):
-        return dt
+        return pendulum.parse(dt.to_iso8601_string())
     raise TypeError(f"Unsupported type for dt: {type(dt)}. Expected str, datetime, or pendulum.DateTime.")
 
 
@@ -231,28 +231,6 @@ def get_lowest_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
     min_delta_seconds = cast(float, times.diff().dt.total_seconds().drop_nulls().min())
 
     return pendulum.duration(seconds=min_delta_seconds)
-
-
-def get_most_frequent_timestep(timeseries: pl.DataFrame) -> pendulum.Duration:
-    """
-    Compute the most frequent time delta between consecutive timestamps in the timeseries.
-
-    :param timeseries: Polars DataFrame with a 'time' column (datetime or pendulum.DateTime)
-    :return: The most frequent delta as pendulum.Duration
-    :rtype: pendulum.Duration
-
-    If there are multiple modes with the same count, the smallest delta is returned.
-    If the timeseries has fewer than 2 timestamps, returns 0 duration.
-    """
-    times = timeseries["time"]
-    if len(times) < 2:
-        return pendulum.duration()
-
-    mode_result = times.diff().dt.total_seconds().drop_nulls().mode()
-
-    most_common_delta = mode_result.min() if len(mode_result) > 1 else mode_result[0]
-
-    return pendulum.duration(seconds=cast(float, most_common_delta))
 
 
 def check_timezone(timezone: str) -> None:

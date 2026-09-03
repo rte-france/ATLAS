@@ -55,6 +55,7 @@ class OptimisationModel:
         self._constraints_name: set[str] = set()
         self._objective: Any | None = None
         self._objective_direction: Literal["maximize", "minimize"] | None = None
+        self._objective_pending: bool = False
         self._solution_info: SolutionInfo | None = None
         self._options: SolverOptions = options if options is not None else SolverOptions()
 
@@ -306,7 +307,7 @@ class OptimisationModel:
         else:
             self._objective = self._objective + objective_expr
 
-        self._update_solver_objective()
+        self._objective_pending = True
 
     def set_objective(self, objective_expr: Any) -> None:
         """
@@ -336,6 +337,7 @@ class OptimisationModel:
         logger.debug("Setting objective expression")
         self._objective = objective_expr
         self._update_solver_objective()
+        self._objective_pending = False
 
     def _update_solver_objective(self) -> None:
         """
@@ -360,6 +362,9 @@ class OptimisationModel:
         :return: Solution information
         :rtype: SolutionInfo
         """
+        if self._objective_pending:
+            self._update_solver_objective()
+            self._objective_pending = False
         self._apply_solver_options()
 
         with timer() as t:
@@ -378,7 +383,10 @@ class OptimisationModel:
         }
 
         mapped_status = status_map.get(status, SolverStatus.NOT_SOLVED)
-        logger.info(f"Optimisation finished in {solve_time} with status: {mapped_status.name}")
+        if not self.name:
+            logger.info(f"Optimisation finished in {solve_time} with status: {mapped_status.name}")
+        else:
+            logger.info(f"{self.name} optimisation finished in {solve_time} with status: {mapped_status.name}")
 
         objective_value = None
 
@@ -444,9 +452,10 @@ class OptimisationModel:
 
         :param filename: Output filename
         :type filename: str
-        :param format_type: Export format ('lp', 'mps')
-        :type format_type: str
         """
+        if self._objective_pending:
+            self._update_solver_objective()
+            self._objective_pending = False
         logger.debug(f"Exporting model to '{filename}'")
 
         lp = self._solver.ExportModelAsLpFormat(False)
@@ -487,7 +496,20 @@ class OptimisationModel:
         self._solution_info = None
         self._objective = None
         self._objective_direction = None
+        self._objective_pending = False
         self._initialize_solver(self.solver_name)
+
+    def deactivate_constraint(self, constraint_name: str) -> None:
+        """
+        Deactivate a constraint by setting its bounds to (-inf, +inf)
+
+        :param constraint_name: Name of the constraint to deactivate
+        :type constraint_name: str
+        :raises ValueError: If constraint doesn't exist
+        """
+        logger.debug(f"Deactivating constraint '{constraint_name}'")
+        constraint = self.get_constraint(constraint_name)
+        constraint.SetBounds(float("-inf"), float("inf"))
 
     def __repr__(self) -> str:
         """String representation of the model."""

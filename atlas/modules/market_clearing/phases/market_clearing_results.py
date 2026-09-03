@@ -6,22 +6,16 @@ This file is part of the ATLAS project.
 
 import polars as pl
 
-from atlas import LazyForecastingMatrix
 from atlas.enums import OrderType, Product
+from atlas.math.forecasting_matrix import LazyForecastingMatrix
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 
 
 class MarketClearingResults:
     """
-    Module storing the fourth and last step of the Market Clearing process: maximizing the accepted volumes of marginal
-    orders.
-
-    The previous steps have determined which orders could be associated with each others in order to maximize the
-    social welfare, which exchanges it induced at borders and what were the resulting market prices. However, some
-    orders which price is equal to the market price might remain unaccepted, whereas their price is equal to the market
-    price. Indeed, their acceptance would not modify the overall social welfare. The present step is dedicated to
-    finding such orders, called "marginal", and maximizing the volumes they can trade.
+    Exports the results of the Market Clearing process to CSV: accepted offers, market area data, order
+    couplings and border data. Only instantiated by the module when result export is requested.
     """
 
     def __init__(
@@ -34,14 +28,13 @@ class MarketClearingResults:
         self.parameters = parameters
         self.accepted_powers = accepted_powers
 
-    def run(self) -> None:
-        if self.parameters.export_csv:
-            if not self.parameters.output_path.exists():
-                self.parameters.output_path.mkdir(parents=True, exist_ok=True)
-            self.export_offers()
-            self.export_market_areas_data()
-            self.export_couplings_data()
-            self.export_borders_data()
+    def compute(self) -> None:
+        if not self.parameters.get_output_results_dir().exists():
+            self.parameters.get_output_results_dir().mkdir(parents=True, exist_ok=True)
+        self.export_offers()
+        self.export_market_areas_data()
+        self.export_couplings_data()
+        self.export_borders_data()
 
     def export_offers(self):
         offers = pl.DataFrame(
@@ -80,11 +73,8 @@ class MarketClearingResults:
                 "AcceptedPower": self.accepted_powers[mc_order.market_area.name, order_name],
             }
             offer = pl.DataFrame({k: [v] for k, v in order_dict.items()}, schema=offers.schema)
-            if offers is None:
-                offers = offer
-            else:
-                offers.extend(offer)
-        offers.write_csv(self.parameters.output_path / "offers.csv")
+            offers.extend(offer)
+        offers.write_csv(self.parameters.get_output_results_dir() / "offers.csv")
 
     def export_market_areas_data(self):
         if self.parameters.market == Product.DayAhead:
@@ -96,7 +86,7 @@ class MarketClearingResults:
         else:
             # Consider only MFRRActivation
             market_area_data = self.create_mfrr_market_areas_data()
-        market_area_data.write_csv(self.parameters.output_path / "market_area_data.csv")
+        market_area_data.write_csv(self.parameters.get_output_results_dir() / "market_area_data.csv")
 
     def create_day_ahead_market_areas_data(self) -> pl.DataFrame:
         market_areas_data = pl.DataFrame(
@@ -144,15 +134,17 @@ class MarketClearingResults:
             if isinstance(id_balance_forecast, LazyForecastingMatrix):
                 id_balance_forecast = id_balance_forecast.collect()
 
-            id_price_ts = id_price_forecast.select(self.parameters.execution_date)
-            id_balance_ts = id_balance_forecast.select(self.parameters.execution_date)
+            id_price_ts = id_price_forecast.select(self.parameters.temporal.execution_date)
+            id_balance_ts = id_balance_forecast.select(self.parameters.temporal.execution_date)
 
             if id_price_ts is not None:
-                id_price_ts = id_price_ts.set_frequency(self.input_dataset.parameters.timestep, False).filter(
+                id_price_ts = id_price_ts.set_frequency(self.input_dataset.parameters.temporal.timestep, False).filter(
                     self.input_dataset.times  # type: ignore[arg-type]
                 )
             if id_balance_ts is not None:
-                id_balance_ts = id_balance_ts.set_frequency(self.input_dataset.parameters.timestep, False).filter(
+                id_balance_ts = id_balance_ts.set_frequency(
+                    self.input_dataset.parameters.temporal.timestep, False
+                ).filter(
                     self.input_dataset.times  # type: ignore[arg-type]
                 )
 
@@ -241,7 +233,7 @@ class MarketClearingResults:
             }
             coupling_data = pl.DataFrame({k: [v] for k, v in coupling_dict.items()}, schema=couplings_data.schema)
             couplings_data.extend(coupling_data)
-        couplings_data.write_csv(self.parameters.output_path / "coupling_data.csv")
+        couplings_data.write_csv(self.parameters.get_output_results_dir() / "coupling_data.csv")
 
     def export_borders_data(self):
         if self.parameters.market == Product.DayAhead:
@@ -254,7 +246,7 @@ class MarketClearingResults:
             # Consider only MFRRActivation
             borders_data = self.create_mfrr_borders_data()
 
-        borders_data.write_csv(self.parameters.output_path / "border.csv")
+        borders_data.write_csv(self.parameters.get_output_results_dir() / "border.csv")
 
     def create_day_ahead_borders_data(self) -> pl.DataFrame:
         market_borders_data = pl.DataFrame(

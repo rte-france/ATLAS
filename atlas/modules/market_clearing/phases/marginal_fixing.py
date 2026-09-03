@@ -12,7 +12,7 @@ import pendulum
 
 from atlas.enums import OrderType
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.models.order import OrderMC
+from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 
 
@@ -33,7 +33,9 @@ class MarginalFixing:
         self.parameters = parameters
         self.accepted_powers: dict[tuple[str, str], float] = {}
 
-    def run(self, accepted_powers: dict[tuple[str, str], float], market_prices: dict[tuple[str, int], float]) -> None:
+    def compute(
+        self, accepted_powers: dict[tuple[str, str], float], market_prices: dict[tuple[str, int], float]
+    ) -> None:
         """
 
         :param accepted_powers: Result of optimization
@@ -49,8 +51,11 @@ class MarginalFixing:
                 # Get the values of local variables:
                 spot_price = market_prices[market_area_name, time_index]
                 self.update_accepted_power(market_area_name, time, spot_price)
-        if self.parameters.export_lp:
-            with open(self.parameters.output_path / "marginal_fixing_accepted_powers.json", "w") as f:
+        if self.parameters.solver.export_lp:
+            with open(
+                self.parameters.get_lp_dir() / "marginal_fixing_accepted_powers.json",
+                "w",
+            ) as f:
                 json.dump([[ma, o, val] for (ma, o), val in self.retrieve_accepted_powers().items()], f)
 
     def update_accepted_power(self, market_area_name: str, current_time: pendulum.DateTime, spot_price: float) -> None:
@@ -67,10 +72,12 @@ class MarginalFixing:
         """
         # Initialize the variables storing the total amounts of usable marginal powers as well as the marginal amounts
         # of balances that can be redistributed:
+        marginal_orders = list(self.get_marginal_orders(current_time, market_area_name, spot_price))
+
         max_marginal_sales = 0.0
         max_marginal_purchases = 0.0
         marginal_demand = 0.0
-        for mc_order, accepted_power in self.get_marginal_orders(current_time, market_area_name, spot_price):
+        for mc_order, accepted_power in marginal_orders:
             if mc_order.order_type == OrderType.Sell:
                 max_marginal_sales += mc_order.qmax - mc_order.qmin
                 marginal_demand += accepted_power - mc_order.qmin
@@ -81,18 +88,18 @@ class MarginalFixing:
         sharable_purchase_power = None
         sharable_sale_power = None
         if marginal_demand >= max_marginal_sales - max_marginal_purchases:
-            for mc_order, _ in self.get_marginal_orders(current_time, market_area_name, spot_price):
+            for mc_order, _ in marginal_orders:
                 if mc_order.order_type == OrderType.Sell:
                     self.accepted_powers[market_area_name, mc_order.name] = mc_order.qmax
             sharable_purchase_power = max_marginal_sales - marginal_demand
         else:
-            for mc_order, _ in self.get_marginal_orders(current_time, market_area_name, spot_price):
+            for mc_order, _ in marginal_orders:
                 if mc_order.order_type == OrderType.Buy:
                     self.accepted_powers[market_area_name, mc_order.name] = mc_order.qmax
             sharable_sale_power = max_marginal_purchases + marginal_demand
 
         if sharable_purchase_power is not None:
-            for mc_order, _ in self.get_marginal_orders(current_time, market_area_name, spot_price):
+            for mc_order, _ in marginal_orders:
                 if (
                     mc_order.order_type == OrderType.Buy
                     and max_marginal_purchases * (mc_order.qmax - mc_order.qmin) != 0
@@ -102,7 +109,7 @@ class MarginalFixing:
                         + sharable_purchase_power / max_marginal_purchases * (mc_order.qmax - mc_order.qmin)
                     )
         else:
-            for mc_order, _ in self.get_marginal_orders(current_time, market_area_name, spot_price):
+            for mc_order, _ in marginal_orders:
                 if mc_order.order_type == OrderType.Sell and max_marginal_sales * (mc_order.qmax - mc_order.qmin) != 0:
                     self.accepted_powers[market_area_name, mc_order.name] = (
                         mc_order.qmin + sharable_sale_power / max_marginal_sales * (mc_order.qmax - mc_order.qmin)
@@ -127,7 +134,9 @@ class MarginalFixing:
                 continue
             if not mc_order.start_date <= current_time < mc_order.end_date_processed:
                 continue
-            if (mc_order.end_datetime - mc_order.start_date).total_seconds() > self.parameters.timestep.total_seconds():
+            if (
+                mc_order.end_datetime - mc_order.start_date
+            ).total_seconds() > self.parameters.temporal.timestep.total_seconds():
                 continue
             if mc_order.price != spot_price:
                 continue
@@ -139,7 +148,7 @@ class MarginalFixing:
                 yield mc_order, accepted_power
 
     def retrieve_accepted_powers(self) -> dict[tuple[str, str], float]:
-        """Retrieve tje accepted powers of each order per area
+        """Retrieve the accepted powers of each order per area
 
         :rtype: dict[tuple[str, str], float]
         """

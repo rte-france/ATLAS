@@ -1,46 +1,127 @@
 # Modules
 
-Atlas provides three simulation modules for electricity market modeling. Each can be run independently or chained together in workflows.
+Atlas currently provides four simulation modules for electricity market modeling. Each can be run
+independently or chained together in [workflows](workflow.md). All modules share a common
+set of [parameters](common-parameters.md) and follow the same [module pattern](module-pattern.md).
+
+# Typical market structures
+The usual simulation pattern of a **Day-Ahead market** is the following:
+
+1. [Day-Ahead Orders](day-ahead-orders/index.md)
+2. [Market Clearing](market-clearing/index.md)
+3. [Portfolio Optimization](portfolio-optimisation/index.md)
+
+**Intraday markets** are meant to be executed after a Day-Ahead market, and involve additional steps:
+
+1. [Intraday Price Forecast](intraday-price-forecast/index.md)
+2. [Portfolio Optimization 1](portfolio-optimisation/index.md), in `use_forecast` mode. The aim of this first Portfolio Optimization is to compute updated generation and consumption programs for each unit of the portfolio, at the execution date of the Intraday market. Notably, this optimality may have evolved since the last Day-Ahead market, because of forecast updates.
+3. [Intraday Orders](intraday-orders/index.md), translating updates of step 2 into market orders.
+4. [Market Clearing](market-clearing/index.md)
+5. [Portfolio Optimization 2](portfolio-optimisation/index.md), to answer intraday market commitments resulting from step 4.
+
 
 ## Available Modules
 
-### Portfolio Optimisation
+<div class="grid cards" markdown>
 
-Optimizes energy asset portfolios (thermal, hydro, storage, renewables) to maximize profits under market conditions.
+-   :material-chart-line:{ .lg .middle } **Portfolio Optimisation**
 
-[Learn more →](portfolio-optimisation/index.md)
+    ---
 
-### Market Clearing
+    Optimizes energy asset portfolios (thermal, hydro, storage, renewables) to maximize profits under market conditions.
 
-Simulates market clearing to determine prices and dispatch based on supply and demand bids.
+    [:octicons-arrow-right-24: Overview](portfolio-optimisation/index.md)
 
-[Learn more →](market-clearing/index.md)
+    [:octicons-arrow-right-24: User Guide](portfolio-optimisation/user-guide/overview.md)
 
-### Day-Ahead Orders
+    [:octicons-arrow-right-24: Architecture](portfolio-optimisation/developer/architecture.md)
 
-Generates day-ahead market orders based on asset characteristics and market forecasts.
+-   :material-scale-balance:{ .lg .middle } **Market Clearing**
 
-[Learn more →](day-ahead-orders/index.md)
+    ---
 
-## Quick Start
+    Determines market equilibrium by matching supply and demand across multiple areas while respecting network constraints.
 
-Run a single module:
+    [:octicons-arrow-right-24: Overview](market-clearing/index.md)
 
-```bash
-atlas run parameters.yaml \
-  --module PortfolioOptimisation \
-  --dataset ./data/input/
-```
+    [:octicons-arrow-right-24: User Guide](market-clearing/user-guide/overview.md)
 
-Chain modules in a workflow:
+    [:octicons-arrow-right-24: Architecture](market-clearing/developer/architecture.md)
 
-```bash
-atlas run workflow.yaml --workflow
-```
+-   :material-calendar-clock:{ .lg .middle } **Day-Ahead Orders**
 
-## Resources
+    ---
 
-- [Running Modules](running-modules.md) - Execution methods and CLI usage
-- [Module Pattern](module-pattern.md) - Standard module structure
-- [Common Parameters](common-parameters.md) - Shared parameters
-- [Your First Simulation](../getting_started/first-simulation.md) - Complete tutorial
+    Generates day-ahead market orders for all equipment types based on asset characteristics and market forecasts.
+
+    [:octicons-arrow-right-24: Overview](day-ahead-orders/index.md)
+
+    [:octicons-arrow-right-24: User Guide](day-ahead-orders/user-guide/overview.md)
+
+    [:octicons-arrow-right-24: Architecture](day-ahead-orders/developer/architecture.md)
+
+-   :material-trending-up:{ .lg .middle } **Intraday Price Forecast**
+
+    ---
+
+    Computes intraday price forecasts using scenario-based sensitivity analysis between day-ahead and intraday markets.
+
+    [:octicons-arrow-right-24: Overview](intraday-price-forecast/index.md)
+
+    [:octicons-arrow-right-24: User Guide](intraday-price-forecast/user-guide/overview.md)
+
+    [:octicons-arrow-right-24: Architecture](intraday-price-forecast/developer/architecture.md)
+
+-   :material-cart-arrow-up:{ .lg .middle } **Intraday Orders**
+
+    ---
+
+    Generates intraday market orders by translating the updated planning into buy/sell adjustments of each unit's cleared engagement.
+
+    [:octicons-arrow-right-24: Overview](intraday-orders/index.md)
+
+    [:octicons-arrow-right-24: User Guide](intraday-orders/user-guide/overview.md)
+
+    [:octicons-arrow-right-24: Architecture](intraday-orders/developer/architecture.md)
+
+</div>
+
+## Shared Documentation
+
+Configuration and concepts common to every module:
+
+<div class="grid cards" markdown>
+
+-   :material-tune:{ .lg .middle } **Common Parameters**
+
+    ---
+
+    The `temporal`, `solver`, `output`, and `multiprocessing` sections shared by all modules.
+
+    [:octicons-arrow-right-24: Common parameters](common-parameters.md)
+
+-   :material-play-circle:{ .lg .middle } **Running Modules**
+
+    ---
+
+    Execute a module from Python with `ModuleRun`, or from the command line.
+
+    [:octicons-arrow-right-24: Running modules](running-modules.md)
+
+-   :material-shape-outline:{ .lg .middle } **Module Pattern**
+
+    ---
+
+    The `AbstractModule` lifecycle every module implements: import, validate, execute, export.
+
+    [:octicons-arrow-right-24: Module pattern](module-pattern.md)
+
+-   :material-school:{ .lg .middle } **Your First Simulation**
+
+    ---
+
+    A complete walkthrough running a module end to end on a sample dataset.
+
+    [:octicons-arrow-right-24: First simulation](../getting_started/first-simulation.md)
+
+</div>

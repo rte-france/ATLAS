@@ -12,17 +12,15 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Generic, Literal, Self, TypeVar
+from typing import Any, Literal, Self
 
 import pendulum
 import plotly.graph_objects as go
 import polars as pl
 from pydantic_core import core_schema
 
-TBackend = TypeVar("TBackend", pl.DataFrame, pl.LazyFrame)
 
-
-class AbstractScenarioMatrix(ABC, Generic[TBackend]):
+class AbstractScenarioMatrix[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
     """
     Abstract base class for ScenarioMatrix implementations.
 
@@ -152,19 +150,43 @@ class AbstractScenarioMatrix(ABC, Generic[TBackend]):
         ...
 
     @abstractmethod
-    def add(self, timeseries: Any, index: str) -> None:
+    def add(self, timeseries: Any, index: str, inplace: bool = True) -> Self:
         """Add a timeseries to the matrix."""
         ...
 
     @abstractmethod
-    def delete(self, index: str) -> None:
+    def delete(self, index: str, inplace: bool = True) -> Self:
         """Delete a timeseries by index."""
         ...
 
     @abstractmethod
-    def replace(self, index: str, timeseries: Any) -> None:
+    def replace(self, index: str, timeseries: Any, inplace: bool = True) -> Self:
         """Replace a Timeseries in the matrix."""
         ...
+
+    def upsert(self, index: str, timeseries: Any, inplace: bool = True) -> Self:
+        """
+        Add a timeseries at ``index``, replacing any timeseries already stored there.
+
+        Convenience wrapper over :meth:`add` and :meth:`replace` for the common case where
+        the caller recomputes a timeseries and does not care whether the index already exists.
+
+        :param index: Index key to write to.
+        :type index: str
+        :param timeseries: Timeseries data to store.
+        :type timeseries: Any
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
+        :return: The updated matrix.
+        :rtype: Self
+
+        :Example:
+
+        >>> matrix.upsert("2025-01-01 00:00", timeseries)  # doctest: +SKIP
+        """
+        if index in self:
+            return self.replace(index, timeseries, inplace=inplace)
+        return self.add(timeseries, index, inplace=inplace)
 
     @abstractmethod
     def get_matrix(self) -> TBackend:

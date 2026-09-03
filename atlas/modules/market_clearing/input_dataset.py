@@ -9,56 +9,56 @@ from typing import Any, cast
 import pendulum
 from pydantic import BaseModel
 
-from atlas import AtlasDataset
-from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.abstract_class.dataset import AbstractDataset
 from atlas.config import logger
 from atlas.enums import CouplingType
-from atlas.models.control_block import ControlBlock
-from atlas.models.market.critical_branch import CriticalBranch
-from atlas.models.market.market_area import MarketArea
-from atlas.models.market.market_area_ptdf import MarketAreaPtdf
-from atlas.models.market.market_border import MarketBorder
-from atlas.models.market.order import Order
-from atlas.models.market.order_coupling import OrderCoupling
-from atlas.modules.market_clearing.models.critical_branch import CriticalBranchMC
-from atlas.modules.market_clearing.models.market_area import MarketAreaMC
-from atlas.modules.market_clearing.models.market_area_ptdf import MarketAreaPtdfMC
-from atlas.modules.market_clearing.models.market_border import MarketBorderMC
-from atlas.modules.market_clearing.models.order import OrderMC
-from atlas.modules.market_clearing.models.order_coupling import OrderCouplingMC
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.modules.market_clearing.input_objects.critical_branch import CriticalBranchMC
+from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
+from atlas.modules.market_clearing.input_objects.market_area_ptdf import MarketAreaPtdfMC
+from atlas.modules.market_clearing.input_objects.market_border import MarketBorderMC
+from atlas.modules.market_clearing.input_objects.order import OrderMC
+from atlas.modules.market_clearing.input_objects.order_coupling import OrderCouplingMC
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.objects.market.critical_branch import CriticalBranch
+from atlas.objects.market.market_area import MarketArea
+from atlas.objects.market.market_area_ptdf import MarketAreaPtdf
+from atlas.objects.market.market_border import MarketBorder
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
+from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.timing import generate_datetimes
 
 
 class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
     """Input dataset for Market Clearing module"""
 
-    def __init__(self, raw_data: AtlasDataset, parameters: MarketClearingParameters):
-        self.raw_data = raw_data
+    def __init__(self, input_data: AtlasDataset, parameters: MarketClearingParameters):
+        self.input_data = input_data
         self.parameters = parameters
         self.times = generate_datetimes(
-            self.parameters.start_date,
-            cast(pendulum.DateTime, self.parameters.end_date - self.parameters.timestep),
-            self.parameters.timestep,
+            self.parameters.temporal.start_date,
+            cast(pendulum.DateTime, self.parameters.temporal.end_date - self.parameters.temporal.timestep),
+            self.parameters.temporal.timestep,
         )
 
         self.is_atc = self.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
 
-        order_couplings = [cast(OrderCoupling, obj) for obj in raw_data.order_coupling]
+        order_couplings = [cast(OrderCoupling, obj) for obj in input_data.order_coupling]
         self.mc_order_couplings = self.get_order_couplings(order_couplings)
-        orders = [cast(Order, obj) for obj in raw_data.order]
+        orders = [cast(Order, obj) for obj in input_data.order]
         self.mc_orders = self.get_orders(orders, self.mc_order_couplings)
-        market_areas = [cast(MarketArea, obj) for obj in raw_data.market_area]
+        market_areas = [cast(MarketArea, obj) for obj in input_data.market_area]
         self.mc_market_areas = self.get_market_areas(market_areas, self.mc_orders)
-        market_borders = [cast(MarketBorder, obj) for obj in raw_data.market_border]
+        market_borders = [cast(MarketBorder, obj) for obj in input_data.market_border]
         self.mc_market_borders = self.get_market_borders(market_borders)
-        control_blocks = [cast(ControlBlock, obj) for obj in raw_data.control_block]
+        control_blocks = [cast(ControlBlock, obj) for obj in input_data.control_block]
         self.mc_control_blocks = self.get_control_blocks(control_blocks)
 
         if self.parameters.exchange_constraints_type == ExchangeConstraintsType.FB:
-            critical_branches = [cast(CriticalBranch, obj) for obj in raw_data.critical_branch]
+            critical_branches = [cast(CriticalBranch, obj) for obj in input_data.critical_branch]
             self.mc_critical_branches = self.get_critical_branches(critical_branches)
-            market_area_ptdfs = [cast(MarketAreaPtdf, obj) for obj in raw_data.market_area_ptdf]
+            market_area_ptdfs = [cast(MarketAreaPtdf, obj) for obj in input_data.market_area_ptdf]
             self.mc_market_area_ptdfs = self.get_market_area_ptdfs(market_area_ptdfs)
         else:
             self.mc_critical_branches = {}
@@ -71,7 +71,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         for critical_branch in critical_branches:
             critical_branch_dump = {
                 **MarketClearingInputDataset.shallow_dump(critical_branch),
-                "timestep": self.parameters.timestep,
+                "timestep": self.parameters.temporal.timestep,
                 "times": self.times,
             }
             mc_critical_branch = CriticalBranchMC.model_validate(critical_branch_dump)
@@ -116,7 +116,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
             }
             market_area_dump = {
                 **MarketClearingInputDataset.shallow_dump(market_area),
-                "timestep": self.parameters.timestep,
+                "timestep": self.parameters.temporal.timestep,
                 "times": self.times,
                 "mc_orders": market_area_orders,
             }
@@ -132,7 +132,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 id_with_status = True if order.qmin and order.qmin > self.parameters.allowed_round_off_error else False
                 order_dump = {
                     **MarketClearingInputDataset.shallow_dump(order),
-                    "timestep": self.parameters.timestep,
+                    "timestep": self.parameters.temporal.timestep,
                     "id_with_status": id_with_status,
                 }
                 mc_order = OrderMC.model_validate(order_dump)
@@ -218,7 +218,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                     continue
             market_border_dump = {
                 **MarketClearingInputDataset.shallow_dump(market_border),
-                "timestep": self.parameters.timestep,
+                "timestep": self.parameters.temporal.timestep,
                 "times": self.times,
             }
             mc_market_border = MarketBorderMC.model_validate(market_border_dump)
@@ -230,7 +230,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         for market_area_ptdf in market_area_ptdfs:
             market_area_ptdf_dump = {
                 **MarketClearingInputDataset.shallow_dump(market_area_ptdf),
-                "timestep": self.parameters.timestep,
+                "timestep": self.parameters.temporal.timestep,
                 "times": self.times,
             }
             mc_market_area_ptdf = MarketAreaPtdfMC.model_validate(market_area_ptdf_dump)

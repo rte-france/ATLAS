@@ -13,9 +13,9 @@ import os
 import shutil
 import tempfile
 from concurrent.futures import ProcessPoolExecutor
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, get_args
+from typing import Any, cast, get_args
 
 import h5py  # type: ignore[import-untyped]
 import numpy as np
@@ -23,13 +23,14 @@ import numpy.typing as npt
 import pendulum
 import polars as pl
 from pydantic_extra_types.pendulum_dt import DateTime, Duration
+from rich import print as rprint
 
 import atlas.config as cfg
-from atlas import AtlasDataset
 from atlas.config import DEFAULT_VALUE_IO, logger
 from atlas.enums import BusinessModelName, CouplingType, StorageType
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.utils import to_snake_case
-from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
+from atlas.timing import pendulum_to_datetime
 from atlas.type import get_class_inheritance_chain, get_type_attribute
 
 # Constants
@@ -131,7 +132,8 @@ class PrometheusToAtlasDataParser:
             self.add_default_value(dataset)
         shutil.rmtree(self.tmp_dir)
         dataset.to_directory(self.output_dir)
-        logger.success(f"Export done to Atlas dataset - {self.output_dir}!")
+        rprint("\n[bold green]✓[/bold green] Export completed successfully!")
+        rprint(f"[bold cyan]→[/bold cyan] Atlas dataset saved to: [yellow]{self.output_dir}[/yellow]\n")
 
     @staticmethod
     def add_default_value(dataset: AtlasDataset):
@@ -437,6 +439,12 @@ class PrometheusToAtlasDataParser:
     def _read_and_parse_csv(self, csv_file: str) -> pl.DataFrame:
         """Read CSV file and parse the TimeStep column.
 
+        Forecasting matrix columns are often very sparse (only a handful of
+        non-null values across thousands of rows). Schema inference is done
+        on the full file (``infer_schema_length=None``) so a column whose
+        first non-null value appears after the default 100-row sample isn't
+        misdetected as ``String`` and silently dropped downstream.
+
         Args:
             csv_file: Path to the CSV file
 
@@ -444,7 +452,7 @@ class PrometheusToAtlasDataParser:
             Parsed DataFrame with datetime TimeStep column
         """
         return (
-            pl.read_csv(csv_file, separator=CSV_SEPARATOR)
+            pl.read_csv(csv_file, separator=CSV_SEPARATOR, infer_schema_length=None)
             .with_columns(
                 pl.col("TimeStep").str.strptime(pl.Datetime(), pendulum_to_datetime(self.date_format_timestep))
             )
@@ -514,7 +522,7 @@ class PrometheusToAtlasDataParser:
     def _ensure_regular_frequency(self, df: pl.DataFrame) -> pl.DataFrame:
         """Ensure the DataFrame has a regular time frequency.
 
-        If frequency is irregular, upsample to most frequent timestep and forward fill.
+        If frequency is irregular, find the minimum timestep
 
         Args:
             df: DataFrame with TimeStep column
@@ -522,13 +530,10 @@ class PrometheusToAtlasDataParser:
         Returns:
             DataFrame with regular frequency
         """
-        try:
-            infer_frequency(df.rename({"TimeStep": "time"}))
-            return df
-        except ValueError:
-            logger.debug("Irregular frequency detected, upsampling to most frequent timestep")
-            timestep = get_most_frequent_timestep(df.rename({"TimeStep": "time"}))
-            return df.upsample(time_column="TimeStep", every=timestep).fill_null(strategy="forward").sort("TimeStep")
+        times = df["TimeStep"]
+        min_delta = cast(timedelta, times.sort().diff().drop_nulls().min())
+        timestep = pendulum.duration(seconds=int(min_delta.total_seconds()))
+        return df.upsample(time_column="TimeStep", every=timestep).fill_null(strategy="forward").sort("TimeStep")
 
     def _write_matrix_parquet(
         self,

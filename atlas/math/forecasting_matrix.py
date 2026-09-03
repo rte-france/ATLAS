@@ -9,15 +9,17 @@ Module that implements ForecastingMatrix
 
 from __future__ import annotations
 
+import copy
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Self, cast
 
 import pendulum
 import polars as pl
 from pydantic_core import core_schema
 
 from atlas.io_utils.utils import read_data_file
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import ScenarioMatrix
@@ -90,6 +92,7 @@ class ForecastingMatrix(ScenarioMatrix):
         timezone: str = "UTC",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
+        drop_null_columns: bool = False,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> ForecastingMatrix:
         """
@@ -97,11 +100,17 @@ class ForecastingMatrix(ScenarioMatrix):
 
         :param file_path: Path to the file (CSV or Parquet).
         :type file_path: str | Path
+        :param drop_null_columns: If True, drop forecast columns that are entirely null once
+            ``filters`` is applied. Files stacking several attributes in the same table can
+            leave columns that only belonged to another attribute, all-null after filtering.
+        :type drop_null_columns: bool
         :return: A ForecastingMatrix object.
         :rtype: ForecastingMatrix
         """
 
-        return cls(read_data_file(file_path, filters, separator), timezone, date_format)
+        return cls(
+            read_data_file(file_path, filters, separator, drop_null_columns=drop_null_columns), timezone, date_format
+        )
 
     def _sort_indexes(self) -> None:
         """
@@ -110,9 +119,10 @@ class ForecastingMatrix(ScenarioMatrix):
         Columns are expected to be named using a specific datetime format.
         This method parses, sorts, and reorders the matrix accordingly.
 
-
+        Nothing is sorted when the matrix holds no forecast, which happens transiently while
+        replacing the only forecast of a matrix: an empty index list carries no datetime to parse.
         """
-        if self.matrix.height == 0:
+        if self.matrix.height == 0 or not self.indexes:
             return
         indexes_sorted = (
             pl.DataFrame({"indexes": self.indexes})
@@ -136,9 +146,10 @@ class ForecastingMatrix(ScenarioMatrix):
 
     def add(
         self,
-        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
+        timeseries: AbstractTimeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str | datetime | pendulum.DateTime,
-    ) -> None:
+        inplace: bool = True,
+    ) -> Self:
         """
         Add a Timeseries to the matrix and keep indexes sorted.
 
@@ -146,11 +157,13 @@ class ForecastingMatrix(ScenarioMatrix):
         :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict
         :param index: Datetime key for the new forecast.
         :type index: str | datetime
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         """
         dt: str = build_datetime(index, self.date_format).format(self.date_format)
-
-        super().add(timeseries, dt)
-        self._sort_indexes()
+        result = super().add(timeseries, dt, inplace=inplace)
+        result._sort_indexes()
+        return result
 
     def __contains__(self, index: str | datetime | pendulum.DateTime) -> bool:
         """
@@ -195,25 +208,27 @@ class ForecastingMatrix(ScenarioMatrix):
         """
         return self.__getitem__(index)
 
-    def delete(self, index: str | datetime | pendulum.DateTime) -> None:
+    def delete(self, index: str | datetime | pendulum.DateTime, inplace: bool = True) -> Self:
         """
         Delete a timeseries by index.
 
         :param index: Forecast generation datetime (as string or datetime object).
         :type index: str | datetime
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         :raises KeyError: If the index does not exist in the matrix.
         """
         dt: str = build_datetime(index, self.date_format).format(self.date_format)
-
-        super().delete(dt)
-
-        self._sort_indexes()
+        result = super().delete(dt, inplace=inplace)
+        result._sort_indexes()
+        return result
 
     def replace(
         self,
         index: str | datetime | pendulum.DateTime,
         timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
-    ) -> None:
+        inplace: bool = True,
+    ) -> Self:
         """
         Replace a Timeseries in the matrix and keep indexes sorted.
 
@@ -221,9 +236,35 @@ class ForecastingMatrix(ScenarioMatrix):
         :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict
         :param index: Datetime key for the new forecast.
         :type index: str | datetime
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         """
-        self.delete(index=index)
-        self.add(timeseries=timeseries, index=index)
+        target = self if inplace else copy.deepcopy(self)
+        target.delete(index=index)
+        target.add(timeseries=timeseries, index=index)
+        return target
+
+    def upsert(
+        self,
+        index: str | datetime | pendulum.DateTime,
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
+        inplace: bool = True,
+    ) -> Self:
+        """
+        Add a Timeseries at ``index``, replacing any forecast already stored there.
+
+        :param index: Datetime key for the forecast.
+        :type index: str | datetime | pendulum.DateTime
+        :param timeseries: Timeseries data to store.
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
+        :return: The updated matrix.
+        :rtype: Self
+        """
+        if index in self:
+            return self.replace(index, timeseries, inplace=inplace)
+        return self.add(timeseries, index, inplace=inplace)
 
     def _get_parsed_indexes(self) -> pl.DataFrame:
         """
@@ -437,6 +478,7 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
         timezone: str = "UTC",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
+        drop_null_columns: bool = False,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> LazyForecastingMatrix:
         """
@@ -446,6 +488,10 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
         :type file_path: str | Path
         :param timezone: Timezone to apply
         :type timezone: str
+        :param drop_null_columns: If True, drop forecast columns that are entirely null once
+            ``filters`` is applied. Files stacking several attributes in the same table can
+            leave columns that only belonged to another attribute, all-null after filtering.
+        :type drop_null_columns: bool
         :return: LazyForecastingMatrix instance
         :rtype: LazyForecastingMatrix
         """
@@ -455,6 +501,7 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
                 timezone=timezone,
                 filters=filters,
                 separator=separator,
+                drop_null_columns=drop_null_columns,
             ),
             timezone,
             date_format,
@@ -476,7 +523,8 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
         self,
         timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str | datetime | pendulum.DateTime,
-    ) -> None:
+        inplace: bool = True,
+    ) -> Self:
         """
         Add a timeseries to the lazy forecasting matrix.
 
@@ -484,27 +532,32 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
         :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict
         :param index: Datetime key for the new forecast.
         :type index: str | datetime | pendulum.DateTime
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         :raises KeyError: If index already exists in the matrix.
         """
         dt: str = build_datetime(index, self.date_format).format(self.date_format)
-        super().add(timeseries, dt)
+        return super().add(timeseries, dt, inplace=inplace)
 
-    def delete(self, index: str | datetime | pendulum.DateTime) -> None:
+    def delete(self, index: str | datetime | pendulum.DateTime, inplace: bool = True) -> Self:
         """
         Delete a timeseries by index.
 
         :param index: Forecast generation datetime (as string or datetime object).
         :type index: str | datetime | pendulum.DateTime
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         :raises KeyError: If the index does not exist in the matrix.
         """
         dt: str = build_datetime(index, self.date_format).format(self.date_format)
-        super().delete(dt)
+        return super().delete(dt, inplace=inplace)
 
     def replace(
         self,
         index: str | datetime | pendulum.DateTime,
         timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
-    ) -> None:
+        inplace: bool = True,
+    ) -> Self:
         """
         Replace a Timeseries in the matrix and keep indexes sorted.
 
@@ -512,9 +565,35 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
         :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
         :param index: Datetime key for the new forecast.
         :type index: str | datetime
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
         """
-        self.delete(index=index)
-        self.add(timeseries=timeseries, index=index)
+        target = self if inplace else copy.deepcopy(self)
+        target.delete(index=index)
+        target.add(timeseries=timeseries, index=index)
+        return target
+
+    def upsert(
+        self,
+        index: str | datetime | pendulum.DateTime,
+        timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
+        inplace: bool = True,
+    ) -> Self:
+        """
+        Add a Timeseries at ``index``, replacing any forecast already stored there.
+
+        :param index: Datetime key for the forecast.
+        :type index: str | datetime | pendulum.DateTime
+        :param timeseries: Timeseries data to store.
+        :type timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
+        :return: The updated matrix.
+        :rtype: Self
+        """
+        if index in self:
+            return self.replace(index, timeseries, inplace=inplace)
+        return self.add(timeseries, index, inplace=inplace)
 
     def get_forecast(
         self,

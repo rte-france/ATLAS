@@ -280,6 +280,22 @@ class TestTimeseriesInit:
 
         assert ts.timestep == pendulum.duration(hours=1)
 
+    def test_timeseries_from_values_no_values(self):
+        with pytest.raises(ValueError, match="at least 1 value"):
+            Timeseries.from_values("2025-01-01 00:00:00", "1h", [], timezone="UTC")
+
+    def test_timeseries_from_values_single_value(self):
+        ts = Timeseries.from_values("2025-01-01 00:00:00", "1h", [42.0], timezone="UTC")
+        assert isinstance(ts, Timeseries)
+        assert len(ts) == 2
+        assert ts["value"] == [42.0, 42.0]
+        expected_times = [
+            pendulum.datetime(2025, 1, 1, 0, 0, 0, tz="UTC"),
+            pendulum.datetime(2025, 1, 1, 1, 0, 0, tz="UTC"),
+        ]
+        assert ts.index == expected_times
+        assert ts.timestep == pendulum.duration(hours=1)
+
 
 class TestTimeseriesBasicOperations:
     """Test basic operations of the Timeseries class."""
@@ -896,11 +912,22 @@ class TestTimeseriesBasicOperations:
 
         assert sample_ts == sample_ts_copy
 
-    def test_first_date(self, sample_ts):
-        assert sample_ts.first_date() == datetime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone("UTC"))
+    def test_get_by_index(self, sample_ts):
+        assert sample_ts.get_by_index(0) == 10.0
+        assert sample_ts.get_by_index(-1) == 40.0
+        assert sample_ts.get_by_index(2) == 30.0
+        with pytest.raises(IndexError):
+            sample_ts.get_by_index(99)
+        with pytest.raises(IndexError):
+            sample_ts.get_by_index(-99)
 
-    def test_last_date(self, sample_ts):
-        assert sample_ts.last_date() == datetime(2023, 1, 1, 3, 0, 0, tzinfo=Timezone("UTC"))
+    def test_get_time_by_index(self, sample_ts):
+        assert sample_ts.get_time_by_index(0) == datetime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone("UTC"))
+        assert sample_ts.get_time_by_index(-1) == datetime(2023, 1, 1, 3, 0, 0, tzinfo=Timezone("UTC"))
+        with pytest.raises(IndexError):
+            sample_ts.get_time_by_index(99)
+        with pytest.raises(IndexError):
+            sample_ts.get_time_by_index(-99)
 
     def test_iter_rows(self, sample_ts):
         """Test iterating over rows of the Timeseries."""

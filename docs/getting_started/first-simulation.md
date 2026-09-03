@@ -14,21 +14,21 @@ In this tutorial, you will:
 
 ## What You'll Need
 
-- Atlas installed ([see Installation](../getting_started.md))
-- A solver installed (OR-Tools comes by default, or [install Xpress](../getting_started.md#available-solver))
+- Atlas installed ([see Installation](getting_started.md))
+- A solver installed (OR-Tools comes by default, or [install Xpress](getting_started.md#xpress-optional))
 - Sample dataset (instructions below)
 
-## Understanding the Workflow
+## Understanding the general simulation pattern in ATLAS
 
 Atlas simulations follow a general pattern:
 
 ```
-Input Data → Module Parameters → Simulation → Results
+Input Data → Module Parameters (or Workflow structure in that mode) → Simulation → Results
 ```
 
 Each module processes:
 
-- **AtlasDataset**: Time series data for market prices, demand, generation capacity, etc.
+- **AtlasDataset**: Static and time series data for market prices, demand, generation capacity, etc.
 - **Parameters file**: YAML configuration defining simulation behavior
 - **Output**: Optimized decisions, market outcomes, or generated orders
 
@@ -36,117 +36,20 @@ Each module processes:
 
 Atlas uses a specific dataset format called **AtlasDataset**. For this tutorial, we'll use sample data.
 
-### Dataset Structure
+### Test Dataset
 
-An AtlasDataset follows a specific directory structure that separates business objects from their associated time-varying data:
+For every module, you can find a small dataset in `tests/dataset/`.
 
-```
-atlas-dataset/
-├── objects/             # Business model definitions (CSV)
-│   ├── market_area.csv
-│   ├── node.csv
-│   ├── portfolio.csv
-│   ├── thermal.csv
-│   ├── hydro.csv
-│   ├── wind.csv
-│   ├── solar.csv
-│   └── ...
-├── timeseries/          # Time-indexed data (Parquet/CSV)
-│   ├── thermal/
-│   │   └── unit_name.parquet
-│   ├── hydro/
-│   │   └── plant_name.parquet
-│   └── market_area/
-│       └── area_name.parquet
-├── scenario_matrix/     # Multi-scenario data (Parquet/CSV)
-│   ├── thermal/
-│   │   └── unit_name.parquet
-│   └── hydro/
-│       └── plant_name.parquet
-└── forecasting_matrix/  # Forecast data (Parquet/CSV)
-    ├── market_area/
-    │   └── area_name.parquet
-    └── thermal/
-        └── unit_name.parquet
-```
-
-#### Objects Directory
-
-Contains CSV files (semicolon-separated by default) defining business model objects:
-
-- **thermal.csv**: Thermal generation units with attributes like capacity, ramp rates, costs
-- **hydro.csv**: Hydroelectric plants with reservoir characteristics
-- **market_area.csv**: Market area definitions with price forecasts
-- **node.csv**: Network nodes
-- **portfolio.csv**: Portfolio definitions grouping assets
-
-Example `thermal.csv`:
-
-| name | node | portfolio | installed_capacity | minimum_time_on | strategy |
-|------|------|-----------|-------------------|-----------------|----------|
-| fr_nuclear | fr | generator_fr | 1584.0 | PT1H | Intermediate |
-| de_coal | de | generator_de | 500.0 | P1D | Base |
-
-#### Timeseries Directory
-
-Contains subdirectories per object type, with Parquet/CSV files storing time-indexed data:
-
-- One file per object (e.g., `fr_nuclear.parquet` for a thermal unit)
-- Multiple attributes stored using an `attribute` column as a categorical filter
-- Common attributes: generation profiles, availability, costs over time
-
-Example `timeseries/thermal/fr_nuclear.csv`:
-
-| time | attribute | value |
-|------|-----------|-------|
-| 2024-01-01 00:00:00 | availability | 0.95 |
-| 2024-01-01 01:00:00 | availability | 0.95 |
-| 2024-01-01 02:00:00 | availability | 0.93 |
-| 2024-01-01 00:00:00 | marginal_cost | 45.2 |
-| 2024-01-01 01:00:00 | marginal_cost | 45.5 |
-| 2024-01-01 02:00:00 | marginal_cost | 46.1 |
-
-The `attribute` column acts as a filter - filtering by `attribute == "availability"` gives you the availability timeseries.
-
-#### Matrix Directories
-
-**scenario_matrix/**: Multi-scenario stochastic data (e.g., uncertain inflows, demand scenarios)
-
-Example `scenario_matrix/hydro/mountain_hydro.csv`:
-
-| time | attribute | scenario_0 | scenario_1 | scenario_2 |
-|------|-----------|------------|------------|------------|
-| 2024-01-01 00:00:00 | inflows | 125.3 | 98.7 | 156.2 |
-| 2024-01-01 01:00:00 | inflows | 128.1 | 102.4 | 159.8 |
-| 2024-01-01 02:00:00 | inflows | 130.5 | 105.1 | 163.4 |
-
-Each scenario column represents a possible realization of uncertain inflows.
-
-**forecasting_matrix/**: Forecast data with multiple forecast horizons (e.g., price forecasts, demand forecasts)
-
-Example `forecasting_matrix/market_area/fr.csv`:
-
-| time | attribute | 2026-01-01 00:00:00 | 2026-01-01 01:00:00 | 2026-01-01 02:00:00 |
-|------|-----------|-------------|-------------|-------------|
-| 2024-01-01 00:00:00 | price | 52.3 | 51.8 | 50.5 |
-| 2024-01-01 01:00:00 | price | 48.7 | 49.2 | 48.9 |
-| 2024-01-01 02:00:00 | price | 45.2 | 46.1 | 46.8 |
-
-Each forecast column represents predictions at different forecast horizons (h0 = current hour, h1 = next hour, etc.).
-
-#### Supported File Formats
-
-- **Parquet** (recommended): Efficient binary format for large datasets
-- **CSV**: Human-readable, semicolon-separated
-
-Learn more in the [AtlasDataset documentation](../api/io/atlas_dataset.md) and [examples](../examples/atlas_dataset.md).
+For the full dataset format description, see [AtlasDataset examples](../examples/atlas_dataset.md).
 
 ## Step 2: Create a Parameters File
 
 For a complete parameter reference, see:
 
 - [Common Parameters](../modules/common-parameters.md)
-- [Portfolio Optimisation Parameters](../modules/portfolio-optimisation/user-guide/input-data.md)
+- [Portfolio Optimisation Parameters](../modules/portfolio-optimisation/user-guide/parameters.md)
+
+NB: To know the complete set of parameters for a given module, as well as a template for said set of parameters, please refer to the user-guide specific to this module.
 
 ## Step 3: Run the Simulation
 
@@ -161,10 +64,35 @@ atlas run portfolio_params.yaml \
 ### What Happens During Execution
 
 1. **Data Loading**: Atlas reads the input dataset
-2. **Model Building**: Creates optimization model based on parameters
-3. **Solving**: Runs the solver to find optimal decisions
-4. **Output Generation**: Writes results to disk
+2. **Module-specific computations**: The module performs specific tasks. Many modules involve optimization problems (such as Portfolio Optimization). In that case, the computation process is usually divided into two successive steps:
+    1. **Model Building**: Creates optimization model based on parameters and input data
+    2. **Solving**: Runs the solver to find optimal decisions
+3. **Output Generation**: Writes results to disk
 
+## Step 4: Analyze the Results
+
+Access results directly in your script or console after the run:
+
+```python
+from atlas import AtlasDataset
+from atlas.modules.module_run import ModuleRun
+from atlas.modules.portfolio_optimisation import PortfolioOptimisationModule
+
+dataset = AtlasDataset.from_directory("./atlas-dataset/")
+result = ModuleRun(
+    module=PortfolioOptimisationModule(),
+    dataset=dataset,
+    parameters="portfolio_params.yaml",
+).run()
+
+# Access equipment results
+for equipment in result.equipment:
+    power_forecast = equipment.power.get_forecast(
+        execution_date, start_date, end_date
+    )
+```
+
+See [Results](../modules/portfolio-optimisation/user-guide/results.md) for the full output reference.
 
 ## Step 5: Run a Multi-Module Workflow
 
@@ -190,6 +118,8 @@ steps:
     parameters_path: "portfolio_params.yaml"
 
 ```
+
+The order in which steps are written in the yaml is important: it defines the actual chain of modules in the simulation. The name of each module has to correspond to an existing module, however the user can choose whatever he wants in the `name` field.
 
 Run the workflow:
 

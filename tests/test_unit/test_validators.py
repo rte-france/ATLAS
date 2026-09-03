@@ -1,11 +1,18 @@
 import pytest
 from pendulum import duration
+from pydantic import BaseModel, ValidationError
 
-from atlas.models.business_model import BusinessModel
-from atlas.models.equipment.equipment import Equipment
-from atlas.models.node import Node
-from atlas.models.portfolio import Portfolio
+from atlas.objects.business_model import BusinessModel
+from atlas.objects.equipment.equipment import Equipment
+from atlas.objects.market.market_area import MarketArea
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
+from atlas.objects.market_operator.portfolio import Portfolio
+from atlas.objects.network.node import Node
+from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.validators import (
+    DateFormat,
+    PipeSeparatedFloats,
     convert_to_duration,
     serializer_business_model,
     serializer_list_business_model,
@@ -159,9 +166,11 @@ def test_serializer_list_business_model_invalid():
 def test_field_serializer_integration():
     """Test that field serializers work correctly with model_dump(mode='json')."""
 
-    # Create test instances
-    node = Node(name="test_node")
-    portfolio = Portfolio(name="test_portfolio")
+    # Create test instances with required nested objects
+    control_block = ControlBlock(name="test_cb")
+    market_area = MarketArea(name="test_ma", control_block=control_block)
+    node = Node(name="test_node", control_block=control_block, market_area=market_area)
+    portfolio = Portfolio(name="test_portfolio", control_block=control_block, market_area=market_area)
 
     equipment = Equipment(
         name="test_equipment",
@@ -177,7 +186,123 @@ def test_field_serializer_integration():
     assert dumped["portfolio"] == "test_portfolio"
     assert dumped["co2_emission_factor"] == 0.5
 
-    equipment_no_node = Equipment(name="test_no_node", node=None, portfolio=None)
-    dumped_no_node = equipment_no_node.model_dump(mode="json")
-    assert dumped_no_node["node"] is None
-    assert dumped_no_node["portfolio"] is None
+
+class DummyEquipment(Equipment):
+    """Equipment subclass, to check that a reference typed with the base class accepts it."""
+
+
+def test_resolve_by_name_round_trip():
+    """A dumped reference is a name, and resolves back to the very same instance."""
+    control_block = ControlBlock(name="test_cb")
+    market_area = MarketArea(name="test_ma", control_block=control_block)
+    registry = {"test_cb": [control_block], "test_ma": [market_area]}
+
+    dumped = Node(name="test_node", control_block=control_block, market_area=market_area).model_dump()
+    assert dumped["control_block"] == "test_cb"
+
+    node = Node.model_validate(dumped, context={"registry": registry})
+
+    assert node.control_block is control_block
+    assert node.market_area is market_area
+
+
+def test_resolve_by_name_list_round_trip():
+    """List references are serialized pipe-separated and resolved back in order."""
+    control_block = ControlBlock(name="cb")
+    market_area = MarketArea(name="ma", control_block=control_block)
+    orders = [Order(name="order_1", market_area=market_area), Order(name="order_2", market_area=market_area)]
+    registry = {"order_1": [orders[0]], "order_2": [orders[1]]}
+
+    dumped = OrderCoupling(name="coupling", orders=orders).model_dump()
+    assert dumped["orders"] == "order_1|order_2"
+
+    coupling = OrderCoupling.model_validate(dumped, context={"registry": registry})
+
+    assert coupling.orders == orders
+
+
+def test_resolve_by_name_uses_the_annotated_type():
+    """Objects of different types may share a name: the field annotation picks the right one."""
+    control_block = ControlBlock(name="fr")
+    market_area = MarketArea(name="fr", control_block=control_block)
+    registry = {"fr": [control_block, market_area]}
+
+    node = Node.model_validate(
+        {"name": "node_fr", "control_block": "fr", "market_area": "fr"}, context={"registry": registry}
+    )
+
+    assert node.control_block is control_block
+    assert node.market_area is market_area
+
+
+def test_resolve_by_name_accepts_a_subclass():
+    """A reference typed with a base class resolves to any registered subclass."""
+    control_block = ControlBlock(name="cb")
+    market_area = MarketArea(name="ma", control_block=control_block)
+    node = Node(name="node", control_block=control_block, market_area=market_area)
+    portfolio = Portfolio(name="portfolio", control_block=control_block, market_area=market_area)
+    equipment = DummyEquipment(name="eq", node=node, portfolio=portfolio)
+    registry = {"ma": [market_area], "eq": [equipment]}
+
+    order = Order.model_validate(
+        {"name": "order", "market_area": "ma", "equipment": "eq"}, context={"registry": registry}
+    )
+
+    assert order.equipment is equipment
+
+
+def test_resolve_by_name_unknown_reference():
+    control_block = ControlBlock(name="cb")
+    registry = {"cb": [control_block], "ma": [MarketArea(name="ma", control_block=control_block)]}
+
+    with pytest.raises(ValidationError, match="No ControlBlock named 'typo'"):
+        Node.model_validate(
+            {"name": "node", "control_block": "typo", "market_area": "ma"}, context={"registry": registry}
+        )
+
+
+def test_resolve_by_name_without_registry_is_a_passthrough():
+    """Direct construction from real objects is unaffected, and a name stays an invalid value."""
+    control_block = ControlBlock(name="cb")
+    market_area = MarketArea(name="ma", control_block=control_block)
+
+    assert Node(name="node", control_block=control_block, market_area=market_area).control_block is control_block
+
+    with pytest.raises(ValidationError, match="ControlBlock"):
+        Node.model_validate({"name": "node", "control_block": "cb", "market_area": "ma"})
+
+
+class _PipeModel(BaseModel):
+    values: PipeSeparatedFloats = None
+
+
+def test_pipe_separated_floats_round_trip():
+    """PipeSeparatedFloats parses "a|b" on validation and re-emits it on dump."""
+    assert _PipeModel.model_validate({"values": "1.0|2.5"}).values == [1.0, 2.5]
+    assert _PipeModel.model_validate({"values": [1.0, 2.5]}).values == [1.0, 2.5]
+    assert _PipeModel(values=[1.0, 2.5]).model_dump(mode="json")["values"] == "1.0|2.5"
+
+    assert _PipeModel.model_validate({"values": None}).values is None
+    assert _PipeModel().model_dump(mode="json")["values"] is None
+
+    with pytest.raises(ValidationError):
+        _PipeModel.model_validate({"values": "a|b"})
+
+
+class _DateFormatModel(BaseModel):
+    fmt: DateFormat = "YYYY-MM-DD HH:mm:ss"
+
+
+def test_date_format_accepts_pendulum_tokens():
+    """Genuine pendulum format tokens round-trip through format/parse."""
+    assert _DateFormatModel(fmt="YYYY-MM-DD HH:mm:ss").fmt == "YYYY-MM-DD HH:mm:ss"
+    assert _DateFormatModel(fmt="DD/MM/YYYY").fmt == "DD/MM/YYYY"
+
+
+def test_date_format_rejects_garbage():
+    """Strings with no or malformed date tokens fail the format/parse round-trip."""
+    with pytest.raises(ValidationError, match="Invalid date format"):
+        _DateFormatModel(fmt="hello world")
+
+    with pytest.raises(ValidationError, match="Invalid date format"):
+        _DateFormatModel(fmt="ZZZZZZZ")

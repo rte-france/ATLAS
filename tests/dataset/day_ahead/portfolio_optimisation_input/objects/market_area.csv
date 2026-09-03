@@ -1,0 +1,3 @@
+name;afrr_activation_price;co2_emissions;control_block;da_balance;da_price;fcr_activation_price;id_balance;id_price;id_price_forecast;maximum_price;mfrr_activation_balance;mfrr_activation_price;minimum_price;price_forecast_high;price_forecast_low;price_forecast_medium;reference_balance;rr_activation_balance;rr_activation_price;total_id_balance
+ma_a;;;cb_a;timeseries;timeseries;;;;;;;;;forecasting_matrix;forecasting_matrix;forecasting_matrix;;;;
+ma_b;;;cb_b;timeseries;timeseries;;;;;;;;;forecasting_matrix;forecasting_matrix;forecasting_matrix;;;;

@@ -10,9 +10,9 @@ This module provides LazyTimeseries.
 from __future__ import annotations
 
 from collections.abc import Generator
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import pendulum
@@ -21,7 +21,7 @@ import polars as pl
 from atlas.io_utils.utils import get_metadata_from_frame, scan_data_file
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
-from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
+from atlas.timing import build_datetime, check_timezone, infer_frequency
 
 
 class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
@@ -35,18 +35,21 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
 
     def __init__(
         self,
-        timeseries: pl.LazyFrame | LazyTimeseries | Any | None = None,
+        timeseries: pl.LazyFrame | pl.DataFrame | LazyTimeseries | Any | None = None,
         timezone: str = "UTC",
     ) -> None:
         """
         :param timeseries: The input time series data
-        :type timeseries: pl.LazyFrame or LazyTimeseries or Timeseries
+        :type timeseries: pl.LazyFrame or pl.DataFrame or LazyTimeseries or Timeseries
         :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
         :type timezone: str, optional
         """
 
         check_timezone(timezone)
         self.timezone: str = timezone
+
+        if isinstance(timeseries, pl.DataFrame):
+            timeseries = timeseries.lazy()
 
         if timeseries is None:
             self.timeseries: pl.LazyFrame = pl.LazyFrame(
@@ -79,7 +82,7 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
             )
 
         else:
-            raise ValueError("LazyTimeseries requires a LazyFrame or another Timeseries object")
+            raise ValueError("LazyTimeseries requires a LazyFrame, DataFrame, or another Timeseries object")
 
     def _get_data(self) -> pl.LazyFrame:
         """Return the underlying LazyFrame."""
@@ -170,88 +173,6 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         return cls(scan_data_file(file_path, filters, separator), timezone)
 
     @classmethod
-    def from_values(
-        cls,
-        start_date: str | datetime | pendulum.DateTime,
-        frequency: str | timedelta | pendulum.Duration,
-        values: list[float],
-        date_format: str = "YYYY-MM-DD HH:mm:ss",
-        timezone: str = "UTC",
-    ) -> LazyTimeseries:
-        """
-        Create a LazyTimeseries from start date, frequency and a list of values.
-
-        :param start_date: Start date of the timeseries
-        :param frequency: Frequency of the timeseries (e.g., "1h", "15m")
-        :param values: List of values corresponding to the time intervals
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
-        :param timezone: Timezone string, defaults to "UTC"
-        :return: A LazyTimeseries object with the specified parameters
-        :rtype: LazyTimeseries
-        """
-
-        if len(values) < 2:
-            raise ValueError("Timeseries must contains at least 2 values")
-
-        start = build_datetime(start_date, date_format).in_tz(timezone)
-        end = build_datetime(start + (len(values) - 1) * get_duration(frequency)).in_tz(timezone)
-
-        datetimes = generate_datetimes(start, end, frequency, timezone)
-
-        df = pl.DataFrame(
-            {"time": datetimes, "value": values},
-            schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
-        )
-
-        return cls(df.lazy(), timezone)
-
-    @classmethod
-    def from_index(
-        cls,
-        start_date: str | datetime | pendulum.DateTime,
-        frequency: str | timedelta | pendulum.Duration,
-        end_date: str | datetime | pendulum.DateTime,
-        default_value: list[float] | float = 0,
-        date_format: str = "YYYY-MM-DD HH:mm:ss",
-        timezone: str = "UTC",
-    ) -> LazyTimeseries:
-        """
-        Create a LazyTimeseries from a time range and a default value or list of values.
-
-        :param start_date: Start date of the timeseries
-        :param frequency: Frequency of the timeseries (e.g., "1h", "15m")
-        :param end_date: End date of the timeseries
-        :param default_value: A scalar value or a list of values to fill the timeseries
-        :param date_format: Format to interpret date strings, defaults to "YYYY-MM-DD HH:mm:ss"
-        :param timezone: Timezone string, defaults to "UTC"
-        :return: A LazyTimeseries object with the specified index and values
-        :rtype: LazyTimeseries
-        """
-
-        start = build_datetime(start_date, date_format).in_tz(timezone)
-        end = build_datetime(end_date, date_format).in_tz(timezone)
-
-        datetimes = generate_datetimes(start, end, frequency, timezone)
-
-        if isinstance(default_value, list):
-            if len(default_value) != len(datetimes):
-                raise ValueError(
-                    f"Values  passed is of size {len(default_value)} when datetimes generated is of size {len(datetimes)}"
-                )
-            else:
-                df = pl.DataFrame(
-                    {"time": datetimes, "value": default_value},
-                    schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
-                )
-        elif isinstance(default_value, float | int):
-            df = pl.DataFrame(
-                {"time": datetimes, "value": [default_value] * len(datetimes)},
-                schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
-            )
-
-        return cls(df.lazy(), timezone)
-
-    @classmethod
     def from_timeseries(cls, timeseries: Any, default_value: float | None = None) -> LazyTimeseries:
         """Create a LazyTimeseries from another timeseries, using its structure.
 
@@ -293,12 +214,10 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         :return: The LazyTimeseries instantiated from the dataframe-like object
         :rtype: LazyTimeseries
         """
-        if isinstance(dataframe, pl.LazyFrame):
+        if isinstance(dataframe, pl.LazyFrame | pl.DataFrame):
             return cls(dataframe, timezone)
-        elif isinstance(dataframe, pl.DataFrame):
-            return cls(dataframe.lazy(), timezone)
         elif isinstance(dataframe, pd.DataFrame):
-            return cls(pl.from_pandas(dataframe).lazy(), timezone)
+            return cls(pl.from_pandas(dataframe), timezone)
         else:
             raise TypeError("Input has to be a dataframe-like object.")
 
@@ -452,35 +371,26 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         lf = resampled_ts.to_lazy()
         return self._return(lf, inplace)
 
-    def first_date(self) -> pendulum.DateTime | None:
-        """
-        Return the first date in the LazyTimeseries index.
+    def _row_at(self, index: int) -> dict:
+        if index >= 0:
+            result = self.timeseries.slice(index, 1).collect()
+            if result.height == 0:
+                raise IndexError(f"index {index} is out of bounds")
+        else:
+            tail_n = -index
+            result = self.timeseries.tail(tail_n).collect()
+            if result.height < tail_n:
+                raise IndexError(f"index {index} is out of bounds for timeseries of length {result.height}")
+            result = result.head(1)
+        return result.row(0, named=True)
 
-        This operation only collects the first row's timestamp, not the entire dataset.
+    def get_by_index(self, index: int) -> float:
+        return cast(float, self._row_at(index)["value"])
 
-        :return: The first date in the Timeseries index
-        :rtype: pendulum.DateTime or None
-        """
-        result = self.timeseries.select("time").head(1).collect()
-        if result.height > 0:
-            return pendulum.instance(result.item())
-        return None
+    def get_time_by_index(self, index: int) -> pendulum.DateTime:
+        return pendulum.instance(self._row_at(index)["time"])
 
-    def last_date(self) -> pendulum.DateTime | None:
-        """
-        Return the last date in the LazyTimeseries index.
-
-        This operation only collects the last row's timestamp, not the entire dataset.
-
-        :return: The last date in the Timeseries index
-        :rtype: pendulum.DateTime or None
-        """
-        result = self.timeseries.select("time").tail(1).collect()
-        if result.height > 0:
-            return pendulum.instance(result.item())
-        return None
-
-    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
+    def iter_rows(self) -> Generator[tuple[datetime, float]]:
         """
         Iterate over rows of the LazyTimeseries, yielding (time, value) tuples.
 

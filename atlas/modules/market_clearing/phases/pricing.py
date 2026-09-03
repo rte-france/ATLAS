@@ -6,20 +6,17 @@ This file is part of the ATLAS project.
 
 import json
 
-import pendulum
-
 import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
 from atlas.enums import ComplementDirection, CouplingType, SolverStatus
-from atlas.models.market.order import Order
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.models.market_area import MarketAreaMC
-from atlas.modules.market_clearing.models.market_border import MarketBorderMC
-from atlas.modules.market_clearing.models.order_coupling import OrderCouplingMC
+from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
+from atlas.modules.market_clearing.input_objects.market_border import MarketBorderMC
+from atlas.modules.market_clearing.input_objects.order_coupling import OrderCouplingMC
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.price_group import PriceGroup
+from atlas.objects.market.order import Order
 from atlas.solver.models import SolverOptions
-from atlas.solver.solver_helper import SolverHelper
 from atlas.solver.solver_interface import OptimisationModel
 
 
@@ -33,9 +30,9 @@ class Pricing(OptimisationModel):
         clearing_local_balances: dict[tuple[str, int], float],
         clearing_accepted_powers: dict[tuple[str, str], float],
     ):
-        solver_option = SolverOptions(presolve=parameters.use_presolve)
-        super().__init__(parameters.solver_name, options=solver_option)
-        super().__init__(parameters.solver_name)
+        solver_options = SolverOptions(presolve=parameters.solver.use_presolve)
+
+        super().__init__(parameters.solver.solver_name, options=solver_options, name="Pricing")
         self.input_dataset = input_dataset
         self.parameters = parameters
         self.saturated_critical_branch = saturated_critical_branch
@@ -46,29 +43,26 @@ class Pricing(OptimisationModel):
         self.dict_circular_children_bids = self.get_circular_parent_child_sets()
         self.dict_linked_orders = self.compute_linked_bids_sets()
         self.dict_parent_child_orders = self.compute_parent_child_sets()
-        self.first_pricing = None
-        self.second_pricing = None
-        self.third_pricing = None
 
-    def run(self):
+    def compute(self):
         self.build_first()
         solver_info = self.solve()
-        output_path = self.parameters.output_path
-        if self.parameters.export_lp:
+        output_path = self.parameters.get_lp_dir()
+        if self.parameters.solver.export_lp:
             output_path.mkdir(parents=True, exist_ok=True)
             self.export_model(str(output_path / "pricing_1_model.lp"))
         if solver_info.status not in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:
             self.build_second()
             solver_info = self.solve()
-            if self.parameters.export_lp:
+            if self.parameters.solver.export_lp:
                 self.export_model(str(output_path / "pricing_2_model.lp"))
 
         if solver_info.status not in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:
             self.build_third()
             _ = self.solve()
-            if self.parameters.export_lp:
+            if self.parameters.solver.export_lp:
                 self.export_model(str(output_path / "pricing_3_model.lp"))
-        if self.parameters.export_lp:
+        if self.parameters.solver.export_lp:
             with open(output_path / "pricing_market_prices.json", "w") as f:
                 json.dump(
                     [
@@ -138,7 +132,7 @@ class Pricing(OptimisationModel):
         self.create_surplus_rejected_variables()
 
     def build_second_constraints(self):
-        """Create all constraints for the exchange fixing phase model"""
+        """Create all constraints for the second pricing phase model"""
         self.deactivate_null_marginal_order_constraint()
         self.create_min_surplus_rejected_sale_constraints()
         self.create_max_surplus_rejected_buy_constraints()
@@ -193,10 +187,6 @@ class Pricing(OptimisationModel):
     def create_price_variables(self):
         for time_index, _time in enumerate(self.input_dataset.times):
             for price_group in self.price_groups[time_index]:
-                # FC: Louis reinitialisait les bornes de prix ici, car pour lui ca aboutissait forcement a des
-                # probleme infaisable. Pour moi, il ne faut pas, car ces bornes empechent de creer une autre offre
-                # paradoxalement acceptee.
-                # On peut aussi les redefinir en les contraignant moins ?
                 self.add_continuous_variable(
                     constants.price_on_group_variable_name(price_group.id, time_index),
                     -float("inf"),
@@ -525,11 +515,7 @@ class Pricing(OptimisationModel):
                                 shadow_prices_fb = self.get_variable(
                                     constants.shadow_price_variable_name(critical_branch_name, time_index)
                                 )
-                                branch_load += (
-                                    coeff
-                                    * branch_ptdf.get_value(self.convert_time_index_to_time(time_index))
-                                    * shadow_prices_fb
-                                )
+                                branch_load += coeff * branch_ptdf.get_value(_time) * shadow_prices_fb
 
                     self.add_constraint(
                         branch_load == 0.0,
@@ -670,7 +656,7 @@ class Pricing(OptimisationModel):
                             constraint_name = constants.null_marginal_order_constraint_name(
                                 mc_order.name, equipment_name, mc_order.market_area.name, time_index
                             )
-                            SolverHelper.deactivate_constraint(self.get_constraint(constraint_name))
+                            self.deactivate_constraint(constraint_name)
 
     def create_min_surplus_rejected_sale_constraints(self):
         for time_index, price_groups in self.price_groups.items():
@@ -759,7 +745,7 @@ class Pricing(OptimisationModel):
         for index_lo in self.dict_linked_orders:
             constraint_name = constants.linked_bids_surplus_constraint_name(index_lo)
             if constraint_name:
-                SolverHelper.deactivate_constraint(self.get_constraint(constraint_name))
+                self.deactivate_constraint(constraint_name)
 
     def deactivate_negative_surplus_pc_constraints(self):
         for index_pc in self.dict_parent_child_orders:
@@ -767,7 +753,7 @@ class Pricing(OptimisationModel):
             if constraint_name:
                 # If there is surplus
                 if constraint_name in self.constraints:
-                    SolverHelper.deactivate_constraint(self.get_constraint(constraint_name))
+                    self.deactivate_constraint(constraint_name)
                 else:
                     logger.debug(f"No surplus for {index_pc}")
 
@@ -782,7 +768,7 @@ class Pricing(OptimisationModel):
                     constraint_name = constants.positive_parent_child_surplus_constraint_name(
                         index_child, index_pc, time_index
                     )
-                    SolverHelper.deactivate_constraint(self.get_constraint(constraint_name))
+                    self.deactivate_constraint(constraint_name)
                     index_child += 1
 
     def deactivate_positive_surplus_order_constraints(self):
@@ -797,7 +783,7 @@ class Pricing(OptimisationModel):
                             mc_order.name, equipment_name, mc_order.market_area.name, mc_order.time_index
                         )
                         if constraint_name:
-                            SolverHelper.deactivate_constraint(self.get_constraint(constraint_name))
+                            self.deactivate_constraint(constraint_name)
 
     def create_paradoxical_delta_price_order_constraints(self):
         for mc_order in self.input_dataset.mc_orders.values():
@@ -882,9 +868,6 @@ class Pricing(OptimisationModel):
                 paradoxical_delta_p >= opposite_delta_p, constants.paradoxical_delta_p_lo_constraint_name(index_lo)
             )
 
-    def convert_time_index_to_time(self, time_index: int) -> pendulum.DateTime:
-        return self.parameters.start_date + time_index * self.parameters.timestep
-
     # Generator of border ranks and names of neighbour area for each border of a given market area:
     def get_market_area_neighbours(self, mc_market_area_name: str) -> list[tuple[MarketBorderMC, str]]:
         neighbours_area = []
@@ -906,21 +889,22 @@ class Pricing(OptimisationModel):
         area_price_group: dict[str, int | None],
         price_group: PriceGroup,
     ):
-        for mc_border, neightbour_market_area_name in self.get_market_area_neighbours(mc_market_area.name):
-            if neightbour_market_area_name in price_group.market_area_names:
+        for mc_border, neighbour_market_area_name in self.get_market_area_neighbours(mc_market_area.name):
+            if neighbour_market_area_name in price_group.market_area_names:
                 continue
             flow = self.clearing_border_exchanges[mc_border.name, time_index]
-            relative_max_flow = mc_border.max_flow.get_value(self.convert_time_index_to_time(time_index))
-            relative_min_flow = mc_border.min_flow.get_value(self.convert_time_index_to_time(time_index))
+            time = self.input_dataset.times[time_index]
+            relative_max_flow = mc_border.max_flow.get_value(time)
+            relative_min_flow = mc_border.min_flow.get_value(time)
             if (
                 relative_min_flow + self.parameters.allowed_round_off_error
                 <= flow
                 <= relative_max_flow - self.parameters.allowed_round_off_error
             ):
-                area_price_group[neightbour_market_area_name] = price_group.id
-                price_group.market_area_names.append(neightbour_market_area_name)
-                neightbour_market_area = self.input_dataset.mc_market_areas[neightbour_market_area_name]
-                self.propagate_through_unsaturated(neightbour_market_area, time_index, area_price_group, price_group)
+                area_price_group[neighbour_market_area_name] = price_group.id
+                price_group.market_area_names.append(neighbour_market_area_name)
+                neighbour_market_area = self.input_dataset.mc_market_areas[neighbour_market_area_name]
+                self.propagate_through_unsaturated(neighbour_market_area, time_index, area_price_group, price_group)
 
     def create_price_groups(self) -> dict[int, list[PriceGroup]]:
         price_groups: dict[int, list[PriceGroup]] = {}
@@ -932,13 +916,15 @@ class Pricing(OptimisationModel):
                 for market_area_name in self.input_dataset.mc_market_areas:
                     areas_price_group[market_area_name] = None
 
-                for id, (market_area_name, mc_market_area) in enumerate(self.input_dataset.mc_market_areas.items()):
+                for group_id, (market_area_name, mc_market_area) in enumerate(
+                    self.input_dataset.mc_market_areas.items()
+                ):
                     # If the current area is already allocated to a price group, go to the next one:
                     if areas_price_group[market_area_name] is not None:
                         continue
-                    price_group = PriceGroup(id, time_index)
+                    price_group = PriceGroup(group_id, time_index)
                     price_group.market_area_names.append(market_area_name)
-                    areas_price_group[market_area_name] = id
+                    areas_price_group[market_area_name] = group_id
                     price_groups[time_index].append(price_group)
 
                     # Loop over borders that are not saturated and link all possible areas inside the current group in a
@@ -957,8 +943,8 @@ class Pricing(OptimisationModel):
                     unique_price_group.market_area_names = list(self.input_dataset.mc_market_areas)
                     price_groups[time_index].append(unique_price_group)
                 else:
-                    for id, market_area_name in enumerate(self.input_dataset.mc_market_areas):
-                        new_price_group = PriceGroup(id, time_index)
+                    for group_id, market_area_name in enumerate(self.input_dataset.mc_market_areas):
+                        new_price_group = PriceGroup(group_id, time_index)
                         new_price_group.market_area_names = [market_area_name]
                         price_groups[time_index].append(new_price_group)
         for price_group_list in price_groups.values():
@@ -1018,7 +1004,7 @@ class Pricing(OptimisationModel):
 
     def compute_price_bounds(self, price_group: PriceGroup, pricing_type: int):
         for market_area_name in price_group.market_area_names:
-            time = self.convert_time_index_to_time(price_group.time_index)
+            time = self.input_dataset.times[price_group.time_index]
             mc_market_area = self.input_dataset.mc_market_areas[market_area_name]
             # Initialize the local bounds on order prices:
             max_accepted_sale_price = max_rejected_purchase_price = mc_market_area.min_price.get_value(time)
@@ -1030,10 +1016,6 @@ class Pricing(OptimisationModel):
                 for mc_order in mc_market_area.mc_orders.values()
                 if mc_order.start_date <= time < mc_order.end_date
             )
-
-            # count if there are accepted orders:
-            count_accepted_sales = 0
-            count_accepted_buys = 0
 
             for mc_order in current_orders:
                 current_power = self.clearing_accepted_powers[market_area_name, mc_order.name]
@@ -1055,13 +1037,11 @@ class Pricing(OptimisationModel):
                 # Compute the relevant bound:
                 if mc_order.is_sale:
                     if abs(current_power) >= self.parameters.allowed_round_off_error:
-                        count_accepted_sales += 1
                         max_accepted_sale_price = max(max_accepted_sale_price, mc_order.price)
                     else:
                         min_rejected_sale_price = min(min_rejected_sale_price, mc_order.price)
                 else:
                     if abs(current_power) >= self.parameters.allowed_round_off_error:
-                        count_accepted_buys += 1
                         min_accepted_purchase_price = min(min_accepted_purchase_price, mc_order.price)
                     else:
                         max_rejected_purchase_price = max(max_rejected_purchase_price, mc_order.price)
@@ -1126,7 +1106,9 @@ class Pricing(OptimisationModel):
             orders.append(child_order)
             for mc_order_coupling_name in order_coupling_parent_ids:
                 if mc_order_coupling_name not in processed_order_couplings:
-                    self.get_circular_children(mc_order_coupling, orders, processed_order_couplings)
+                    self.get_circular_children(
+                        self.input_dataset.mc_order_couplings[mc_order_coupling_name], orders, processed_order_couplings
+                    )
 
             return orders
         # The child is not a parent, the transitive parent/child link stops here
@@ -1149,7 +1131,6 @@ class Pricing(OptimisationModel):
                 price_group_variable.SetLb(price_group.min_price)
                 price_group_variable.SetUb(price_group.max_price)
 
-    # FC: new function to improve computation time (similar to the old get_idv_idr_block_sets)
     def get_idv_idr_block_sets_fast(
         self,
         order_coupling,
@@ -1183,7 +1164,7 @@ class Pricing(OptimisationModel):
 
     # Defining linked bids sets
     # Finds global links between orders (including circular parent_child links), defines the resulting sets and stores
-    # them in a dictionnary
+    # them in a dictionary
     def compute_linked_bids_sets(self):
         dict_linked_bids = {}
         index_lo = 0

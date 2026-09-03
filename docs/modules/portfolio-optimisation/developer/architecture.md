@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Portfolio Optimisation module follows ATLAS's `AbstractModule` pattern. See [Module Pattern](../../../concepts/module-pattern.md) for details on the standard module architecture.
+The Portfolio Optimisation module follows ATLAS's `AbstractModule` pattern. See [Module Pattern](../../module-pattern.md) for details on the standard module architecture.
 
 This document describes the module-specific architecture and components.
 
@@ -14,9 +14,8 @@ atlas/modules/portfolio_optimisation/
 ├── parameters.py                        # PortfolioOptimisationParameters
 ├── input_dataset.py                     # PortfolioOptimisationInputDataset
 ├── output_dataset.py                    # PortfolioOptimisationOutputDataset
-├── portfolio_orchestrator.py            # Orchestrates portfolio optimization
-├── portfolio_optimisation_model.py      # OptimisationModel for single portfolio
-├── models/                              # Equipment-specific models
+├── optim.py                             # OptimisationModel for single portfolio
+├── input_objects/                       # Equipment-specific models
 │   ├── portfolio.py                     # PortfolioPO
 │   ├── portfolio_equipments.py          # Equipment container
 │   ├── thermal/                         # Thermal models
@@ -39,7 +38,7 @@ Implements `AbstractModule` with methods:
 
 ### **`PortfolioOptimisationParameters`**
 
-Pydantic model inheriting from `AbstractParameters`. Defines all configuration parameters (see [Parameters](../user-guide/input-data.md)).
+Pydantic model inheriting from `AbstractModuleParameters`. Defines all configuration parameters (see [Parameters](../user-guide/parameters.md)).
 
 ### **`PortfolioOptimisationInputDataset`**
 
@@ -49,14 +48,6 @@ Converts business models to portfolio-optimisation-specific models:
 - Applies manual activation rules
 - Creates PO-specific models (ThermalPO, HydroPO, StoragePO, etc.)
 - Calculates optimization time windows
-
-### **`PortfolioOptimisationOrchestrator`**
-
-Coordinates optimization for multiple portfolios:
-
-- Creates `PortfolioOptimisationModel` for each portfolio
-- Handles multiprocessing if enabled
-- Returns optimization results
 
 ### **`PortfolioOptimisationModel`**
 
@@ -94,7 +85,7 @@ import_data() → PortfolioOptimisationInputDataset
   ↓
 validate_data() → timestep consistency check
   ↓
-execute() → PortfolioOptimisationOrchestrator
+execute() → Orchestration of the module
   ├→ PortfolioOptimisationModel.build()
   ├→ PortfolioOptimisationModel.solve()
   └→ PortfolioOptimisationResult
@@ -106,9 +97,9 @@ export_results() → update equipment.power, portfolio.imbalance
 
 ## Module-Specific Design Patterns
 
-For common ATLAS patterns (module lifecycle, Pydantic models, solver interface), see [Module Pattern](../../../concepts/module-pattern.md).
+For common ATLAS patterns (module lifecycle, Pydantic models, solver interface), see [Module Pattern](../../module-pattern.md).
 
-**Multiprocessing**: Portfolios can be optimized in parallel when `use_multiprocessing=true`
+**Multiprocessing**: Portfolios can be optimized in parallel when `multiprocessing.enable=true`
 
 **Equipment Models**: Each asset type (thermal, hydro, etc.) has a specialized model implementing optimization variables, constraints, and objectives
 

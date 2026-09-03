@@ -5,19 +5,21 @@ This file is part of the ATLAS project.
 """
 
 import atlas.config as cfg
-from atlas import AtlasDataset, ForecastingMatrix, LazyForecastingMatrix, LazyTimeseries, Timeseries
-from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
+from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.enums import Product
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.models.market.critical_branch import CriticalBranch
-from atlas.models.market.market_area import MarketArea
-from atlas.models.market.market_border import MarketBorder
-from atlas.models.market.order import Order
-from atlas.models.portfolio import Portfolio
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
+from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.objects.market.critical_branch import CriticalBranch
+from atlas.objects.market.market_area import MarketArea
+from atlas.objects.market.market_border import MarketBorder
+from atlas.objects.market.order import Order
+from atlas.objects.market_operator.portfolio import Portfolio
+from atlas.orchestrator.change_set import UpdateObject
 from atlas.timing import generate_datetimes
-from atlas.workflow.change_set import UpdateObject
 
 
 class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]):
@@ -115,13 +117,11 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
         border_exchanges: dict[tuple[str, int], float],
         market_prices: dict[tuple[str, int], float],
     ):
-        super().__init__()
         self.input_dataset = input_dataset
         self.accepted_powers = accepted_powers
         self.local_balances = local_balances
         self.border_exchanges = border_exchanges
         self.market_prices = market_prices
-        self.raw_data: AtlasDataset = input_dataset.raw_data.model_copy(deep=True)
 
     def build_change_sets(self) -> None:
         self.update_orders()
@@ -156,6 +156,20 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
         # Create accepted power TS for equipment and portfolio
         equipments_ts, portfolios_ts = {}, {}
         equipments_mapping, portfolios_mapping = {}, {}
+
+        if self.input_dataset.parameters.market == Product.DayAhead:
+            for equipment in self.input_dataset.input_data.iter_by_equipments():
+                portfolio = equipment.portfolio
+                if portfolio is None or portfolio.market_area is None:
+                    continue
+                if portfolio.market_area.name not in self.input_dataset.mc_market_areas:
+                    continue
+                equipments_ts[equipment.name] = self.zero_timeseries()
+                equipments_mapping[equipment.name] = equipment
+                if portfolio.name not in portfolios_ts:
+                    portfolios_ts[portfolio.name] = self.zero_timeseries()
+                    portfolios_mapping[portfolio.name] = portfolio
+
         for order_name, mc_order in self.input_dataset.mc_orders.items():
             accepted_power = self.accepted_powers[mc_order.market_area.name, order_name]
             # At this point, unaccepted orders can be skipped:
@@ -169,26 +183,16 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                 if portfolio is None:
                     continue
                 if equipment.name not in equipments_ts:
-                    equipments_ts[equipment.name] = Timeseries.from_index(
-                        self.input_dataset.times[0],
-                        self.input_dataset.parameters.timestep,
-                        self.input_dataset.times[-1],
-                        0.0,
-                    )
+                    equipments_ts[equipment.name] = self.zero_timeseries()
                     equipments_mapping[equipment.name] = equipment
                 if portfolio.name not in portfolios_ts:
-                    portfolios_ts[portfolio.name] = Timeseries.from_index(
-                        self.input_dataset.times[0],
-                        self.input_dataset.parameters.timestep,
-                        self.input_dataset.times[-1],
-                        0.0,
-                    )
+                    portfolios_ts[portfolio.name] = self.zero_timeseries()
                     portfolios_mapping[portfolio.name] = portfolio
 
                 indexes = generate_datetimes(
                     mc_order.start_date,
-                    mc_order.end_datetime - self.input_dataset.parameters.timestep,
-                    self.input_dataset.parameters.timestep,
+                    mc_order.end_datetime - self.input_dataset.parameters.temporal.timestep,
+                    self.input_dataset.parameters.temporal.timestep,
                 )
                 values_sold = [accepted_power * mc_order.production_sign for _ in range(len(indexes))]
 
@@ -197,7 +201,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                     portfolios_ts[portfolio.name].sum_value_at(mc_order.start_date, values_sold[0])
                 else:
                     value_sold_ts = Timeseries.from_values(
-                        mc_order.start_date, self.input_dataset.parameters.timestep, values_sold
+                        mc_order.start_date, self.input_dataset.parameters.temporal.timestep, values_sold
                     )
                     equipments_ts[equipment.name] += value_sold_ts
                     portfolios_ts[portfolio.name] += value_sold_ts
@@ -303,10 +307,14 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
             ]
 
             values_bal = Timeseries.from_values(
-                self.input_dataset.parameters.start_date, self.input_dataset.parameters.timestep, balance_values
+                self.input_dataset.parameters.temporal.start_date,
+                self.input_dataset.parameters.temporal.timestep,
+                balance_values,
             )
             values_price = Timeseries.from_values(
-                self.input_dataset.parameters.start_date, self.input_dataset.parameters.timestep, price_values
+                self.input_dataset.parameters.temporal.start_date,
+                self.input_dataset.parameters.temporal.timestep,
+                price_values,
             )
 
             match self.input_dataset.parameters.market:
@@ -361,10 +369,14 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
             ]
 
             flow = Timeseries.from_values(
-                self.input_dataset.parameters.start_date, self.input_dataset.parameters.timestep, flow_values
+                self.input_dataset.parameters.temporal.start_date,
+                self.input_dataset.parameters.temporal.timestep,
+                flow_values,
             )
             shadow_price = Timeseries.from_values(
-                self.input_dataset.parameters.start_date, self.input_dataset.parameters.timestep, shadow_price_values
+                self.input_dataset.parameters.temporal.start_date,
+                self.input_dataset.parameters.temporal.timestep,
+                shadow_price_values,
             )
             match self.input_dataset.parameters.market:
                 case Product.DayAhead:
@@ -373,7 +385,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                 case Product.Intraday:
                     updated_values["total_id_flow"] = self.add_indexes(mc_market_border.total_id_flow, flow)
                     updated_values["id_flow"] = self.add_timeseries_to_forecast(mc_market_border.id_flow, flow)
-                    mc_market_border["id_shadow_price"] = self.add_timeseries_to_forecast(
+                    updated_values["id_shadow_price"] = self.add_timeseries_to_forecast(
                         mc_market_border.id_shadow_price, shadow_price
                     )
                 case Product.MFRRUpProcurement:
@@ -409,8 +421,8 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                 case Product.FCRActivation:
                     updated_values["fcr_activated"] = self.add_indexes(mc_market_border.fcr_activated, flow)
 
-            # FC: Update ReferenceFlow, otherwise the flow can be out of bounds for future markets
-            updated_values["reference_flow"] = self.add_indexes(mc_market_border.reference_flow, flow)
+            # Update ReferenceFlow, otherwise the flow can be out of bounds for future markets
+            updated_values["reference_flow"] = self.add_indexes_or_sum(mc_market_border.reference_flow, flow)
 
             # Remark : Flow markets are not yet taken into account.
             # Update the Market Border
@@ -426,17 +438,12 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
 
         for mc_critical_branch in self.input_dataset.mc_critical_branches.values():
             updated_values = {"name": mc_critical_branch.name}
-            flow = Timeseries.from_index(
-                self.input_dataset.times[0],
-                self.input_dataset.parameters.timestep,
-                self.input_dataset.times[-1],
-                0.0,
-            )
+            flow = self.zero_timeseries()
             for mc_market_area_ptdf in mc_critical_branch.market_area_ptdf:
                 if mc_market_area_ptdf.da_ptdf is None:
                     continue
                 da_ptdf = mc_market_area_ptdf.da_ptdf.set_frequency(
-                    self.input_dataset.parameters.timestep, False
+                    self.input_dataset.parameters.temporal.timestep, False
                 ).filter(self.input_dataset.times)  # type: ignore[arg-type]
                 flow += da_ptdf
 
@@ -453,6 +460,20 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                     )
             # Update the Critical branch
             self.change_sets.append(UpdateObject(updated_values, CriticalBranch))
+
+    def zero_timeseries(self) -> Timeseries:
+        """
+        Build a zero filled Timeseries covering the whole clearing horizon.
+
+        :return: Timeseries of 0.0 on every timestep of the clearing
+        :rtype: Timeseries
+        """
+        return Timeseries.from_index(
+            self.input_dataset.times[0],
+            self.input_dataset.parameters.temporal.timestep,
+            self.input_dataset.times[-1],
+            0.0,
+        )
 
     def add_indexes(self, ts_obj: AbstractTimeseries | None, other: AbstractTimeseries) -> AbstractTimeseries:
         if ts_obj is None:
@@ -479,10 +500,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
         elif other.timestep > ts_obj.timestep:
             other.upsample(ts_obj.timestep)
         if other.index[0] not in ts_obj:
-            null_ts = Timeseries.from_index(
-                self.input_dataset.times[0], self.input_dataset.parameters.timestep, self.input_dataset.times[-1], 0.0
-            )
-            return self.add_indexes(ts_obj, null_ts)
+            return self.add_indexes(ts_obj, self.zero_timeseries())
         else:
             ts_obj += other
             return ts_obj
@@ -492,10 +510,10 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
     ) -> ForecastingMatrix | LazyForecastingMatrix:
         if forecast_obj is None:
             new_forecast_obj = ForecastingMatrix()
-            new_forecast_obj.add(other, self.input_dataset.parameters.execution_date)
+            new_forecast_obj.add(other, self.input_dataset.parameters.temporal.execution_date)
             return new_forecast_obj
         else:
             if isinstance(forecast_obj, LazyTimeseries):
                 forecast_obj = forecast_obj.collect()
-            forecast_obj.add(other, self.input_dataset.parameters.execution_date)
+            forecast_obj.add(other, self.input_dataset.parameters.temporal.execution_date)
             return forecast_obj

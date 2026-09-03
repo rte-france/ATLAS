@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The Market Clearing module determines market equilibrium by matching supply and demand across multiple market areas while respecting economic and network constraints.
+The Market Clearing module determines market equilibrium by matching supply and demand across multiple market areas while respecting economic and network constraints. It is suited for different types of product (wholesale energy markets, reserve procurement or reserve activation), and can deal with ATC or Flow-based modes for network constraints management.
 
 ## What It Does
 
@@ -13,30 +13,17 @@ The module:
 - **Optimizes exchanges**: Calculates cross-border flows
 - **Respects constraints**: Honors transmission capacity and economic limits
 
-## How to Use
-
-See [Running Modules](../../../concepts/running-modules.md) for the standard ATLAS module execution pattern.
-
-## Module-Specific Workflow
-
-Beyond the standard module lifecycle (see [Module Pattern](../../../concepts/module-pattern.md)), this module:
-
-1. **Processes market orders**: Collects buy/sell orders from all equipment
-2. **Builds optimization model**: Creates market clearing optimization
-3. **Solves market**: Finds equilibrium prices and quantities
-4. **Updates results**: Writes clearing prices to equipment/portfolios and flows to interconnections
-
 ## Key Outputs
 
 The module produces:
 
 - **Market clearing prices**: Price per market area and timestep
-- **Accepted quantities**: Accepted portion of each order
+- **Accepted quantities**: On each market order, respecting its constraints and coupling links
 - **Cross-border flows**: Power exchanges between market areas
 
 ## Market Mechanism
 
-The module uses an **economic dispatch** approach:
+The module uses an **economic dispatch** approach, similar to Market Clearing algorithms of actual markets:
 
 - Maximizes social welfare (consumer surplus + producer surplus)
 - Respects transmission capacity constraints
@@ -45,5 +32,5 @@ The module uses an **economic dispatch** approach:
 
 ## Next Steps
 
-- [Parameters](input-data.md): Module-specific configuration options
-- [Running](running.md): Execution details
+- [Parameters](parameters.md): Module-specific configuration options
+- [Results](results.md): Accessing outputs

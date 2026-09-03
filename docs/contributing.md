@@ -41,6 +41,20 @@ uv run pytest .
 
 > Make sure all tests pass before submitting a PR.
 
+### Integration Tests
+
+Integration tests are heavier and run automatically on PRs targeting `main`. You do not need to run them locally — they are triggered by CI.
+
+Mark integration tests with `@pytest.mark.integration`:
+
+```python
+@pytest.mark.integration
+def test_my_module_end_to_end():
+    ...
+```
+
+These tests are excluded from the default `pytest` run (`-m 'not integration'`) and only execute in CI on PRs to `main`.
+
 ## Code Style
 
 We use `ruff` to format and lint the code:

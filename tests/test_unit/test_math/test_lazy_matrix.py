@@ -520,6 +520,25 @@ class TestIO:
         lm = LazyScenarioMatrix.from_file(path, filters=("category", "A"))
         assert lm.collect().shape[0] == 2
 
+    def test_from_file_with_filter_drops_null_columns_inherited_from_other_attribute(self, tmp_path):
+        df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1), datetime(2023, 1, 2)],
+                "attribute": ["load_a", "load_a"],
+                "scenario1": [1.0, 2.0],
+                "scenario2": [None, None],
+            },
+            schema_overrides={"scenario2": pl.Float64},
+        )
+        path = tmp_path / "data.parquet"
+        df.write_parquet(path)
+
+        lm = LazyScenarioMatrix.from_file(path, filters=("attribute", "load_a"))
+        assert lm.matrix.collect_schema().names() == ["time", "scenario1", "scenario2"]
+
+        lm_dropped = LazyScenarioMatrix.from_file(path, filters=("attribute", "load_a"), drop_null_columns=True)
+        assert lm_dropped.matrix.collect_schema().names() == ["time", "scenario1"]
+
     def test_from_file_with_timezone(self, simple_frame, tmp_path):
         path = tmp_path / "data.parquet"
         simple_frame.write_parquet(path)
@@ -579,3 +598,69 @@ class TestInitEdgeCases:
         lm1 = LazyScenarioMatrix(simple_lazyframe, timezone="America/New_York")
         lm2 = LazyScenarioMatrix(lm1)
         assert lm2.timezone == "America/New_York"
+
+
+# ============================================================
+# inplace parameter
+# ============================================================
+
+
+class TestInplace:
+    @pytest.fixture
+    def lm(self, simple_lazyframe):
+        return LazyScenarioMatrix(simple_lazyframe)
+
+    @pytest.fixture
+    def new_ts_data(self):
+        return {"time": [datetime(2023, 1, 1), datetime(2023, 1, 2)], "value": [99.0, 100.0]}
+
+    def test_add_not_inplace_returns_new_matrix(self, lm, new_ts_data):
+        result = lm.add(new_ts_data, "3", inplace=False)
+        assert isinstance(result, LazyScenarioMatrix)
+        assert "3" in result.indexes
+        assert "3" not in lm.indexes
+
+    def test_add_not_inplace_preserves_original_indexes(self, lm, new_ts_data):
+        original_indexes = lm.indexes.copy()
+        lm.add(new_ts_data, "3", inplace=False)
+        assert lm.indexes == original_indexes
+
+    def test_add_inplace_returns_self(self, lm, new_ts_data):
+        result = lm.add(new_ts_data, "3", inplace=True)
+        assert result is lm
+        assert "3" in lm.indexes
+
+    def test_delete_not_inplace_returns_new_matrix(self, lm):
+        result = lm.delete("1", inplace=False)
+        assert isinstance(result, LazyScenarioMatrix)
+        assert "1" not in result.indexes
+        assert "1" in lm.indexes
+
+    def test_delete_not_inplace_preserves_other_indexes(self, lm):
+        result = lm.delete("1", inplace=False)
+        assert "2" in result.indexes
+        assert len(result.indexes) == 1
+
+    def test_delete_inplace_returns_self(self, lm):
+        result = lm.delete("1", inplace=True)
+        assert result is lm
+        assert "1" not in lm.indexes
+
+    def test_replace_not_inplace_returns_new_matrix(self, lm, new_ts_data):
+        result = lm.replace("1", new_ts_data, inplace=False)
+        assert isinstance(result, LazyScenarioMatrix)
+        assert "1" in result.indexes
+
+    def test_replace_not_inplace_original_data_unchanged(self, lm, new_ts_data):
+        original_values = lm.collect()["1"].to_frame()["value"].to_list()
+        lm.replace("1", new_ts_data, inplace=False)
+        assert lm.collect()["1"].to_frame()["value"].to_list() == original_values
+
+    def test_replace_not_inplace_result_has_new_data(self, lm, new_ts_data):
+        result = lm.replace("1", new_ts_data, inplace=False)
+        assert result.collect()["1"].to_frame()["value"].to_list() == [99.0, 100.0]
+
+    def test_replace_inplace_returns_self(self, lm, new_ts_data):
+        result = lm.replace("1", new_ts_data, inplace=True)
+        assert result is lm
+        assert lm.collect()["1"].to_frame()["value"].to_list() == [99.0, 100.0]
