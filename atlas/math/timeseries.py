@@ -626,15 +626,14 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :return: Timeseries with the added indexes
         :rtype: Timeseries
         """
-        other = Timeseries(other)
+        other_ts = Timeseries(other)
         if len(self.timeseries) == 0:
-            other_df = other.dataframe
+            other_df = other_ts.dataframe
             return self._return(other_df, inplace)
 
-        other_ts = Timeseries(other)
         if self.frequency != other_ts.frequency:
             raise ValueError("Could not perform add indexes on Timeseries because frequency does not match")
-        if other_ts.dataframe["time"].is_in(self.dataframe["time"]).any():
+        if other_ts.dataframe["time"].is_in(self.dataframe["time"].implode()).any():
             raise ValueError(
                 "Could not add indexes on Timeseries because some indexes to add are not present in Timeseries"
             )
