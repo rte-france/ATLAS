@@ -134,7 +134,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
         schedule = extract_equipment_schedule(
             equipment,
             optimisation_result,
-            self.parameters.target_times,
+            self.parameters.portfolio_time_window,
             self.parameters.allowed_round_off_error,
         )
 
@@ -183,7 +183,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
             + optimisation_result.get_variable_value(f"{portfolio.name}_small_imbalance_down_{time}")
             - optimisation_result.get_variable_value(f"{portfolio.name}_large_imbalance_up_{time}")
             - optimisation_result.get_variable_value(f"{portfolio.name}_small_imbalance_up_{time}")
-            for time in self.parameters.target_times
+            for time in self.parameters.portfolio_time_window
         ]
 
         portfolio.imbalance = self._upsert_forecast(portfolio.imbalance, imbalance_values)
@@ -197,15 +197,15 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
         :param portfolio: Portfolio to update.
         :type portfolio: PortfolioPO
         """
-        power_ts = self._to_timeseries([0.0] * len(self.parameters.target_times))
+        power_ts = self._to_timeseries([0.0] * len(self.parameters.portfolio_time_window))
 
         for _, equipment_list in portfolio.equipments.iter_by_type():
             for equipment in equipment_list:
                 if equipment.power:
                     power_ts = power_ts + equipment.power.get_forecast(
                         self.parameters.temporal.execution_date,
-                        min(self.parameters.target_times),
-                        max(self.parameters.target_times),
+                        min(self.parameters.portfolio_time_window),
+                        max(self.parameters.portfolio_time_window),
                     )
 
         portfolio.power = self._upsert_forecast(portfolio.power, power_ts)
@@ -220,7 +220,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
         :rtype: Timeseries
         """
         return Timeseries.from_values(
-            start_date=self.parameters.target_times[0],
+            start_date=self.parameters.portfolio_time_window[0],
             frequency=self.parameters.temporal.timestep,
             values=values,
         )

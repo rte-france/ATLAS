@@ -42,7 +42,7 @@ def _parameters(*, is_portfolio_bidding: bool = True, use_forecast: bool = False
     parameters.is_portfolio_bidding = is_portfolio_bidding
     parameters.use_forecast = use_forecast
     parameters.allowed_round_off_error = 0.01
-    parameters.target_times = TARGET_TIMES
+    parameters.portfolio_time_window = TARGET_TIMES
     parameters.temporal.timestep = TIMESTEP
     parameters.temporal.execution_date = EXECUTION_DATE
     return parameters
@@ -84,6 +84,10 @@ def portfolio() -> PortfolioPO:
             maximum_fcr=0.0,
             maximum_afrr=0.0,
             maximum_power=power_curve,
+            minimum_power=_timeseries([0.0, 0.0, 0.0]),
+            minimum_time_on=pendulum.duration(hours=0),
+            minimum_time_off=pendulum.duration(hours=0),
+            minimum_stable_power_duration=pendulum.duration(hours=0),
             variable_cost=power_curve,
         ),
     )
@@ -102,6 +106,7 @@ def portfolio() -> PortfolioPO:
             discharge_efficiency=1.0,
             charge_efficiency=1.0,
             maximum_energy=power_curve,
+            storage_initial_level=0.0,
             additional_hours=pendulum.duration(hours=0),
         ),
     )
