@@ -1,6 +1,6 @@
 [project]
 site_name = "ATLAS"
-site_url = "https://rte-atlas.readthedocs.io/"
+site_url = "https://atlas-model.readthedocs.io/"
 site_description = "Power market simulator for day-ahead, intraday, and reserve markets."
 site_author = "Artelys for RTE"
 copyright = "Copyright © 2026 Artelys & RTE"

@@ -188,7 +188,7 @@ uv run atlas workflow run tests/dataset/parameters/intraday/workflow.yml
 
 ## Documentation
 
-Full documentation: [rte-atlas.readthedocs.io](https://rte-atlas.readthedocs.io)
+Full documentation: [atlas-model.readthedocs.io](https://atlas-model.readthedocs.io)
 
 ## Contributing
 
