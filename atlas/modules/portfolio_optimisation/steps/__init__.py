@@ -29,10 +29,9 @@ def create_po_step(equipment):
     from atlas.modules.portfolio_optimisation.steps.hydro import HydroStep
     from atlas.modules.portfolio_optimisation.steps.load import LoadStep
     from atlas.modules.portfolio_optimisation.steps.other_non_dispatchable import OtherNonDispatchableStep
-    from atlas.modules.portfolio_optimisation.steps.solar import SolarStep
+    from atlas.modules.portfolio_optimisation.steps.renewable import RenewableStep
     from atlas.modules.portfolio_optimisation.steps.storage import StoragePOStep
-    from atlas.modules.portfolio_optimisation.steps.thermal.thermal import ThermalStep
-    from atlas.modules.portfolio_optimisation.steps.wind import WindStep
+    from atlas.modules.portfolio_optimisation.steps.thermal import ThermalStep
 
     if isinstance(equipment, ThermalPO):
         return ThermalStep(equipment)
@@ -40,10 +39,8 @@ def create_po_step(equipment):
         return StoragePOStep(equipment)
     if isinstance(equipment, HydroPO):
         return HydroStep(equipment)
-    if isinstance(equipment, WindPO):
-        return WindStep(equipment)
-    if isinstance(equipment, SolarPO):
-        return SolarStep(equipment)
+    if isinstance(equipment, (WindPO, SolarPO)):
+        return RenewableStep(equipment)
     if isinstance(equipment, LoadPO):
         return LoadStep(equipment)
     if isinstance(equipment, OtherNonDispatchablePO):
