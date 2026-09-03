@@ -26,6 +26,7 @@ from pydantic_extra_types.pendulum_dt import DateTime, Duration
 from rich import print as rprint
 
 import atlas.config as cfg
+from atlas import Timeseries
 from atlas.config import DEFAULT_VALUE_IO, logger
 from atlas.enums import BusinessModelName, CouplingType, StorageType
 from atlas.io_utils.atlas_dataset import AtlasDataset
@@ -144,6 +145,15 @@ class PrometheusToAtlasDataParser:
                 equipment.setup_delay = 0 if equipment.setup_delay is None else equipment.setup_delay
                 equipment.unit_count = 1 if equipment.unit_count is None else equipment.unit_count
                 equipment.maximum_gradient = 0 if equipment.maximum_gradient is None else equipment.maximum_gradient
+
+                # Update variable cost : if None then put 0 from 2020 to 2030
+                start_date = pendulum.datetime(2020, 1, 1)
+                frequency = pendulum.duration(days=365 * 5)
+                equipment.variable_cost = (
+                    Timeseries.from_index(start_date, frequency, start_date + 2 * frequency)
+                    if equipment.variable_cost is None
+                    else equipment.variable_cost
+                )
 
         for load in dataset.load:
             load.additional_hours = Duration(hours=0) if load.additional_hours is None else load.additional_hours
@@ -846,3 +856,12 @@ def find_hdf5_files(directory: Path) -> list[Path]:
             continue
 
     return valid_hdf5_files
+
+
+if __name__ == "__main__":
+    transformer = PrometheusToAtlasDataParser(
+        timeseries_path="C:/Users/boutetale/ATLAS/data/BSP_Orders/output",
+        hdf5_path="C:/Users/boutetale/ATLAS/data/BSP_Orders/4e000344-ee63-4c73-9fca-976643a25b70",
+        output_dir="C:/Users/boutetale/ATLAS/tests/dataset/intraday/bsp_orders_output",
+    )
+    transformer.process()
