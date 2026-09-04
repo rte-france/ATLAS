@@ -267,6 +267,10 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
     def __add__(self, other: float | Timeseries) -> Timeseries:
         """Add all numeric columns by a scalar or timeseries.
 
+        Addition requires the index of `other` to be contained in self's, so that the join
+        and the frequency involved are never implicit. To add two timeseries whose windows
+        only partially overlap, use :meth:`add_on_union`.
+
         :param other: Other timeseries or scalar to add to value of the current Timeseries
         :type other: float | Timeseries
         :raises TypeError: If the object is not a timeseries or a float
@@ -282,7 +286,10 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
             elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
                 raise ValueError(
                     "Could not perform addition on Timeseries because indexes of Timeseries to add are "
-                    "not in current Timeseries"
+                    "not in current Timeseries. Addition is deliberately restrictive: use 'add_on_union' "
+                    "to sum over the union of both indexes (timestamps missing on one side count as 0), "
+                    "'add_indexes' to append the missing indexes without adding values, or 'reindex' to "
+                    "align on an explicit index before adding."
                 )
             else:
                 my_ts = Timeseries(self)

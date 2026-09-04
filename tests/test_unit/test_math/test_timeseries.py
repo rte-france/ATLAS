@@ -485,7 +485,8 @@ class TestTimeseriesBasicOperations:
         )
         ts_with_wrong_timstamps = Timeseries(df_with_wrong_timstamps)
 
-        with pytest.raises(ValueError):
+        # The error redirects to the methods that do handle non-matching indexes
+        with pytest.raises(ValueError, match="add_on_union"):
             sample_ts + ts_with_wrong_timstamps
 
     def test_sub_with_value(self, sample_ts):
