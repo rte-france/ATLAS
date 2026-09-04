@@ -74,7 +74,7 @@ class TestWorkflowFromFile:
         config = OrchestratorConfigBuilder().with_any(
             f"steps:\n"
             f"  - module: PortfolioOptimisation\n"
-            f"    parameters_path: /nonexistent/path/params.yaml\n"
+            f"    parameters: /nonexistent/path/params.yaml\n"
         ).build(tmp_path)
 
         # build_steps will try to open the parameters file -- should raise
@@ -118,7 +118,7 @@ class TestWorkflowRepresentation:
         config = OrchestratorConfigBuilder().with_name("test_workflow").with_any(
             f"steps:\n"
             f"  - module: MarketClearing\n"
-            f"    parameters_path: {params_file}\n"
+            f"    parameters: {params_file}\n"
         ).build(tmp_path)
 
         workflow = Workflow.from_file(config)
@@ -151,7 +151,7 @@ class TestWorkflowContextParameters:
             f"output_dataset_path: {output_dir}\n"
             f"steps:\n"
             f"  - module: MarketClearing\n"
-            f"    parameters_path: {params_file}\n"
+            f"    parameters: {params_file}\n"
         )
         return config
 
@@ -385,7 +385,7 @@ class TestWorkflowPathFromWorkflow:
             f"output_dir: results\n"
             f"steps:\n"
             f"  - module: MarketClearing\n"
-            f"    parameters_path: {params_file}\n"
+            f"    parameters: {params_file}\n"
         )
 
         workflow = Workflow.from_file(config)
