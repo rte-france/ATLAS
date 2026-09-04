@@ -26,12 +26,12 @@ class LoadStep(AbstractOrderStep):
                     self.parameters.temporal.timestep,
                 )
 
-                submitted_volumes = consumption_forecast.abs(inplace=False)
+                buy_submitted_volume = consumption_forecast.abs(inplace=False)
                 if load.da_buy_submitted_volume is None:
-                    load.da_buy_submitted_volume = submitted_volumes
+                    load.da_buy_submitted_volume = buy_submitted_volume
                 else:
                     load.da_buy_submitted_volume = load.da_buy_submitted_volume.add_on_union(
-                        submitted_volumes, inplace=False
+                        buy_submitted_volume, inplace=False
                     )
 
                 if len(consumption_forecast) == 0:

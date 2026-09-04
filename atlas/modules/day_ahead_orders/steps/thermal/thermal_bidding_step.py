@@ -85,7 +85,7 @@ class ThermalBiddingStep(AbstractOrderStep):
         return result
 
     def _compute_da_sell_submitted_volume(self, result: StepResult) -> None:
-        da_sell_submitted_volumes: dict[str, Timeseries] = {
+        sell_submitted_volumes: dict[str, Timeseries] = {
             equipment.name: Timeseries.from_index(
                 self.parameters.temporal.start_date,
                 self.parameters.temporal.timestep,
@@ -105,12 +105,12 @@ class ThermalBiddingStep(AbstractOrderStep):
                 and order.start_date in self.orders_time
             ):
                 if order.equipment.strategy == ThermalStrategy.PEAK or order.equipment.strategy == ThermalStrategy.BASE:
-                    if order.start_date in da_sell_submitted_volumes[order.equipment.name]:
-                        da_sell_submitted_volumes[order.equipment.name].set_value(
+                    if order.start_date in sell_submitted_volumes[order.equipment.name]:
+                        sell_submitted_volumes[order.equipment.name].set_value(
                             order.start_date, order.qmax if order.qmax is not None else 0
                         )
                     else:
-                        da_sell_submitted_volumes[order.equipment.name].add_index(
+                        sell_submitted_volumes[order.equipment.name].add_index(
                             order.start_date, order.qmax if order.qmax is not None else 0
                         )
                 else:
@@ -181,45 +181,45 @@ class ThermalBiddingStep(AbstractOrderStep):
 
         for order in relevent_orders_intermediate:
             if not already_considered_orders[order.name]:
-                if order.start_date in da_sell_submitted_volumes[order.equipment.name]:
-                    da_sell_submitted_volumes[order.equipment.name].set_value(
+                if order.start_date in sell_submitted_volumes[order.equipment.name]:
+                    sell_submitted_volumes[order.equipment.name].set_value(
                         order.start_date, order.qmax if order.qmax is not None else 0
                     )
                 else:
-                    da_sell_submitted_volumes[order.equipment.name].add_index(
+                    sell_submitted_volumes[order.equipment.name].add_index(
                         order.start_date, order.qmax if order.qmax is not None else 0
                     )
 
         for equipment in self.dataset.thermal:
             if equipment.strategy == ThermalStrategy.INTERMEDIATE:
                 cfg.logger.warning(
-                    "Warning : da_sell_submitted_volumes might not yield the correct result if several internal EXCLUSION are formulated"
+                    "Warning : sell_submitted_volumes might not yield the correct result if several internal EXCLUSION are formulated"
                 )
 
-                da_sell_submitted_volume: Timeseries = da_sell_submitted_volumes[equipment.name]
+                sell_submitted_volume: Timeseries = sell_submitted_volumes[equipment.name]
                 programms: list[Timeseries] = list_of_mutually_exclusive_programms[equipment.name]
 
                 if programms:
                     for t in self.orders_time:
                         max_val = max((programm.get_value(t) for programm in programms), default=0)
-                        if t in da_sell_submitted_volume:
-                            da_sell_submitted_volume.set_value(t, max_val)
+                        if t in sell_submitted_volume:
+                            sell_submitted_volume.set_value(t, max_val)
                         else:
-                            da_sell_submitted_volume.add_index(t, max_val)
+                            sell_submitted_volume.add_index(t, max_val)
 
                 if equipment.da_sell_submitted_volume is None:
-                    equipment.da_sell_submitted_volume = da_sell_submitted_volume
+                    equipment.da_sell_submitted_volume = sell_submitted_volume
                 else:
                     equipment.da_sell_submitted_volume = equipment.da_sell_submitted_volume.add_on_union(
-                        da_sell_submitted_volume, inplace=False
+                        sell_submitted_volume, inplace=False
                     )
 
             else:
                 if equipment.da_sell_submitted_volume is None:
-                    equipment.da_sell_submitted_volume = da_sell_submitted_volumes[equipment.name]
+                    equipment.da_sell_submitted_volume = sell_submitted_volumes[equipment.name]
                 else:
                     equipment.da_sell_submitted_volume = equipment.da_sell_submitted_volume.add_on_union(
-                        da_sell_submitted_volumes[equipment.name], inplace=False
+                        sell_submitted_volumes[equipment.name], inplace=False
                     )
 
     def graph_search_of_connected_orders(

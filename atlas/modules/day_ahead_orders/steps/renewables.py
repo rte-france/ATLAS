@@ -21,16 +21,16 @@ class WindPVStep(AbstractOrderStep):
             if equipment.maximum_power_forecast is None:
                 cfg.logger.warning(f"maximum_power_forecast is None for wind/photovoltaic {equipment.name}")
             else:
-                production_forecast = equipment.maximum_power_forecast.get_forecast(
+                sell_submitted_volume = equipment.maximum_power_forecast.get_forecast(
                     self.parameters.temporal.execution_date,
                     self.parameters.temporal.start_date,
                     self.parameters.penultimate_date,
                 )
                 if equipment.da_sell_submitted_volume is None:
-                    equipment.da_sell_submitted_volume = production_forecast
+                    equipment.da_sell_submitted_volume = sell_submitted_volume
                 else:
                     equipment.da_sell_submitted_volume = equipment.da_sell_submitted_volume.add_on_union(
-                        production_forecast, inplace=False
+                        sell_submitted_volume, inplace=False
                     )
 
                 for t in self.orders_time:
@@ -39,7 +39,7 @@ class WindPVStep(AbstractOrderStep):
                     else:
                         bid_name = f"pv_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{equipment.name}"
 
-                    max_production_value = production_forecast.get_value(t)
+                    max_production_value = sell_submitted_volume.get_value(t)
                     min_production_value = max_production_value * (1 - equipment.maximum_curtailment_ratio.get_value(t))
 
                     if max_production_value > 0:

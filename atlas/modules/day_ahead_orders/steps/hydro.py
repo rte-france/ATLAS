@@ -40,7 +40,7 @@ class HydraulicStep(AbstractOrderStep):
             for category in range(len(equipment.fragment_volumes)):
                 delta_wu[category] = (equipment.fragment_volumes[category], equipment.fragment_prices[category])
 
-            submitted_volumes = Timeseries.from_index(
+            sell_submitted_volume = Timeseries.from_index(
                 self.parameters.temporal.start_date,
                 self.parameters.temporal.timestep,
                 self.parameters.penultimate_date,
@@ -104,10 +104,10 @@ class HydraulicStep(AbstractOrderStep):
                         result.orders.append(bid_output)
                         coupling_orders.append(bid_output)
 
-                        if t in submitted_volumes:
-                            submitted_volumes.set_value(t, submitted_volumes.get_value(t) + v)
+                        if t in sell_submitted_volume:
+                            sell_submitted_volume.set_value(t, sell_submitted_volume.get_value(t) + v)
                         else:
-                            submitted_volumes.add_index(t, v)
+                            sell_submitted_volume.add_index(t, v)
 
             result.order_couplings.append(
                 OrderCouplingDAO(
@@ -119,10 +119,10 @@ class HydraulicStep(AbstractOrderStep):
                 )
             )
             if equipment.da_sell_submitted_volume is None:
-                equipment.da_sell_submitted_volume = submitted_volumes
+                equipment.da_sell_submitted_volume = sell_submitted_volume
             else:
                 equipment.da_sell_submitted_volume = equipment.da_sell_submitted_volume.add_on_union(
-                    submitted_volumes, inplace=False
+                    sell_submitted_volume, inplace=False
                 )
 
         return result

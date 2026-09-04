@@ -19,7 +19,7 @@ class NonDispatchableStep(AbstractOrderStep):
             if unit.maximum_power_forecast is None:
                 cfg.logger.warning(f"maximum_power_forecast is None for other_non_dispatchable {unit.name}")
             else:
-                production_forecast = unit.maximum_power_forecast.get_forecast(
+                sell_submitted_volume = unit.maximum_power_forecast.get_forecast(
                     self.parameters.temporal.execution_date,
                     self.parameters.temporal.start_date,
                     self.parameters.penultimate_date,
@@ -27,10 +27,10 @@ class NonDispatchableStep(AbstractOrderStep):
                 )
 
                 if unit.da_sell_submitted_volume is None:
-                    unit.da_sell_submitted_volume = production_forecast
+                    unit.da_sell_submitted_volume = sell_submitted_volume
                 else:
                     unit.da_sell_submitted_volume = unit.da_sell_submitted_volume.add_on_union(
-                        production_forecast, inplace=False
+                        sell_submitted_volume, inplace=False
                     )
 
                 for t in self.orders_time:
@@ -40,7 +40,7 @@ class NonDispatchableStep(AbstractOrderStep):
                             market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                             portfolio=unit.portfolio,
                             equipment=unit,
-                            qmax=production_forecast.get_value(t),
+                            qmax=sell_submitted_volume.get_value(t),
                             qmin=0,
                             price=0.0 if unit.variable_cost is None else unit.variable_cost.get_value(t),
                             product=Product.DayAhead,
