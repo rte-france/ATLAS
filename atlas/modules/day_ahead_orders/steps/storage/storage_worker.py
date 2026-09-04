@@ -37,10 +37,10 @@ class StorageOptimizationResult:
     :type orders: list[OrderDAO]
     :param order_couplings: List of order couplings for this storage unit
     :type order_couplings: list[OrderCouplingDAO]
-    :param buy_submitted_volumes: Timeseries of buy submitted volumes
-    :type buy_submitted_volumes: Timeseries
-    :param sell_submitted_volumes: Timeseries of sell submitted volumes
-    :type sell_submitted_volumes: Timeseries
+    :param buy_submitted_volume: Timeseries of buy submitted volumes
+    :type buy_submitted_volume: Timeseries
+    :param sell_submitted_volume: Timeseries of sell submitted volumes
+    :type sell_submitted_volume: Timeseries
     :param variable_cost: Updated variable cost timeseries
     :type variable_cost: Timeseries | None
     :param success: Whether the optimization was successful
@@ -48,8 +48,8 @@ class StorageOptimizationResult:
     """
 
     storage_name: str
-    buy_submitted_volumes: Timeseries = field(default_factory=Timeseries)
-    sell_submitted_volumes: Timeseries = field(default_factory=Timeseries)
+    buy_submitted_volume: Timeseries = field(default_factory=Timeseries)
+    sell_submitted_volume: Timeseries = field(default_factory=Timeseries)
     variable_cost: Timeseries = field(default_factory=Timeseries)
     success: bool = True
     orders: list[OrderDAO] = field(default_factory=list)
@@ -96,10 +96,10 @@ def optimize_single_storage(
         else:
             Qv, Qa = _optimize_battery(storage, initial_stock, solver_options, parameters)
 
-        buy_submitted_volumes = Timeseries.from_values(
+        buy_submitted_volume = Timeseries.from_values(
             parameters.temporal.start_date, parameters.temporal.timestep, list(Qa.values())
         )
-        sell_submitted_volumes = Timeseries.from_values(
+        sell_submitted_volume = Timeseries.from_values(
             parameters.temporal.start_date, parameters.temporal.timestep, list(Qv.values())
         )
 
@@ -125,15 +125,15 @@ def optimize_single_storage(
 
         # Create orders and couplings
         orders, order_couplings = _create_orders_with_couplings(
-            storage, Qa, Qv, Ppurchase, Psale, buy_submitted_volumes, sell_submitted_volumes, parameters
+            storage, Qa, Qv, Ppurchase, Psale, buy_submitted_volume, sell_submitted_volume, parameters
         )
 
         return StorageOptimizationResult(
             storage_name=storage.name,
             orders=orders,
             order_couplings=order_couplings,
-            buy_submitted_volumes=buy_submitted_volumes,
-            sell_submitted_volumes=sell_submitted_volumes,
+            buy_submitted_volume=buy_submitted_volume,
+            sell_submitted_volume=sell_submitted_volume,
             variable_cost=variable_costs,
             success=True,
         )
@@ -314,8 +314,8 @@ def _create_orders_with_couplings(
     Qv: dict[DateTime, float],
     Ppurchase: float,
     Psale: float,
-    buy_submitted_volumes: Timeseries,
-    sell_submitted_volumes: Timeseries,
+    buy_submitted_volume: Timeseries,
+    sell_submitted_volume: Timeseries,
     parameters: DayAheadOrdersParameters,
 ) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
     """Create orders and order couplings for the storage unit."""
@@ -361,7 +361,7 @@ def _create_orders_with_couplings(
                 name=f"COMPLEMENT_DA_{storage.name}_{parameters.temporal.execution_date}",
                 coupling_type=CouplingType.COMPLEMENT,
                 complement_direction=ComplementDirection.EqualTo,
-                complement_energy=buy_submitted_volumes.sum() - sell_submitted_volumes.sum(),
+                complement_energy=buy_submitted_volume.sum() - sell_submitted_volume.sum(),
                 orders=coupling_orders,  # type: ignore [arg-type]
             )
         )
