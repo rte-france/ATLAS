@@ -11,7 +11,6 @@ exercised via the unbound-method technique against a lightweight duck-typed stan
 """
 
 import pendulum
-import pytest
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.enums import CouplingType, OrderType, Product
@@ -284,22 +283,14 @@ class TestCreatePriceGroups:
         exchanges = {("ab", times[0]): ab_flow, ("bc", times[0]): bc_flow}
         return input_dataset, exchanges
 
-    @pytest.mark.xfail(
-        reason=(
-            "ATLAS-296 (new finding, not in the original B1-B13 list): "
-            "Pricing.get_market_area_neighbours (pricing.py) does not check that a border actually "
-            "touches the queried area — for a border where the area is neither the uphill nor the "
-            "downhill endpoint, it still returns `uphill_market_area` as a bogus 'neighbour'. With "
-            "only 2 zones (the real day-ahead fixture) every border always touches both areas, so "
-            "this is invisible there; a 3-zone chain (A-B-C, no direct A-C border) exposes it: "
-            "propagating from C spuriously treats B as reachable through the unrelated A-B border, "
-            "merging groups it shouldn't. Needs business validation before a fix lands in PR-2."
-        ),
-        strict=True,
-    )
     def test_areas_merge_across_an_unsaturated_border_and_split_at_a_saturated_one(
         self, parameters: MarketClearingParameters
     ) -> None:
+        """`get_market_area_neighbours` used to return a bogus neighbour for a border that does not
+        touch the queried area. With only 2 zones (the real fixtures) every border touches both
+        areas, so this was invisible there; the A-B-C chain below exposes it: propagating from C
+        reached A through the unrelated A-B border and merged groups that should stay split.
+        """
         times = [parameters.temporal.start_date]
         input_dataset, exchanges = self._build_network(times, ab_flow=0.0, bc_flow=100.0)
         pricing = _PricingAlgorithms(input_dataset, parameters, clearing_border_exchanges=exchanges)
