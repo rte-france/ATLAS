@@ -29,7 +29,7 @@ class ActionPlanJob(AbstractJob):
     """
 
     def __repr__(self) -> str:
-        """Return a detailed string representation of the workflow job."""
+        """Return a detailed string representation of the action plan job."""
         module_name = self.module.__class__.__name__
         has_output = self._output_dataset is not None
         return f"ActionPlanStep(name={self.name!r}, module={module_name}, executed={has_output})"

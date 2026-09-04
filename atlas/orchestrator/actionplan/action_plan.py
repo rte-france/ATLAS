@@ -35,10 +35,10 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         return ActionPlanParameters
 
     def __init__(self, parameters: ActionPlanParameters):
-        """Initialize a Workflow instance.
+        """Initialize an ActionPlan instance.
 
-        :param parameters: Name of the workflow.
-        :type parameters: WorkflowParameters
+        :param parameters: Parameters of the action plan, including its tasks and hooks.
+        :type parameters: ActionPlanParameters
         """
         super().__init__(parameters)
         self._task_job_generators: list[TaskJobsGenerator] = []
@@ -157,5 +157,5 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         return sum(len(itr) for itr in self._task_job_generators)
 
     def __repr__(self) -> str:
-        """Return a human-readable string representation of the workflow."""
+        """Return a human-readable string representation of the action plan."""
         return f"ActionPlan '{self.parameters.name}' ({len(self.parameters.tasks)} task{'s' if len(self.parameters.tasks) > 1 else ''} with a total of {self.jobs_count} step{'s' if self.jobs_count > 1 else ''})"
