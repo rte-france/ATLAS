@@ -140,7 +140,7 @@ class TaskModule(Task):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
     module: ModuleRegistry
-    parameters: AbstractModuleParameters | dict[str, Any] | str | Path
+    parameters: AbstractModuleParameters | dict[str, Any] | Path
 
     @field_validator("module", mode="before")
     @classmethod
@@ -174,7 +174,7 @@ class TaskWorkflow(Task):
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    workflow: Workflow | dict[str, Any] | str | Path
+    workflow: Workflow | dict[str, Any] | Path
 
     @field_validator("workflow", mode="before")
     @classmethod
@@ -187,10 +187,8 @@ class TaskWorkflow(Task):
     @classmethod
     def validate_workflow_path_exist_if_absolute(cls, v: Any) -> Path | None:
         if v is not None:
-            if isinstance(v, Path) and v.is_absolute() and not v.exists():
-                raise ValueError(f"Workflow parameters file not found at {v}")
-            if isinstance(v, str) and Path(v).is_absolute() and not Path(v).exists():
-                raise ValueError(f"Workflow parameters file not found at {v}")
+            if isinstance(v, (Path, str)) and Path(v).is_absolute() and not Path(v).exists():
+                raise ValueError(f"Workflow parameters file not found at {Path(v)}")
         return v
 
     @model_validator(mode="after")
@@ -200,6 +198,6 @@ class TaskWorkflow(Task):
                 self.name = self.workflow.parameters.name
             elif isinstance(self.workflow, dict) and "name" in self.workflow:
                 self.name = self.workflow["name"]
-            elif isinstance(self.workflow, (Path, str)):
+            elif isinstance(self.workflow, Path):
                 self.name = Path(self.workflow).stem
         return self

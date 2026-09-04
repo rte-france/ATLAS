@@ -26,12 +26,12 @@ class Step(BaseModel):
     :param name: Name identifying the step. Defaults to the module name if not provided.
     :type name: str
     :param parameters: Path to the parameters file for the job, or inline parameters for the job. Mutually exclusive with `parameters`.
-    :type parameters: Path | str | dict
+    :type parameters: Path | dict
     """
 
     name: str | None = None
     module: ModuleRegistry
-    parameters: Path | str | dict[str, Any]
+    parameters: Path | dict[str, Any]
 
     @field_validator("module", mode="before")
     @classmethod

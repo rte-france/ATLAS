@@ -47,7 +47,7 @@ class TestStep:
 
     def test_step_parameters_path_is_str_object(self, tmp_path, params_file):
         step = Step(module="PortfolioOptimisation", parameters=str(params_file))
-        assert isinstance(step.parameters, str)
+        assert isinstance(step.parameters, Path)
 
 
 class TestWorkflowJobRepresentation:
