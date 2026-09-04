@@ -25,6 +25,7 @@ nav = [
         { "Command Line" = "cli.md" },
         { "Run a Module" = "modules/running-modules.md" },
         { "Run a Workflow" = "modules/workflow.md" },
+        { "Run an ActionPlan" = "modules/action-plan.md" },
         { "Antares Integration" = [
             { "Overview" = "antares-integration/index.md" },
             { "User Guide" = "antares-integration/user-guide.md" },
@@ -153,6 +154,11 @@ nav = [
         { "Workflow" = [
             { "Workflow" = "api/workflow/workflow.md" },
             { "Workflow Step" = "api/workflow/workflow_step.md" },
+        ]},
+        { "Action Plan" = [
+            { "Action Plan" = "api/actionplan/action_plan.md" },
+            { "Task" = "api/actionplan/task.md" },
+            { "Action Plan Job" = "api/actionplan/action_plan_job.md" },
         ]},
         { "Orchestrator" = [
             { "CurrentInputState" = "api/orchestrator/current_input_state.md" },
