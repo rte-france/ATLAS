@@ -1,19 +1,18 @@
 # Task
 
-A `Task` describes *when* and *how often* a unit of work runs inside an [`ActionPlan`](action_plan.md): its time window (`from_` / `until`), its execution `frequency`, an optional offset applied to the start and end dates of each run, and a scheduling `priority` used to order tasks that fall on the same execution date.
+A `Task` describes *when* and *how often* a Module or a Workflow runs inside an [`ActionPlan`](action_plan.md):
+its time window (`from` / `until`), its execution `frequency`, an optional offset applied to the start dates and end dates of each run, and a scheduling `priority` used to order tasks that fall on the same execution date.
 
 There are two concrete task types:
 
 | Class | Runs |
 |---|---|
 | `TaskModule` | A single module on each iteration |
-| `TaskWorkflow` | A nested [`Workflow`](../workflow/workflow.md) on each iteration |
-
-Both share the abstract base class `Task`.
+| `TaskWorkflow` | A [`Workflow`](../workflow/workflow.md) on each iteration |
 
 ## Concurrency
 
-Two tasks are **concurrent** if they share the same `priority` and, at some point within their respective `from_`/`until` windows, would both need to execute on the same date. Adding a concurrent task to an `ActionPlan` raises a `ValueError` — this is checked automatically both when an `ActionPlanParameters` is built and whenever [`ActionPlan.add_task`](action_plan.md) is called directly.
+Adding a concurrent task to an `ActionPlan` raises a `ValueError` — see [`Task.are_concurrent`](#task-base) below for what "concurrent" means. This is checked automatically both when an `ActionPlanParameters` is built and whenever [`ActionPlan.add_task`](action_plan.md) is called directly.
 
 ## Task (base)
 
