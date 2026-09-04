@@ -261,7 +261,7 @@ class TestWorkflowTaskIterator:
         config = OrchestratorConfigBuilder().with_name("test_workflow").with_any(
             f"steps:\n"
             f"  - module: MarketClearing\n"
-            f"    parameters_path: {params_file}\n"
+            f"    parameters: {params_file}\n"
         ).build(tmp_path)
         workflow = Workflow.from_file(config)
         task = TaskWorkflow(

@@ -8,6 +8,7 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from pathlib import Path
 
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.orchestrator.workflow.job import WorkflowJob
@@ -38,11 +39,11 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
         for step in self.parameters.steps:
             parameters_class = step.module.value().get_parameters_class()
-            if step.parameters_path is not None:
+            if isinstance(step.parameters, (str, Path)):
                 parameters = parameters_class.from_file(
-                    self.parameters.resolve_path(step.parameters_path), self.parameters.context
+                    self.parameters.resolve_path(Path(step.parameters)), self.parameters.context
                 )
-            else:
+            elif isinstance(step.parameters, dict):
                 parameters = parameters_class.from_dict(step.parameters, self.parameters.context)
             parameters.output.output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
             job_name = f"{prefix_job_name} {step.name}" if prefix_job_name else step.name
