@@ -94,4 +94,4 @@ __all__ = [
     "ModuleRun",
 ]
 
-__version__ = version("rte-atlas")
+__version__ = version("atlas-model")
