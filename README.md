@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/logo.svg" alt="ATLAS" />
+<img src="docs/assets/logo_complet.png" alt="ATLAS" />
 
 [![CI](https://github.com/rte-france/ATLAS/actions/workflows/test.yml/badge.svg)](https://github.com/rte-france/ATLAS/actions)
 [![codecov](https://codecov.io/gh/rte-france/ATLAS/branch/main/graph/badge.svg)](https://codecov.io/gh/rte-france/ATLAS)
