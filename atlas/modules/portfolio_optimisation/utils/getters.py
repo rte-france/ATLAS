@@ -28,15 +28,3 @@ def get_variable_cost(obj: EquipmentPO, time: DateTime):
     if obj.variable_cost is not None:
         return obj.variable_cost.get_value(time)
     return 0.0
-
-
-def get_maximum_automated(obj: EquipmentPO) -> float:
-    """
-    Get maximum automated reserve capacity for equipment.
-
-    :param obj: Equipment object
-    :type obj: EquipmentPO
-    :return: Maximum automated reserve (sum of AFRR and FCR)
-    :rtype: float
-    """
-    return (obj.maximum_afrr or 0.0) + (obj.maximum_fcr or 0.0)

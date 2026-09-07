@@ -6,12 +6,14 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pendulum import DateTime, Duration
+from pendulum import DateTime
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.objects.equipment.solar import Solar
+from atlas.validators import DurationField
 
 
 class SolarPO(Solar):
@@ -19,17 +21,14 @@ class SolarPO(Solar):
     maximum_afrr: float
     maximum_curtailment_ratio: AbstractTimeseries
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
-    additional_hours: Duration
+    additional_hours: DurationField
 
-    optimisation_time_window: list[DateTime] = []
     _cached_forecast: Timeseries | None = None
 
-    def prefetch_forecasts(self, execution_date: DateTime):
+    def prefetch_forecasts(self, execution_date: DateTime, parameters: PortfolioOptimisationParameters):
         """Pre-fetch and cache forecasts for the entire optimization time window."""
-        if not self.optimisation_time_window:
+        window = parameters.equipment_time_window(self)
+        if not window:
             return
 
-        start_time = self.optimisation_time_window[0]
-        end_time = self.optimisation_time_window[-1]
-
-        self._cached_forecast = self.maximum_power_forecast.get_forecast(execution_date, start_time, end_time)
+        self._cached_forecast = self.maximum_power_forecast.get_forecast(execution_date, window[0], window[-1])

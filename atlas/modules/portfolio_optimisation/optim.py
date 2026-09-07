@@ -37,11 +37,11 @@ class PortfolioOptimisationModel(OptimisationModel):
         cfg.logger.debug("Pre-fetching forecasts for all equipment...")
 
         for wind in self.portfolio.equipments.wind:
-            wind.prefetch_forecasts(self.parameters.temporal.execution_date)
+            wind.prefetch_forecasts(self.parameters.temporal.execution_date, self.parameters)
         for solar in self.portfolio.equipments.solar:
-            solar.prefetch_forecasts(self.parameters.temporal.execution_date)
+            solar.prefetch_forecasts(self.parameters.temporal.execution_date, self.parameters)
         for load in [*self.portfolio.equipments.dispatchable_load, *self.portfolio.equipments.non_dispatchable_load]:
-            load.prefetch_forecasts(self.parameters.temporal.execution_date)
+            load.prefetch_forecasts(self.parameters.temporal.execution_date, self.parameters)
 
         for hydro in self.portfolio.equipments.hydro:
             hydro.prefetch_forecasts(
