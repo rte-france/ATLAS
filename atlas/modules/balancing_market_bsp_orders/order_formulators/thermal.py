@@ -53,6 +53,11 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
             next_time = time.add(minutes=timestep_minutes)
 
             qmax_up = max(0.0, upward_available.get_value(time))
+            qmax_down = max(0.0, downward_available.get_value(time))
+
+            if self.equipment.maximum_gradient != 0:
+                qmax_up, qmax_down = self._apply_gradient_constraint(forecasted_power, time, qmax_up, qmax_down)
+
             if qmax_up > 0:
                 order = self.build_order(
                     order_type=OrderType.Sell,
@@ -65,7 +70,6 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
                 if order is not None:
                     orders.append(order)
 
-            qmax_down = downward_available.get_value(time)
             if qmax_down < 1.0:
                 continue
 
