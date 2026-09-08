@@ -5,8 +5,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
-
 from pendulum import DateTime
 
 import atlas.config as cfg
@@ -27,9 +25,18 @@ class StorageStep(AbstractOrderStep):
             self.parameters.penultimate_date,
             self.parameters.temporal.timestep,
         )
-        if self.parameters.multiprocessing.enable:
-            return self._formulate_parallel(local_timewindow)
-        return self._formulate_sequential(local_timewindow)
+        result = StepResult()
+
+        for storage, unit_result in self.run_units(
+            self.dataset.storage,
+            optimize_single_storage,
+            self.parameters,
+            local_timewindow,
+            label="storage",
+        ):
+            self._process_unit_result(result, unit_result, storage, local_timewindow)
+
+        return result
 
     def _process_unit_result(
         self,
@@ -64,33 +71,3 @@ class StorageStep(AbstractOrderStep):
         storage.variable_cost = bids.variable_cost
 
         cfg.logger.info(f"Completed optimization for storage: {storage.name}")
-
-    def _formulate_parallel(self, local_timewindow: list[DateTime]) -> StepResult:
-        cfg.logger.info(f"Starting parallel storage optimization for {len(self.dataset.storage)} units")
-        result = StepResult()
-        storage_by_name = {storage.name: storage for storage in self.dataset.storage}
-
-        with ProcessPoolExecutor(max_workers=self.parameters.multiprocessing.max_workers) as executor:
-            future_to_storage = {
-                executor.submit(optimize_single_storage, storage, self.parameters, local_timewindow): storage.name
-                for storage in self.dataset.storage
-            }
-
-            for future in as_completed(future_to_storage):
-                storage_name = future_to_storage[future]
-                try:
-                    self._process_unit_result(result, future.result(), storage_by_name[storage_name], local_timewindow)
-                except Exception as e:
-                    cfg.logger.error(f"Error processing storage {storage_name}: {e}")
-
-        return result
-
-    def _formulate_sequential(self, local_timewindow: list[DateTime]) -> StepResult:
-        cfg.logger.info(f"Starting sequential storage optimization for {len(self.dataset.storage)} units")
-        result = StepResult()
-
-        for storage in self.dataset.storage:
-            unit_result = optimize_single_storage(storage, self.parameters, local_timewindow)
-            self._process_unit_result(result, unit_result, storage, local_timewindow)
-
-        return result
