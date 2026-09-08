@@ -131,27 +131,19 @@
   padding: 1rem 1rem 3rem;
 }
 
-.md-typeset .hero-title {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: clamp(3rem, 12vw, 6rem);
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  white-space: nowrap;
+.hero-logo {
   margin: 0 auto 0.4rem;
 }
 
-[data-md-color-scheme="default"] .hero-title {
-  color: #1b3d70;
+.hero-logo img {
+  width: clamp(220px, 60vw, 420px);
+  height: auto;
+  display: block;
+  margin: 0 auto;
 }
 
-[data-md-color-scheme="slate"] .hero-title {
-  color: #e8f0fc;
-}
-
-/* First letter accent in the hero title. */
-.atlas-accent {
-  color: var(--md-accent-fg-color);
+.hero-logo .headerlink {
+  display: none;
 }
 
 .md-typeset .hero-tagline {
