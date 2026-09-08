@@ -18,7 +18,7 @@ from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.input_objects.storage import StorageDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.steps.storage.storage_worker import StorageOptimisationResult
+from atlas.modules.day_ahead_orders.steps.storage.optimisation import StorageOptimisationResult
 
 
 @dataclass

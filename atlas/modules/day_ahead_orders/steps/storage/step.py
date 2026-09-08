@@ -12,11 +12,11 @@ from pendulum import DateTime
 import atlas.config as cfg
 from atlas.modules.day_ahead_orders.input_objects.storage import StorageDAO
 from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
-from atlas.modules.day_ahead_orders.steps.storage.orders import build_storage_bids
-from atlas.modules.day_ahead_orders.steps.storage.storage_worker import (
+from atlas.modules.day_ahead_orders.steps.storage.optimisation import (
     StorageOptimisationResult,
     optimize_single_storage,
 )
+from atlas.modules.day_ahead_orders.steps.storage.orders import build_storage_bids
 from atlas.timing import generate_datetimes
 
 

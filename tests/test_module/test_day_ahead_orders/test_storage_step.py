@@ -11,9 +11,8 @@ import pytest
 
 from atlas.enums import OrderType, StorageType
 from atlas.math.timeseries import Timeseries
-from atlas.modules.day_ahead_orders.steps.storage.optim_step import StorageDAOStep
+from atlas.modules.day_ahead_orders.steps.storage.optimisation import StorageDAOStep, optimize_single_storage
 from atlas.modules.day_ahead_orders.steps.storage.orders import build_storage_bids
-from atlas.modules.day_ahead_orders.steps.storage.storage_worker import optimize_single_storage
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
 
