@@ -9,387 +9,149 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-import polars as pl
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.enums import ComplementDirection, CouplingType, OrderType, Product, StorageType
-from atlas.math.timeseries import Timeseries
-from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
-from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
+from atlas.enums import StorageType
 from atlas.modules.day_ahead_orders.input_objects.storage import StorageDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.steps.storage.optim.battery import BatteryModel
-from atlas.modules.day_ahead_orders.steps.storage.optim.electric_vehicle import ElectricVehicleModel
-from atlas.modules.day_ahead_orders.steps.storage.optim.storage import StorageModel
+from atlas.modules.day_ahead_orders.steps.storage.optim_step import StorageDAOStep
 from atlas.solver.models import SolverOptions
+from atlas.solver.solver_interface import OptimisationModel
+from atlas.timing import generate_datetimes
 
 
 @dataclass
-class StorageOptimizationResult:
+class StorageOptimisationResult:
     """
-    This class stores the storage optimization results without the unpicklable solver object,
-    making it suitable for multiprocessing with ProcessPoolExecutor.
+    Raw LP output for one storage unit — solved variable values, nothing else.
 
-    :param storage_name: The name of the storage unit
+    Deliberately free of business objects: this crosses the process boundary when
+    multiprocessing is enabled, so it holds plain floats rather than orders (which would
+    drag the whole equipment/portfolio/market-area graph through pickle, and come back
+    referencing copies instead of the dataset's own objects). Orders are built from it in
+    the main process by :func:`~atlas.modules.day_ahead_orders.steps.storage.orders.build_storage_bids`.
+
+    :param storage_name: Name of the storage unit
     :type storage_name: str
-    :param orders: List of orders generated for this storage unit
-    :type orders: list[OrderDAO]
-    :param order_couplings: List of order couplings for this storage unit
-    :type order_couplings: list[OrderCouplingDAO]
-    :param buy_submitted_volume: Timeseries of buy submitted volumes
-    :type buy_submitted_volume: Timeseries
-    :param sell_submitted_volume: Timeseries of sell submitted volumes
-    :type sell_submitted_volume: Timeseries
-    :param variable_cost: Updated variable cost timeseries
-    :type variable_cost: Timeseries | None
-    :param success: Whether the optimization was successful
-    :type success: bool
+    :param sell_volumes: Sell (discharge) volume per timestep, in MW, positive
+    :type sell_volumes: dict[DateTime, float]
+    :param buy_volumes: Buy (charge) volume per timestep, in MW, positive
+    :type buy_volumes: dict[DateTime, float]
     """
 
     storage_name: str
-    buy_submitted_volume: Timeseries = field(default_factory=Timeseries)
-    sell_submitted_volume: Timeseries = field(default_factory=Timeseries)
-    variable_cost: Timeseries = field(default_factory=Timeseries)
-    success: bool = True
-    orders: list[OrderDAO] = field(default_factory=list)
-    order_couplings: list[OrderCouplingDAO] = field(default_factory=list)
+    sell_volumes: dict[DateTime, float] = field(default_factory=dict)
+    buy_volumes: dict[DateTime, float] = field(default_factory=dict)
 
 
 def optimize_single_storage(
     storage: StorageDAO,
     parameters: DayAheadOrdersParameters,
     local_timewindow: list[DateTime],
-) -> StorageOptimizationResult:
+) -> StorageOptimisationResult | None:
     """
-    Worker function for storage optimization (works for both multiprocessing and sequential).
+    Build and solve the day-ahead bidding model of a single storage unit.
 
-    Builds and solves the optimization model for a single storage unit, then extracts results
-    into a picklable StorageOptimizationResult object (avoiding SWIG solver objects).
+    Runs either in a worker process or in the main process, depending on the
+    multiprocessing parameters.
 
-    :param storage: Storage unit to optimize
+    :param storage: Storage unit to optimise
     :type storage: StorageDAO
-    :param parameters: Optimization parameters
+    :param parameters: Optimisation parameters
     :type parameters: DayAheadOrdersParameters
-    :return: Storage optimization result
-    :rtype: StorageOptimizationResult
+    :param local_timewindow: Timesteps of the day-ahead delivery window
+    :type local_timewindow: list[DateTime]
+    :return: Solved volumes, or ``None`` when the unit is skipped or the solve fails
+    :rtype: StorageOptimisationResult | None
     """
     try:
-        local_max_energy = storage.maximum_energy.filter(item=local_timewindow, inplace=False).max()
+        if storage.maximum_energy.filter(item=local_timewindow, inplace=False).max() <= 0:
+            cfg.logger.debug(f"Equipment {storage.name} avoided, as its maximum_energy is 0")
+            return None
 
-        if local_max_energy <= 0:
-            cfg.logger.debug(f"Equipment {str(storage.name)} avoided, as its maximum_energy is 0")
-            return StorageOptimizationResult(storage_name=storage.name, success=False)
+        settings = _fragment_settings(storage, parameters)
+        if settings is None:
+            cfg.logger.error(f"equipment {storage.name} has an unsupported storage type {storage.storage_type}")
+            return None
+        nb_fragments, smoothing_factor = settings
 
-        cfg.logger.debug(f"Optimizing storage equipment {str(storage.name)}")
+        cfg.logger.debug(f"Optimizing storage equipment {storage.name}")
 
-        initial_stock = _initiate_stock(storage, parameters)
-
-        solver_options = SolverOptions(
-            presolve=parameters.solver.use_presolve,
-            duality_gap=parameters.solver.duality_gap,
-            time_limit=parameters.solver.timeout,
-        )
-
-        if storage.storage_type == StorageType.ELECTRIC_VEHICLE:
-            Qv, Qa = _optimize_ev(storage, initial_stock, solver_options, parameters)
-        else:
-            Qv, Qa = _optimize_battery(storage, initial_stock, solver_options, parameters)
-
-        buy_submitted_volume = Timeseries.from_values(
-            parameters.temporal.start_date, parameters.temporal.timestep, list(Qa.values())
-        )
-        sell_submitted_volume = Timeseries.from_values(
-            parameters.temporal.start_date, parameters.temporal.timestep, list(Qv.values())
-        )
-
-        # Calculate prices
-        Psale, Ppurchase = _price_calculation(storage, Qv, Qa, parameters)
-
-        # Update variable cost
-        if Ppurchase != 0:
-            variable_cost = round(Ppurchase, 2)
-        elif storage.discharge_efficiency != 0 and storage.charge_efficiency != 0:
-            variable_cost = round(Psale * storage.discharge_efficiency * storage.charge_efficiency, 2)
-        else:
-            variable_cost = round(Psale, 2)
-            cfg.logger.warning(
-                f"ChargeEfficiency or DischargeEfficiency is null for equipment {storage.name}. "
-                "This is not supposed to be the case, as the default value for these is 1 and not 0"
-            )
-        variable_costs = Timeseries.from_values(
+        # the unit optimises over a horizon extended by its own lookahead, so that the orders it
+        # submits for the delivery day account for what it will need on the following hours
+        time_window = generate_datetimes(
             parameters.temporal.start_date,
+            parameters.temporal.end_date + storage.additional_hours - parameters.temporal.timestep,
             parameters.temporal.timestep,
-            [variable_cost] * len(local_timewindow),
         )
 
-        # Create orders and couplings
-        orders, order_couplings = _create_orders_with_couplings(
-            storage, Qa, Qv, Ppurchase, Psale, buy_submitted_volume, sell_submitted_volume, parameters
+        model = OptimisationModel(
+            parameters.solver.solver_name,
+            f"Optimization of the storage unit {storage.name}",
+            SolverOptions(
+                presolve=parameters.solver.use_presolve,
+                duality_gap=parameters.solver.duality_gap,
+                time_limit=parameters.solver.timeout,
+            ),
         )
+        model.set_direction("maximize")
 
-        return StorageOptimizationResult(
-            storage_name=storage.name,
-            orders=orders,
-            order_couplings=order_couplings,
-            buy_submitted_volume=buy_submitted_volume,
-            sell_submitted_volume=sell_submitted_volume,
-            variable_cost=variable_costs,
-            success=True,
-        )
+        step = StorageDAOStep(storage, time_window, nb_fragments, smoothing_factor)
+        step.add_variables(model, parameters)
+        step.add_constraints(model, parameters)
+        step.add_objective(model, parameters, _price_forecasts(storage, time_window, parameters))
+
+        if parameters.solver.export_lp:
+            lp_dir = parameters.get_lp_dir()
+            lp_dir.mkdir(parents=True, exist_ok=True)
+            model.export_model(lp_dir / f"storage_{storage.name}.lp")
+
+        model.solve()
+
+        result = StorageOptimisationResult(storage_name=storage.name)
+        for time in time_window:
+            if time >= parameters.temporal.end_date:
+                break
+            result.sell_volumes[time] = round(step.dispatch.power_level_sell_var.get_value(time).solution_value(), 2)
+            # buy power is negative in the dispatch convention, orders are expressed as positive volumes
+            result.buy_volumes[time] = round(-step.dispatch.power_level_buy_var.get_value(time).solution_value(), 2)
+
+        return result
 
     except Exception as e:
         cfg.logger.error(f"Optimization failed for storage {storage.name}: {e}")
-        return StorageOptimizationResult(storage_name=storage.name, success=False)
+        return None
 
 
-def _initiate_stock(storage: StorageDAO, parameters: DayAheadOrdersParameters) -> float | None:
-    """
-    Initialize stock for storage unit. If stored_energy is available, use it to determine initial stock.
-    Otherwise, use storage_initial_level. The 'availability' of stored_energy is defined as follow:
-    - If stored_energy is completely empty, then it is not available.
-    - If stored_energy is not empty, but it does not contain data shortly before start_date (shortly being
-      arbitrarily defined as two days before start_date), then it is also not available.
-    """
-    if storage.stored_energy is None:
-        initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(parameters.temporal.start_date)
-    else:
-        energy_forecast = storage.stored_energy.get_forecast(
-            parameters.temporal.execution_date,
-            parameters.temporal.start_date.subtract(days=2),
-            parameters.temporal.start_date - parameters.temporal.timestep,
-            parameters.temporal.timestep,
-        )
-        if len(energy_forecast) == 0:
-            initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(
-                parameters.temporal.start_date
-            )
-        else:
-            initial_stock = energy_forecast.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
-    return initial_stock
+def _fragment_settings(storage: StorageDAO, parameters: DayAheadOrdersParameters) -> tuple[int, float] | None:
+    """Return the (nb_fragments, smoothing_factor) pair configured for the unit's storage type."""
+    mapping: dict[StorageType | None, tuple[int, float]] = {
+        StorageType.BATTERY: (parameters.battery_nb_fragments, parameters.battery_smoothing_factor),
+        StorageType.PUMPED_HYDRAULIC_STORAGE: (
+            parameters.pumped_hydraulic_nb_fragments,
+            parameters.pumped_hydraulic_smoothing_factor,
+        ),
+        StorageType.ELECTRIC_VEHICLE: (
+            parameters.electric_vehicle_nb_fragments,
+            parameters.electric_vehicle_smoothing_factor,
+        ),
+    }
+    return mapping.get(storage.storage_type)
 
 
-def _optimize_ev(
-    storage: StorageDAO,
-    initial_stock: float | None,
-    solvers_options: SolverOptions,
-    parameters: DayAheadOrdersParameters,
-) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
-    """Optimization function for ElectricVehicle units."""
-    model = ElectricVehicleModel(
-        parameters,
-        parameters.solver.solver_name,
-        "Optimization of the storage unit " + storage.name,
-        storage,
-        solvers_options,
-    )
-    model.create_decision_variables(parameters.electric_vehicle_nb_fragments)
-    model.create_objective_function(
-        parameters.electric_vehicle_nb_fragments, parameters.electric_vehicle_smoothing_factor, "maximize"
-    )
-    model.create_constraints(initial_stock)
-
-    if parameters.solver.export_lp:
-        output_path = parameters.get_lp_dir()
-        output_path.mkdir(parents=True, exist_ok=True)
-        lp_file_path = output_path / f"storage_{model.storage.name}.lp"
-        model.export_model(lp_file_path)
-
-    model.solve()
-
-    Qvv: dict[DateTime, float] = {}
-    Qaa: dict[DateTime, float] = {}
-    for t in model.time_frame:
-        if t >= parameters.temporal.end_date:
-            break
-        Qvv[t] = round(model.get_variable(StorageModel.sold_at_key(t)).solution_value(), 2)
-        Qaa[t] = round(model.get_variable(StorageModel.purchased_at_key(t)).solution_value(), 2)
-
-    return Qvv, Qaa
-
-
-def _optimize_battery(
-    storage: StorageDAO,
-    initial_stock: float | None,
-    solvers_options: SolverOptions,
-    parameters: DayAheadOrdersParameters,
-) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
-    """Optimization function for Battery and PHS units."""
-    if storage.storage_type == StorageType.BATTERY:
-        smoothing_factor = parameters.battery_smoothing_factor
-        power_fragments = parameters.battery_nb_fragments
-    elif storage.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-        smoothing_factor = parameters.pumped_hydraulic_smoothing_factor
-        power_fragments = parameters.pumped_hydraulic_nb_fragments
-    else:
-        cfg.logger.error(
-            f"equipment {storage.name} isn't {StorageType.BATTERY} nor {StorageType.PUMPED_HYDRAULIC_STORAGE}"
-        )
-        return {}, {}
-
-    model = BatteryModel(
-        parameters,
-        parameters.solver.solver_name,
-        "Optimization of the storage unit " + storage.name,
-        storage,
-        solvers_options,
-    )
-    model.create_decision_variables(power_fragments)
-    model.create_objective_function(power_fragments, smoothing_factor, "maximize")
-    model.create_constraints(initial_stock, power_fragments)
-
-    if parameters.solver.export_lp:
-        output_path = parameters.get_lp_dir()
-        output_path.mkdir(parents=True, exist_ok=True)
-        lp_file_path = output_path / f"storage_{model.storage.name}.lp"
-        model.export_model(str(lp_file_path))
-
-    model.solve()
-
-    Qvv: dict[DateTime, float] = {}
-    Qaa: dict[DateTime, float] = {}
-    for t in model.time_frame:
-        if t >= parameters.temporal.end_date:
-            break
-        Qvv[t] = round(model.get_variable(StorageModel.sold_at_key(t)).solution_value(), 2)
-        Qaa[t] = round(model.get_variable(StorageModel.purchased_at_key(t)).solution_value(), 2)
-
-    return Qvv, Qaa
-
-
-def _price_calculation(
-    storage: StorageDAO, Qv: dict[DateTime, float], Qa: dict[DateTime, float], parameters: DayAheadOrdersParameters
-) -> tuple[float, float]:
-    """Price computation."""
-    P_a_max = 0.0
-    P_v_min = 0.0
-    if storage.portfolio.market_area.price_forecast_medium is not None:
-        price_forecast = storage.portfolio.market_area.price_forecast_medium.get_forecast(
-            parameters.temporal.execution_date,
-            parameters.temporal.start_date,
-            parameters.temporal.end_date,
-            parameters.temporal.timestep,
-        )
-    else:
+def _price_forecasts(
+    storage: StorageDAO, time_window: list[DateTime], parameters: DayAheadOrdersParameters
+) -> dict[DateTime, float]:
+    """Medium price forecast of the unit's market area over its optimisation horizon."""
+    price_forecast_medium = storage.portfolio.market_area.price_forecast_medium
+    if price_forecast_medium is None:
         raise AttributeError(f"{storage.portfolio.market_area.name} has no attribute 'price_forecast_medium'")
 
-    nonzero_qv = [t for t, v in Qv.items() if v != 0]
-    if nonzero_qv:
-        P_v_min = price_forecast.dataframe.filter(pl.col("time").is_in(nonzero_qv)).min().select("value").item()
-    nonzero_qa = [t for t, v in Qa.items() if v != 0]
-    if nonzero_qa:
-        P_a_max = price_forecast.dataframe.filter(pl.col("time").is_in(nonzero_qa)).max().select("value").item()
-
-    if (storage.storage_type in [StorageType.BATTERY, StorageType.PUMPED_HYDRAULIC_STORAGE]) or (storage.is_v2g):
-        if P_a_max <= 0:
-            P_a_max = 0.0
-        if P_v_min <= 0:
-            P_v_min = 0.0
-
-        if not nonzero_qa:
-            Psale = P_v_min
-            Ppurchase = 0.0
-        elif not nonzero_qv:
-            Psale = 0.0
-            Ppurchase = P_a_max
-        elif P_a_max == 0 and P_v_min == 0:
-            Psale = 0.0
-            Ppurchase = 0.0
-        else:
-            a = (storage.discharge_efficiency * storage.charge_efficiency * P_v_min - P_a_max) / (
-                storage.discharge_efficiency * storage.charge_efficiency * P_v_min + P_a_max
-            )
-            Psale = P_v_min * (1 - a)
-            Ppurchase = P_a_max * (1 + a)
-    else:
-        Psale = 0.0
-        Ppurchase = P_a_max
-
-    return Psale, Ppurchase
-
-
-def _create_orders_with_couplings(
-    storage: StorageDAO,
-    Qa: dict[DateTime, float],
-    Qv: dict[DateTime, float],
-    Ppurchase: float,
-    Psale: float,
-    buy_submitted_volume: Timeseries,
-    sell_submitted_volume: Timeseries,
-    parameters: DayAheadOrdersParameters,
-) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
-    """Create orders and order couplings for the storage unit."""
-
-    orders: list[OrderDAO] = []
-    order_couplings: list[OrderCouplingDAO] = []
-
-    daily_buy_volume = sum(buy_volume * parameters.temporal.timestep.total_hours() for buy_volume in Qa.values())
-
-    coupling_orders: list[OrderDAO] = []
-
-    for t, qa_val in Qa.items():
-        order = _create_spot_order(OrderType.Buy, storage, t, qa_val, Ppurchase, parameters)
-        orders.append(order)
-        coupling_orders.append(order)
-
-    for t, qv_val in Qv.items():
-        order = _create_spot_order(OrderType.Sell, storage, t, qv_val, Psale, parameters)
-        orders.append(order)
-        coupling_orders.append(order)
-
-    if storage.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
-        assert storage.displacement_energy is not None, "displacement_energy must be set for electric vehicles"
-
-        energy_requirement = storage.displacement_energy.get_value(
-            parameters.penultimate_date
-        ) - storage.displacement_energy.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
-
-        complement_energy = daily_buy_volume if energy_requirement > daily_buy_volume else energy_requirement
-
-        order_couplings.append(
-            OrderCouplingDAO(
-                name=f"COMPLEMENT_DA_{storage.name}_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}",
-                coupling_type=CouplingType.COMPLEMENT,
-                complement_direction=ComplementDirection.EqualTo,
-                complement_energy=complement_energy,
-                orders=coupling_orders,  # type: ignore [arg-type]
-            )
-        )
-    else:
-        order_couplings.append(
-            OrderCouplingDAO(
-                name=f"COMPLEMENT_DA_{storage.name}_{parameters.temporal.execution_date}",
-                coupling_type=CouplingType.COMPLEMENT,
-                complement_direction=ComplementDirection.EqualTo,
-                complement_energy=buy_submitted_volume.sum() - sell_submitted_volume.sum(),
-                orders=coupling_orders,  # type: ignore [arg-type]
-            )
-        )
-
-    return orders, order_couplings
-
-
-def _create_spot_order(
-    order_type: OrderType,  # type: ignore[name-defined]
-    storage: StorageDAO,
-    start_date: DateTime,
-    qmax: float,
-    price: float,
-    parameters: DayAheadOrdersParameters,
-) -> OrderDAO:
-    """Create a single spot order."""
-
-    return OrderDAO(
-        name=f"storage_order_type_{order_type}_at_{start_date.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{storage.name}",
-        equipment=storage,
-        portfolio=storage.portfolio,
-        market_area=storage.portfolio.market_area,
-        execution_date=parameters.temporal.execution_date,
-        start_date=start_date,  # type: ignore [arg-type]
-        end_date=start_date + parameters.temporal.timestep,  # type: ignore [arg-type]
-        order_type=order_type,
-        product=Product.DayAhead,
-        qmax=qmax,
-        qmin=0.0,
-        price=price,
+    forecast = price_forecast_medium.get_forecast(
+        parameters.temporal.execution_date,
+        parameters.temporal.start_date,
+        time_window[-1],
+        parameters.temporal.timestep,
     )
+    return {time: forecast.get_value(time) for time in time_window}
