@@ -27,8 +27,8 @@ class StorageDAOStep(AbstractOptimStep[StorageDAO, "DayAheadOrdersParameters"]):
 
     Composes :class:`StorageDispatch` for the physical variables and constraints and adds
     what is specific to day-ahead order formulation: the fragment-priced profit objective,
-    and — for electric vehicles — the V2G sell/buy separation and the displacement-energy
-    compensation constraint that replaces the cycle balance.
+    and — for electric vehicles — the displacement-energy compensation constraint that
+    replaces the cycle balance.
 
     Buy power follows the dispatch sign convention: ``power_level_buy`` is **negative**
     when the unit charges. Callers reading purchased volumes must negate it.
@@ -73,7 +73,7 @@ class StorageDAOStep(AbstractOptimStep[StorageDAO, "DayAheadOrdersParameters"]):
         for time in self._time_window:
             self.dispatch.add_constraints(model, time, parameters)
             if is_ev:
-                self._add_v2g_separation(model, time)
+                self.dispatch.add_sell_buy_separation(model, time)
             self.dispatch.add_fragment_sum_constraints(
                 time,
                 self.dispatch.power_level_sell_var.get_value(time),
@@ -114,28 +114,6 @@ class StorageDAOStep(AbstractOptimStep[StorageDAO, "DayAheadOrdersParameters"]):
                         price * (1 - n * self._smoothing_factor / (nb - 1)) * sell_n * dt_h
                         + price * (1 + n * self._smoothing_factor / (nb - 1)) * buy_n * dt_h
                     )
-
-    def _add_v2g_separation(self, model: OptimisationModel, time: DateTime) -> None:
-        """
-        Sell/buy separation for electric vehicles — a unit cannot charge and discharge at once.
-
-        :class:`StorageDispatch.add_constraints` skips it for EVs, leaving the formulation to
-        the calling module. Day-ahead gates the buy side on ``is_sell * is_v2g`` rather than on
-        ``is_sell`` alone: a non-V2G vehicle can never sell, so ``is_sell`` is unconstrained for
-        it and must not be allowed to block charging.
-        """
-        eq = self.equipment
-        is_sell = self.dispatch.is_sell_var.get_value(time)
-
-        model.add_constraint(
-            self.dispatch.power_level_sell_var.get_value(time) <= self.dispatch.effective_max_sell(time) * is_sell,
-            f"relative_power_max_{time}_{eq.name}",
-        )
-        model.add_constraint(
-            self.dispatch.power_level_buy_var.get_value(time)
-            >= self.dispatch.effective_min_buy(time) * (1 - is_sell * (eq.is_v2g or 0.0)),
-            f"relative_power_min_{time}_{eq.name}",
-        )
 
     def _add_displacement_compensation(self, model: OptimisationModel, parameters: DayAheadOrdersParameters) -> None:
         """
