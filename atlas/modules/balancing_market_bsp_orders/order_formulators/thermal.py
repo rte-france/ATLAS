@@ -36,8 +36,12 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         max_power = self.equipment.maximum_power.slice(start, end)
         min_power = self.equipment.minimum_power.slice(start, end)
 
-        upward_available = max_power - forecasted_power
-        downward_available = forecasted_power - min_power
+        upward_procured, downward_procured = self.compute_procured_power(
+            execution_date, start, end, self.parameters.product_type
+        )
+
+        upward_available = max_power - forecasted_power - upward_procured
+        downward_available = forecasted_power - min_power - downward_procured
 
         orders: list[Order] = []
 
@@ -58,7 +62,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
             if self.equipment.maximum_gradient != 0:
                 qmax_up, qmax_down = self._apply_gradient_constraint(forecasted_power, time, qmax_up, qmax_down)
 
-            if qmax_up > 0:
+            if qmax_up >= 1:
                 order = self.build_order(
                     order_type=OrderType.Sell,
                     start=time,
