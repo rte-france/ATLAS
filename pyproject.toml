@@ -1,5 +1,5 @@
 [project]
-name = "rte-atlas"
+name = "atlas-model"
 version = "0.1.0"
 description = "A tool for simulating power market such as day-ahead, intraday, and reserves markets."
 readme = "README.md"
