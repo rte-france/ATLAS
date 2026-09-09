@@ -9,24 +9,20 @@ Module that implements ThermalOrderFormulator.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.enums import OrderType
+from atlas.enums import CouplingType, OrderType
 from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
 
 class ThermalOrderFormulator(AbstractOrderFormulator):
-    """Formulates balancing orders for thermal equipment.
-
-    Upward orders (Sell):   maximum_power - forecasted_power
-    Downward orders (Buy):  forecasted_power - minimum_power
-    """
+    """Formulates balancing orders for thermal equipment."""
 
     def formulate(self) -> tuple[list[Order], list[OrderCoupling]]:
         """
         Formulate upward and downward orders for the thermal equipment.
 
-        :return: Tuple of formulated orders and an empty coupling list
+        :return: Tuple of formulated orders and their couplings
         :rtype: tuple[list[Order], list[OrderCoupling]]
         """
         start = self.parameters.temporal.start_date
@@ -46,6 +42,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         downward_available = forecasted_power - min_power - downward_procured
 
         orders: list[Order] = []
+        couplings: list[OrderCoupling] = []
 
         for time in self.target_times:
             if not self.is_after_setup_delay(time):
@@ -64,7 +61,16 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
             if self.equipment.maximum_gradient != 0:
                 qmax_up, qmax_down = self._apply_gradient_constraint(forecasted_power, time, qmax_up, qmax_down)
 
-            if qmax_up >= 1:
+            startup_case = self._classify_startup_case(forecasted_power, time)
+
+            if startup_case == "case_5":
+                start_orders, start_couplings = self._formulate_case_5_orders(time, next_time)
+                orders.extend(start_orders)
+                couplings.extend(start_couplings)
+            elif startup_case in ("case_1", "case_2", "case_3"):
+                # Bounded / cancelled-startup upward orders not yet ported — backlog
+                pass
+            elif qmax_up >= 1.0:
                 order = self.build_order(
                     order_type=OrderType.Sell,
                     start=time,
@@ -91,7 +97,76 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
                 orders.append(order)
 
         cfg.logger.info(f"Formulation of orders on equipment {self.equipment.name} completed")
-        return orders, []
+        return orders, couplings
+
+    def _formulate_case_5_orders(
+        self,
+        time: DateTime,
+        next_time: DateTime,
+    ) -> tuple[list[Order], list[OrderCoupling]]:
+        """
+        Formulate the split startup orders for a full startup (Case 5): an indivisible
+        '_start1' order up to minimum_power, priced with the startup cost spread over
+        its quantity and duration, and a divisible '_start2' order above minimum_power
+        at the regular variable cost. The two are linked by a PARENT_CHILDREN coupling.
+
+        :param time: Order start time (== order end time, single timestep)
+        :type time: DateTime
+        :param next_time: Order end boundary (time + timestep)
+        :type next_time: DateTime
+        :return: Tuple of (orders, couplings), both empty if the startup is not valid
+        :rtype: tuple[list[Order], list[OrderCoupling]]
+        """
+        execution_date = self.parameters.temporal.execution_date
+
+        if (time - execution_date) < self.equipment.startup_duration:
+            return [], []
+
+        if not self._check_on_off_time_requirement(time, searching_on=False, searching_backwards=True):
+            return [], []
+
+        if not self._check_on_off_time_requirement(time, searching_on=False, searching_backwards=False):
+            return [], []
+
+        if self.parameters.temporal.timestep < self.equipment.minimum_time_on:
+            return [], []
+
+        max_power_at_time = self.equipment.maximum_power.get_value(time)
+        min_power_at_time = self.equipment.minimum_power.get_value(time)
+        duration_hours = self.parameters.temporal.timestep.total_seconds() / 3600
+
+        startup_cost = self.equipment.startup_cost.get_value(time) if self.equipment.startup_cost is not None else 0.0
+
+        start1_qmax = min_power_at_time
+        start1_price = round(
+            self.equipment.variable_cost.get_value(time) + startup_cost / (start1_qmax * duration_hours), 2
+        )
+        order_1 = self.build_order(
+            order_type=OrderType.Sell,
+            start=time,
+            end=next_time,
+            price=start1_price,
+            qmin=start1_qmax,
+            qmax=start1_qmax,
+            suffix="_start1",
+        )
+
+        start2_qmax = max_power_at_time - min_power_at_time
+        order_2 = self.build_order(
+            order_type=OrderType.Sell,
+            start=time,
+            end=next_time,
+            price=self.equipment.variable_cost.get_value(time),
+            qmin=0.0,
+            qmax=start2_qmax,
+            suffix="_start2",
+        )
+
+        if order_1 is None or order_2 is None:
+            return [], []
+
+        coupling = OrderCoupling(orders=[order_1, order_2], coupling_type=CouplingType.PARENT_CHILDREN)
+        return [order_1, order_2], [coupling]
 
     def _classify_startup_case(
         self,
@@ -108,7 +183,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :type forecasted_power: Timeseries
         :param time: The timestep being evaluated
         :type time: DateTime
-        :return: One of 'no_startup', 'case_1', 'case_2', 'case_3', 'case_5', 'invalid'
+        :return: One of 'no_startup', 'case_1', 'case_2', 'case_3', 'case_5'
         :rtype: str
         """
         timestep = self.parameters.temporal.timestep
@@ -143,3 +218,48 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if next_power > 0:
             return "case_3"
         return "case_5"
+
+    def _check_on_off_time_requirement(
+        self,
+        current_time: DateTime,
+        searching_on: bool = True,
+        searching_backwards: bool = True,
+    ) -> bool:
+        """
+        Check whether the equipment satisfies a minimum on/off duration requirement
+        around a given timestep.
+
+        :param current_time: The reference timestep
+        :type current_time: DateTime
+        :param searching_on: True to check MinimumTimeOn, False to check MinimumTimeOff
+        :type searching_on: bool
+        :param searching_backwards: True to search before current_time, False to search after
+        :type searching_backwards: bool
+        :return: True if the duration requirement is met
+        :rtype: bool
+        """
+        timestep_seconds = self.parameters.temporal.timestep.total_seconds()
+        execution_date = self.parameters.temporal.execution_date
+        duration_requirement = self.equipment.minimum_time_on if searching_on else self.equipment.minimum_time_off
+
+        def _step(t: DateTime) -> DateTime:
+            return t.subtract(seconds=timestep_seconds) if searching_backwards else t.add(seconds=timestep_seconds)
+
+        def _elapsed(t: DateTime):
+            return (current_time - t) if searching_backwards else (t - current_time)
+
+        def _power_at(t: DateTime) -> float:
+            try:
+                return self.equipment.power.get_forecast(execution_date, t, t).get_value(t)
+            except (KeyError, ValueError):
+                return 0.0
+
+        studied_time = _step(current_time)
+        power = _power_at(studied_time)
+        condition = (lambda pw: pw != 0) if searching_on else (lambda pw: pw == 0)
+
+        while condition(power) and _elapsed(studied_time) <= duration_requirement:
+            studied_time = _step(studied_time)
+            power = _power_at(studied_time)
+
+        return duration_requirement < _elapsed(studied_time)
