@@ -67,6 +67,10 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
                 start_orders, start_couplings = self._formulate_case_5_orders(time, next_time)
                 orders.extend(start_orders)
                 couplings.extend(start_couplings)
+            elif startup_case == "case_1":
+                order = self._formulate_case_1_order(time, next_time)
+                if order is not None:
+                    orders.append(order)
             elif startup_case == "case_2":
                 order = self._formulate_case_2_order(time, next_time)
                 if order is not None:
@@ -75,9 +79,6 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
                 order = self._formulate_case_3_order(time, next_time)
                 if order is not None:
                     orders.append(order)
-            elif startup_case in ("case_1"):
-                # Bounded / cancelled-startup upward orders not yet ported — backlog
-                pass
             elif qmax_up >= 1.0:
                 order = self.build_order(
                     order_type=OrderType.Sell,
@@ -106,6 +107,80 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         cfg.logger.info(f"Formulation of orders on equipment {self.equipment.name} completed")
         return orders, couplings
+
+    def _formulate_case_1_order(self, time: DateTime, next_time: DateTime) -> Order | None:
+        """
+        Formulate the bounded upward order for Case 1 (equipment was ON both before and
+        after this timestep): a single order bounded between previous and next forecasted
+        power. Price is reduced by the cancelled startup cost, since this order avoids a
+        startup that would otherwise have been needed.
+
+        Deviation from legacy: the gradient feasibility check uses
+        'maximum_gradient * timestep_minutes' (consistent with the rest of the module)
+        instead of the legacy's hardcoded 'maximum_gradient * 60'.
+
+        :param time: Order start/end time (single timestep)
+        :type time: DateTime
+        :param next_time: Order end boundary (time + timestep)
+        :type next_time: DateTime
+        :return: The bounded Sell order, or None if invalid or qmax rounds below 1 MW
+        :rtype: Order | None
+        """
+        timestep = self.parameters.temporal.timestep
+        execution_date = self.parameters.temporal.execution_date
+        timestep_minutes = timestep.total_seconds() / 60
+        previous_time = time.subtract(minutes=int(timestep_minutes))
+        next_step_time = time.add(minutes=int(timestep_minutes))
+
+        try:
+            previous_power = self.equipment.power.get_forecast(execution_date, previous_time, previous_time).get_value(
+                previous_time
+            )
+        except (KeyError, ValueError):
+            previous_power = 0.0
+
+        try:
+            next_power = self.equipment.power.get_forecast(execution_date, next_step_time, next_step_time).get_value(
+                next_step_time
+            )
+        except (KeyError, ValueError):
+            next_power = 0.0
+
+        max_gradient = self.equipment.maximum_gradient
+        if max_gradient > 0 and abs(next_power - previous_power) > 2 * (max_gradient * timestep_minutes):
+            return None
+
+        max_power_at_time = self.equipment.maximum_power.get_value(time)
+        min_power_at_time = self.equipment.minimum_power.get_value(time)
+
+        if max_gradient > 0:
+            max_grad = max_gradient * timestep_minutes
+            if next_power >= previous_power:
+                bounded_qmax = min(max_power_at_time, previous_power + max_grad)
+                bounded_qmin = max(min_power_at_time, next_power - max_grad)
+            else:
+                bounded_qmax = min(max_power_at_time, next_power + max_grad)
+                bounded_qmin = max(min_power_at_time, previous_power - max_grad)
+        else:
+            bounded_qmax = max_power_at_time
+            bounded_qmin = min_power_at_time
+
+        if bounded_qmax < 1.0 or bounded_qmin > bounded_qmax:
+            return None
+
+        duration_hours = timestep_minutes / 60
+        startup_cost = self.equipment.startup_cost.get_value(time) if self.equipment.startup_cost is not None else 0.0
+        price = self.equipment.variable_cost.get_value(time) - startup_cost / (bounded_qmax * duration_hours)
+        price = round(max(price, 0.0), 2)
+
+        return self.build_order(
+            order_type=OrderType.Sell,
+            start=time,
+            end=next_time,
+            price=price,
+            qmin=bounded_qmin,
+            qmax=bounded_qmax,
+        )
 
     def _formulate_case_2_order(self, time: DateTime, next_time: DateTime) -> Order | None:
         """
