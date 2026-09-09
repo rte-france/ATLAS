@@ -184,6 +184,7 @@ unresolved_references = false
 [project.theme]
 variant = "modern"
 language = "en"
+logo = "assets/logo_image.png"
 features = [
     "navigation.tabs",
     "navigation.sections",
