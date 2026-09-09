@@ -6,6 +6,8 @@ This file is part of the ATLAS project.
 Module that implements ThermalOrderFormulator.
 """
 
+from pendulum import DateTime
+
 import atlas.config as cfg
 from atlas.enums import OrderType
 from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator
@@ -90,3 +92,54 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         cfg.logger.info(f"Formulation of orders on equipment {self.equipment.name} completed")
         return orders, []
+
+    def _classify_startup_case(
+        self,
+        forecasted_power,
+        time: DateTime,
+    ) -> str:
+        """
+        Classify the equipment's on/off transition case at a given timestep.
+
+        Mirrors the legacy Cases 1-5 used to determine whether an upward order at
+        this timestep requires a startup, cancels one, or is invalid.
+
+        :param forecasted_power: Forecasted power timeseries over the balancing time frame
+        :type forecasted_power: Timeseries
+        :param time: The timestep being evaluated
+        :type time: DateTime
+        :return: One of 'no_startup', 'case_1', 'case_2', 'case_3', 'case_5', 'invalid'
+        :rtype: str
+        """
+        timestep = self.parameters.temporal.timestep
+        execution_date = self.parameters.temporal.execution_date
+
+        power_at_time = forecasted_power.get_value(time)
+        if power_at_time != 0:
+            return "no_startup"
+
+        if self.equipment.minimum_power.get_value(time) <= 0:
+            return "no_startup"
+
+        previous_time = time.subtract(minutes=int(timestep.total_seconds() // 60))
+        next_time = time.add(minutes=int(timestep.total_seconds() // 60))
+
+        try:
+            previous_power = self.equipment.power.get_forecast(execution_date, previous_time, previous_time).get_value(
+                previous_time
+            )
+        except (KeyError, ValueError):
+            previous_power = 0.0
+
+        try:
+            next_power = self.equipment.power.get_forecast(execution_date, next_time, next_time).get_value(next_time)
+        except (KeyError, ValueError):
+            next_power = 0.0
+
+        if previous_power > 0 and next_power > 0:
+            return "case_1"
+        if previous_power > 0:
+            return "case_2"
+        if next_power > 0:
+            return "case_3"
+        return "case_5"
