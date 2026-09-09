@@ -14,8 +14,8 @@ import pendulum
 
 from atlas.modules.market_clearing.data_classes import PriceGroup
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
+from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
-from atlas.objects.market.order import Order
 from atlas.solver.solver_interface import OptimisationModel
 
 
@@ -38,8 +38,8 @@ class _PricingPhase(Protocol):
     saturated_critical_branch: dict[tuple[str, pendulum.DateTime], float]
     clearing_border_exchanges: dict[tuple[str, pendulum.DateTime], float]
     clearing_accepted_powers: dict[tuple[str, str], float]
-    dict_linked_orders: dict[int, list[Order]]
-    dict_parent_child_orders: dict[int, tuple[list[Order], list[Order]]]
+    dict_linked_orders: dict[int, list[OrderMC]]
+    dict_parent_child_orders: dict[int, tuple[list[OrderMC], list[OrderMC]]]
     _full_link_id_by_order: dict[str, int]
 
     def is_neighbour(self, price_group: PriceGroup, other_price_group: PriceGroup) -> bool: ...

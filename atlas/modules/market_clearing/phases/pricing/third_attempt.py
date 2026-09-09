@@ -43,7 +43,6 @@ def compute_opposite_delta_p(pricing: _PricingPhase) -> dict[int, float | None]:
     for index_pc, (parent_orders, children_orders) in pricing.dict_parent_child_orders.items():
         opposite_delta_p = None
         for order in parent_orders + children_orders:
-            order = pricing.input_dataset.orders[order.name]
             if order.group_index is None:
                 continue
             local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
@@ -106,7 +105,6 @@ def deactivate_positive_surplus_pc_constraints(pricing: _PricingPhase) -> None:
     for index_pc, (_, children_orders) in pricing.dict_parent_child_orders.items():
         index_child = 0
         for order in children_orders:
-            order = pricing.input_dataset.orders[order.name]
             local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
             if local_cleared_power > pricing.parameters.allowed_round_off_error:
                 constraint_name = constants.positive_parent_child_surplus_constraint_name(
@@ -205,7 +203,6 @@ def create_paradoxical_delta_price_lo_constraints(pricing: _PricingPhase) -> Non
         paradoxical_delta_p = pricing.model.get_variable(constants.delta_p_lo(index_lo))
         opposite_delta_p = 0
         for order in orders:
-            order = pricing.input_dataset.orders[order.name]
             if order.group_index is None:
                 continue
             local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
