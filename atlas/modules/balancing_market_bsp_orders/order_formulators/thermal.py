@@ -71,7 +71,11 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
                 order = self._formulate_case_2_order(time, next_time)
                 if order is not None:
                     orders.append(order)
-            elif startup_case in ("case_1", "case_2", "case_3"):
+            elif startup_case == "case_3":
+                order = self._formulate_case_3_order(time, next_time)
+                if order is not None:
+                    orders.append(order)
+            elif startup_case in ("case_1"):
                 # Bounded / cancelled-startup upward orders not yet ported — backlog
                 pass
             elif qmax_up >= 1.0:
@@ -140,6 +144,60 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
             bounded_qmax = max_power_at_time
 
         bounded_qmin = max(min_power_at_time, previous_power)
+
+        if bounded_qmax < 1.0 or bounded_qmin > bounded_qmax:
+            return None
+
+        return self.build_order(
+            order_type=OrderType.Sell,
+            start=time,
+            end=next_time,
+            price=self.equipment.variable_cost.get_value(time),
+            qmin=bounded_qmin,
+            qmax=bounded_qmax,
+        )
+
+    def _formulate_case_3_order(self, time: DateTime, next_time: DateTime) -> Order | None:
+        """
+        Formulate the bounded upward order for Case 3 (equipment was OFF before this
+        timestep, ON after): a single order (no startup split), bounded between the
+        next forecasted power and the next power plus one gradient step.
+
+        :param time: Order start/end time (single timestep)
+        :type time: DateTime
+        :param next_time: Order end boundary (time + timestep)
+        :type next_time: DateTime
+        :return: The bounded Sell order, or None if invalid or qmax rounds below 1 MW
+        :rtype: Order | None
+        """
+        execution_date = self.parameters.temporal.execution_date
+
+        if (time - execution_date) < self.equipment.startup_duration:
+            return None
+
+        if not self._check_on_off_time_requirement(time, searching_on=False, searching_backwards=True):
+            return None
+
+        timestep = self.parameters.temporal.timestep
+        next_step_time = time.add(minutes=int(timestep.total_seconds() // 60))
+
+        try:
+            next_power = self.equipment.power.get_forecast(execution_date, next_step_time, next_step_time).get_value(
+                next_step_time
+            )
+        except (KeyError, ValueError):
+            next_power = 0.0
+
+        max_power_at_time = self.equipment.maximum_power.get_value(time)
+        min_power_at_time = self.equipment.minimum_power.get_value(time)
+
+        if self.equipment.maximum_gradient > 0:
+            max_grad = self.equipment.maximum_gradient * (timestep.total_seconds() / 60)
+            bounded_qmax = min(max_power_at_time, next_power + max_grad)
+        else:
+            bounded_qmax = max_power_at_time
+
+        bounded_qmin = max(min_power_at_time, next_power)
 
         if bounded_qmax < 1.0 or bounded_qmin > bounded_qmax:
             return None
