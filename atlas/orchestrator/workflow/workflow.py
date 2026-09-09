@@ -53,7 +53,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
     @property
     def jobs(self) -> Iterator[WorkflowJob]:
         """
-        Access the workflow jobs.
+        Generate and return the workflow jobs.
 
         :return: The list of WorkflowJob instances.
         """
