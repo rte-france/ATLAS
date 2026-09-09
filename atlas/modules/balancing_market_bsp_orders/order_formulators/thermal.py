@@ -67,6 +67,10 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
                 start_orders, start_couplings = self._formulate_case_5_orders(time, next_time)
                 orders.extend(start_orders)
                 couplings.extend(start_couplings)
+            elif startup_case == "case_2":
+                order = self._formulate_case_2_order(time, next_time)
+                if order is not None:
+                    orders.append(order)
             elif startup_case in ("case_1", "case_2", "case_3"):
                 # Bounded / cancelled-startup upward orders not yet ported — backlog
                 pass
@@ -98,6 +102,56 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         cfg.logger.info(f"Formulation of orders on equipment {self.equipment.name} completed")
         return orders, couplings
+
+    def _formulate_case_2_order(self, time: DateTime, next_time: DateTime) -> Order | None:
+        """
+        Formulate the bounded upward order for Case 2 (equipment was ON before this
+        timestep, OFF after): a single order (no startup split), bounded between the
+        previous forecasted power and the previous power plus one gradient step.
+
+        :param time: Order start/end time (single timestep)
+        :type time: DateTime
+        :param next_time: Order end boundary (time + timestep)
+        :type next_time: DateTime
+        :return: The bounded Sell order, or None if invalid or qmax rounds below 1 MW
+        :rtype: Order | None
+        """
+        if not self._check_on_off_time_requirement(time, searching_on=False, searching_backwards=False):
+            return None
+
+        timestep = self.parameters.temporal.timestep
+        execution_date = self.parameters.temporal.execution_date
+        previous_time = time.subtract(minutes=int(timestep.total_seconds() // 60))
+
+        try:
+            previous_power = self.equipment.power.get_forecast(execution_date, previous_time, previous_time).get_value(
+                previous_time
+            )
+        except (KeyError, ValueError):
+            previous_power = 0.0
+
+        max_power_at_time = self.equipment.maximum_power.get_value(time)
+        min_power_at_time = self.equipment.minimum_power.get_value(time)
+
+        if self.equipment.maximum_gradient > 0:
+            max_grad = self.equipment.maximum_gradient * (timestep.total_seconds() / 60)
+            bounded_qmax = min(max_power_at_time, previous_power + max_grad)
+        else:
+            bounded_qmax = max_power_at_time
+
+        bounded_qmin = max(min_power_at_time, previous_power)
+
+        if bounded_qmax < 1.0 or bounded_qmin > bounded_qmax:
+            return None
+
+        return self.build_order(
+            order_type=OrderType.Sell,
+            start=time,
+            end=next_time,
+            price=self.equipment.variable_cost.get_value(time),
+            qmin=bounded_qmin,
+            qmax=bounded_qmax,
+        )
 
     def _formulate_case_5_orders(
         self,
