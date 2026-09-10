@@ -168,6 +168,7 @@ class TestOrchestratorExecute:
 
     def test_execute_save_last_step_output(self, tmp_path, orchestrator_builder):
         mock_output = MockOutPutBuilder().build()
+        mock_output.name = "mock_output"
         job1 = MockJobBuilder().with_name("job1").build()
         job2 = MockJobBuilder().with_name("job2").with_output(mock_output).build()
         orchestrator = orchestrator_builder(tmp_path, [job1, job2])
@@ -188,4 +189,4 @@ class TestOrchestratorExecute:
 
             orchestrator.execute()
 
-        assert orchestrator.get_output_dataset() is mock_output
+        assert orchestrator.get_output_dataset().name is mock_output.name

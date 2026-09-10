@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -57,7 +58,8 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
         :return: The list of WorkflowJob instances.
         """
-        return iter(self._jobs)
+        for job in self._jobs:
+            yield copy.deepcopy(job)
 
     @property
     def jobs_count(self) -> int:
