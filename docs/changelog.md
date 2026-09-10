@@ -42,7 +42,7 @@ First public release, published on PyPI as `atlas-model`.
 - ✨ Hooks on workflow steps.
 - ✨ `CurrentInputState` as the single shared state passed between modules, updated only through change sets.
 - ✨ `ChangeSetHandler` applying the change sets produced by a module onto the state.
-- ✨ `ActionPlan` with job generation and a priority queue, to run several workflows over a set of dates and scenarios.
+- ✨ `ActionPlan` chaining a set of modules and workflows, each with its own recurring schedule ; used for rolling-horizon simulations with modules and workflows with different frequency, such as daily or monthly
 - ✨ An `ActionPlan` task running a workflow can be described inline as a dict, without a separate workflow file.
 - ✨ `Context` applied on parameters via `context.apply()`, for templated parameter files.
 
