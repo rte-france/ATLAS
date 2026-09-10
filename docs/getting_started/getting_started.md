@@ -23,10 +23,10 @@ uv sync --all-groups
 Once released, Atlas will be available via pip:
 
 ```bash
-pip install rte-atlas
+pip install atlas-model
 
 # or using uv
-uv add rte-atlas
+uv add atlas-model
 ```
 
 ## Solvers

@@ -17,8 +17,6 @@ from atlas.objects.market.order import Order
 
 
 class OrderMC(Order):
-    # Override of parent class  attributes that were None
-
     execution_date: DateTime
     start_date: DateTime
     end_date: DateTime
@@ -26,22 +24,18 @@ class OrderMC(Order):
     order_type: OrderType
     qmax: float
     qmin: float
+    price: int | float
 
     # Attributes that will be set later (while creating coupling groups):
-    id_with_status: bool = False
+    requires_status_variable: bool = False
     is_mutually_excluding: bool = False
     is_linked: bool = False
     link_id: str | None = None
     group_index: int | None = None
-    time_index: int | None = None
-    is_parent_children: bool = False
+    is_in_parent_child_coupling: bool = False
     parent_child_id: str | None = None
-    full_link_id: int | None = None
-    full_pc_id: int | None = None
-    child_id: str | None = None
     is_parent: bool = False
     order_coupling_parent_ids: list[str] | None = None
-    circular_pc_id: int | None = None
 
     # Attributes from market clearing parameter
     timestep: Duration
@@ -69,10 +63,6 @@ class OrderMC(Order):
     @cached_property
     def end_date_processed(self) -> DateTime:
         return self.start_date + self.duration
-
-    @cached_property
-    def end_datetime(self) -> DateTime:
-        return self.end_date_processed
 
     @staticmethod
     def is_feasible(order: Order, times: list[pendulum.DateTime], parameters: MarketClearingParameters) -> bool:

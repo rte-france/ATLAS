@@ -485,7 +485,8 @@ class TestTimeseriesBasicOperations:
         )
         ts_with_wrong_timstamps = Timeseries(df_with_wrong_timstamps)
 
-        with pytest.raises(ValueError):
+        # The error redirects to the methods that do handle non-matching indexes
+        with pytest.raises(ValueError, match="add_on_union"):
             sample_ts + ts_with_wrong_timstamps
 
     def test_sub_with_value(self, sample_ts):
@@ -728,6 +729,64 @@ class TestTimeseriesBasicOperations:
         new_ts = Timeseries(df)
         with pytest.raises(ValueError):
             sample_ts.add_indexes(new_ts)
+
+    def test_add_on_union_with_partial_overlap(self, sample_ts):
+        df = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 2, 0, 0),
+                    datetime(2023, 1, 1, 3, 0, 0),
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 5, 0, 0),
+                ],
+                "value": [1.0, 2.0, 3.0, 4.0],
+            },
+        )
+        result = sample_ts.add_on_union(Timeseries(df), inplace=False)
+        # Overlapping hours are summed, hours present on a single side are kept as-is
+        assert result["value"] == [10.0, 20.0, 31.0, 42.0, 3.0, 4.0]
+        assert sample_ts["value"] == [10.0, 20.0, 30.0, 40.0]
+
+    def test_add_on_union_with_disjoint_indexes(self, sample_ts):
+        df = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 5, 0, 0),
+                ],
+                "value": [50.0, 60.0],
+            },
+        )
+        result = sample_ts.add_on_union(Timeseries(df), inplace=False)
+        assert result["value"] == [10.0, 20.0, 30.0, 40.0, 50.0, 60.0]
+
+    def test_add_on_union_with_same_indexes(self, sample_ts):
+        result = sample_ts.add_on_union(Timeseries.from_timeseries(sample_ts, default_value=1.0), inplace=False)
+        assert result["value"] == [11.0, 21.0, 31.0, 41.0]
+
+    def test_add_on_union_inplace(self, sample_ts):
+        df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1, 4, 0, 0)],
+                "value": [50.0],
+            },
+        )
+        sample_ts.add_on_union(Timeseries(df))
+        assert sample_ts["value"] == [10.0, 20.0, 30.0, 40.0, 50.0]
+
+    def test_add_on_union_with_gap_between_indexes(self, sample_ts):
+        df = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 6, 0, 0),
+                    datetime(2023, 1, 1, 7, 0, 0),
+                ],
+                "value": [50.0, 60.0],
+            },
+        )
+        # The union of both indexes is not a regular index, so it is not a valid Timeseries
+        with pytest.raises(ValueError):
+            sample_ts.add_on_union(Timeseries(df), inplace=False)
 
     def test_add_index(self, sample_ts):
         sample_ts.add_index(datetime(2023, 1, 1, 4, 0, 0), 50.0)

@@ -6,16 +6,22 @@ This project is the property of **RTE (Réseau de Transport d'Électricité)**.
 
 ## Developed by
 
-**Artelys** – [https://www.artelys.com](https://www.artelys.com)
+**RTE (Réseau de Transport d'Électricité)**
 
 Development, maintenance, and support are carried out by Artelys on behalf of RTE.
 
-## Individual Contributors
+## Core Development Team
 
-The following individuals have contributed to this project (in alphabetical order):
+ATLAS is developed and maintained by the following core team (in alphabetical order):
 
-- *Your Name* – Core development
-- *Other Names* – [Role or contribution]
+- [Alexandre Le Jean](mailto:alexandre.le-jean@artelys.com)
+- [Alexis Boutet](mailto:alexis.boutet@artelys.com)
+- [Florent Cogen](mailto:florent.cogen@rte-france.com)
+- [Louis Degardin](mailto:louis.degardin@artelys.com)
+- [Lucas Pereira](mailto:lucaspereira0497@gmail.com)
+- [Mario Jothy](mailto:mariojothy@gmail.com)
+- [Paul Plessiez](mailto:paul.plessiez@rte-france.com)
+- [Thomas Bouquet](mailto:thomas.bouquet@rte-france.com)
 
 > If you contributed and are not listed here, feel free to open a pull request to add yourself!
 

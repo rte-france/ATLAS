@@ -15,8 +15,8 @@ flow_penalty_lambda_3: 0
 flow_penalty_lambda_4: 0
 market_price_penalty_alpha: 10
 market_price_penalty_beta: 20
-paradoxically_accepted_penalty_M: 1_000
-paradoxically_rejected_penalty_N: 10_000
+paradoxically_accepted_penalty: 1_000
+paradoxically_rejected_penalty: 10_000
 solver:
   solver_name: "SCIP"
   use_presolve: True
