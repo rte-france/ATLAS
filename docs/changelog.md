@@ -39,11 +39,11 @@ First public release, published on PyPI as `atlas-model`.
 ### Orchestrator
 
 - ✨ `Workflow` chaining modules into a market chain; day-ahead and intraday chains shipped as examples.
+- ✨ Hooks on workflow steps.
 - ✨ `CurrentInputState` as the single shared state passed between modules, updated only through change sets.
 - ✨ `ChangeSetHandler` applying the change sets produced by a module onto the state.
 - ✨ `ActionPlan` with job generation and a priority queue, to run several workflows over a set of dates and scenarios.
 - ✨ An `ActionPlan` task running a workflow can be described inline as a dict, without a separate workflow file.
-- ✨ Hooks on workflow steps.
 - ✨ `Context` applied on parameters via `context.apply()`, for templated parameter files.
 
 ### Business model
@@ -58,6 +58,7 @@ First public release, published on PyPI as `atlas-model`.
 ### Math
 
 - ✨ Timeseries and scenario matrices in lazy and eager variants, transparent to the caller, backed by Polars.
+- ✨ Forecasting matrices as a special case of scenario matrices, with the column name index being a datetime. They allow visibility of data to be parametrized by a date of execution.
 
 ### I/O
 
