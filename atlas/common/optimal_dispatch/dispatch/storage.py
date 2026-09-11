@@ -215,7 +215,7 @@ class StorageDispatch:
         """
         self.add_storage_level_evolution(model, time, parameters)
         if self._eq.storage_type != StorageType.ELECTRIC_VEHICLE:
-            self._add_sell_buy_separation(model, time)
+            self.add_sell_buy_separation(model, time)
 
     def add_cycle_balance_constraint(
         self, model: OptimisationModel, time_window: list[DateTime], parameters: AbstractModuleParameters
@@ -356,7 +356,18 @@ class StorageDispatch:
             ),
         )
 
-    def _add_sell_buy_separation(self, model: OptimisationModel, time: DateTime) -> None:
+    def add_sell_buy_separation(self, model: OptimisationModel, time: DateTime) -> None:
+        """
+        Forbid selling and buying at the same timestep — a unit has a single converter.
+
+        Called by :meth:`add_constraints` for every technology but electric vehicles, whose
+        separation is left to the calling module; those modules call this method directly
+        when the plain formulation is what they need.
+
+        :param model: The optimisation model
+        :param time: Current timestep
+        :type time: DateTime
+        """
         n = self._eq.name
         is_sell = self.is_sell_var.get_value(time)
         power_sell = self.power_level_sell_var.get_value(time)
