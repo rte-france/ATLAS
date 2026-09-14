@@ -86,6 +86,16 @@ nav = [
             ]},
         ]},
     ]},
+    { "Optimal Dispatch" = [
+        { "Overview" = "optimal-dispatch/index.md" },
+        { "Concepts" = [
+            { "The Dispatch Problem" = "optimal-dispatch/concepts/overview.md" },
+            { "Thermal" = "optimal-dispatch/concepts/thermal.md" },
+            { "Storage" = "optimal-dispatch/concepts/storage.md" },
+            { "Hydro" = "optimal-dispatch/concepts/hydro.md" },
+            { "Renewable & Load" = "optimal-dispatch/concepts/renewable-load.md" },
+        ]},
+    ]},
     { "Developer Guide" = [
         { "Architecture" = [
             { "Data Model" = "data-model.md" },
