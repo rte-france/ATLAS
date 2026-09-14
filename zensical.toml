@@ -95,6 +95,12 @@ nav = [
             { "Hydro" = "optimal-dispatch/concepts/hydro.md" },
             { "Renewable & Load" = "optimal-dispatch/concepts/renewable-load.md" },
         ]},
+        { "Reserves" = [
+            { "Overview" = "optimal-dispatch/reserves/index.md" },
+            { "Products" = "optimal-dispatch/reserves/products.md" },
+            { "Formulation" = "optimal-dispatch/reserves/formulation.md" },
+            { "Developer Guide" = "optimal-dispatch/reserves/developer.md" },
+        ]},
     ]},
     { "Developer Guide" = [
         { "Architecture" = [
