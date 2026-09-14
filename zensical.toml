@@ -101,6 +101,13 @@ nav = [
             { "Formulation" = "optimal-dispatch/reserves/formulation.md" },
             { "Developer Guide" = "optimal-dispatch/reserves/developer.md" },
         ]},
+        { "Developer Guide" = [
+            { "Architecture" = "optimal-dispatch/developer/architecture.md" },
+            { "Usage" = "optimal-dispatch/developer/usage.md" },
+            { "Input Contracts" = "optimal-dispatch/developer/input-contracts.md" },
+            { "Variable Naming" = "optimal-dispatch/developer/variable-naming.md" },
+            { "Extending" = "optimal-dispatch/developer/extending.md" },
+        ]},
     ]},
     { "Developer Guide" = [
         { "Architecture" = [
