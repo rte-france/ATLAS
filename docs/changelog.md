@@ -74,6 +74,11 @@ First public release, published on PyPI as `atlas-model`.
 - ✨ `atlas profiling` at workflow or module level.
 - ✨ `atlas version`.
 
+### Documentation
+
+- 📚 Optimal Dispatch section — the shared dispatch layer (`atlas/common/optimal_dispatch/`): concept pages for thermal, storage, hydro, renewable and load, a developer guide covering architecture, usage, input contracts, variable naming and extension, and API reference pages.
+- 📚 Reserves sub-section — the balancing products (FCR, aFRR, mFRR, RR) and why they are grouped into automated and manual, the reserve formulation, and a developer guide for the handlers and `ReserveFactory`.
+
 ### Packaging
 
 - 🔄 Distribution renamed to `atlas-model` for the PyPI release.

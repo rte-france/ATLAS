@@ -6,6 +6,14 @@ The Day-Ahead Orders module follows ATLAS's `AbstractModule` pattern. See [Modul
 
 This document describes the module-specific architecture and components.
 
+!!! info "Shared dispatch layer"
+
+    The physical dispatch formulation — operating states, ramps, state-of-charge evolution,
+    reserves — is being extracted into `atlas/common/optimal_dispatch/`, shared with
+    [Portfolio Optimisation](../../portfolio-optimisation/developer/architecture.md). See
+    [Optimal Dispatch](../../../optimal-dispatch/index.md) for the formulation and the target
+    architecture. The module has not migrated onto it yet and still carries its own copy.
+
 ## Module Structure
 
 ```
