@@ -187,6 +187,18 @@ nav = [
             { "Solver Interface" = "api/solver/interface.md" },
             { "Models" = "api/solver/models.md" },
         ]},
+        { "Optimal Dispatch" = [
+            { "Overview" = "api/optimal-dispatch/index.md" },
+            { "ThermalDispatch" = "api/optimal-dispatch/thermal.md" },
+            { "StorageDispatch" = "api/optimal-dispatch/storage.md" },
+            { "HydroDispatch" = "api/optimal-dispatch/hydro.md" },
+            { "RenewableDispatch" = "api/optimal-dispatch/renewable.md" },
+            { "LoadDispatch" = "api/optimal-dispatch/load.md" },
+            { "Input Objects" = "api/optimal-dispatch/input-objects.md" },
+            { "Reserve Handlers" = "api/optimal-dispatch/reserves.md" },
+            { "Marginal Pricing" = "api/optimal-dispatch/marginal-pricing.md" },
+            { "AbstractOptimStep" = "api/optimal-dispatch/steps.md" },
+        ]},
         { "Utilities" = [
             { "Enum" = "api/enum.md" },
             { "Logging" = "api/logging.md" },
