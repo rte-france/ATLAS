@@ -28,7 +28,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         start = self.parameters.temporal.start_date
         end = self.parameters.temporal.end_date - self.parameters.temporal.timestep
         execution_date = self.parameters.temporal.execution_date
-        timestep_minutes = int(self.parameters.temporal.timestep.total_seconds() // 60)
+        timestep_minutes = int(self._timestep_minutes)
 
         forecasted_power = self.equipment.power.get_forecast(execution_date, start, end)
         max_power = self.equipment.maximum_power.slice(start, end)
@@ -108,6 +108,11 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         cfg.logger.info(f"Formulation of orders on equipment {self.equipment.name} completed")
         return orders, couplings
 
+    @property
+    def _timestep_minutes(self) -> float:
+        """Timestep duration in minutes, as a float."""
+        return self.parameters.temporal.timestep.total_seconds() / 60
+
     def _formulate_case_1_order(self, time: DateTime, next_time: DateTime) -> Order | None:
         """
         Formulate the bounded upward order for Case 1 (equipment was ON both before and
@@ -126,11 +131,9 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :return: The bounded Sell order, or None if invalid or qmax rounds below 1 MW
         :rtype: Order | None
         """
-        timestep = self.parameters.temporal.timestep
         execution_date = self.parameters.temporal.execution_date
-        timestep_minutes = timestep.total_seconds() / 60
-        previous_time = time.subtract(minutes=int(timestep_minutes))
-        next_step_time = time.add(minutes=int(timestep_minutes))
+        previous_time = time.subtract(minutes=int(self._timestep_minutes))
+        next_step_time = time.add(minutes=int(self._timestep_minutes))
 
         try:
             previous_power = self.equipment.power.get_forecast(execution_date, previous_time, previous_time).get_value(
@@ -147,14 +150,14 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
             next_power = 0.0
 
         max_gradient = self.equipment.maximum_gradient
-        if max_gradient > 0 and abs(next_power - previous_power) > 2 * (max_gradient * timestep_minutes):
+        if max_gradient > 0 and abs(next_power - previous_power) > 2 * (max_gradient * self._timestep_minutes):
             return None
 
         max_power_at_time = self.equipment.maximum_power.get_value(time)
         min_power_at_time = self.equipment.minimum_power.get_value(time)
 
         if max_gradient > 0:
-            max_grad = max_gradient * timestep_minutes
+            max_grad = max_gradient * self._timestep_minutes
             if next_power >= previous_power:
                 bounded_qmax = min(max_power_at_time, previous_power + max_grad)
                 bounded_qmin = max(min_power_at_time, next_power - max_grad)
@@ -168,7 +171,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if bounded_qmax < 1.0 or bounded_qmin > bounded_qmax:
             return None
 
-        duration_hours = timestep_minutes / 60
+        duration_hours = self._timestep_minutes / 60
         startup_cost = self.equipment.startup_cost.get_value(time) if self.equipment.startup_cost is not None else 0.0
         price = self.equipment.variable_cost.get_value(time) - startup_cost / (bounded_qmax * duration_hours)
         price = round(max(price, 0.0), 2)
@@ -198,9 +201,8 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if not self._check_on_off_time_requirement(time, searching_on=False, searching_backwards=False):
             return None
 
-        timestep = self.parameters.temporal.timestep
         execution_date = self.parameters.temporal.execution_date
-        previous_time = time.subtract(minutes=int(timestep.total_seconds() // 60))
+        previous_time = time.subtract(minutes=int(self._timestep_minutes))
 
         try:
             previous_power = self.equipment.power.get_forecast(execution_date, previous_time, previous_time).get_value(
@@ -213,7 +215,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         min_power_at_time = self.equipment.minimum_power.get_value(time)
 
         if self.equipment.maximum_gradient > 0:
-            max_grad = self.equipment.maximum_gradient * (timestep.total_seconds() / 60)
+            max_grad = self.equipment.maximum_gradient * self._timestep_minutes
             bounded_qmax = min(max_power_at_time, previous_power + max_grad)
         else:
             bounded_qmax = max_power_at_time
@@ -253,8 +255,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if not self._check_on_off_time_requirement(time, searching_on=False, searching_backwards=True):
             return None
 
-        timestep = self.parameters.temporal.timestep
-        next_step_time = time.add(minutes=int(timestep.total_seconds() // 60))
+        next_step_time = time.add(minutes=int(self._timestep_minutes))
 
         try:
             next_power = self.equipment.power.get_forecast(execution_date, next_step_time, next_step_time).get_value(
@@ -267,7 +268,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         min_power_at_time = self.equipment.minimum_power.get_value(time)
 
         if self.equipment.maximum_gradient > 0:
-            max_grad = self.equipment.maximum_gradient * (timestep.total_seconds() / 60)
+            max_grad = self.equipment.maximum_gradient * self._timestep_minutes
             bounded_qmax = min(max_power_at_time, next_power + max_grad)
         else:
             bounded_qmax = max_power_at_time
@@ -320,7 +321,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         max_power_at_time = self.equipment.maximum_power.get_value(time)
         min_power_at_time = self.equipment.minimum_power.get_value(time)
-        duration_hours = self.parameters.temporal.timestep.total_seconds() / 3600
+        duration_hours = self._timestep_minutes / 60
 
         startup_cost = self.equipment.startup_cost.get_value(time) if self.equipment.startup_cost is not None else 0.0
 
@@ -373,7 +374,6 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :return: One of 'no_startup', 'case_1', 'case_2', 'case_3', 'case_5'
         :rtype: str
         """
-        timestep = self.parameters.temporal.timestep
         execution_date = self.parameters.temporal.execution_date
 
         power_at_time = forecasted_power.get_value(time)
@@ -383,8 +383,8 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if self.equipment.minimum_power.get_value(time) <= 0:
             return "no_startup"
 
-        previous_time = time.subtract(minutes=int(timestep.total_seconds() // 60))
-        next_time = time.add(minutes=int(timestep.total_seconds() // 60))
+        previous_time = time.subtract(minutes=int(self._timestep_minutes))
+        next_time = time.add(minutes=int(self._timestep_minutes))
 
         try:
             previous_power = self.equipment.power.get_forecast(execution_date, previous_time, previous_time).get_value(
