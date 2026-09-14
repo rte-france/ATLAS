@@ -113,6 +113,22 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         """Timestep duration in minutes, as a float."""
         return self.parameters.temporal.timestep.total_seconds() / 60
 
+    def _forecasted_power_at(self, time: DateTime) -> float:
+        """
+        Return the forecasted power at a given time, or 0.0 if unavailable (e.g. outside
+        the forecast matrix's covered range).
+
+        :param time: Time to evaluate
+        :type time: DateTime
+        :return: Forecasted power at that time, or 0.0 if unavailable
+        :rtype: float
+        """
+        execution_date = self.parameters.temporal.execution_date
+        try:
+            return self.equipment.power.get_forecast(execution_date, time, time).get_value(time)
+        except (KeyError, ValueError):
+            return 0.0
+
     def _formulate_case_1_order(self, time: DateTime, next_time: DateTime) -> Order | None:
         """
         Formulate the bounded upward order for Case 1 (equipment was ON both before and
@@ -131,23 +147,11 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :return: The bounded Sell order, or None if invalid or qmax rounds below 1 MW
         :rtype: Order | None
         """
-        execution_date = self.parameters.temporal.execution_date
         previous_time = time.subtract(minutes=int(self._timestep_minutes))
         next_step_time = time.add(minutes=int(self._timestep_minutes))
 
-        try:
-            previous_power = self.equipment.power.get_forecast(execution_date, previous_time, previous_time).get_value(
-                previous_time
-            )
-        except (KeyError, ValueError):
-            previous_power = 0.0
-
-        try:
-            next_power = self.equipment.power.get_forecast(execution_date, next_step_time, next_step_time).get_value(
-                next_step_time
-            )
-        except (KeyError, ValueError):
-            next_power = 0.0
+        previous_power = self._forecasted_power_at(previous_time)
+        next_power = self._forecasted_power_at(next_step_time)
 
         max_gradient = self.equipment.maximum_gradient
         if max_gradient > 0 and abs(next_power - previous_power) > 2 * (max_gradient * self._timestep_minutes):
@@ -201,15 +205,8 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if not self._check_on_off_time_requirement(time, searching_on=False, searching_backwards=False):
             return None
 
-        execution_date = self.parameters.temporal.execution_date
         previous_time = time.subtract(minutes=int(self._timestep_minutes))
-
-        try:
-            previous_power = self.equipment.power.get_forecast(execution_date, previous_time, previous_time).get_value(
-                previous_time
-            )
-        except (KeyError, ValueError):
-            previous_power = 0.0
+        previous_power = self._forecasted_power_at(previous_time)
 
         max_power_at_time = self.equipment.maximum_power.get_value(time)
         min_power_at_time = self.equipment.minimum_power.get_value(time)
@@ -256,13 +253,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
             return None
 
         next_step_time = time.add(minutes=int(self._timestep_minutes))
-
-        try:
-            next_power = self.equipment.power.get_forecast(execution_date, next_step_time, next_step_time).get_value(
-                next_step_time
-            )
-        except (KeyError, ValueError):
-            next_power = 0.0
+        next_power = self._forecasted_power_at(next_step_time)
 
         max_power_at_time = self.equipment.maximum_power.get_value(time)
         min_power_at_time = self.equipment.minimum_power.get_value(time)
@@ -374,8 +365,6 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :return: One of 'no_startup', 'case_1', 'case_2', 'case_3', 'case_5'
         :rtype: str
         """
-        execution_date = self.parameters.temporal.execution_date
-
         power_at_time = forecasted_power.get_value(time)
         if power_at_time != 0:
             return "no_startup"
@@ -386,17 +375,8 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         previous_time = time.subtract(minutes=int(self._timestep_minutes))
         next_time = time.add(minutes=int(self._timestep_minutes))
 
-        try:
-            previous_power = self.equipment.power.get_forecast(execution_date, previous_time, previous_time).get_value(
-                previous_time
-            )
-        except (KeyError, ValueError):
-            previous_power = 0.0
-
-        try:
-            next_power = self.equipment.power.get_forecast(execution_date, next_time, next_time).get_value(next_time)
-        except (KeyError, ValueError):
-            next_power = 0.0
+        previous_power = self._forecasted_power_at(previous_time)
+        next_power = self._forecasted_power_at(next_time)
 
         if previous_power > 0 and next_power > 0:
             return "case_1"
@@ -426,7 +406,6 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :rtype: bool
         """
         timestep_seconds = self.parameters.temporal.timestep.total_seconds()
-        execution_date = self.parameters.temporal.execution_date
         duration_requirement = self.equipment.minimum_time_on if searching_on else self.equipment.minimum_time_off
 
         def _step(t: DateTime) -> DateTime:
@@ -435,18 +414,12 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         def _elapsed(t: DateTime):
             return (current_time - t) if searching_backwards else (t - current_time)
 
-        def _power_at(t: DateTime) -> float:
-            try:
-                return self.equipment.power.get_forecast(execution_date, t, t).get_value(t)
-            except (KeyError, ValueError):
-                return 0.0
-
         studied_time = _step(current_time)
-        power = _power_at(studied_time)
+        power = self._forecasted_power_at(studied_time)
         condition = (lambda pw: pw != 0) if searching_on else (lambda pw: pw == 0)
 
         while condition(power) and _elapsed(studied_time) <= duration_requirement:
             studied_time = _step(studied_time)
-            power = _power_at(studied_time)
+            power = self._forecasted_power_at(studied_time)
 
         return duration_requirement < _elapsed(studied_time)
