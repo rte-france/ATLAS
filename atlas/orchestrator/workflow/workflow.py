@@ -68,6 +68,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         """Add a single step to the end of the workflow, add the prefix given and build parameters."""
         step.name = f"{prefix_job_name} {step.name}" if prefix_job_name else step.name
         self._steps.append(step)
+        self._resolve_parameters(step) # make sure we can resolve the parameter
 
     def _resolve_parameters(self, step: Step) -> AbstractModuleParameters:
         """Resolve a step's parameters against the workflow's context."""
