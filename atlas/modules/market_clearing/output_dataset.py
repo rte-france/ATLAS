@@ -168,8 +168,8 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                     portfolios_ts[portfolio.name] = self.zero_timeseries()
                     portfolios_mapping[portfolio.name] = portfolio
 
-        for order_name, mc_order in self.input_dataset.orders.items():
-            accepted_power = self.accepted_powers[mc_order.market_area.name, order_name]
+        for order_name, order in self.input_dataset.orders.items():
+            accepted_power = self.accepted_powers[order.market_area.name, order_name]
             # At this point, unaccepted orders can be skipped:
             if abs(accepted_power) <= self.input_dataset.parameters.allowed_round_off_error:
                 continue
