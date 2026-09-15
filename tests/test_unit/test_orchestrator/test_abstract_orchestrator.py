@@ -25,7 +25,8 @@ from tests.test_unit.test_orchestrator.orchestrator_factory import (
     MockOutPutBuilder,
     MockJobBuilder,
     MockTaskBuilder,
-    OrchestratorConfigBuilder
+    OrchestratorConfigBuilder,
+    generate_step_from_job
 )
 
 class _OrchestratorBuilder():
@@ -51,7 +52,7 @@ class _OrchestratorBuilder():
         params = WorkflowParameters.from_file(config, overall_context)
         workflow = Workflow.__new__(Workflow)
         workflow.parameters = params
-        workflow._jobs = jobs
+        workflow._steps = [generate_step_from_job(job) for job in jobs]
         return workflow
 
 
@@ -89,21 +90,19 @@ class TestOrchestratorExecute:
         output1 = MockOutPutBuilder().build()
         output2 = MockOutPutBuilder().build()
 
-        def run1(ds):
+        def run1(ds, params):
             call_order.append("job1")
-            job1._output_dataset = output1
+            return output1
 
-        def run2(ds):
+        def run2(ds, params):
             call_order.append("job2")
-            job2._output_dataset = output2
+            return output2
 
         job1 = MockJobBuilder().with_name("job1").build()
-        job1.module.run = MagicMock(side_effect=lambda ds, params: output1)
-        job1.run = run1
+        job1.module.run = MagicMock(side_effect=run1)
 
         job2 = MockJobBuilder().with_name("job2").build()
-        job2.module.run = MagicMock(side_effect=lambda ds, params: output2)
-        job2.run = run2
+        job2.module.run = MagicMock(side_effect=run2)
 
         orchestrator = orchestrator_builder(tmp_path, [job1, job2])
         assert orchestrator.jobs_count == 2

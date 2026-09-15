@@ -12,6 +12,7 @@ from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.actionplan.job import Task, TaskJobsGenerator, ModuleTaskJobsGenerator, WorkflowTaskJobsGenerator
+from atlas.orchestrator.workflow.parameters import Step
 
 
 class ConcreteJob(AbstractJob):
@@ -200,6 +201,14 @@ class ModuleConfigBuilder:
         config.write_text(content)
         return config
 
+def generate_step_from_job(job) -> MagicMock:
+    """Build a MagicMock shaped like a Step. """
+    step = MagicMock()
+    step.name = job.name
+    step.module.value = MagicMock(return_value=job.module)
+    step.parameters = job.parameters
+    step.__class__ = Step
+    return step
 
 class OrchestratorConfigBuilder:
     """Default: a path to a minimal orchestrator YAML with no job named test_orchestrator."""
