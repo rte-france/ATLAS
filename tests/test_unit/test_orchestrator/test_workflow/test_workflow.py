@@ -15,7 +15,7 @@ import pytest
 from atlas import WorkflowJob
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import ContextParameters
-from atlas.orchestrator.workflow.workflow import Workflow
+from atlas.orchestrator.workflow.workflow import Workflow, WorkflowParameters
 from atlas.timing import build_datetime
 from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, OrchestratorConfigBuilder, \
     generate_step_from_job
@@ -25,7 +25,7 @@ class TestWorkflowAddStep:
     @pytest.fixture
     def empty_workflow(self, tmp_path):
         conf = OrchestratorConfigBuilder().build_workflow_config(tmp_path)
-        params = Workflow.from_file(conf)
+        params = WorkflowParameters.from_file(conf)
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
         wf._steps = []
