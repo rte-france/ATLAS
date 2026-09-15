@@ -398,9 +398,8 @@ class TestOrderLinkResolverLinkedBids:
         """ATLAS-296 B2 regression: `circular_pc_id` (not `circular_PC_id`) must resolve, and the
         lookup must use the order actually being linked, not a variable leaked from an earlier
         unrelated loop. The circular precondition is injected directly on the resolver's internal
-        state rather than produced by `_get_circular_parent_child_sets`, since building a
-        genuinely circular PC chain hits a separate, unrelated infinite-recursion bug in
-        `_get_circular_children`.
+        state rather than produced by `_get_circular_parent_child_sets`, to keep this test focused
+        on the linking step alone.
         """
         times = [parameters.temporal.start_date]
         area = make_market_area("ma_a", ONE_HOUR, times)
@@ -447,6 +446,26 @@ class TestOrderLinkResolverParentChild:
 
         assert order_links.full_pc_id_by_order["parent"] == order_links.full_pc_id_by_order["child"]
         assert order_links.child_id_by_order["child"] == "0"
+
+    def test_transitive_parent_child_chain_terminates(self, parameters: MarketClearingParameters) -> None:
+        """`_get_circular_children` used to recurse on the coupling it was already processing, so a
+        chain where the child is itself a parent (a -> b -> c) never exhausted
+        `order_coupling_parent_ids` and blew the stack.
+        """
+        times = [parameters.temporal.start_date]
+        area = make_market_area("ma_a", ONE_HOUR, times)
+        kwargs = {"start_date": times[0], "end_date": times[0] + ONE_HOUR}
+        order_a = make_order("a", area, ONE_HOUR, is_parent=True, **kwargs)
+        order_b = make_order("b", area, ONE_HOUR, is_parent=True, order_coupling_parent_ids=["pc_2"], **kwargs)
+        order_c = make_order("c", area, ONE_HOUR, **kwargs)
+        couplings = {
+            "pc_1": make_order_coupling("pc_1", CouplingType.PARENT_CHILDREN, [order_a, order_b]),
+            "pc_2": make_order_coupling("pc_2", CouplingType.PARENT_CHILDREN, [order_b, order_c]),
+        }
+
+        order_links = OrderLinkResolver({"a": order_a, "b": order_b, "c": order_c}, couplings).resolve()
+
+        assert set(order_links.circular_pc_id_by_order) == {"a", "b"}
 
 
 class TestMarginalFixingUpdateAcceptedPower:
