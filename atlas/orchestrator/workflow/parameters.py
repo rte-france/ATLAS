@@ -13,11 +13,20 @@ from typing import Any
 from pydantic import BaseModel, field_validator, model_validator
 
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
+from atlas.io_utils.utils import deduplicate_names
 from atlas.orchestrator.module_registry import ModuleRegistry
 
 
 class WorkflowParameters(AbstractOrchestratorParameters):
     steps: list[Step]
+
+    @model_validator(mode="after")
+    def deduplicate_step_names(self) -> WorkflowParameters:
+        for step, name in zip(
+            self.steps, deduplicate_names([t.name or "unnamed_task" for t in self.steps]), strict=True
+        ):
+            step.name = name
+        return self
 
 
 class Step(BaseModel):
@@ -52,23 +61,3 @@ class Step(BaseModel):
         if self.name is None:
             self.name = self.module.name
         return self
-
-    @staticmethod
-    def add_index_in_step_name(steps: list[Step]) -> None:
-        """Append a numeric index suffix to duplicate step names, in-place.
-
-        Steps whose name is unique are left unchanged. Steps sharing a name are
-        renamed '<name>_1', '<name>_2', etc., in the order they appear.
-
-        :param steps: List of step parameter objects exposing a 'name' attribute.
-        :type steps: list
-        """
-        name_counts: dict[str, int] = {}
-        for step in steps:
-            name_counts[step.name] = name_counts.get(step.name, 0) + 1  # type: ignore[index, arg-type]
-
-        name_index: dict[str, int] = {}
-        for step in steps:
-            if name_counts[step.name] > 1:  # type: ignore[index]
-                name_index[step.name] = name_index.get(step.name, 0) + 1  # type: ignore[index, arg-type]
-                step.name = f"{step.name}_{name_index[step.name]}"  # type: ignore[index]
