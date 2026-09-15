@@ -164,7 +164,7 @@ class TestActionPlanAddTask:
                               "task 2 iteration 1",
                               "task 3 iteration 1"]
         for idx, job in enumerate(ap.jobs):
-            assert job.name == expected_job_order[idx]
+            assert job.name == repr(expected_job_order[idx])
 
     def test_add_various_task_with_multiple_date(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
@@ -199,7 +199,7 @@ class TestActionPlanAddTask:
                               "task 1 iteration 4",
                               "task 2 iteration 3"]
         for idx, job in enumerate(ap.jobs):
-            assert job.name == expected_job_order[idx]
+            assert job.name == repr(expected_job_order[idx])
 
 
 class TestActionPlanFromFile:
