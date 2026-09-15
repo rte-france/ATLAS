@@ -144,6 +144,19 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         neighbor_time = time.add(minutes=offset_minutes) if forward else time.subtract(minutes=offset_minutes)
         return self._forecasted_power_at(neighbor_time)
 
+    def _startup_cost_at(self, time: DateTime) -> float:
+        """
+        Return the startup cost at a given time, or 0.0 if not defined on the equipment.
+
+        :param time: Time to evaluate
+        :type time: DateTime
+        :return: Startup cost, or 0.0 if `startup_cost` is None
+        :rtype: float
+        """
+        if self.equipment.startup_cost is None:
+            return 0.0
+        return self.equipment.startup_cost.get_value(time)
+
     def _formulate_case_1_order(self, time: DateTime, next_time: DateTime) -> Order | None:
         """
         Formulate the bounded upward order for Case 1 (equipment was ON both before and
@@ -188,8 +201,9 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
             return None
 
         duration_hours = self._timestep_minutes / 60
-        startup_cost = self.equipment.startup_cost.get_value(time) if self.equipment.startup_cost is not None else 0.0
-        price = self.equipment.variable_cost.get_value(time) - startup_cost / (bounded_qmax * duration_hours)
+        price = self.equipment.variable_cost.get_value(time) - self._startup_cost_at(time) / (
+            bounded_qmax * duration_hours
+        )
         price = round(max(price, 0.0), 2)
 
         return self.build_order(
@@ -323,8 +337,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         max_power_at_time = self.equipment.maximum_power.get_value(time)
         min_power_at_time = self.equipment.minimum_power.get_value(time)
         duration_hours = self._timestep_minutes / 60
-
-        startup_cost = self.equipment.startup_cost.get_value(time) if self.equipment.startup_cost is not None else 0.0
+        startup_cost = self._startup_cost_at(time)
 
         start1_qmax = min_power_at_time
         start1_price = round(
