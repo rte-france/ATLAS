@@ -53,6 +53,7 @@ Shared dispatch layer — variables and physical constraints reused across marke
 - [:lucide-clipboard-check: **Input Objects**](optimal-dispatch/input-objects.md) — the `*DispatchInput` contracts
 - [:lucide-scale: **Reserve Handlers**](optimal-dispatch/reserves.md) — reserve variables and constraints
 - [:lucide-droplet: **Marginal Pricing**](optimal-dispatch/marginal-pricing.md) — hydro water values
+- [:lucide-layers: **AbstractOptimStep**](optimal-dispatch/steps.md) — the shape a module's per-equipment step implements
 
 ## :lucide-settings: Utilities
 

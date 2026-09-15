@@ -41,9 +41,12 @@ Four things to note:
   contract, because the formulation divides by one of them.
 - **$\rho_t = \overline{E}_t / \overline{E}_{t-1}$** rescales the carried-over energy when the
   unit's capacity varies over time — the case that matters for an EV fleet whose size changes
-  hour to hour. It is 1 for a fixed-capacity battery.
+  hour to hour. It is 1 for a fixed-capacity battery, and falls back to 1 when
+  $\overline{E}_{t-1}$ is zero or negative.
 - **$\Delta D_t$** is the change in `displacement_energy`: energy that left the unit without
   passing through the grid. For an EV fleet, this is the energy consumed by driving.
+  `displacement_energy` is a *cumulative* series, so only its increments enter the balance, and
+  each reading is truncated to a whole MWh (`int()`) before the subtraction.
 - **At the first timestep**, $E_{t-1}$ is replaced by the initial stock — read from the unit's
   `stored_energy` forecast when available, otherwise `storage_initial_level` × maximum energy.
 
@@ -76,20 +79,14 @@ $$
 \sum_{t} \left(-P^{\text{buy}}_t\right) \eta^{\text{c}} \Delta t
 \;=\;
 \sum_{t} \frac{P^{\text{sell}}_t \Delta t}{\eta^{\text{d}}}
-\;-\; \Delta D
+\;+\; \Delta D
 $$
 
 This leaves the unit at the same state of charge it started from, so a simulation does not
 quietly finance itself by emptying its reservoirs. $\Delta D$ is the displacement accumulated
-over the window — the telescoped sum of the per-timestep terms in the SOC equation. Dropping it
-contradicts the level evolution and makes the model infeasible as soon as a vehicle drives.
-
-!!! warning "Not for EVs in a day-ahead context"
-
-    Day-Ahead Orders does not apply cycle balance to electric vehicles. It bounds purchases from
-    below instead — enough to pay back the driving, but free to end the horizon above or below
-    the starting charge. That is a strictly *weaker* constraint, not a variant of this one, so
-    `add_cycle_balance_constraint()` must not be called for EV units in that context.
+over the window — `displacement_energy` at the last timestep minus its value at the step before
+the first, which is the telescoped sum of the per-timestep terms in the SOC equation. A fleet
+that drove must charge *more* than it discharged, by exactly what it spent on the road.
 
 ## Electric-vehicle specifics
 

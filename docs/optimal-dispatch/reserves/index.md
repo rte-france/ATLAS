@@ -60,5 +60,8 @@ split above is what lets a single set of handlers serve both modules.
 - **Equipment** carries the capability caps (`maximum_fcr`, `maximum_afrr`) and, per product,
   the procured, activated and submitted volumes. See the [data model](../../data-model.md).
 - **Portfolio** and **ControlBlock** aggregate procurement and needs.
-- **Module parameters** set the penalties for unprovided reserve and, for storage, how long a
-  reserve must be sustainable. See [Products](products.md#what-the-modules-configure).
+- **Module parameters** set the penalties for unprovided reserve
+  (`automated_unprocured_reserves_penalty`, `manual_unprocured_reserves_penalty`) and, for
+  storage, how long a reserve must be sustainable (`battery_reserve_duration`,
+  `battery_automated_reserve_duration`). See
+  [Formulation](formulation.md#capacity-constraints).

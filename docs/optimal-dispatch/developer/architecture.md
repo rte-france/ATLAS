@@ -15,7 +15,7 @@ The three genuine differences between the modules are:
 | Difference | Day-Ahead Orders | Portfolio Optimisation |
 |---|---|---|
 | Objective | maximise $\sum \pi_t P_t$ against a price forecast | minimise $\sum c_t P_t$ plus imbalance penalties |
-| Reserve form | split automated (FCR + aFRR) / manual (mFRR + RR) | FCR and aFRR |
+| Reserve form | fill-up against a procured forecast, bound by `setup_reserve_forecasts()` | fill-up against decision variables only |
 | Balance | none | $\sum \text{imbalance} = \sum \text{commitment} + \sum P$ per portfolio |
 
 None of these is physics. All three stay in the modules.

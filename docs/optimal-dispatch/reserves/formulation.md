@@ -34,7 +34,9 @@ default), so the solver reaches for it only when there is no alternative. A non-
 results is a signal, not a bug: it says the fleet was short.
 
 **`relaxed_reserves`** (thermal and hydro) — absorbs the infeasibility of a unit that is offline,
-or cannot reach its declared minimum power. For thermal it is forced to zero whenever the unit
+or cannot reach its declared minimum power. The two technologies share the name and little else.
+
+For thermal the variable is bounded $[0,\ \underline{P}_t]$ and forced to zero whenever the unit
 *is* online:
 
 $$
@@ -42,6 +44,9 @@ $$
 $$
 
 where $\text{online}_t$ sums `on_up`, `on_down` and, when the unit has one, `on_flat`.
+
+Hydro has no operating state to gate on. Its variable is bounded $[\underline{P}_t,\ 0]$ and the
+constraint is the plain $\text{relaxed_reserves}_t \le \underline{P}_t$.
 
 Without these, one badly parameterised unit makes the whole portfolio infeasible, and you get no
 solution at all rather than a diagnosable one.
@@ -117,13 +122,17 @@ $$
 E_t \;\le\; \overline{E}_t - r^{\downarrow}_t \cdot d_r - a^{\downarrow}_t \cdot d_a
 $$
 
-where $d_r$ and $d_a$ are the [reserve durations](products.md#what-the-modules-configure) of the
-manual and automated products in hours. Two MW of a one-hour product needs two MWh in the tank;
+where $d_r$ and $d_a$ are the durations the manual and automated products must be sustainable
+for, in hours — `battery_reserve_duration` and `battery_automated_reserve_duration` in the module
+parameters. Two MW of a one-hour product needs two MWh in the tank;
 downward reserve symmetrically needs room to absorb.
 
-Storage also gets a **bidirectional** `automated_reserves_down`, bounded
-$[-\text{maximum_automated}, +\text{maximum_automated}]$ rather than starting at zero, because
-a unit can provide downward automated reserve while discharging *or* while charging.
+All three of storage's downward variables are **bidirectional** — they start at a negative lower
+bound rather than at zero, because a unit can provide downward reserve while discharging *or*
+while charging. `automated_reserves_down` is bounded
+$[-\text{maximum_automated}, +\text{maximum_automated}]$; `reserves_down` and
+`unprovided_reserves_down` are bounded $[\underline{P}_t,\ \overline{P}_t]$, with
+$\underline{P}_t$ the unit's (negative) charge floor. The upward variables all start at zero.
 
 ### Hydro
 
