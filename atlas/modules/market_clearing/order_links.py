@@ -82,7 +82,9 @@ class OrderLinkResolver:
             orders.append(child_order)
             for order_coupling_name in order_coupling_parent_ids:
                 if order_coupling_name not in processed_order_couplings:
-                    self._get_circular_children(order_coupling, orders, processed_order_couplings)
+                    self._get_circular_children(
+                        self._order_couplings[order_coupling_name], orders, processed_order_couplings
+                    )
             return orders
         # The child is not a parent, the transitive parent/child link stops here
         return orders
