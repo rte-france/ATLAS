@@ -11,6 +11,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
+from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.orchestrator.workflow.parameters import Step, WorkflowParameters
 
@@ -43,7 +44,9 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         :return: The list of WorkflowJob instances.
         """
         for step in self._steps:
-            yield WorkflowJob(f"{step.name!r}", step.module.value, step.parameters)
+            parameters = self._resolve_parameters(step)
+            parameters.output.output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
+            yield WorkflowJob(f"{step.name!r}", step.module.value, parameters)
 
     @property
     def jobs_count(self) -> int:
@@ -64,6 +67,10 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
     def _add_one_step(self, step: Step, prefix_job_name: str | None = None) -> None:
         """Add a single step to the end of the workflow, add the prefix given and build parameters."""
         step.name = f"{prefix_job_name} {step.name}" if prefix_job_name else step.name
+        self._steps.append(step)
+
+    def _resolve_parameters(self, step: Step) -> AbstractModuleParameters:
+        """Resolve a step's parameters against the workflow's context."""
         parameters_class = step.module.value().get_parameters_class()
         parameters = step.parameters
         if isinstance(parameters, (str, Path)):
@@ -72,9 +79,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
             )
         elif isinstance(parameters, dict):
             parameters = parameters_class.from_dict(parameters, self.parameters.context)
-        step.parameters = parameters
-        parameters.output.output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
-        self._steps.append(step)
+        return parameters
 
     def __repr__(self) -> str:
         """Return a human-readable string representation of the workflow."""
