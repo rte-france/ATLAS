@@ -225,16 +225,21 @@ class StorageDispatch:
 
         Ensures the storage returns to its initial state of charge at the end of the
         optimisation horizon: total energy charged equals total energy discharged
-        (accounting for efficiencies), net of the displacement energy accumulated over
+        (accounting for efficiencies), plus the displacement energy accumulated over
         the window.
 
         ``Σ (−power_buy) × charge_efficiency × Δt
-        = Σ power_sell × Δt / discharge_efficiency − Δdisplacement``
+        = Σ power_sell × Δt / discharge_efficiency + Δdisplacement``
 
         The displacement term is the telescoped sum of the per-timestep contributions of
         :meth:`add_storage_level_evolution`, i.e.
-        ``displacement[t_last] − displacement[t_first − Δt]``. Omitting it contradicts the
-        level evolution and makes the model infeasible as soon as a vehicle drives.
+        ``displacement[t_last] − displacement[t_first − Δt]``. Since that method *subtracts*
+        the per-timestep displacement from the stored energy, imposing ``E_last == E_first``
+        puts it on the charged side here: a fleet that drove must charge more than it
+        discharged, by exactly what it spent on the road.
+
+        Getting this sign wrong does not make the model infeasible — it silently moves the
+        solution, leaving the unit ``2 × Δdisplacement`` below its initial state of charge.
 
         DA does not apply this constraint to electric vehicles. It bounds purchases from
         below instead (``Σ purchased × charge_efficiency ≥ Δdisplacement × ev_energy_coef``),
@@ -264,7 +269,7 @@ class StorageDispatch:
         model.add_constraint(
             sum(-self.power_level_buy_var.get_value(t) for t in time_window) * charge_eff * dt_h
             == sum(self.power_level_sell_var.get_value(t) for t in time_window) * dt_h / discharge_eff
-            - displacement_delta,
+            + displacement_delta,
             f"cycle_balance_{eq.name}",
         )
 
