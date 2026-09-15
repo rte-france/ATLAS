@@ -72,13 +72,6 @@ than by an enrolment cap.
 Within each family the products behave identically as far as the physics is concerned, so
 modelling them separately would add variables without adding information.
 
-!!! note "Both modules model both families"
-
-    An earlier reading of the architecture had reserves as a Portfolio Optimisation concern
-    absent from Day-Ahead Orders. That is not right: reserves are present in Day-Ahead Orders
-    too, in exactly this automated/manual form. It is the reason the reserve handlers live in
-    the common layer rather than in the Portfolio Optimisation module.
-
 ## What the data model carries
 
 On [`Equipment`](../../api/models/equipment/equipment.md):
@@ -98,26 +91,6 @@ knows.
 Aggregates live on [`Portfolio`](../../api/models/market_operator/portfolio.md) (procurement
 summed over a portfolio's units) and on `ControlBlock` (the TSO's needs and the balancing costs).
 `MarketArea` carries activation prices and post-clearing balances per product.
-
-## What the modules configure
-
-Reserve behaviour is driven by module parameters rather than by the common layer:
-
-| Parameter | Module | Meaning |
-|---|---|---|
-| `automated_unprocured_reserves_penalty` | DAO, PO | Penalty (€/MW/h) for failing to provide automated reserve. Default 30 000 — deliberately high, so the solver treats it as a last resort |
-| `manual_unprocured_reserves_penalty` | DAO, PO | Same, for manual reserve |
-| `proportional_reserves_penalty` | DAO | Whether the offered reserve volume is flexible, with a proportional penalty, rather than fixed |
-| `battery_reserve_duration`, `battery_automated_reserve_duration` | PO | How long a battery must be able to sustain the reserve. Default 60 min each |
-| `electric_vehicle_reserve_duration`, `…_automated_…` | PO | Same for EVs. Default 1 min — an EV fleet is not expected to sustain reserve for long |
-| `pumped_hydraulic_reserve_duration`, `…_automated_…` | PO | Same for pumped hydro. Default 60 min |
-
-The **reserve duration** is what turns a power commitment into an energy requirement: promising
-2 MW of a one-hour product means holding 2 MWh in the tank. It is the coefficient in the
-[state-of-charge coupling constraints](formulation.md#storage).
-
-See [Portfolio Optimisation parameters](../../modules/portfolio-optimisation/user-guide/parameters.md)
-and [Day-Ahead Orders parameters](../../modules/day-ahead-orders/user-guide/parameters.md).
 
 ## Next
 
