@@ -57,7 +57,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
             for s in step:
                 self._add_one_step(s, prefix_job_name)
         else:
-            if not isinstance(step, WorkflowJob):
+            if not isinstance(step, Step):
                 raise TypeError(f"Expected a Step instance, got {type(step).__name__}.")
             self._add_one_step(step, prefix_job_name)
 
