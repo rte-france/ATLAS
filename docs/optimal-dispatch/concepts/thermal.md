@@ -24,8 +24,8 @@ At every timestep a unit sits in exactly one state:
 Exactly one is active, which is the **mutual exclusion** constraint:
 
 $$
-\text{off}_t + \text{on\_up}_t + \text{on\_down}_t
-\;[+\; \text{on\_flat}_t]\;[+\; \text{stop}_t]\;[+\; \text{on\_start}_t] = 1
+\text{off}_t + \text{on_up}_t + \text{on_down}_t
+\;[+\; \text{on_flat}_t]\;[+\; \text{stop}_t]\;[+\; \text{on_start}_t] = 1
 $$
 
 The bracketed terms appear only when the corresponding phase exists for that unit — which is
@@ -64,7 +64,7 @@ A stable duration shorter than one timestep likewise collapses to $T^{\text{stab
 The gradient limit becomes a per-timestep power swing:
 
 $$
-\Delta Q = \text{maximum\_gradient} \times \Delta t
+\Delta Q = \text{maximum_gradient} \times \Delta t
 $$
 
 with `maximum_gradient` in MW per minute. When the unit declares no gradient limit, the
@@ -103,14 +103,14 @@ $$
 \;\le\; P_t \;\le\;
 \underbrace{\overline{P}_t \cdot \sigma_t}_{\text{upper}}
 \qquad
-\sigma_t = \text{on\_up}_t + \text{on\_down}_t \;[+\; \text{on\_flat}_t]
+\sigma_t = \text{on_up}_t + \text{on_down}_t \;[+\; \text{on_flat}_t]
 $$
 
 $\sigma_t$ is 1 exactly when the unit is online and out of its ramps, so the bounds collapse to
 $0 \le P_t \le 0$ when it is off, starting or stopping. The ramps then relax that pin: with a
 shutdown ramp the upper bound gains $\text{stop}_t \cdot Q^{\min}$, letting the unit sit below
 minimum power on its way down, and with a startup ramp it gains
-$\text{on\_start}_t \cdot Q^{\min}$, where $Q^{\min} = \max_t \underline{P}_t$. Additional
+$\text{on_start}_t \cdot Q^{\min}$, where $Q^{\min} = \max_t \underline{P}_t$. Additional
 `turned_off` terms step the bound down by $Q^{\min} / T^{\text{stop}}$ per timestep so the
 descent is gradual rather than a cliff.
 
@@ -119,9 +119,9 @@ descent is gradual rather than a cliff.
 The power swing between two consecutive timesteps is capped in both directions:
 
 $$
-P_t - P_{t-1} \;\le\; \text{up\_base}_t
+P_t - P_{t-1} \;\le\; \text{up_base}_t
 \qquad
-P_t - P_{t-1} \;\ge\; \text{down\_base}_t
+P_t - P_{t-1} \;\ge\; \text{down_base}_t
 $$
 
 The bounds are not constants — they are linear expressions in the state variables, because the
@@ -155,7 +155,7 @@ counter, the constraint is written backwards from each timestep: for every
 $s \in [1, T^{\text{on}})$,
 
 $$
-\text{turned\_on}_{t - (s + T^{\text{start}})\Delta t} \;\le\; \text{online}_t
+\text{turned_on}_{t - (s + T^{\text{start}})\Delta t} \;\le\; \text{online}_t
 $$
 
 Read it as: *if the unit started recently enough, it must still be online now*. The

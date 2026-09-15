@@ -96,7 +96,7 @@ contradicts the level evolution and makes the model infeasible as soon as a vehi
 Three things differ from a stationary battery:
 
 - **V2G gating.** An EV can only discharge to the grid if it is vehicle-to-grid capable. The
-  effective discharge ceiling is $\text{is\_v2g} \times \overline{P}_t$, which is zero for a
+  effective discharge ceiling is $\text{is_v2g} \times \overline{P}_t$, which is zero for a
   fleet that only charges.
 - **Displacement energy** leaves the battery through the wheels, as described above.
 - **Charge/discharge separation** is left to the caller.

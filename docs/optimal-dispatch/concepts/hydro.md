@@ -38,13 +38,6 @@ Note the two different timestep conversions: generation is a power, so it conver
 $\Delta t$ in hours; inflows are supplied as a *daily* series, so they convert with $\Delta t$
 in days.
 
-!!! note "Balance is not applied everywhere"
-
-    `add_energy_balance()` is called by the module, at the timesteps where balance applies —
-    for Portfolio Optimisation, the portfolio time window rather than the full extended window.
-    The class does not loop over the horizon itself. This matters when a unit's variables are
-    declared over a longer span than the one it is actually balanced over.
-
 ## Water values
 
 The marginal value of stored water — how much a MWh in the reservoir is worth to keep rather

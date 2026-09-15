@@ -21,13 +21,6 @@ is imposed. With $c_t = 1$ it can be curtailed to zero.
 Curtailment is what makes a renewable unit a *decision* rather than a given. Without it, a
 negative-price hour would force the model to keep injecting at a loss.
 
-!!! note "The forecast must be pre-fetched"
-
-    `RenewableDispatch` reads the forecast from the equipment's `_cached_forecast`, which the
-    calling step is expected to populate (via `prefetch_forecasts()`) before any dispatch method
-    runs. An empty cache yields a maximum power of zero — a silently idle unit rather than an
-    error. Wiring a new renewable step, this is the first thing to check when a unit produces
-    nothing.
 
 ## Load
 
@@ -52,15 +45,6 @@ Both classes emit their bounds twice: once as variable bounds, which the solver 
 directly, and once as explicit constraints. The duplication is deliberate — it keeps the
 generated LP files byte-comparable with the reference files used in regression tests. It costs
 two rows per unit per timestep and changes no solution.
-
-## Wind and solar share no base class
-
-`RenewableDispatchInput` is a `typing.Protocol`, not a Pydantic model, because `Wind` and
-`Solar` do not descend from a common ancestor in the
-[data model](../../data-model.md). Any object exposing `name`,
-`maximum_curtailment_ratio` and `_cached_forecast` satisfies it, with no inheritance required —
-so the day-ahead and portfolio-optimisation wind and solar objects all qualify as they stand.
-See [Input contracts](../developer/input-contracts.md#renewable).
 
 ## In code
 

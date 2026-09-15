@@ -18,7 +18,7 @@ and hydro:
 The automated cap comes from the equipment:
 
 $$
-\text{maximum\_automated} = \text{maximum\_fcr} + \text{maximum\_afrr}
+\text{maximum_automated} = \text{maximum_fcr} + \text{maximum_afrr}
 $$
 
 computed by [`ReserveFactory`](developer.md#the-factory) when it builds the handler.
@@ -38,7 +38,7 @@ or cannot reach its declared minimum power. For thermal it is forced to zero whe
 *is* online:
 
 $$
-\text{relaxed\_reserves}_t \le \underline{P}_t \cdot (1 - \text{online}_t)
+\text{relaxed_reserves}_t \le \underline{P}_t \cdot (1 - \text{online}_t)
 $$
 
 where $\text{online}_t$ sums `on_up`, `on_down` and, when the unit has one, `on_flat`.
@@ -93,10 +93,10 @@ energy-limited units, by *stored energy*.
 A unit that is off, starting or stopping cannot provide automated reserve at all:
 
 $$
-a^{\uparrow}_t,\ a^{\downarrow}_t \;\le\; \text{maximum\_automated} \cdot (1 - \text{unavailable}_t)
+a^{\uparrow}_t,\ a^{\downarrow}_t \;\le\; \text{maximum_automated} \cdot (1 - \text{unavailable}_t)
 $$
 
-with $\text{unavailable}_t = \text{off}_t + \text{on\_start}_t + \text{stop}_t$. For units with a
+with $\text{unavailable}_t = \text{off}_t + \text{on_start}_t + \text{stop}_t$. For units with a
 stable phase, manual reserve is additionally zeroed while ramping — a unit already moving cannot
 credibly promise to move further on demand.
 
@@ -122,7 +122,7 @@ manual and automated products in hours. Two MW of a one-hour product needs two M
 downward reserve symmetrically needs room to absorb.
 
 Storage also gets a **bidirectional** `automated_reserves_down`, bounded
-$[-\text{maximum\_automated}, +\text{maximum\_automated}]$ rather than starting at zero, because
+$[-\text{maximum_automated}, +\text{maximum_automated}]$ rather than starting at zero, because
 a unit can provide downward automated reserve while discharging *or* while charging.
 
 ### Hydro

@@ -43,14 +43,6 @@ two always goes through the timestep: $E = P \cdot \Delta t$, with $\Delta t$ ex
 (`timestep.total_hours()`). A handful of series are daily rather than per-timestep — hydro
 inflows, thermal daily energy caps — and those convert with `timestep.total_days()` instead.
 
-**Timesteps as keys.** Variables are named by their `DateTime`, and the previous timestep is
-always `time - parameters.temporal.timestep`. Constraints that look one step back therefore need
-variables to exist *before* the window starts. That is what the initial-conditions machinery
-provides (see [Thermal](thermal.md#initial-conditions)).
-
-**Two passes.** Variables for the whole window are declared before any constraint is added.
-A constraint at $t$ routinely references $t - \Delta t$ or $t - k\,\Delta t$, so a single
-interleaved pass would reference variables that do not exist yet.
 
 ## The general shape
 
@@ -79,18 +71,6 @@ The common layer owns the constraints. The objective $f$ stays with the module:
 That is the whole reason the split exists: the two modules disagree on $f$ and agree on
 everything else.
 
-## Where the numbers come from
-
-Dispatch classes never read raw data. They read a **dispatch input object** — a Pydantic model
-carrying exactly the fields the formulation needs, built by the module from the
-[core equipment objects](../../data-model.md). See
-[Input contracts](../developer/input-contracts.md).
-
-Timeseries fields are [`AbstractTimeseries`](../../api/math/timeseries.md), so a lazy series and
-an eager one are interchangeable. Forecast-driven fields
-([`ForecastingMatrix`](../../api/math/forecasting_matrix.md)) are resolved against the
-*execution date* — the moment the decision is taken — which is what makes a rolling simulation
-use only information available at that moment.
 
 ## Next
 
