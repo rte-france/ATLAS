@@ -129,6 +129,21 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         except (KeyError, ValueError):
             return 0.0
 
+    def _neighbor_power(self, time: DateTime, forward: bool) -> float:
+        """
+        Return the forecasted power one timestep before or after the given time.
+
+        :param time: Reference timestep
+        :type time: DateTime
+        :param forward: True to look at the next timestep, False for the previous one
+        :type forward: bool
+        :return: Forecasted power at the neighboring timestep, or 0.0 if unavailable
+        :rtype: float
+        """
+        offset_minutes = int(self._timestep_minutes)
+        neighbor_time = time.add(minutes=offset_minutes) if forward else time.subtract(minutes=offset_minutes)
+        return self._forecasted_power_at(neighbor_time)
+
     def _formulate_case_1_order(self, time: DateTime, next_time: DateTime) -> Order | None:
         """
         Formulate the bounded upward order for Case 1 (equipment was ON both before and
@@ -147,11 +162,8 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :return: The bounded Sell order, or None if invalid or qmax rounds below 1 MW
         :rtype: Order | None
         """
-        previous_time = time.subtract(minutes=int(self._timestep_minutes))
-        next_step_time = time.add(minutes=int(self._timestep_minutes))
-
-        previous_power = self._forecasted_power_at(previous_time)
-        next_power = self._forecasted_power_at(next_step_time)
+        previous_power = self._neighbor_power(time, forward=False)
+        next_power = self._neighbor_power(time, forward=True)
 
         max_gradient = self.equipment.maximum_gradient
         if max_gradient > 0 and abs(next_power - previous_power) > 2 * (max_gradient * self._timestep_minutes):
@@ -205,8 +217,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if not self._check_on_off_time_requirement(time, searching_on=False, searching_backwards=False):
             return None
 
-        previous_time = time.subtract(minutes=int(self._timestep_minutes))
-        previous_power = self._forecasted_power_at(previous_time)
+        previous_power = self._neighbor_power(time, forward=False)
 
         max_power_at_time = self.equipment.maximum_power.get_value(time)
         min_power_at_time = self.equipment.minimum_power.get_value(time)
@@ -252,8 +263,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if not self._check_on_off_time_requirement(time, searching_on=False, searching_backwards=True):
             return None
 
-        next_step_time = time.add(minutes=int(self._timestep_minutes))
-        next_power = self._forecasted_power_at(next_step_time)
+        next_power = self._neighbor_power(time, forward=True)
 
         max_power_at_time = self.equipment.maximum_power.get_value(time)
         min_power_at_time = self.equipment.minimum_power.get_value(time)
@@ -372,11 +382,8 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if self.equipment.minimum_power.get_value(time) <= 0:
             return "no_startup"
 
-        previous_time = time.subtract(minutes=int(self._timestep_minutes))
-        next_time = time.add(minutes=int(self._timestep_minutes))
-
-        previous_power = self._forecasted_power_at(previous_time)
-        next_power = self._forecasted_power_at(next_time)
+        previous_power = self._neighbor_power(time, forward=False)
+        next_power = self._neighbor_power(time, forward=True)
 
         if previous_power > 0 and next_power > 0:
             return "case_1"
