@@ -79,29 +79,12 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
                 order = self._formulate_case_3_order(time, next_time)
                 if order is not None:
                     orders.append(order)
-            elif qmax_up >= 1.0:
-                order = self.build_order(
-                    order_type=OrderType.Sell,
-                    start=time,
-                    end=next_time,
-                    price=self.equipment.variable_cost.get_value(time),
-                    qmin=0.0,
-                    qmax=qmax_up,
-                )
+            else:
+                order = self._formulate_plain_upward_order(time, next_time, qmax_up)
                 if order is not None:
                     orders.append(order)
 
-            if qmax_down < 1.0:
-                continue
-
-            order = self.build_order(
-                order_type=OrderType.Buy,
-                start=time,
-                end=next_time,
-                price=self.equipment.variable_cost.get_value(time),
-                qmin=0.0,
-                qmax=qmax_down,
-            )
+            order = self._formulate_downward_order(time, next_time, qmax_down)
             if order is not None:
                 orders.append(order)
 
@@ -156,6 +139,118 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if self.equipment.startup_cost is None:
             return 0.0
         return self.equipment.startup_cost.get_value(time)
+
+    def _has_stable_power_before(self, time: DateTime) -> bool:
+        """
+        Check whether the equipment's forecasted power stayed constant for at least
+        minimum_stable_power_duration in the timesteps before the given time. A power
+        of 0 at the immediately preceding timestep is treated as trivially satisfied —
+        that side is governed by the minimum_time_off constraint instead.
+
+        :param time: Reference timestep (order start/end time)
+        :type time: DateTime
+        :return: True if enough stable history exists (or the preceding power is 0)
+        :rtype: bool
+        """
+        duration_requirement = self.equipment.minimum_stable_power_duration
+        offset_minutes = int(self._timestep_minutes)
+        reference_time = time.subtract(minutes=offset_minutes)
+
+        studied_time = reference_time
+        studied_power = self._forecasted_power_at(studied_time)
+        previous_power = studied_power
+
+        if previous_power == 0:
+            return True
+
+        while studied_power == previous_power and (reference_time - studied_time) < duration_requirement:
+            previous_power = studied_power
+            studied_time = studied_time.subtract(minutes=offset_minutes)
+            studied_power = self._forecasted_power_at(studied_time)
+
+        return duration_requirement <= (reference_time - studied_time)
+
+    def _apply_minimum_stable_power_duration_constraint(
+        self,
+        time: DateTime,
+        power_available: float,
+    ) -> tuple[float, bool, bool]:
+        """
+        MSPD check for a single-timestep order. No-op if MSPD is shorter than the
+        timestep. Otherwise the equipment needs to have been flat for long enough
+        before `time`, or the order's invalid.
+
+        TODO: forward check
+
+        :param time: order start/end time
+        :type time: DateTime
+        :param power_available: qty before this constraint
+        :type power_available: float
+        :return: (power_available, is_valid, is_undivisible)
+        :rtype: tuple[float, bool, bool]
+        """
+        duration_requirement = self.equipment.minimum_stable_power_duration
+        timestep = self.parameters.temporal.timestep
+
+        if duration_requirement < timestep:
+            return power_available, True, False
+
+        if not self._has_stable_power_before(time):
+            return 0.0, False, False
+
+        return power_available, True, False
+
+    def _formulate_plain_upward_order(self, time: DateTime, next_time: DateTime, qmax_up: float) -> Order | None:
+        """
+        Regular upward order (no startup involved), after the MSPD check.
+
+        :param time: order start/end time
+        :type time: DateTime
+        :param next_time: time + timestep
+        :type next_time: DateTime
+        :param qmax_up: qty before MSPD
+        :type qmax_up: float
+        :return: the order, or None if invalid / under 1 MW
+        :rtype: Order | None
+        """
+        qmax_up, is_valid, is_undivisible = self._apply_minimum_stable_power_duration_constraint(time, qmax_up)
+        if not is_valid or qmax_up < 1.0:
+            return None
+
+        return self.build_order(
+            order_type=OrderType.Sell,
+            start=time,
+            end=next_time,
+            price=self.equipment.variable_cost.get_value(time),
+            qmin=qmax_up if is_undivisible else 0.0,
+            qmax=qmax_up,
+        )
+
+    def _formulate_downward_order(self, time: DateTime, next_time: DateTime, qmax_down: float) -> Order | None:
+        """
+        Downward order, after the MSPD check.
+
+        :param time: order start/end time
+        :type time: DateTime
+        :param next_time: time + timestep
+        :type next_time: DateTime
+        :param qmax_down: qty before MSPD
+        :type qmax_down: float
+        :return: the order, or None if invalid / under 1 MW
+        :rtype: Order | None
+        """
+        qmax_down, is_valid, is_undivisible = self._apply_minimum_stable_power_duration_constraint(time, qmax_down)
+        if not is_valid or qmax_down < 1.0:
+            return None
+
+        return self.build_order(
+            order_type=OrderType.Buy,
+            start=time,
+            end=next_time,
+            price=self.equipment.variable_cost.get_value(time),
+            qmin=qmax_down if is_undivisible else 0.0,
+            qmax=qmax_down,
+        )
 
     def _formulate_case_1_order(self, time: DateTime, next_time: DateTime) -> Order | None:
         """
