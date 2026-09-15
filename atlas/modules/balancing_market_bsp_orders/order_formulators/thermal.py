@@ -170,9 +170,37 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         return duration_requirement <= (reference_time - studied_time)
 
+    def _has_stable_power_after(self, time: DateTime) -> bool:
+        """
+        Same as _has_stable_power_before but looking forward from `time`.
+
+        :param time: Reference timestep (order start/end time)
+        :type time: DateTime
+        :return: True if enough stable future exists (or the following power is 0)
+        :rtype: bool
+        """
+        duration_requirement = self.equipment.minimum_stable_power_duration
+        offset_minutes = int(self._timestep_minutes)
+        reference_time = time.add(minutes=offset_minutes)
+
+        studied_time = reference_time
+        studied_power = self._forecasted_power_at(studied_time)
+        previous_power = studied_power
+
+        if previous_power == 0:
+            return True
+
+        while studied_power == previous_power and (studied_time - reference_time) < duration_requirement:
+            previous_power = studied_power
+            studied_time = studied_time.add(minutes=offset_minutes)
+            studied_power = self._forecasted_power_at(studied_time)
+
+        return duration_requirement <= (studied_time - reference_time)
+
     def _apply_minimum_stable_power_duration_constraint(
         self,
         time: DateTime,
+        order_type: OrderType,
         power_available: float,
     ) -> tuple[float, bool, bool]:
         """
@@ -198,7 +226,56 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if not self._has_stable_power_before(time):
             return 0.0, False, False
 
-        return power_available, True, False
+        if not self._has_stable_power_after(time):
+            return 0.0, False, False
+
+        is_valid_order = True
+        is_order_undivisible = False
+
+        if timestep < duration_requirement:
+            is_valid_order = False
+
+            starting_power = self._forecasted_power_at(time)
+            previous_power = self._neighbor_power(time, forward=False)
+            next_power = self._neighbor_power(time, forward=True)
+
+            if previous_power != starting_power:
+                if next_power != starting_power:
+                    return 0.0, False, False
+                if previous_power == 0:
+                    return 0.0, False, False
+
+                is_order_undivisible = True
+                delta = previous_power - starting_power
+                if delta > 0:
+                    if order_type == OrderType.Sell:
+                        power_available, is_valid_order = delta, True
+                    else:
+                        power_available, is_valid_order = 0.0, False
+                else:
+                    if order_type == OrderType.Buy:
+                        power_available, is_valid_order = starting_power - previous_power, True
+                    else:
+                        power_available, is_valid_order = 0.0, False
+
+            if next_power != starting_power:
+                if next_power == 0:
+                    return 0.0, False, False
+
+                is_order_undivisible = True
+                delta = next_power - starting_power
+                if delta > 0:
+                    if order_type == OrderType.Sell:
+                        power_available, is_valid_order = delta, True
+                    else:
+                        power_available, is_valid_order = 0.0, False
+                else:
+                    if order_type == OrderType.Buy:
+                        power_available, is_valid_order = starting_power - next_power, True
+                    else:
+                        power_available, is_valid_order = 0.0, False
+
+        return power_available, is_valid_order, is_order_undivisible
 
     def _formulate_plain_upward_order(self, time: DateTime, next_time: DateTime, qmax_up: float) -> Order | None:
         """
@@ -213,7 +290,9 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :return: the order, or None if invalid / under 1 MW
         :rtype: Order | None
         """
-        qmax_up, is_valid, is_undivisible = self._apply_minimum_stable_power_duration_constraint(time, qmax_up)
+        qmax_up, is_valid, is_undivisible = self._apply_minimum_stable_power_duration_constraint(
+            time, OrderType.Sell, qmax_up
+        )
         if not is_valid or qmax_up < 1.0:
             return None
 
@@ -239,7 +318,9 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :return: the order, or None if invalid / under 1 MW
         :rtype: Order | None
         """
-        qmax_down, is_valid, is_undivisible = self._apply_minimum_stable_power_duration_constraint(time, qmax_down)
+        qmax_down, is_valid, is_undivisible = self._apply_minimum_stable_power_duration_constraint(
+            time, OrderType.Buy, qmax_down
+        )
         if not is_valid or qmax_down < 1.0:
             return None
 
@@ -292,6 +373,14 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
             bounded_qmax = max_power_at_time
             bounded_qmin = min_power_at_time
 
+        bounded_qmax, is_valid, is_undivisible = self._apply_minimum_stable_power_duration_constraint(
+            time, OrderType.Sell, bounded_qmax
+        )
+        if not is_valid:
+            return None
+        if is_undivisible:
+            bounded_qmin = bounded_qmax
+
         if bounded_qmax < 1.0 or bounded_qmin > bounded_qmax:
             return None
 
@@ -339,6 +428,14 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         bounded_qmin = max(min_power_at_time, previous_power)
 
+        bounded_qmax, is_valid, is_undivisible = self._apply_minimum_stable_power_duration_constraint(
+            time, OrderType.Sell, bounded_qmax
+        )
+        if not is_valid:
+            return None
+        if is_undivisible:
+            bounded_qmin = bounded_qmax
+
         if bounded_qmax < 1.0 or bounded_qmin > bounded_qmax:
             return None
 
@@ -384,6 +481,14 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
             bounded_qmax = max_power_at_time
 
         bounded_qmin = max(min_power_at_time, next_power)
+
+        bounded_qmax, is_valid, is_undivisible = self._apply_minimum_stable_power_duration_constraint(
+            time, OrderType.Sell, bounded_qmax
+        )
+        if not is_valid:
+            return None
+        if is_undivisible:
+            bounded_qmin = bounded_qmax
 
         if bounded_qmax < 1.0 or bounded_qmin > bounded_qmax:
             return None
@@ -431,6 +536,11 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         max_power_at_time = self.equipment.maximum_power.get_value(time)
         min_power_at_time = self.equipment.minimum_power.get_value(time)
+
+        _, is_valid, _ = self._apply_minimum_stable_power_duration_constraint(time, OrderType.Sell, max_power_at_time)
+        if not is_valid:
+            return [], []
+
         duration_hours = self._timestep_minutes / 60
         startup_cost = self._startup_cost_at(time)
 
