@@ -20,6 +20,7 @@ from pydantic_extra_types.pendulum_dt import DateTime
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.custom_errors import DataQualityWarning
+from atlas.io_utils.utils import deduplicate_names
 from atlas.orchestrator.hook.hook import Hook
 from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.orchestrator.workflow.workflow import Workflow
@@ -36,6 +37,14 @@ class ActionPlanParameters(AbstractOrchestratorParameters):
 
     tasks: list[TaskModule | TaskWorkflow]
     hooks: list[Hook] = []
+
+    @model_validator(mode="after")
+    def deduplicate_task_names(self) -> ActionPlanParameters:
+        for task, name in zip(
+            self.tasks, deduplicate_names([t.name or "unnamed_task" for t in self.tasks]), strict=True
+        ):
+            task.name = name
+        return self
 
     @model_validator(mode="after")
     def concurrent_tasks(self) -> ActionPlanParameters:
