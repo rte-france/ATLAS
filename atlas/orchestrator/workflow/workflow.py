@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-import copy
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -32,24 +31,9 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         :type parameters: WorkflowParameters
         """
         super().__init__(parameters)
-        self._jobs: list[WorkflowJob] = []
-        self.build_jobs(prefix_job_name)
-
-    def build_jobs(self, prefix_job_name: str | None = None):
-        Step.add_index_in_step_name(self.parameters.steps)
-
+        self._steps: list[Step] = []
         for step in self.parameters.steps:
-            parameters_class = step.module.value().get_parameters_class()
-            if isinstance(step.parameters, (str, Path)):
-                parameters = parameters_class.from_file(
-                    self.parameters.resolve_path(Path(step.parameters)), self.parameters.context
-                )
-            elif isinstance(step.parameters, dict):
-                parameters = parameters_class.from_dict(step.parameters, self.parameters.context)
-            parameters.output.output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
-            job_name = f"{prefix_job_name} {step.name}" if prefix_job_name else step.name
-            workflow_job = WorkflowJob(f"{job_name!r}", step.module.value, parameters)
-            self.add_job(workflow_job)
+            self.add_step(step)
 
     @property
     def jobs(self) -> Iterator[WorkflowJob]:
@@ -58,25 +42,41 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
         :return: The list of WorkflowJob instances.
         """
-        for job in self._jobs:
-            yield copy.deepcopy(job)
+        for step in self._steps:
+            yield WorkflowJob(f"{step.name!r}", step.module.value, step.parameters)
 
     @property
     def jobs_count(self) -> int:
-        return len(self._jobs)
+        return len(self._steps)
 
-    def add_job(self, job: WorkflowJob | list[WorkflowJob]) -> None:
-        """Add one or multiple jobs to the end of the workflow."""
-        if isinstance(job, list):
-            if not all(isinstance(s, WorkflowJob) for s in job):
-                raise TypeError("All items in the list must be WorkflowJob instances.")
-            self._jobs.extend(job)
+    def add_step(self, step: Step | list[Step], prefix_job_name: str | None = None) -> None:
+        """Add one or multiple step to the end of the workflow."""
+        if isinstance(step, list):
+            if not all(isinstance(s, Step) for s in step):
+                raise TypeError("All items in the list must be Step instances.")
+            for s in step:
+                self._add_one_step(s, prefix_job_name)
         else:
-            if not isinstance(job, WorkflowJob):
-                raise TypeError(f"Expected a WorkflowJob instance, got {type(job).__name__}.")
-            self._jobs.append(job)
+            if not isinstance(step, WorkflowJob):
+                raise TypeError(f"Expected a Step instance, got {type(step).__name__}.")
+            self._add_one_step(step, prefix_job_name)
+
+    def _add_one_step(self, step: Step, prefix_job_name: str | None = None) -> None:
+        """Add a single step to the end of the workflow, add the prefix given and build parameters."""
+        step.name = f"{prefix_job_name} {step.name}" if prefix_job_name else step.name
+        parameters_class = step.module.value().get_parameters_class()
+        parameters = step.parameters
+        if isinstance(parameters, (str, Path)):
+            parameters = parameters_class.from_file(
+                self.parameters.resolve_path(Path(parameters)), self.parameters.context
+            )
+        elif isinstance(parameters, dict):
+            parameters = parameters_class.from_dict(parameters, self.parameters.context)
+        step.parameters = parameters
+        parameters.output.output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
+        self._steps.append(step)
 
     def __repr__(self) -> str:
         """Return a human-readable string representation of the workflow."""
-        step_count = len(self._jobs)
+        step_count = len(self._steps)
         return f"Workflow '{self.parameters.name}' ({step_count} step{'s' if step_count != 1 else ''})"

@@ -36,14 +36,14 @@ class TestWorkflowAddStep:
 
     def test_add_single_step(self, tmp_path, empty_workflow):
         step = self.job_builder.with_name("s1").build()
-        empty_workflow.add_job(step)
+        empty_workflow.add_step(step)
 
         assert empty_workflow.jobs_count == 1
         assert next(empty_workflow.jobs).name is step.name
 
     def test_add_list_of_steps(self, tmp_path, empty_workflow):
         steps = [self.job_builder.with_name(f"s{i}").build() for i in range(3)]
-        empty_workflow.add_job(steps)
+        empty_workflow.add_step(steps)
 
         assert empty_workflow.jobs_count == 3
         for original, stored in zip(steps, empty_workflow.jobs):
@@ -51,18 +51,18 @@ class TestWorkflowAddStep:
 
     def test_add_invalid_type_raises_type_error(self, tmp_path, empty_workflow):
         with pytest.raises(TypeError):
-            empty_workflow.add_job("not_a_step")
+            empty_workflow.add_step("not_a_step")
 
     def test_add_list_with_invalid_item_raises_type_error(self, tmp_path, empty_workflow):
         valid_step = self.job_builder.with_name("s1").build()
         with pytest.raises(TypeError):
-            empty_workflow.add_job([valid_step, "not_a_step"])
+            empty_workflow.add_step([valid_step, "not_a_step"])
 
     def test_steps_appended_in_order(self, tmp_path, empty_workflow):
         s1 = self.job_builder.with_name("first").build()
         s2 = self.job_builder.with_name("second").build()
-        empty_workflow.add_job(s1)
-        empty_workflow.add_job(s2)
+        empty_workflow.add_step(s1)
+        empty_workflow.add_step(s2)
 
         jobs = empty_workflow.jobs
         assert next(jobs).name is s1.name
