@@ -4,6 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from functools import cached_property
+
 import pendulum
 from pendulum import Duration
 
@@ -17,29 +19,29 @@ INITIAL_MIN_PRICE = -1.0e8
 
 
 class MarketAreaMC(MarketArea):
-    mc_orders: dict[str, OrderMC]
+    orders: dict[str, OrderMC]
 
     # Attributes from market clearing parameter
     timestep: Duration
     times: list[pendulum.DateTime]
 
-    @property
+    @cached_property
     def ref_balance(self) -> AbstractTimeseries:
         if self.reference_balance:
-            return self.reference_balance.set_frequency(self.timestep, False).filter(self.times)
+            return self.reference_balance.filter(self.times)
         else:
             return Timeseries.from_index(self.times[0], self.timestep, self.times[-1], 0.0)
 
-    @property
+    @cached_property
     def max_price(self) -> AbstractTimeseries:
         if self.maximum_price:
-            return self.maximum_price.set_frequency(self.timestep, False).filter(self.times)
+            return self.maximum_price.filter(self.times)
         else:
             return Timeseries.from_index(self.times[0], self.timestep, self.times[-1], INITIAL_MAX_PRICE)
 
-    @property
+    @cached_property
     def min_price(self) -> AbstractTimeseries:
         if self.minimum_price:
-            return self.minimum_price.set_frequency(self.timestep, False).filter(self.times)
+            return self.minimum_price.filter(self.times)
         else:
             return Timeseries.from_index(self.times[0], self.timestep, self.times[-1], INITIAL_MIN_PRICE)

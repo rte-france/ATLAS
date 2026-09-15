@@ -57,21 +57,21 @@ class TestStep:
         params_file = tmp_path / "params.yaml"
         params_file.write_text("export_result: false\n")
 
-        step = Step(module="PortfolioOptimisation", parameters_path=params_file)
+        step = Step(module="PortfolioOptimisation", parameters=params_file)
         assert step.module == ModuleRegistry.PortfolioOptimisation
 
     def test_step_default_name_is_module_name(self, tmp_path):
         params_file = tmp_path / "params.yaml"
         params_file.write_text("export_result: false\n")
 
-        step = Step(module="PortfolioOptimisation", parameters_path=params_file)
+        step = Step(module="PortfolioOptimisation", parameters=params_file)
         assert step.name == "PortfolioOptimisation"
 
     def test_step_custom_name_is_preserved(self, tmp_path):
         params_file = tmp_path / "params.yaml"
         params_file.write_text("export_result: false\n")
 
-        step = Step(name="my_step", module="PortfolioOptimisation", parameters_path=params_file)
+        step = Step(name="my_step", module="PortfolioOptimisation", parameters=params_file)
         assert step.name == "my_step"
 
     def test_step_invalid_module_raises(self, tmp_path):
@@ -79,33 +79,18 @@ class TestStep:
         params_file.write_text("export_result: false\n")
 
         with pytest.raises(Exception):
-            Step(module="DoesNotExist", parameters_path=params_file)
+            Step(module="DoesNotExist", parameters=params_file)
 
-    def test_step_parameters_path_is_path_object(self, tmp_path):
+    def test_step_parameters_is_path_object(self, tmp_path):
         params_file = tmp_path / "params.yaml"
         params_file.write_text("export_result: false\n")
 
-        step = Step(module="PortfolioOptimisation", parameters_path=str(params_file))
-        assert isinstance(step.parameters_path, Path)
+        step = Step(module="PortfolioOptimisation", parameters=params_file)
+        assert isinstance(step.parameters, Path)
 
     def test_step_accepts_inline_parameters(self):
         step = Step(module="PortfolioOptimisation", parameters={"export_result": False})
         assert step.parameters == {"export_result": False}
-        assert step.parameters_path is None
-
-    def test_step_requires_exactly_one_parameters_source(self, tmp_path):
-        params_file = tmp_path / "params.yaml"
-        params_file.write_text("export_result: false\n")
-
-        with pytest.raises(ValidationError):
-            Step(module="PortfolioOptimisation")
-
-        with pytest.raises(ValidationError):
-            Step(
-                module="PortfolioOptimisation",
-                parameters_path=params_file,
-                parameters={"export_result": False},
-            )
 
 
 class TestWorkflowJobInit:

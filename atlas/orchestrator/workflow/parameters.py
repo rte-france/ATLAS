@@ -25,16 +25,13 @@ class Step(BaseModel):
 
     :param name: Name identifying the step. Defaults to the module name if not provided.
     :type name: str
-    :param parameters_path: Path to the parameters file for the job. Mutually exclusive with `parameters`.
-    :type parameters_path: str | None
-    :param parameters: Inline parameters for the job. Mutually exclusive with `parameters`.
-    :type parameters: dict | None
+    :param parameters: Path to the parameters file for the job, or inline parameters for the job. Mutually exclusive with `parameters`.
+    :type parameters: Path | dict
     """
 
     name: str | None = None
     module: ModuleRegistry
-    parameters_path: Path | None = None
-    parameters: dict | None = None
+    parameters: Path | dict[str, Any]
 
     @field_validator("module", mode="before")
     @classmethod
@@ -43,16 +40,17 @@ class Step(BaseModel):
             return ModuleRegistry(ModuleRegistry.get(v))
         return v
 
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def validate_parameters_path_exist_if_absolute(cls, v: Any) -> Path | str:
+        if isinstance(v, (Path, str)) and Path(v).is_absolute() and not Path(v).exists():
+            raise ValueError(f"Workflow parameters file not found at {v}")
+        return v
+
     @model_validator(mode="after")
     def set_default_name(self) -> Step:
         if self.name is None:
             self.name = self.module.name
-        return self
-
-    @model_validator(mode="after")
-    def check_parameters_source(self) -> Step:
-        if (self.parameters_path is None) == (self.parameters is None):
-            raise ValueError("Exactly one of 'parameters' or 'parameters' must be set.")
         return self
 
     @staticmethod

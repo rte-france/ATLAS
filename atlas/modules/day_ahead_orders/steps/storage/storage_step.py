@@ -38,14 +38,18 @@ class StorageStep(AbstractOrderStep):
             result.order_couplings.extend(unit_result.order_couplings)
 
             if storage.da_buy_submitted_volume is None:
-                storage.da_buy_submitted_volume = unit_result.buy_submitted_volumes
+                storage.da_buy_submitted_volume = unit_result.buy_submitted_volume
             else:
-                storage.da_buy_submitted_volume += unit_result.buy_submitted_volumes
+                storage.da_buy_submitted_volume = storage.da_buy_submitted_volume.add_on_union(
+                    unit_result.buy_submitted_volume, inplace=False
+                )
 
             if storage.da_sell_submitted_volume is None:
-                storage.da_sell_submitted_volume = unit_result.sell_submitted_volumes
+                storage.da_sell_submitted_volume = unit_result.sell_submitted_volume
             else:
-                storage.da_sell_submitted_volume += unit_result.sell_submitted_volumes
+                storage.da_sell_submitted_volume = storage.da_sell_submitted_volume.add_on_union(
+                    unit_result.sell_submitted_volume, inplace=False
+                )
 
             if unit_result.variable_cost is not None:
                 storage.variable_cost = unit_result.variable_cost
