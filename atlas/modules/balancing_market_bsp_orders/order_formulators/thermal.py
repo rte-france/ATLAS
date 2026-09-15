@@ -367,7 +367,11 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if order_1 is None or order_2 is None:
             return [], []
 
-        coupling = OrderCoupling(orders=[order_1, order_2], coupling_type=CouplingType.PARENT_CHILDREN)
+        coupling = OrderCoupling(
+            name=f"parent_children_{order_1.name}",
+            orders=[order_1, order_2],
+            coupling_type=CouplingType.PARENT_CHILDREN,
+        )
         return [order_1, order_2], [coupling]
 
     def _classify_startup_case(
