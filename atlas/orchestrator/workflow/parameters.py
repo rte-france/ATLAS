@@ -15,10 +15,11 @@ from pydantic import BaseModel, field_validator, model_validator
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.orchestrator.module_registry import ModuleRegistry
+from atlas.validators import UniqueNamedList
 
 
 class WorkflowParameters(AbstractOrchestratorParameters):
-    steps: list[Step]
+    steps: UniqueNamedList[Step]
 
 
 class Step(BaseModel):
@@ -30,7 +31,7 @@ class Step(BaseModel):
     :type parameters: Path | dict
     """
 
-    name: str | None = None
+    name: str
     module: ModuleRegistry
     parameters: AbstractModuleParameters | Path | dict[str, Any]
 
@@ -48,28 +49,13 @@ class Step(BaseModel):
             raise ValueError(f"Workflow parameters file not found at {v}")
         return v
 
-    @model_validator(mode="after")
-    def set_default_name(self) -> Step:
-        if self.name is None:
-            self.name = self.module.name
-        return self
+    @model_validator(mode="before")
+    @classmethod
+    def default_name(cls, data: Any) -> Any:
+        if isinstance(data, dict) and not data.get("name"):
+            data = {**data, "name": cls._compute_default_name(data)}
+        return data
 
     @staticmethod
-    def add_index_in_step_name(steps: list[Step]) -> None:
-        """Append a numeric index suffix to duplicate step names, in-place.
-
-        Steps whose name is unique are left unchanged. Steps sharing a name are
-        renamed '<name>_1', '<name>_2', etc., in the order they appear.
-
-        :param steps: List of step parameter objects exposing a 'name' attribute.
-        :type steps: list
-        """
-        name_counts: dict[str, int] = {}
-        for step in steps:
-            name_counts[step.name] = name_counts.get(step.name, 0) + 1  # type: ignore[index, arg-type]
-
-        name_index: dict[str, int] = {}
-        for step in steps:
-            if name_counts[step.name] > 1:  # type: ignore[index]
-                name_index[step.name] = name_index.get(step.name, 0) + 1  # type: ignore[index, arg-type]
-                step.name = f"{step.name}_{name_index[step.name]}"  # type: ignore[index]
+    def _compute_default_name(data: dict) -> str:
+        return str(data.get("module", "unnamed"))
