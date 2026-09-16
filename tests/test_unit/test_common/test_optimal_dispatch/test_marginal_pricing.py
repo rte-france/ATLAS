@@ -6,7 +6,8 @@ This file is part of the ATLAS project.
 
 import pendulum
 
-from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue
+from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue, bid_volumes
+from atlas.objects.equipment.hydro import FragmentData
 
 TIME = pendulum.datetime(2026, 1, 1, 8)
 OTHER_TIME = pendulum.datetime(2026, 1, 1, 9)
@@ -120,3 +121,36 @@ def test_cached_forecast_is_used_instead_of_refetching():
     marginal_value = InterpolatedMarginalValue.for_unit(unit, EXECUTION_DATE, TIME, _Levels({TIME: 50.0}))
     assert marginal_value.energy_level == 50.0
     assert stored_energy.calls == []
+
+
+def _fragments(volumes: list[float]) -> dict[int, FragmentData]:
+    return {i: FragmentData(volume=v, price=float(i)) for i, v in enumerate(volumes)}
+
+
+def test_fragments_take_their_share_of_capacity():
+    assert bid_volumes(_fragments([0.25, 0.75]), capacity=100, minimal_fragment_size=10) == {0: 25.0, 1: 75.0}
+
+
+def test_fragments_below_the_minimal_size_are_redistributed():
+    # the 5 MW fragment is dropped, its volume spread over the two kept ones
+    volumes = bid_volumes(_fragments([0.05, 0.25, 0.7]), capacity=100, minimal_fragment_size=10)
+    assert sorted(volumes) == [1, 2]
+    assert sum(volumes.values()) == 100.0
+
+
+def test_full_capacity_goes_to_one_fragment_when_all_are_too_small():
+    assert bid_volumes(_fragments([0.5, 0.5]), capacity=100, minimal_fragment_size=60) == {1: 100}
+    assert bid_volumes(_fragments([0.2, 0.3, 0.5]), capacity=100, minimal_fragment_size=60) == {2: 100}
+
+
+def test_single_fragment_unit_falls_back_on_its_only_category():
+    assert bid_volumes(_fragments([1.0]), capacity=100, minimal_fragment_size=200) == {0: 100}
+
+
+def test_zero_capacity_keeps_every_fragment_empty():
+    # no volume to redistribute, so the minimal size must not trigger the single-fragment fallback
+    assert bid_volumes(_fragments([0.5, 0.5]), capacity=0, minimal_fragment_size=10) == {0: 0.0, 1: 0.0}
+
+
+def test_unit_without_fragments_bids_nothing():
+    assert bid_volumes({}, capacity=100, minimal_fragment_size=10) == {}

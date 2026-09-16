@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 
 from pendulum import DateTime
 
-from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue
+from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue, bid_volumes
 from atlas.enums import OrderType
 from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_orders.input_objects.hydro import HydroIDO
@@ -41,7 +41,7 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
 
         for i, t in enumerate(orders_timestamps):
             capacity = equipment.maximum_power.get_value(t)
-            volumes = equipment.bid_volumes(capacity, parameters.hydraulic_minimal_fragment_size)
+            volumes = bid_volumes(equipment.fragment_data, capacity, parameters.hydraulic_minimal_fragment_size)
 
             # Offer the cheapest capacity first.
             water_value = marginal_value.value_at(t)

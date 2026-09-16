@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 """
 
 import atlas.config as cfg
-from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue
+from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue, bid_volumes
 from atlas.enums import ComplementDirection, CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
@@ -64,7 +64,9 @@ class HydraulicStep(AbstractOrderStep):
             coupling_orders = []
             for t in self.orders_time:
                 capacity = equipment.maximum_power.get_value(t)
-                volumes = equipment.bid_volumes(capacity, self.parameters.hydraulic_minimal_fragment_size)
+                volumes = bid_volumes(
+                    equipment.fragment_data, capacity, self.parameters.hydraulic_minimal_fragment_size
+                )
 
                 for k, v in volumes.items():
                     if v != 0:

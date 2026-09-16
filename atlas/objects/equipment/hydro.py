@@ -4,8 +4,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import math
-
 from pydantic import BaseModel, Field
 
 from atlas.enums import InflowFrequency
@@ -87,46 +85,4 @@ class Hydro(Equipment):
         return {
             i: FragmentData(volume=v, price=p)
             for i, (v, p) in enumerate(zip(self.fragment_volumes, self.fragment_prices, strict=True))
-        }
-
-    def bid_volumes(self, capacity: float, minimal_fragment_size: float) -> dict[int, float]:
-        """
-        Split *capacity* across the unit's fragments, dropping the ones too small to bid.
-
-        Each fragment takes its share of *capacity*; fragments landing below
-        *minimal_fragment_size* are dropped and their volume is redistributed over the
-        remaining ones, so the unit still offers its full capacity. When every fragment is
-        too small, the whole capacity is bid as the middle fragment instead.
-
-        Shared by the day-ahead and intraday order modules, which bid the same fragments.
-
-        :param capacity: Power available at the timestamp being priced
-        :type capacity: float
-        :param minimal_fragment_size: Smallest volume worth submitting as an order
-        :type minimal_fragment_size: float
-        :return: Volume per fragment category, keyed as in :attr:`fragment_data`
-        :rtype: dict[int, float]
-
-        :example:
-
-        With ``fragment_volumes = [0.05, 0.25, 0.7]`` and a capacity of 100 MW, a minimal
-        size of 10 MW drops the 5 MW fragment and spreads it over the other two::
-
-            {1: 26.3, 2: 73.7}
-
-        Raising the minimal size above 70 MW drops them all, leaving ``{1: 100}``.
-        """
-        volumes = {category: capacity * fragment.volume for category, fragment in self.fragment_data.items()}
-        dropped = {category for category, volume in volumes.items() if volume < minimal_fragment_size}
-
-        if sum(volumes[category] for category in dropped) <= 0:
-            return volumes
-
-        kept_capacity = sum(volume for category, volume in volumes.items() if category not in dropped)
-        if kept_capacity == 0:
-            return {math.ceil(len(volumes) / 2): capacity}
-        return {
-            category: capacity * volume / kept_capacity
-            for category, volume in volumes.items()
-            if category not in dropped
         }
