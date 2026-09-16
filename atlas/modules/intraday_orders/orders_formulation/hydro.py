@@ -48,40 +48,24 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
             volume_prices = [(v, water_value + equipment.fragment_data[k].price) for k, v in volumes.items()]
             volume_prices.sort(key=lambda x: x[1])
 
-            # Walk through fragments from cheapest to most expensive.
-            # remaining_engagement tracks how much of the cleared engagement is still "above" us:
-            # > 0 → still within the buy zone (need to acquire more than we've sold)
-            # straddling 0 → this fragment crosses the engagement boundary (split buy/sell)
-            # < 0 → past the engagement boundary (into the sell zone)
+            # Walk the fragments cheapest first: the cleared engagement is bought back before
+            # anything is sold, so each fragment is split where the engagement runs out.
+            # A fragment entirely inside the engagement is all buy, one entirely past it all
+            # sell; _build_offer drops the empty side.
             remaining_engagement = cleared_engagement.get_value(t)
 
             for fragment_idx, (volume, price) in enumerate(volume_prices, start=1):
+                buy_volume = min(volume, max(remaining_engagement, 0.0))
                 remaining_engagement -= volume
 
-                if remaining_engagement > 0:
-                    order = self._build_offer(volume, price, OrderType.Buy, equipment, t, fragment_idx, parameters)
+                for frag_volume, frag_type in ((buy_volume, OrderType.Buy), (volume - buy_volume, OrderType.Sell)):
+                    order = self._build_offer(frag_volume, price, frag_type, equipment, t, fragment_idx, parameters)
                     if order is not None:
                         orders.append(order)
-                        buy_values[i] += abs(volume)
-
-                elif remaining_engagement < 0 and abs(remaining_engagement) < volume:
-                    # Fragment straddles the engagement boundary: split into buy and sell parts.
-                    buy_volume = volume + remaining_engagement
-                    sell_volume = abs(remaining_engagement)
-                    for frag_volume, frag_type in ((buy_volume, OrderType.Buy), (sell_volume, OrderType.Sell)):
-                        order = self._build_offer(frag_volume, price, frag_type, equipment, t, fragment_idx, parameters)
-                        if order is not None:
-                            orders.append(order)
-                            if frag_type == OrderType.Buy:
-                                buy_values[i] += abs(frag_volume)
-                            else:
-                                sell_values[i] += abs(frag_volume)
-
-                elif remaining_engagement < 0 and abs(remaining_engagement) > volume:
-                    order = self._build_offer(volume, price, OrderType.Sell, equipment, t, fragment_idx, parameters)
-                    if order is not None:
-                        orders.append(order)
-                        sell_values[i] += abs(volume)
+                        if frag_type == OrderType.Buy:
+                            buy_values[i] += frag_volume
+                        else:
+                            sell_values[i] += frag_volume
 
         sell_submitted_volume = Timeseries.from_index(
             parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, sell_values
