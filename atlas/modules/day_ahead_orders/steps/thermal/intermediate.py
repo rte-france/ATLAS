@@ -20,8 +20,8 @@ from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCou
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.steps.thermal.constraint_builder import ThermalConstraintBuilder
+from atlas.modules.day_ahead_orders.steps.thermal.orders import ThermalUnitOrders
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_optimization_model import ThermalOptimizationModel
-from atlas.modules.day_ahead_orders.steps.thermal.thermal_unit_orders import ThermalUnitOrders
 from atlas.objects.equipment.thermal import Thermal
 from atlas.solver.models import SolverOptions
 
