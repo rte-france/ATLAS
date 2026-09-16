@@ -740,3 +740,21 @@ class TestThermalDispatchFormulationFixes:
         assert f"eviction_constraint_{time}_{eq.name}" in model.constraints
         # the evicted turned_off is inside the window, so the row really couples the two
         assert f"t_off_{eq.name}_{evicted_at}" in model.variables
+
+    def test_down_to_stop_tracks_the_transition_into_stop(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model
+    ):
+        """Without a startup ramp the auxiliary still means "entered STOP from ON_DOWN"."""
+        eq, _, window = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            parameters,
+            model,
+            shutdown_duration=pendulum.duration(hours=2),
+        )
+        time = window[1]
+
+        assert f"down_to_stop_evol_1_{time}_{eq.name}" in model.constraints
+        assert f"t_stop_evol_1_{time}_{eq.name}" not in model.constraints

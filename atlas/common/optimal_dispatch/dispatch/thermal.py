@@ -803,19 +803,20 @@ class ThermalDispatch:
         model.add_constraint(d >= aux_d - max_p * (1 - on_down), f"D_evol_4_{time}_{n}")
 
     def _add_down_to_stop_evol(self, model: OptimisationModel, time: DateTime, prev_time: DateTime) -> None:
+        """
+        Define ``down_to_stop_grad`` as the ON_DOWN → STOP transition at *time*.
+
+        The gradient constraints lean on it to release the extra downward slope the unit
+        needs on the step where it leaves ON_DOWN and enters its shutdown ramp, so the
+        auxiliary must track exactly that event: ``stop(t) AND on_down(t-1)``.
+        """
         n = self._eq.name
         dts = self.down_to_stop_grad.get_value(time)
-        on_down = self.on_down_var.get_value(time)
+        stop = self.stop_var.get_value(time)
         on_down_prev = self.on_down_var.get_value(prev_time)
-        if self._has_start:
-            stop = self.stop_var.get_value(time)
-            model.add_constraint(dts <= stop, f"down_to_stop_evol_1_{time}_{n}")
-            model.add_constraint(dts <= on_down_prev, f"down_to_stop_evol_2_{time}_{n}")
-            model.add_constraint(dts >= stop + on_down_prev - 1, f"down_to_stop_evol_3_{time}_{n}")
-        else:
-            model.add_constraint(dts <= 1 - on_down_prev, f"t_stop_evol_1_{time}_{n}")
-            model.add_constraint(dts <= on_down, f"t_stop_evol_2_{time}_{n}")
-            model.add_constraint(dts >= on_down - on_down_prev, f"t_stop_evol_3_{time}_{n}")
+        model.add_constraint(dts <= stop, f"down_to_stop_evol_1_{time}_{n}")
+        model.add_constraint(dts <= on_down_prev, f"down_to_stop_evol_2_{time}_{n}")
+        model.add_constraint(dts >= stop + on_down_prev - 1, f"down_to_stop_evol_3_{time}_{n}")
 
     def _add_mutual_exclusion(self, model: OptimisationModel, time: DateTime) -> None:
         n = self._eq.name
