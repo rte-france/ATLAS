@@ -386,7 +386,7 @@ def deduplicate_names(names: Sequence[str]) -> list[str]:
             candidate = name
         else:
             seen[name] = seen.get(name, 0) + 1
-            candidate = f"{name}_{counts[name] - 1}"
+            candidate = f"{name}_{seen[name]}"
             if candidate in counts:
                 raise ValueError(
                     f"Cannot deduplicate name {name!r}: the generated name "
