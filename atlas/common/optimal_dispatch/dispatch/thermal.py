@@ -856,10 +856,9 @@ class ThermalDispatch:
         entered_up_prev = self.entered_up_var.get_value(prev_time)
         entered_down_prev = self.entered_down_var.get_value(prev_time)
 
-        if self._has_stop and self._has_start:
-            model.add_constraint(stable_prev <= on_flat_prev2, f"stable_evol_1_{prev_time}_{n}")
-        else:
-            model.add_constraint(stable_prev <= 1 - on_flat_prev2, f"stable_evol_1_{prev_time}_{n}")
+        # stable marks the step the unit *enters* the flat state, so it is barred whenever
+        # the unit was already flat — same definition as inside the window
+        model.add_constraint(stable_prev <= 1 - on_flat_prev2, f"stable_evol_1_{prev_time}_{n}")
         model.add_constraint(stable_prev <= on_flat_prev, f"stable_evol_2_{prev_time}_{n}")
         model.add_constraint(stable_prev >= on_flat_prev - on_flat_prev2, f"stable_evol_3_{prev_time}_{n}")
 

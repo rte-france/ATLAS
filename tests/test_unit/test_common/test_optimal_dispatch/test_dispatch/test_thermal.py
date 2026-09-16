@@ -783,3 +783,24 @@ class TestThermalDispatchFormulationFixes:
 
         assert bounds.ub() == 900.0
         assert bounds.lb() == -900.0
+
+    def test_stable_is_barred_when_the_unit_was_already_flat(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model
+    ):
+        """At the boundary, stable is bounded by 1 - on_flat(t-2), as it is inside the window."""
+        eq, _, _ = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            parameters,
+            model,
+            startup_duration=pendulum.duration(hours=2),
+            shutdown_duration=pendulum.duration(hours=2),
+            minimum_stable_power_duration=pendulum.duration(hours=3),
+        )
+        previous = parameters.temporal.start_date - parameters.temporal.timestep
+
+        # the unit enters the window offline, so on_flat(t-2) is 0 and the row leaves
+        # stable free; bounding it by on_flat(t-2) instead would pin it to 0
+        assert model.get_constraint(f"stable_evol_1_{previous}_{eq.name}").ub() == 1
