@@ -758,3 +758,28 @@ class TestThermalDispatchFormulationFixes:
 
         assert f"down_to_stop_evol_1_{time}_{eq.name}" in model.constraints
         assert f"t_stop_evol_1_{time}_{eq.name}" not in model.constraints
+
+    def test_gradient_auxiliary_bounds_span_the_whole_series(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model, start_date, timestep
+    ):
+        """The gradient bound must cover every power step, including outside the delivery window."""
+        varying_power = Timeseries.from_index(
+            start_date=start_date.subtract(days=1),
+            frequency=timestep,
+            end_date=start_date.add(days=2),
+            default_value=200.0,
+        )
+        varying_power.set_value(start_date.add(days=1), 900.0)
+        eq, dispatch, window = self._build(
+            node,
+            portfolio,
+            varying_power,
+            min_power_ts,
+            parameters,
+            model,
+            minimum_stable_power_duration=pendulum.duration(hours=3),
+        )
+        bounds = model.get_variable(f"up_grad_{window[0]}_{eq.name}")
+
+        assert bounds.ub() == 900.0
+        assert bounds.lb() == -900.0
