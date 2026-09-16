@@ -7,6 +7,8 @@ This file is part of the ATLAS project.
 
 import copy
 import re
+from collections import Counter
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -365,3 +367,31 @@ def deep_update(base: dict, updates: dict, override: bool, inplace: bool = True)
         elif override or key not in base:
             base[key] = copy.copy(value)
     return base
+
+
+def deduplicate_names(names: Sequence[str]) -> list[str]:
+    """
+    Return a new list where every name that occurs more than once in `names` gets
+    a numeric suffix ('_1', '_2', ...) in order of appearance. Names that are
+    unique across the whole sequence are returned unchanged.
+
+    :param names: raw names, in the order they were introduced.
+    :return: a new list, same length and order as `names`.
+    """
+    counts = Counter(names)
+    seen: dict[str, int] = {}
+    resolved: list[str] = []
+    for name in names:
+        if counts[name] == 1:
+            candidate = name
+        else:
+            seen[name] = seen.get(name, 0) + 1
+            candidate = f"{name}_{seen[name]}"
+            if candidate in counts:
+                raise ValueError(
+                    f"Cannot deduplicate name {name!r}: the generated name "
+                    f"{candidate!r} already exists among the provided names. "
+                    "Rename one of the conflicting items explicitly."
+                )
+        resolved.append(candidate)
+    return resolved
