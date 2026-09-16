@@ -40,9 +40,7 @@ class ActionPlanParameters(AbstractOrchestratorParameters):
 
     @model_validator(mode="after")
     def deduplicate_task_names(self) -> ActionPlanParameters:
-        for task, name in zip(
-            self.tasks, deduplicate_names([t.name or "unnamed_task" for t in self.tasks]), strict=True
-        ):
+        for task, name in zip(self.tasks, deduplicate_names([t.name for t in self.tasks]), strict=True):
             task.name = name
         return self
 
@@ -72,7 +70,7 @@ class Task(BaseModel, ABC):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    name: str | None = None
+    name: str
     priority: int = 0
     from_: DateTime = Field(validation_alias=AliasChoices("from", "from_"))
     until: DateTime
@@ -168,11 +166,16 @@ class TaskModule(Task):
                 raise ValueError(f"Module parameters file not found at {v}")
         return v
 
-    @model_validator(mode="after")
-    def default_name(self) -> TaskModule:
-        if self.name is None and self.module is not None:
-            self.name = self.module.name
-        return self
+    @model_validator(mode="before")
+    @classmethod
+    def default_name(cls, data: Any) -> Any:
+        if isinstance(data, dict) and not data.get("name"):
+            data = {**data, "name": cls._compute_default_name(data)}
+        return data
+
+    @staticmethod
+    def _compute_default_name(data: dict) -> str:
+        return str(data.get("module", "unnamed"))
 
 
 class TaskWorkflow(Task):
@@ -200,13 +203,21 @@ class TaskWorkflow(Task):
                 raise ValueError(f"Workflow parameters file not found at {Path(v)}")
         return v
 
-    @model_validator(mode="after")
-    def default_name(self) -> TaskWorkflow:
-        if self.name is None:
-            if isinstance(self.workflow, Workflow):
-                self.name = self.workflow.parameters.name
-            elif isinstance(self.workflow, dict) and "name" in self.workflow:
-                self.name = self.workflow["name"]
-            elif isinstance(self.workflow, Path):
-                self.name = Path(self.workflow).stem
-        return self
+    @model_validator(mode="before")
+    @classmethod
+    def default_name(cls, data: Any) -> Any:
+        if isinstance(data, dict) and not data.get("name"):
+            data = {**data, "name": cls._compute_default_name(data)}
+        return data
+
+    @staticmethod
+    def _compute_default_name(data: dict) -> str:
+        workflow = data.get("workflow", None)
+        if isinstance(workflow, Workflow):
+            return str(workflow.parameters.name)
+        elif isinstance(workflow, dict):
+            return str(workflow.get("name", "unnamed"))
+        elif isinstance(workflow, Path):
+            return Path(workflow).stem
+        else:
+            return "unnamed"

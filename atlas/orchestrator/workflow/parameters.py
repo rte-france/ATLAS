@@ -22,9 +22,7 @@ class WorkflowParameters(AbstractOrchestratorParameters):
 
     @model_validator(mode="after")
     def deduplicate_step_names(self) -> WorkflowParameters:
-        for step, name in zip(
-            self.steps, deduplicate_names([t.name or "unnamed_task" for t in self.steps]), strict=True
-        ):
+        for step, name in zip(self.steps, deduplicate_names([t.name for t in self.steps]), strict=True):
             step.name = name
         return self
 
@@ -38,7 +36,7 @@ class Step(BaseModel):
     :type parameters: Path | dict
     """
 
-    name: str | None = None
+    name: str
     module: ModuleRegistry
     parameters: Path | dict[str, Any]
 
@@ -56,8 +54,13 @@ class Step(BaseModel):
             raise ValueError(f"Workflow parameters file not found at {v}")
         return v
 
-    @model_validator(mode="after")
-    def set_default_name(self) -> Step:
-        if self.name is None:
-            self.name = self.module.name
-        return self
+    @model_validator(mode="before")
+    @classmethod
+    def default_name(cls, data: Any) -> Any:
+        if isinstance(data, dict) and not data.get("name"):
+            data = {**data, "name": cls._compute_default_name(data)}
+        return data
+
+    @staticmethod
+    def _compute_default_name(data: dict) -> str:
+        return str(data.get("module", "unnamed"))
