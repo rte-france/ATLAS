@@ -24,7 +24,7 @@ from atlas.io_utils.utils import deduplicate_names
 from atlas.orchestrator.hook.hook import Hook
 from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.orchestrator.workflow.workflow import Workflow
-from atlas.validators import DurationField
+from atlas.validators import DurationField, UniqueNamedList
 
 
 class ActionPlanParameters(AbstractOrchestratorParameters):
@@ -35,7 +35,7 @@ class ActionPlanParameters(AbstractOrchestratorParameters):
     :type hooks: list[Hook]
     """
 
-    tasks: list[TaskModule | TaskWorkflow]
+    tasks: UniqueNamedList[TaskModule | TaskWorkflow]
     hooks: list[Hook] = []
 
     @model_validator(mode="after")

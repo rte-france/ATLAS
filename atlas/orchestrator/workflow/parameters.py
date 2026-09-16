@@ -13,18 +13,12 @@ from typing import Any
 from pydantic import BaseModel, field_validator, model_validator
 
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
-from atlas.io_utils.utils import deduplicate_names
 from atlas.orchestrator.module_registry import ModuleRegistry
+from atlas.validators import UniqueNamedList
 
 
 class WorkflowParameters(AbstractOrchestratorParameters):
-    steps: list[Step]
-
-    @model_validator(mode="after")
-    def deduplicate_step_names(self) -> WorkflowParameters:
-        for step, name in zip(self.steps, deduplicate_names([t.name for t in self.steps]), strict=True):
-            step.name = name
-        return self
+    steps: UniqueNamedList[Step]
 
 
 class Step(BaseModel):
