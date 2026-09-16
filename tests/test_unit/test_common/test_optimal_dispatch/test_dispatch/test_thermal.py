@@ -804,3 +804,23 @@ class TestThermalDispatchFormulationFixes:
         # the unit enters the window offline, so on_flat(t-2) is 0 and the row leaves
         # stable free; bounding it by on_flat(t-2) instead would pin it to 0
         assert model.get_constraint(f"stable_evol_1_{previous}_{eq.name}").ub() == 1
+
+    def test_minimum_time_on_covers_the_step_before_the_window(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model
+    ):
+        """A stable unit puts the previous step in the model, so it has to constrain it."""
+        eq, _, _ = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            parameters,
+            model,
+            minimum_stable_power_duration=pendulum.duration(hours=3),
+        )
+        previous = parameters.temporal.start_date - parameters.temporal.timestep
+
+        assert any(
+            name.startswith(f"minimum_time_on_{eq.name}_") and name.endswith(str(previous))
+            for name in model.constraints
+        )

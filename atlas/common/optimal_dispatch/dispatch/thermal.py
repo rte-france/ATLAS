@@ -1012,7 +1012,9 @@ class ThermalDispatch:
                     self.turned_on.get_value(local_time) <= on_expr,
                     f"minimum_time_on_{n}_{local_time}_{time}",
                 )
-            if self._has_flat and (self._has_stop or self._has_start) and time == start_date:
+            # the stable phase puts the unit's state one step before the window inside the
+            # model, so the minimum-on window anchored on that step has to be enforced too
+            if self._has_flat and time == start_date:
                 prev_time = time - ts
                 on_expr_prev = (
                     self.on_up_var.get_value(prev_time)
@@ -1042,7 +1044,7 @@ class ThermalDispatch:
                     self.stable_var.get_value(local_time) <= on_flat,
                     f"minimum_time_stable_{n}_{local_time}_{time}",
                 )
-            if (self._has_stop or self._has_start) and time == start_date:
+            if time == start_date:
                 prev_time = time - ts
                 on_flat_prev = self.on_flat_var.get_value(prev_time)
                 # suffix with prev_time, never `time`: this loop shifts local_time one step
