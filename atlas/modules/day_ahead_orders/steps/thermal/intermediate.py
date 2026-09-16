@@ -10,7 +10,7 @@ import itertools
 import polars as pl
 from pendulum import DateTime
 
-from atlas.enums import CouplingType
+from atlas.enums import CouplingType, ThermalOrderState
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
@@ -143,11 +143,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         Computes the sequence of states on a single time frame for the intermediate load unit passed as input.
         It computes the state sequence for a given case (i.e. price scenario)
 
-        The encoding of the states is the following:
-        - 0 if the unit is offline at t
-        - 1 if the unit is online at t
-        - 2 if the unit is in its start up phase at t
-        - 3 if the unit is in its shutdown phase at t
+        The states are encoded with :class:`~atlas.enums.ThermalOrderState`.
 
         Which conditional states exist is read off the result itself: ``start``, ``stop`` and
         ``on_flat`` are only set when the unit has the corresponding phase.
@@ -157,21 +153,17 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         :return: a timeSeries object encoding the states at each time t.
         :rtype: Timeseries
         """
-        # Since states are mutually exclusive, we need to sum them in order to collapse them on a single time series.
+        # The states are mutually exclusive, so weighting each indicator by its code and
+        # summing them collapses the lot onto a single series. OFF contributes nothing —
+        # which is what its code says — but it carries the index of the whole time frame.
+        states_sequence = result.off * ThermalOrderState.OFF + (result.on_up + result.on_down) * ThermalOrderState.ON
 
-        # Baseline : the unit is OFF or ON_UP (or ON_DOWN)
-        # Multiply OFF by 0 because this state is encoded as 0 in the states_sequence
-        states_sequence = result.off * 0.0 + result.on_up + result.on_down
-
-        # Now add the conditional states if relevant :
         if result.on_flat is not None:
-            states_sequence += result.on_flat
+            states_sequence += result.on_flat * ThermalOrderState.ON
         if result.start is not None:
-            # Encoded as 2 in states_sequence.
-            states_sequence += result.start * 2.0
+            states_sequence += result.start * ThermalOrderState.STARTUP
         if result.stop is not None:
-            # Encoded as 3 in states_sequence
-            states_sequence += result.stop * 3.0
+            states_sequence += result.stop * ThermalOrderState.SHUTDOWN
 
         return states_sequence
 
