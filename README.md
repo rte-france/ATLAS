@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/logo.svg" alt="ATLAS" />
+<img src="docs/assets/logo_full.png" alt="ATLAS" width="253.2" height="103.6"/>
 
 [![CI](https://github.com/rte-france/ATLAS/actions/workflows/test.yml/badge.svg)](https://github.com/rte-france/ATLAS/actions)
 [![codecov](https://codecov.io/gh/rte-france/ATLAS/branch/main/graph/badge.svg)](https://codecov.io/gh/rte-france/ATLAS)
@@ -186,7 +186,7 @@ uv run atlas workflow run tests/dataset/parameters/intraday/workflow.yml
 
 ## Documentation
 
-Full documentation: [rte-atlas.readthedocs.io](https://rte-atlas.readthedocs.io)
+Full documentation: [atlas-model.readthedocs.io](https://atlas-model.readthedocs.io)
 
 ## Contributing
 

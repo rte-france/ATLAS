@@ -324,7 +324,8 @@ class TestStorageDispatchCycleBalanceSolved:
     Solve the LP to check the *content* of the cycle balance constraint.
 
     The displacement term and the timestep scaling are both invisible to name-only
-    assertions, yet a mistake in either silently contradicts the level evolution.
+    assertions, and a mistake in either leaves the model solvable — it moves the solution
+    instead of failing, so these tests read the solved values back.
     """
 
     def _pin_and_solve(self, dispatch, model, time_window, pinned_sell: dict, pinned_buy: dict) -> None:
@@ -356,8 +357,8 @@ class TestStorageDispatchCycleBalanceSolved:
         buy = model.get_variable(f"{battery_equipment.name}_power_level_buy_{time_window[0]}").solution_value()
         assert buy == pytest.approx(-10.0 / 0.9)
 
-    def test_displacement_delta_offsets_the_balance(self, ev_equipment, model, parameters, start_date, timestep):
-        """A driving vehicle breaks the plain charge == discharge equality by Δdisplacement."""
+    def test_displacement_delta_must_be_bought_back(self, ev_equipment, model, parameters, start_date, timestep):
+        """A driving vehicle must charge Δdisplacement *more* than it discharged."""
         ev_equipment.displacement_energy = Timeseries.from_index(
             start_date=start_date.subtract(days=1),
             frequency=timestep,
@@ -377,18 +378,18 @@ class TestStorageDispatchCycleBalanceSolved:
             d,
             model,
             time_window,
-            pinned_sell={time_window[1]: 0.0},
-            pinned_buy=dict.fromkeys(time_window, 0.0),
+            pinned_sell=dict.fromkeys(time_window, 0.0),
+            pinned_buy={time_window[1]: 0.0},
         )
 
-        # Σ sell / discharge_efficiency (= 1.0) must absorb the +10 MWh displacement delta
-        sell = model.get_variable(f"{ev_equipment.name}_power_level_sell_{time_window[0]}").solution_value()
-        assert sell == pytest.approx(10.0)
+        # nothing was sold, so Σ (−buy) × charge_efficiency must supply the +10 MWh driven
+        buy = model.get_variable(f"{ev_equipment.name}_power_level_buy_{time_window[0]}").solution_value()
+        assert buy == pytest.approx(-10.0 / 0.95)
 
     def test_displacement_delta_is_energy_not_power(self, ev_half_hourly, model, half_hourly_parameters, start_date):
         """
         Power sums scale with the timestep, the displacement delta does not — on a 30 min
-        timestep, absorbing 10 MWh needs 20 MW, not 10 MW.
+        timestep, paying back 10 MWh needs twice the power it would on an hourly one.
         """
         d = StorageDispatch(ev_half_hourly)
         d.setup(model, half_hourly_parameters)
@@ -401,12 +402,44 @@ class TestStorageDispatchCycleBalanceSolved:
             d,
             model,
             time_window,
-            pinned_sell={time_window[1]: 0.0},
-            pinned_buy=dict.fromkeys(time_window, 0.0),
+            pinned_sell=dict.fromkeys(time_window, 0.0),
+            pinned_buy={time_window[1]: 0.0},
         )
 
-        sell = model.get_variable(f"{ev_half_hourly.name}_power_level_sell_{time_window[0]}").solution_value()
-        assert sell == pytest.approx(20.0)
+        buy = model.get_variable(f"{ev_half_hourly.name}_power_level_buy_{time_window[0]}").solution_value()
+        assert buy == pytest.approx(-20.0 / 0.95)
+
+    def test_level_returns_to_initial_stock_when_driving(self, ev_equipment, model, parameters, start_date, timestep):
+        """
+        The invariant the cycle balance exists for, checked against the level evolution it
+        has to agree with.
+
+        Both constraints carry a displacement term, and a sign disagreement between them is
+        invisible to either one taken alone: the model still solves, it just parks the unit
+        ``2 × Δdisplacement`` away from where it started.
+        """
+        ev_equipment.displacement_energy = Timeseries.from_index(
+            start_date=start_date.subtract(days=1),
+            frequency=timestep,
+            end_date=start_date.add(days=1),
+            default_value=0.0,
+        )
+        ev_equipment.displacement_energy.set_value(start_date.add(hours=1), 10.0)
+
+        d = StorageDispatch(ev_equipment)
+        d.setup(model, parameters)
+        time_window = [start_date.add(hours=h) for h in range(2)]
+        for t in time_window:
+            d.add_variables(t)
+        for t in time_window:
+            d.add_storage_level_evolution(model, t, parameters)
+
+        d.add_cycle_balance_constraint(model, time_window, parameters)
+        self._pin_and_solve(d, model, time_window, pinned_sell={}, pinned_buy={})
+
+        # storage_initial_level (0.3) × maximum_energy (100)
+        stored = model.get_variable(f"{ev_equipment.name}_stored_energy_{time_window[-1]}").solution_value()
+        assert stored == pytest.approx(30.0)
 
 
 class TestStorageDispatchConstraints:
