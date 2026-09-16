@@ -9,6 +9,7 @@ Unit tests for Orchestrator.
 
 import heapq
 from unittest.mock import MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -167,7 +168,7 @@ class TestOrchestratorExecute:
 
     def test_execute_save_last_step_output(self, tmp_path, orchestrator_builder):
         mock_output = MockOutPutBuilder().build()
-        mock_output.name = "mock_output"
+        mock_output.marker = str(uuid4())
         job1 = MockJobBuilder().with_name("job1").build()
         job2 = MockJobBuilder().with_name("job2").with_output(mock_output).build()
         orchestrator = orchestrator_builder(tmp_path, [job1, job2])
@@ -188,4 +189,6 @@ class TestOrchestratorExecute:
 
             orchestrator.execute()
 
-        assert orchestrator.get_output_dataset().name is mock_output.name
+        result = orchestrator.get_output_dataset()
+        assert result is not None
+        assert result.marker == mock_output.marker
