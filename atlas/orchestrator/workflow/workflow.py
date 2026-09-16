@@ -33,6 +33,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         """
         super().__init__(parameters)
         self._steps: list[Step] = []
+        self._resolved_parameters: list[AbstractModuleParameters] = []
         for step in self.parameters.steps:
             self.add_step(step)
 
@@ -43,9 +44,8 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
         :return: The list of WorkflowJob instances.
         """
-        for step in self._steps:
-            parameters = self._resolve_parameters(step)
-            parameters.output.output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
+        for step, resolved_parameter in zip(self._steps, self._resolved_parameters, strict=True):
+            parameters = resolved_parameter.model_copy()
             yield WorkflowJob(f"{step.name!r}", step.module.value, parameters)
 
     @property
@@ -67,8 +67,13 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
     def _add_one_step(self, step: Step, prefix_job_name: str | None = None) -> None:
         """Add a single step to the end of the workflow, add the prefix given and build parameters."""
         step.name = f"{prefix_job_name} {step.name}" if prefix_job_name else step.name
+        try:
+            resolved_parameter = self._resolve_parameters(step)
+        except Exception as exc:
+            raise ValueError(f"Step {step.name!r}: unable to resolve parameters ({exc})") from exc
+        resolved_parameter.output.output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
         self._steps.append(step)
-        self._resolve_parameters(step) # make sure we can resolve the parameter
+        self._resolved_parameters.append(resolved_parameter)
 
     def _resolve_parameters(self, step: Step) -> AbstractModuleParameters:
         """Resolve a step's parameters against the workflow's context."""
