@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 import warnings
-from abc import ABC
+from abc import ABC, abstractmethod
 from math import gcd
 from pathlib import Path
 from typing import Any
@@ -20,7 +20,6 @@ from pydantic_extra_types.pendulum_dt import DateTime
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.custom_errors import DataQualityWarning
-from atlas.io_utils.utils import deduplicate_names
 from atlas.orchestrator.hook.hook import Hook
 from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.orchestrator.workflow.workflow import Workflow
@@ -37,12 +36,6 @@ class ActionPlanParameters(AbstractOrchestratorParameters):
 
     tasks: UniqueNamedList[TaskModule | TaskWorkflow]
     hooks: list[Hook] = []
-
-    @model_validator(mode="after")
-    def deduplicate_task_names(self) -> ActionPlanParameters:
-        for task, name in zip(self.tasks, deduplicate_names([t.name for t in self.tasks]), strict=True):
-            task.name = name
-        return self
 
     @model_validator(mode="after")
     def concurrent_tasks(self) -> ActionPlanParameters:
@@ -135,6 +128,18 @@ class Task(BaseModel, ABC):
             )
         return self
 
+    @model_validator(mode="before")
+    @classmethod
+    def default_name(cls, data: Any) -> Any:
+        if isinstance(data, dict) and not data.get("name"):
+            data = {**data, "name": cls._compute_default_name(data)}
+        return data
+
+    @staticmethod
+    @abstractmethod
+    def _compute_default_name(data: dict) -> str:
+        pass
+
 
 class TaskModule(Task):
     """Definition of a single task that run a module
@@ -166,13 +171,6 @@ class TaskModule(Task):
                 raise ValueError(f"Module parameters file not found at {v}")
         return v
 
-    @model_validator(mode="before")
-    @classmethod
-    def default_name(cls, data: Any) -> Any:
-        if isinstance(data, dict) and not data.get("name"):
-            data = {**data, "name": cls._compute_default_name(data)}
-        return data
-
     @staticmethod
     def _compute_default_name(data: dict) -> str:
         return str(data.get("module", "unnamed"))
@@ -202,13 +200,6 @@ class TaskWorkflow(Task):
             if isinstance(v, (Path, str)) and Path(v).is_absolute() and not Path(v).exists():
                 raise ValueError(f"Workflow parameters file not found at {Path(v)}")
         return v
-
-    @model_validator(mode="before")
-    @classmethod
-    def default_name(cls, data: Any) -> Any:
-        if isinstance(data, dict) and not data.get("name"):
-            data = {**data, "name": cls._compute_default_name(data)}
-        return data
 
     @staticmethod
     def _compute_default_name(data: dict) -> str:
