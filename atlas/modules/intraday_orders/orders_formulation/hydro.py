@@ -5,9 +5,9 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import pendulum
 from pendulum import DateTime
 
+from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue
 from atlas.enums import OrderType
 from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_orders.input_objects.hydro import HydroIDO
@@ -35,40 +35,11 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
         # Fragments are sorted by price at formulation time so the cheapest capacity is offered first.
         fragment_specs = list(zip(equipment.fragment_volumes, equipment.fragment_prices, strict=True))
 
-        # Determine the current reservoir energy level to interpolate the marginal value curve.
-        forecast_horizon: DateTime = parameters.temporal.start_date - parameters.temporal.timestep
-        if equipment.stored_energy is not None:
-            energy_forecast = equipment.stored_energy.get_forecast(
-                parameters.temporal.execution_date,
-                forecast_horizon,
-                forecast_horizon,
-            )
-            energy_level = (
-                energy_forecast.get_value(forecast_horizon)
-                if len(energy_forecast) > 0
-                else equipment.initial_level.get_value(parameters.temporal.start_date)
-            )
-        else:
-            energy_level = equipment.initial_level.get_value(parameters.temporal.start_date)
-
-        # Find the two marginal-value curve points bracketing the current energy level
-        # for linear interpolation of the water value.
-        levels_below = [x for x in equipment.storage_marginal_value.index if int(x) <= energy_level]
-        levels_above = [x for x in equipment.storage_marginal_value.index if int(x) > energy_level]
-
-        if levels_below:
-            level_inf = max(levels_below, key=lambda x: int(x))
-            marginal_value_lower = equipment.storage_marginal_value.select(level_inf).upsample(
-                frequency=pendulum.Duration(hours=1)
-            )
-        if levels_above:
-            level_sup = min(levels_above, key=lambda x: int(x))
-            marginal_value_upper = equipment.storage_marginal_value.select(level_sup).upsample(
-                frequency=pendulum.Duration(hours=1)
-            )
-        if levels_below and levels_above:
-            weight_lower = (int(level_sup) - energy_level) / (int(level_sup) - int(level_inf))
-            weight_upper = (energy_level - int(level_inf)) / (int(level_sup) - int(level_inf))
+        marginal_value = InterpolatedMarginalValue.for_unit(
+            equipment,
+            parameters.temporal.execution_date,
+            parameters.temporal.start_date - parameters.temporal.timestep,
+        )
 
         cleared_engagement = engaged_quantity(equipment, parameters)
 
@@ -85,20 +56,8 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
                 reduced_capacity = sum(normal_volumes.values())
                 volumes = {k: capacity * v / reduced_capacity for k, v in normal_volumes.items()}
 
-            # Compute water value at current energy level via interpolation.
-            volume_prices = []
-            for k, v in volumes.items():
-                _, price_delta = fragment_specs[k]
-                if not levels_below:
-                    price = marginal_value_upper.get_value(t) + price_delta
-                elif not levels_above:
-                    price = marginal_value_lower.get_value(t) + price_delta
-                else:
-                    water_value = weight_lower * marginal_value_lower.get_value(
-                        t
-                    ) + weight_upper * marginal_value_upper.get_value(t)
-                    price = water_value + price_delta
-                volume_prices.append((v, price))
+            water_value = marginal_value.value_at(t)
+            volume_prices = [(v, water_value + fragment_specs[k][1]) for k, v in volumes.items()]
 
             volume_prices.sort(key=lambda x: x[1])
 
