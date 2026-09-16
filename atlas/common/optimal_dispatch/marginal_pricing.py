@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
     from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
     from atlas.math.abstract_timeseries import AbstractTimeseries
+    from atlas.objects.equipment.hydro import Hydro
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,37 @@ class InterpolatedMarginalValue:
     upper: AbstractTimeseries | None
     lower_weight: float = 0.0
     upper_weight: float = 0.0
+    energy_level: float = 0.0
+
+    @classmethod
+    def for_unit(
+        cls,
+        equipment: Hydro,
+        execution_date: DateTime,
+        initial_time: DateTime,
+        cached_forecast: AbstractTimeseries | None = None,
+    ) -> InterpolatedMarginalValue:
+        """Price *equipment*'s water at the reservoir level it is expected to start from.
+
+        The level comes from the unit's ``stored_energy`` forecast, as anticipated at
+        *execution_date*, and falls back to its ``initial_level`` when there is no forecast
+        or it does not cover *initial_time* — the timestep preceding the optimisation
+        horizon. It stays readable afterwards as :attr:`energy_level`.
+
+        Pass *cached_forecast* to reuse a forecast already fetched for the same
+        *initial_time* (portfolio optimisation prefetches one per unit); the result is
+        otherwise identical.
+        """
+        forecast = cached_forecast
+        if forecast is None and equipment.stored_energy is not None:
+            forecast = equipment.stored_energy.get_forecast(execution_date, initial_time, initial_time)
+
+        if forecast is not None and initial_time in forecast:
+            energy_level = forecast.get_value(initial_time)
+        else:
+            energy_level = equipment.initial_level.get_value(initial_time)  # type: ignore[union-attr]
+
+        return cls.at_level(equipment.storage_marginal_value, energy_level)  # type: ignore[arg-type]
 
     @classmethod
     def at_level(cls, storage_marginal_value: AbstractScenarioMatrix, energy_level: float) -> InterpolatedMarginalValue:
@@ -62,8 +94,9 @@ class InterpolatedMarginalValue:
                 upper=upper,
                 lower_weight=(int(upper_level) - energy_level) / span,
                 upper_weight=(energy_level - int(lower_level)) / span,
+                energy_level=energy_level,
             )
-        return cls(lower=lower, upper=upper)
+        return cls(lower=lower, upper=upper, energy_level=energy_level)
 
     def value_at(self, time: DateTime) -> float:
         """Marginal value at *time*, interpolated between the bracketing storage levels."""

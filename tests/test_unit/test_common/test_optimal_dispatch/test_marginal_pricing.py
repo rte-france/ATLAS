@@ -9,6 +9,8 @@ import pendulum
 from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue
 
 TIME = pendulum.datetime(2026, 1, 1, 8)
+OTHER_TIME = pendulum.datetime(2026, 1, 1, 9)
+EXECUTION_DATE = pendulum.datetime(2025, 12, 31, 12)
 
 
 class _Curve:
@@ -57,3 +59,64 @@ def test_below_table_uses_lowest_level_flat():
 def test_empty_table_is_zero():
     marginal_value = InterpolatedMarginalValue.at_level(_Matrix({}), 130)
     assert marginal_value.value_at(TIME) == 0.0
+
+
+class _Levels:
+    """Stub timeseries holding explicit values per time, so absence is observable."""
+
+    def __init__(self, values: dict) -> None:
+        self._values = values
+
+    def __contains__(self, time) -> bool:
+        return time in self._values
+
+    def get_value(self, time) -> float:
+        return self._values[time]
+
+
+class _StoredEnergy:
+    """Stub forecasting matrix recording the window it was asked for."""
+
+    def __init__(self, forecast: _Levels) -> None:
+        self.forecast = forecast
+        self.calls: list[tuple] = []
+
+    def get_forecast(self, execution_date, start, end) -> _Levels:
+        self.calls.append((execution_date, start, end))
+        return self.forecast
+
+
+class _Unit:
+    """Stub hydro unit exposing only the fields :meth:`for_unit` reads."""
+
+    def __init__(self, stored_energy, initial_level) -> None:
+        self.stored_energy = stored_energy
+        self.initial_level = initial_level
+        self.storage_marginal_value = _Matrix({"100": 45.0, "200": 25.0})
+
+
+def test_energy_level_comes_from_the_forecast():
+    stored_energy = _StoredEnergy(_Levels({TIME: 130.0}))
+    unit = _Unit(stored_energy, _Levels({TIME: 250.0}))
+    marginal_value = InterpolatedMarginalValue.for_unit(unit, EXECUTION_DATE, TIME)
+    assert marginal_value.energy_level == 130.0
+    assert marginal_value.value_at(TIME) == 39.0
+    assert stored_energy.calls == [(EXECUTION_DATE, TIME, TIME)]
+
+
+def test_energy_level_falls_back_without_stored_energy():
+    unit = _Unit(None, _Levels({TIME: 250.0}))
+    assert InterpolatedMarginalValue.for_unit(unit, EXECUTION_DATE, TIME).energy_level == 250.0
+
+
+def test_energy_level_falls_back_when_forecast_misses_the_time():
+    unit = _Unit(_StoredEnergy(_Levels({OTHER_TIME: 130.0})), _Levels({TIME: 250.0}))
+    assert InterpolatedMarginalValue.for_unit(unit, EXECUTION_DATE, TIME).energy_level == 250.0
+
+
+def test_cached_forecast_is_used_instead_of_refetching():
+    stored_energy = _StoredEnergy(_Levels({TIME: 130.0}))
+    unit = _Unit(stored_energy, _Levels({TIME: 250.0}))
+    marginal_value = InterpolatedMarginalValue.for_unit(unit, EXECUTION_DATE, TIME, _Levels({TIME: 50.0}))
+    assert marginal_value.energy_level == 50.0
+    assert stored_energy.calls == []

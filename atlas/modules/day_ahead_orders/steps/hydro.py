@@ -11,7 +11,6 @@ import atlas.config as cfg
 from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue
 from atlas.enums import ComplementDirection, CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
-from atlas.modules.day_ahead_orders.input_objects.hydro import HydroDAO
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
@@ -51,8 +50,12 @@ class HydraulicStep(AbstractOrderStep):
                 cfg.logger.debug(f"Equipment {str(equipment.name)} avoided, as its maximum_energy is 0")
                 continue
 
-            energy_level = self._get_current_energy_level(equipment)
-            marginal_value = InterpolatedMarginalValue.at_level(equipment.storage_marginal_value, energy_level)
+            marginal_value = InterpolatedMarginalValue.for_unit(
+                equipment,
+                self.parameters.temporal.execution_date,
+                self.parameters.temporal.start_date - self.parameters.temporal.timestep,
+            )
+            energy_level = marginal_value.energy_level
             minimum_energy = equipment.minimum_energy.slice(
                 self.parameters.temporal.start_date, self.parameters.temporal.end_date, "both", False
             )
@@ -125,16 +128,3 @@ class HydraulicStep(AbstractOrderStep):
                 )
 
         return result
-
-    def _get_current_energy_level(self, equipment: HydroDAO) -> float:
-        if equipment.stored_energy is not None:
-            energy_forecast = equipment.stored_energy.get_forecast(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.start_date.subtract(days=1),
-                self.parameters.temporal.start_date - self.parameters.temporal.timestep,
-            )
-            if self.parameters.temporal.start_date - self.parameters.temporal.timestep in energy_forecast:
-                return energy_forecast.get_value(
-                    self.parameters.temporal.start_date - self.parameters.temporal.timestep
-                )
-        return equipment.initial_level.get_value(self.parameters.temporal.start_date)

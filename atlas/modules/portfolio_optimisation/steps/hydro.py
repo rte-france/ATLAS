@@ -127,8 +127,12 @@ class HydroStep(AbstractOptimStep[HydroPO]):
         if price_forecasts is None:
             price_forecasts = {}
         eq = self.equipment
-        energy_level = self._get_current_energy_level(eq, parameters)
-        marginal_value = InterpolatedMarginalValue.at_level(eq.storage_marginal_value, energy_level)
+        marginal_value = InterpolatedMarginalValue.for_unit(
+            eq,
+            parameters.temporal.execution_date,
+            parameters.temporal.start_date - parameters.temporal.timestep,
+            eq._cached_energy_forecast,
+        )
 
         for time in eq.optimisation_time_window:
             cfg.logger.debug(f"Adding objective for hydro unit {eq.name} at time {time}")
@@ -149,23 +153,3 @@ class HydroStep(AbstractOptimStep[HydroPO]):
                         * parameters.temporal.timestep.total_hours()
                     )
             cfg.logger.debug(f"Finished adding objective for hydro unit {eq.name} at time {time}")
-
-    @staticmethod
-    def _get_current_energy_level(equipment: HydroPO, parameters: PortfolioOptimisationParameters) -> float:
-        """
-        Get the current energy level from forecast or initial level.
-
-        :param parameters: Optimization parameters
-        :type parameters: PortfolioOptimisationParameters
-        :return: Current energy level
-        :rtype: float
-        """
-        if (
-            equipment._cached_energy_forecast
-            and parameters.temporal.start_date - parameters.temporal.timestep in equipment._cached_energy_forecast
-        ):
-            return equipment._cached_energy_forecast.get_value(
-                parameters.temporal.start_date - parameters.temporal.timestep
-            )
-        else:
-            return equipment.initial_level.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
