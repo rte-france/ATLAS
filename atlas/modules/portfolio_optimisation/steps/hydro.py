@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import atlas.config as cfg
-from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue
+from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue, bid_volumes
 from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.steps.base import AbstractOptimStep
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
@@ -32,8 +32,11 @@ class HydroStep(AbstractOptimStep[HydroPO]):
 
             model.add_continuous_variable(name=f"{eq.name}_stored_energy_{time}", lower_bound=0, upper_bound=max_energy)
 
-            for category, fragment in eq.fragment_data.items():
-                volume = eq.maximum_power.get_value(time) * fragment.volume
+            # Only the fragments large enough to be bid get a variable, so the plan is made of
+            # the fragments the order modules will actually submit.
+            for category, volume in bid_volumes(
+                eq.fragment_data, max_power, parameters.hydraulic_minimal_fragment_size
+            ).items():
                 model.add_continuous_variable(
                     name=f"{eq.name}_power_level_frag_{category}_{time}", lower_bound=0, upper_bound=volume
                 )
@@ -79,7 +82,8 @@ class HydroStep(AbstractOptimStep[HydroPO]):
             model.add_constraint(reserves_down_var <= max_power, f"reserves_down_max_{time}_{eq.name}")
 
             power_level_fragment_sum_var = sum(
-                model.get_variable(f"{eq.name}_power_level_frag_{category}_{time}") for category in eq.fragment_data
+                model.get_variable(f"{eq.name}_power_level_frag_{category}_{time}")
+                for category in bid_volumes(eq.fragment_data, max_power, parameters.hydraulic_minimal_fragment_size)
             )
 
             if time in parameters.target_times:
@@ -138,7 +142,8 @@ class HydroStep(AbstractOptimStep[HydroPO]):
             cfg.logger.debug(f"Adding objective for hydro unit {eq.name} at time {time}")
             price_forecast = price_forecasts.get(time, 0.0)
 
-            for k in range(len(eq.fragment_data.keys())):
+            capacity = eq.maximum_power.get_value(time)
+            for k in bid_volumes(eq.fragment_data, capacity, parameters.hydraulic_minimal_fragment_size):
                 fragment_price = eq.fragment_data[k].price + marginal_value.value_at(time)
                 power_level_frag_var = model.get_variable(f"{eq.name}_power_level_frag_{k}_{time}")
 
