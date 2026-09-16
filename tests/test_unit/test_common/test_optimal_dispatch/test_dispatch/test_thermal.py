@@ -13,6 +13,7 @@ from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.common.optimal_dispatch.dispatch.thermal import ThermalDispatch
 from atlas.common.optimal_dispatch.input_objects.thermal import ThermalDispatchInput
 from atlas.io_utils.parameters import DateParameters
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market_operator.portfolio import Portfolio
@@ -841,3 +842,25 @@ class TestThermalDispatchFormulationFixes:
         )
         assert not any(name.startswith("dd_grad_") for name in model.variables)
         assert not any(name.startswith("DD_evol_") for name in model.constraints)
+
+    def test_a_running_unit_without_ramps_enters_the_window_free_to_move(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model, start_date, timestep
+    ):
+        """Both ON states are set before the window, so the first gradient is not one-sided."""
+        history = ForecastingMatrix()
+        history.add(
+            Timeseries.from_index(
+                start_date=start_date.subtract(hours=4),
+                frequency=timestep,
+                end_date=start_date - timestep,
+                default_value=200.0,
+            ),
+            parameters.temporal.execution_date,
+        )
+        eq = _make_equipment(node, portfolio, power_ts, min_power_ts, **REALISTIC_MIN_TIMES, power=history)
+        dispatch = ThermalDispatch(eq)
+        dispatch.setup(model, parameters)
+        previous = start_date - timestep
+
+        assert dispatch.on_up_var.get_extended_value(previous) == 1
+        assert dispatch.on_down_var.get_extended_value(previous) == 1

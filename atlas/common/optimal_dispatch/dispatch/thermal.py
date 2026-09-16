@@ -540,8 +540,10 @@ class ThermalDispatch:
                 if power_t > 0:
                     self.off_var.set_extended(time, 0)
                     if not self._has_flat:
+                        # a unit with no ramp phase and no stable phase enters the window
+                        # free to move either way, as in the online branch above
                         self.on_up_var.set_extended(time, 1)
-                        self.on_down_var.set_extended(time, 0)
+                        self.on_down_var.set_extended(time, 1)
                 else:
                     self.power_level_var.set_extended(time, 0)
                     self.off_var.set_extended(time, 1)
