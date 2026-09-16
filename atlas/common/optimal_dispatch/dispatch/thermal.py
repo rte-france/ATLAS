@@ -966,15 +966,17 @@ class ThermalDispatch:
     ) -> None:
         n = self._eq.name
         ts = parameters.temporal.timestep
+        # the ramp lasts exactly T_stop (resp. T_start) steps counting the one the unit
+        # turned off (resp. on) on, so it must have left the ramp state that many steps later
         if self._has_stop:
             stop = self.stop_var.get_value(time)
-            evict_stop = time - (self._T_stop - 1) * ts
+            evict_stop = time - self._T_stop * ts
             toff_evict = self.turned_off.get_value(evict_stop)
             label = "stop_eviction_constraint" if self._has_start else "eviction_constraint"
             model.add_constraint(toff_evict + stop <= 1, f"{label}_{time}_{n}")
         if self._has_start:
             start = self.on_start_var.get_value(time)
-            evict_start = time - (self._T_start - 1) * ts
+            evict_start = time - self._T_start * ts
             ton_evict = self.turned_on.get_value(evict_start)
             label = "start_eviction_constraint" if self._has_stop else "eviction_constraint"
             model.add_constraint(ton_evict + start <= 1, f"{label}_{time}_{n}")
