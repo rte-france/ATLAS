@@ -18,6 +18,11 @@ from atlas.objects.market.order_coupling import OrderCoupling
 class ThermalOrderFormulator(AbstractOrderFormulator):
     """Formulates balancing orders for thermal equipment."""
 
+    def __init__(self, equipment, target_times, parameters) -> None:
+        super().__init__(equipment, target_times, parameters)
+        self._coupling_counters: dict[CouplingType, int] = {}
+        self._upward_orders_by_time: dict[DateTime, list[Order]] = {}
+
     def formulate(self) -> tuple[list[Order], list[OrderCoupling]]:
         """
         Formulate upward and downward orders for the thermal equipment.
@@ -71,18 +76,22 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
                 order = self._formulate_case_1_order(time, next_time)
                 if order is not None:
                     orders.append(order)
+                    self._record_upward_order(time, order)
             elif startup_case == "case_2":
                 order = self._formulate_case_2_order(time, next_time)
                 if order is not None:
                     orders.append(order)
+                    self._record_upward_order(time, order)
             elif startup_case == "case_3":
                 order = self._formulate_case_3_order(time, next_time)
                 if order is not None:
                     orders.append(order)
+                    self._record_upward_order(time, order)
             else:
                 order = self._formulate_plain_upward_order(time, next_time, qmax_up)
                 if order is not None:
                     orders.append(order)
+                    self._record_upward_order(time, order)
 
             order = self._formulate_downward_order(time, next_time, qmax_down)
             if order is not None:
@@ -139,6 +148,37 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if self.equipment.startup_cost is None:
             return 0.0
         return self.equipment.startup_cost.get_value(time)
+
+    def _next_coupling_name(self, coupling_type: CouplingType, order: Order) -> str:
+        """
+        Build a sequentially-numbered coupling name for this equipment, matching the
+        legacy naming convention: '{coupling_type_label}{n}_{order.name}', where n is a
+        per-equipment, per-coupling-type counter starting at 1 and order is the order
+        being processed when the coupling is created.
+
+        :param coupling_type: The coupling type being named
+        :type coupling_type: CouplingType
+        :param order: The order whose name anchors this coupling's name
+        :type order: Order
+        :return: The generated coupling name
+        :rtype: str
+        """
+        label = coupling_type.value.lower()
+        count = self._coupling_counters.get(coupling_type, 0) + 1
+        self._coupling_counters[coupling_type] = count
+        return f"{label}{count}_{order.name}"
+
+    def _record_upward_order(self, time: DateTime, order: Order) -> None:
+        """
+        Record a formulated upward (Sell) order under its timestep, so later timesteps
+        can find it when building EXCLUSION couplings against adjacent-timestep orders.
+
+        :param time: The order's timestep
+        :type time: DateTime
+        :param order: The formulated Sell order
+        :type order: Order
+        """
+        self._upward_orders_by_time.setdefault(time, []).append(order)
 
     def _has_stable_power_before(self, time: DateTime) -> bool:
         """
@@ -573,11 +613,26 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
             return [], []
 
         coupling = OrderCoupling(
-            name=f"parent_children_{order_1.name}",
+            name=self._next_coupling_name(CouplingType.PARENT_CHILDREN, order_1),
             orders=[order_1, order_2],
             coupling_type=CouplingType.PARENT_CHILDREN,
         )
-        return [order_1, order_2], [coupling]
+        couplings: list[OrderCoupling] = [coupling]
+
+        previous_time = time.subtract(minutes=int(self._timestep_minutes))
+        for previous_order in self._upward_orders_by_time.get(previous_time, []):
+            couplings.append(
+                OrderCoupling(
+                    name=self._next_coupling_name(CouplingType.EXCLUSION, order_1),
+                    orders=[order_1, previous_order],
+                    coupling_type=CouplingType.EXCLUSION,
+                )
+            )
+
+        self._record_upward_order(time, order_1)
+        self._record_upward_order(time, order_2)
+
+        return [order_1, order_2], couplings
 
     def _classify_startup_case(
         self,
