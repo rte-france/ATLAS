@@ -824,3 +824,20 @@ class TestThermalDispatchFormulationFixes:
             name.startswith(f"minimum_time_on_{eq.name}_") and name.endswith(str(previous))
             for name in model.constraints
         )
+
+    def test_dd_variable_only_exists_with_a_shutdown_ramp(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model
+    ):
+        """A start-and-flat unit has no DD row, so it must not carry a DD variable either."""
+        eq, _, window = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            parameters,
+            model,
+            startup_duration=pendulum.duration(hours=2),
+            minimum_stable_power_duration=pendulum.duration(hours=3),
+        )
+        assert not any(name.startswith("dd_grad_") for name in model.variables)
+        assert not any(name.startswith("DD_evol_") for name in model.constraints)

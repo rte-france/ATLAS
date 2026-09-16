@@ -151,7 +151,9 @@ class ThermalDispatch:
             self.down_to_stop_grad.set_model_var(time)
         if self._T_stop >= 1 and self._T_stable >= 1:
             self.flat_down_stop.set_model_var(time)
-        if self._T_stable >= 1 and (self._T_start >= 1 or self._T_stop >= 1):
+        # dd_grad only appears in the gradient constraints of a unit that has both a stable
+        # phase and a shutdown ramp — creating it otherwise leaves a variable no row mentions
+        if self._T_stable >= 1 and self._T_stop >= 1:
             self.dd_grad_var.set_model_var(time)
         if self._T_stop >= 1 and self._T_start >= 1 and self._T_stable == 0:
             self.down_to_stop_grad.set_model_var(time)
@@ -412,7 +414,7 @@ class ThermalDispatch:
             self.stable_var.set_model_var(prev)
             self.entered_up_var.set_model_var(prev)
             self.entered_down_var.set_model_var(prev)
-        if self._T_stable >= 1 and (self._T_start >= 1 or self._T_stop >= 1):
+        if self._T_stable >= 1 and self._T_stop >= 1:
             self.dd_grad_var.set_model_var(prev)
 
     # ── Initial conditions ────────────────────────────────────────────────
