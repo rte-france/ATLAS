@@ -54,6 +54,7 @@ class _OrchestratorBuilder():
         workflow = Workflow.__new__(Workflow)
         workflow.parameters = params
         workflow._steps = [generate_step_from_job(job) for job in jobs]
+        workflow._resolved_parameters = [step.parameters.model_copy() for step in jobs]
         return workflow
 
 
