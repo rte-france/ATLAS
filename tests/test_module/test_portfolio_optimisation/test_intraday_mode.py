@@ -123,6 +123,10 @@ def _thermal_equipment() -> ThermalPO:
         maximum_fcr=0.0,
         maximum_afrr=0.0,
         maximum_power=_ts(100.0),
+        minimum_power=_ts(0.0),
+        minimum_time_on=pendulum.duration(hours=0),
+        minimum_time_off=pendulum.duration(hours=0),
+        minimum_stable_power_duration=pendulum.duration(hours=0),
         variable_cost=_ts(50.0),
     )
     portfolio.equipments.add("thermal", equipment)
@@ -176,7 +180,7 @@ class TestGetPriceForecastIntraday:
         """Times outside the optimisation window always use ``price_forecast_medium``."""
         parameters = _parameters()
 
-        assert END not in parameters.target_times
+        assert END not in parameters.portfolio_time_window
         assert _portfolio(id_price_forecast=_fm(35.0)).get_price_forecast(END, parameters) == 500.0
 
 

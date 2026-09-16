@@ -18,10 +18,17 @@ atlas/modules/portfolio_optimisation/
 ├── input_objects/                       # Equipment-specific models
 │   ├── portfolio.py                     # PortfolioPO
 │   ├── portfolio_equipments.py          # Equipment container
-│   ├── thermal/                         # Thermal models
-│   ├── hydro.py, storage.py, etc.       # Other equipment models
+│   ├── thermal.py, hydro.py, etc.       # Other equipment models
+├── steps/                               # Per-equipment LP steps (AbstractOptimStep)
+│   ├── thermal.py, storage.py, hydro.py, renewable.py, load.py, ...
+│   └── portfolio.py                     # Portfolio-level coordination step
 └── utils/                               # Utility functions
 ```
+
+The physical dispatch and reserve formulations live in `atlas/common/optimal_dispatch/` and are
+shared with the Day-Ahead Orders module: each step composes a `*Dispatch` object (variables,
+bounds, physical constraints) and a `*ReserveHandler` (reserve variables and constraints), and
+only owns what is specific to Portfolio Optimisation — mainly the objective terms.
 
 ## Core Classes
 
@@ -47,7 +54,6 @@ Converts business models to portfolio-optimisation-specific models:
 - Groups equipment by portfolio
 - Applies manual activation rules
 - Creates PO-specific models (ThermalPO, HydroPO, StoragePO, etc.)
-- Calculates optimization time windows
 
 ### **`PortfolioOptimisationModel`**
 
@@ -65,14 +71,16 @@ Processes optimization results:
 - Updates equipment `power` forecasts
 - Updates portfolio `imbalance`
 
-## Equipment Models
+## Equipment Models and Steps
 
-Each equipment type has a PO-specific model (e.g., `ThermalPO`, `HydroPO`) that implements:
+Each equipment type has a PO-specific input model (e.g., `ThermalPO`, `HydroPO`) holding the
+attributes read by the formulation, plus a `prefetch_forecasts()` method loading its forecast data.
+
+The formulation itself lives in the matching step under `steps/`, which implements:
 
 - `add_variables()`: Create decision variables
 - `add_constraints()`: Add equipment constraints
 - `add_objective()`: Add cost/revenue terms
-- `prefetch_forecasts()`: Load forecast data
 
 ## Data Flow
 

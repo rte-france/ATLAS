@@ -6,33 +6,27 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pendulum import DateTime, Duration
+from pendulum import DateTime
 
-from atlas.enums import LoadType
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.common.optimal_dispatch.input_objects.load import LoadDispatchInput
 from atlas.math.timeseries import Timeseries
-from atlas.objects.equipment.load import Load
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
-class LoadPO(Load):
-    load_type: LoadType
-    maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
-    additional_hours: Duration
-
-    optimisation_time_window: list[DateTime] = []
+class LoadPO(LoadDispatchInput):
     _cached_forecast: Timeseries | None = None
 
-    def prefetch_forecasts(self, execution_date: DateTime):
+    def prefetch_forecasts(self, execution_date: DateTime, parameters: PortfolioOptimisationParameters):
         """
         Pre-fetch and cache forecasts for the entire optimization time window.
 
         :param execution_date: Execution date for the forecast
         :type execution_date: DateTime
+        :param parameters: Portfolio optimisation parameters, used to derive this equipment's time window
+        :type parameters: PortfolioOptimisationParameters
         """
-        if not self.optimisation_time_window:
+        window = parameters.equipment_time_window(self)
+        if not window:
             return
 
-        start_time = self.optimisation_time_window[0]
-        end_time = self.optimisation_time_window[-1]
-
-        self._cached_forecast = self.maximum_power_forecast.get_forecast(execution_date, start_time, end_time)
+        self._cached_forecast = self.maximum_power_forecast.get_forecast(execution_date, window[0], window[-1])

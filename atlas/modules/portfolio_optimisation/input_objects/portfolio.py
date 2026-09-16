@@ -46,7 +46,7 @@ class PortfolioPO(Portfolio):
         execution_date = parameters.temporal.execution_date
         market = parameters.market
 
-        if time not in parameters.target_times:
+        if time not in parameters.portfolio_time_window:
             return self.market_area.price_forecast_medium.get_forecast(execution_date, time, time).get_value(time)
 
         if parameters.use_forecast:
