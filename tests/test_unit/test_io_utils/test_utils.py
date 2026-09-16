@@ -137,7 +137,8 @@ class TestDeduplicateNames:
 
     def test_unique_name_that_collides_with_a_suffixed_name_is_left_unchanged(self):
         names = ["job_test", "job_test", "job_test_1"]
-        assert deduplicate_names(names) == ["job_test_1", "job_test_2", "job_test_1"]
+        with pytest.raises(ValueError, match="job_test_1"):
+            deduplicate_names(names)
 
     def test_does_not_mutate_input_sequence(self):
         names = ["job_test", "job_test"]

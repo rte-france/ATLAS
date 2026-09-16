@@ -381,10 +381,17 @@ def deduplicate_names(names: Sequence[str]) -> list[str]:
     counts = Counter(names)
     seen: dict[str, int] = {}
     resolved: list[str] = []
-    for n in names:
-        if counts[n] > 1:
-            seen[n] = seen.get(n, 0) + 1
-            resolved.append(f"{n}_{seen[n]}")
+    for name in names:
+        if counts[name] == 1:
+            candidate = name
         else:
-            resolved.append(n)
+            seen[name] = seen.get(name, 0) + 1
+            candidate = f"{name}_{counts[name] - 1}"
+            if candidate in counts:
+                raise ValueError(
+                    f"Cannot deduplicate name {name!r}: the generated name "
+                    f"{candidate!r} already exists among the provided names. "
+                    "Rename one of the conflicting items explicitly."
+                )
+        resolved.append(candidate)
     return resolved
