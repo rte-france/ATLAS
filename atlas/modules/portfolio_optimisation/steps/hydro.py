@@ -6,12 +6,10 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
-
-from pendulum import DateTime
+from typing import TYPE_CHECKING
 
 import atlas.config as cfg
-from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue
 from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.steps.base import AbstractOptimStep
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
@@ -130,14 +128,14 @@ class HydroStep(AbstractOptimStep[HydroPO]):
             price_forecasts = {}
         eq = self.equipment
         energy_level = self._get_current_energy_level(eq, parameters)
-        marginal_weights = self._calculate_marginal_weights(eq, energy_level)
+        marginal_value = InterpolatedMarginalValue.at_level(eq.storage_marginal_value, energy_level)
 
         for time in eq.optimisation_time_window:
             cfg.logger.debug(f"Adding objective for hydro unit {eq.name} at time {time}")
             price_forecast = price_forecasts.get(time, 0.0)
 
             for k in range(len(eq.fragment_data.keys())):
-                fragment_price = self._calculate_fragment_price(eq.fragment_data[k].price, marginal_weights, time)
+                fragment_price = eq.fragment_data[k].price + marginal_value.value_at(time)
                 power_level_frag_var = model.get_variable(f"{eq.name}_power_level_frag_{k}_{time}")
 
                 if time in parameters.target_times:
@@ -171,71 +169,3 @@ class HydroStep(AbstractOptimStep[HydroPO]):
             )
         else:
             return equipment.initial_level.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
-
-    @staticmethod
-    def _calculate_marginal_weights(equipment: HydroPO, energy_level: float) -> dict:
-        """
-        Calculate marginal value weights based on current energy level.
-
-        :param energy_level: Current energy level
-        :type energy_level: float
-        :return: Dictionary containing marginal weights and related data
-        :rtype: dict
-        """
-        storage_indices = equipment.storage_marginal_value.index
-
-        x_min_candidates = [x for x in storage_indices if int(x) <= energy_level]
-        x_max_candidates = [x for x in storage_indices if int(x) > energy_level]
-
-        weights = {
-            "has_min": bool(x_min_candidates),
-            "has_max": bool(x_max_candidates),
-            "weight_inf": 0.0,
-            "weight_sup": 0.0,
-            "level_inf": None,
-            "level_sup": None,
-        }
-
-        if x_min_candidates:
-            xp_min = max(x_min_candidates, key=lambda x: int(x))
-            weights["level_inf"] = equipment.storage_marginal_value.select(xp_min)  # type: ignore[assignment]
-
-        if x_max_candidates:
-            xp_max = min(x_max_candidates, key=lambda x: int(x))
-            weights["level_sup"] = equipment.storage_marginal_value.select(xp_max)  # type: ignore[assignment]
-
-        if weights["has_min"] and weights["has_max"]:
-            range_diff = int(xp_max) - int(xp_min)
-            weights["weight_inf"] = (int(xp_max) - energy_level) / range_diff
-            weights["weight_sup"] = (energy_level - int(xp_min)) / range_diff
-
-        return weights
-
-    @staticmethod
-    def _calculate_fragment_price(fragment_price: float, marginal_weights: dict, time: DateTime) -> float:
-        """
-        Calculate the final fragment price including marginal values.
-
-        :param fragment_price: Base fragment price
-        :type fragment_price: float
-        :param marginal_weights: Marginal weights dictionary
-        :type marginal_weights: dict
-        :param time: Current time period
-        :type time: DateTime
-        :return: Final fragment price
-        :rtype: float
-        """
-        base_price = fragment_price
-
-        if not marginal_weights["has_min"] and marginal_weights["has_max"]:
-            marginal_adjustment = cast(AbstractTimeseries, marginal_weights["level_sup"]).get_value(time)
-        elif marginal_weights["has_min"] and not marginal_weights["has_max"]:
-            marginal_adjustment = cast(AbstractTimeseries, marginal_weights["level_inf"]).get_value(time)
-        elif marginal_weights["has_min"] and marginal_weights["has_max"]:
-            p_min = cast(AbstractTimeseries, marginal_weights["level_inf"]).get_value(time)
-            p_max = cast(AbstractTimeseries, marginal_weights["level_sup"]).get_value(time)
-            marginal_adjustment = marginal_weights["weight_inf"] * p_min + marginal_weights["weight_sup"] * p_max
-        else:
-            marginal_adjustment = 0.0
-
-        return base_price + marginal_adjustment
