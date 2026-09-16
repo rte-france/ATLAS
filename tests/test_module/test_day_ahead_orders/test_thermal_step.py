@@ -9,9 +9,10 @@ Tests for the thermal day-ahead bidding step built on the common optimal dispatc
 
 import pytest
 
-from atlas.enums import ThermalDispatchState
+from atlas.enums import ThermalDispatchState, ThermalOrderState
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.steps.thermal.base import ThermalBaseLoadOrders
 from atlas.modules.day_ahead_orders.steps.thermal.intermediate import ThermalIntermediateLoadOrders
 from atlas.modules.day_ahead_orders.steps.thermal.optimisation import (
     ThermalDAOStep,
@@ -140,7 +141,7 @@ class TestThermalWorker:
 
 class TestStateSequences:
     def test_order_states_read_the_phases_off_the_result(self, thermal_parameters):
-        """OFF is 0, online is 1, startup 2 and shutdown 3; absent phases are skipped."""
+        """Each timestep collapses to its ThermalOrderState; absent phases are skipped."""
         formulator = ThermalIntermediateLoadOrders([], thermal_parameters)
         result = ThermalOptimisationResult(
             on_up=_states([0, 0, 1, 0], thermal_parameters),
@@ -150,7 +151,12 @@ class TestStateSequences:
             stop=_states([0, 0, 0, 1], thermal_parameters),
         )
 
-        assert formulator.determine_intermediate_load_states_sequence(result).values == [0.0, 2.0, 1.0, 3.0]
+        assert formulator.determine_intermediate_load_states_sequence(result).values == [
+            ThermalOrderState.OFF,
+            ThermalOrderState.STARTUP,
+            ThermalOrderState.ON,
+            ThermalOrderState.SHUTDOWN,
+        ]
 
     def test_order_states_ignore_a_missing_stable_phase(self, thermal_parameters):
         formulator = ThermalIntermediateLoadOrders([], thermal_parameters)
@@ -160,7 +166,10 @@ class TestStateSequences:
             off=_states([0, 0], thermal_parameters),
         )
 
-        assert formulator.determine_intermediate_load_states_sequence(result).values == [1.0, 1.0]
+        assert formulator.determine_intermediate_load_states_sequence(result).values == [
+            ThermalOrderState.ON,
+            ThermalOrderState.ON,
+        ]
 
     def test_dispatch_states_keep_the_regimes_distinct(self, thermal_parameters):
         """The sequence stored on the unit tells ramping up from ramping down."""
@@ -196,3 +205,17 @@ class TestStateSequences:
             ThermalDispatchState.UNKNOWN,
             ThermalDispatchState.ON_UP,
         ]
+
+
+class TestBaseloadStateSequence:
+    def test_availability_becomes_an_order_state_sequence(self, thermals, thermal_parameters):
+        """A baseload unit's regime is derived from its availability, with no LP involved."""
+        thermal = thermals["a_thermal_base_1"]
+        formulator = ThermalBaseLoadOrders([], thermal_parameters)
+
+        sequence, inconsistent = formulator.determine_baseload_states_sequence(thermal)
+
+        assert not inconsistent
+        assert set(sequence.values) <= set(ThermalOrderState)
+        # the unit is available over the delivery day, so it is not reported off there
+        assert sequence.get_value(thermal_parameters.temporal.start_date) != ThermalOrderState.OFF
