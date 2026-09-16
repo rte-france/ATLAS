@@ -202,12 +202,9 @@ class ModuleConfigBuilder:
         return config
 
 def generate_step_from_job(job) -> MagicMock:
-    """Build a MagicMock shaped like a Step. """
-    step = MagicMock()
-    step.name = job.name
+    """Build a genuine Step backed by a mocked module/parameters."""
+    step = Step.model_construct(name=job.name, module=MagicMock(), parameters=job.parameters)
     step.module.value = MagicMock(return_value=job.module)
-    step.parameters = job.parameters
-    step.__class__ = Step
     return step
 
 class OrchestratorConfigBuilder:
