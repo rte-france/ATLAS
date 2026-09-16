@@ -5,8 +5,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import math
-
 import atlas.config as cfg
 from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue
 from atlas.enums import ComplementDirection, CouplingType, OrderType, Product
@@ -34,10 +32,6 @@ class HydraulicStep(AbstractOrderStep):
         )
 
         for equipment in hydraulic_units:
-            delta_wu: dict[float, tuple[float, float]] = {}
-            for category in range(len(equipment.fragment_volumes)):
-                delta_wu[category] = (equipment.fragment_volumes[category], equipment.fragment_prices[category])
-
             sell_submitted_volume = Timeseries.from_index(
                 self.parameters.temporal.start_date,
                 self.parameters.temporal.timestep,
@@ -70,20 +64,7 @@ class HydraulicStep(AbstractOrderStep):
             coupling_orders = []
             for t in self.orders_time:
                 capacity = equipment.maximum_power.get_value(t)
-                volumes = {key: capacity * v[0] for key, v in delta_wu.items()}
-
-                normal_volumes = {
-                    key: v for key, v in volumes.items() if v >= self.parameters.hydraulic_minimal_fragment_size
-                }
-                minor_volumes = {
-                    key: v for key, v in volumes.items() if v < self.parameters.hydraulic_minimal_fragment_size
-                }
-                if sum(minor_volumes.values()) > 0:
-                    reduced_capacity = sum(normal_volumes.values())
-                    if reduced_capacity != 0:
-                        volumes = {key: capacity * v / reduced_capacity for (key, v) in normal_volumes.items()}
-                    else:
-                        volumes = {math.ceil(len(equipment.fragment_prices) / 2): capacity}
+                volumes = equipment.bid_volumes(capacity, self.parameters.hydraulic_minimal_fragment_size)
 
                 for k, v in volumes.items():
                     if v != 0:
@@ -100,7 +81,7 @@ class HydraulicStep(AbstractOrderStep):
                             execution_date=self.parameters.temporal.execution_date,
                             start_date=t,  # type: ignore [arg-type]
                             end_date=t + self.parameters.temporal.timestep,  # type: ignore [arg-type]
-                            price=delta_wu[k][1] + marginal_value.value_at(t),
+                            price=equipment.fragment_data[k].price + marginal_value.value_at(t),
                         )
 
                         result.orders.append(bid_output)

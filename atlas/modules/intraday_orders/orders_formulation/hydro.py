@@ -31,10 +31,6 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
         sell_values: list[float] = [0.0] * len(orders_timestamps)
         buy_values: list[float] = [0.0] * len(orders_timestamps)
 
-        # Each fragment captures a slice of total capacity with its own price delta.
-        # Fragments are sorted by price at formulation time so the cheapest capacity is offered first.
-        fragment_specs = list(zip(equipment.fragment_volumes, equipment.fragment_prices, strict=True))
-
         marginal_value = InterpolatedMarginalValue.for_unit(
             equipment,
             parameters.temporal.execution_date,
@@ -45,20 +41,11 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
 
         for i, t in enumerate(orders_timestamps):
             capacity = equipment.maximum_power.get_value(t)
+            volumes = equipment.bid_volumes(capacity, parameters.hydraulic_minimal_fragment_size)
 
-            # Scale fragment volumes to actual capacity and drop fragments too small to be meaningful.
-            volumes = {k: capacity * vol_frac for k, (vol_frac, _) in enumerate(fragment_specs)}
-            normal_volumes = {k: v for k, v in volumes.items() if v >= parameters.hydraulic_minimal_fragment_size}
-            minor_volumes = {k: v for k, v in volumes.items() if v < parameters.hydraulic_minimal_fragment_size}
-
-            if sum(minor_volumes.values()) > 0:
-                # Redistribute dropped fragment capacity proportionally among the remaining fragments.
-                reduced_capacity = sum(normal_volumes.values())
-                volumes = {k: capacity * v / reduced_capacity for k, v in normal_volumes.items()}
-
+            # Offer the cheapest capacity first.
             water_value = marginal_value.value_at(t)
-            volume_prices = [(v, water_value + fragment_specs[k][1]) for k, v in volumes.items()]
-
+            volume_prices = [(v, water_value + equipment.fragment_data[k].price) for k, v in volumes.items()]
             volume_prices.sort(key=lambda x: x[1])
 
             # Walk through fragments from cheapest to most expensive.
