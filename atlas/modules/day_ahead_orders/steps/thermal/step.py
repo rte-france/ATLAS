@@ -13,7 +13,7 @@ from atlas.enums import CouplingType, Product, ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
-from atlas.modules.day_ahead_orders.steps.thermal.thermal_worker import optimize_single_thermal_unit
+from atlas.modules.day_ahead_orders.steps.thermal.worker import optimize_single_thermal_unit
 from atlas.objects.equipment.thermal import Thermal
 from atlas.objects.market.order import Order
 
