@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from pendulum import DateTime, Duration
 
@@ -24,11 +24,41 @@ if TYPE_CHECKING:
 
 class ThermalDispatch:
     """
-    Physical dispatch component for a single thermal unit.
+    Physical dispatch model for a single thermal unit.
 
-    Owns all model variables and physical constraints (combinations 1–8).
-    Does **not** handle reserves, fill-up constraints, or objective terms —
-    those remain module-specific.
+    Owns the model variables and the physical constraints. Reserves, fill-up constraints
+    and objective terms stay in the calling module.
+
+    **The state machine.** At every timestep the unit occupies exactly one state — see
+    :meth:`_add_mutual_exclusion`::
+
+        OFF ──▶ START ──▶ ON_UP ⇄ ON_FLAT ⇄ ON_DOWN ──▶ STOP ──▶ OFF
+                 ramp    └──── power free to move ────┘    ramp
+
+    ``START`` and ``STOP`` are the startup and shutdown ramps, ``ON_FLAT`` the stable
+    plateau. All three are optional, so a unit only carries the states its characteristics
+    give it — :meth:`_add_transition_constraints` bans whatever the resulting machine
+    cannot do:
+
+    - startup ramp — :attr:`has_start`, exists when ``T_start >= 1``, state ``on_start``
+    - shutdown ramp — :attr:`has_stop`, exists when ``T_stop >= 1``, state ``stop``
+    - stable plateau — :attr:`has_flat`, exists when ``T_stable >= 1``, state ``on_flat``
+
+    The eight ways of combining those three flags are the eight model variants the codebase
+    calls *combinations 1 to 8* (:attr:`combination`), one per ``thermal-combination-*``
+    test dataset.
+
+    **The two regimes.** The model reaches back before the delivery window. Ahead of
+    ``temporal.start_date`` the unit's state is *known*: it is derived from the initial
+    conditions and stored as a plain float in the :class:`ModelVar` extended frame. Inside
+    the window it is a decision variable. ``ModelVar.get_value`` hides the difference, so a
+    constraint reaching across the boundary silently mixes constants and variables.
+
+    That boundary is where this model is hardest to get right — a row anchored before
+    ``start_date`` degenerates instead of binding, and mutual exclusion does not apply
+    between constants. :meth:`_add_initial_boundary_constraints`,
+    :meth:`_add_eviction_constraints` and the ``time == start_date`` branches of
+    :meth:`_add_minimum_time_constraints` all live on it.
 
     Typical usage::
 
@@ -39,6 +69,19 @@ class ThermalDispatch:
         for time in time_window:
             dispatch.add_constraints(model, time, parameters)
     """
+
+    #: Model variant per ``(has_stop, has_start, has_flat)``. The number carries no meaning
+    #: of its own — it labels the combination in logs and names the test datasets.
+    _COMBINATIONS: ClassVar[dict[tuple[bool, bool, bool], int]] = {
+        (False, False, False): 1,
+        (True, False, False): 2,
+        (False, False, True): 3,
+        (False, True, False): 4,
+        (True, False, True): 5,
+        (False, True, True): 6,
+        (True, True, False): 7,
+        (True, True, True): 8,
+    }
 
     def __init__(self, equipment: ThermalDispatchInput) -> None:
         self._eq = equipment
@@ -58,26 +101,35 @@ class ThermalDispatch:
         self._has_start: bool = False
         self._has_flat: bool = False
 
-        # ModelVar placeholders — populated by _setup_state_variables()
+        # ModelVar placeholders — all wired by _setup_state_variables(), which groups them
+        # the same way and documents what each group is for.
+
+        # States — exactly one of these is 1 at any timestep
         self.off_var: ModelVar = None  # type: ignore[assignment]
-        self.on_flat_var: ModelVar = None  # type: ignore[assignment]
-        self.on_up_var: ModelVar = None  # type: ignore[assignment]
-        self.on_down_var: ModelVar = None  # type: ignore[assignment]
         self.on_start_var: ModelVar = None  # type: ignore[assignment]
+        self.on_up_var: ModelVar = None  # type: ignore[assignment]
+        self.on_flat_var: ModelVar = None  # type: ignore[assignment]
+        self.on_down_var: ModelVar = None  # type: ignore[assignment]
+        self.stop_var: ModelVar = None  # type: ignore[assignment]
+
+        # Transition markers — fire on the step the unit enters the matching state
+        self.turned_on: ModelVar = None  # type: ignore[assignment]
+        self.turned_off: ModelVar = None  # type: ignore[assignment]
         self.entered_up_var: ModelVar = None  # type: ignore[assignment]
         self.entered_down_var: ModelVar = None  # type: ignore[assignment]
         self.stable_var: ModelVar = None  # type: ignore[assignment]
         self.flat_down_stop: ModelVar = None  # type: ignore[assignment]
         self.down_to_stop_grad: ModelVar = None  # type: ignore[assignment]
-        self.stop_var: ModelVar = None  # type: ignore[assignment]
-        self.turned_off: ModelVar = None  # type: ignore[assignment]
-        self.turned_on: ModelVar = None  # type: ignore[assignment]
-        self.power_level_var: ModelVar = None  # type: ignore[assignment]
+
+        # Gradient auxiliaries — linearised products of a power step by a state
         self.up_grad_var: ModelVar = None  # type: ignore[assignment]
-        self.aux_up_grad_var: ModelVar = None  # type: ignore[assignment]
         self.down_grad_var: ModelVar = None  # type: ignore[assignment]
+        self.aux_up_grad_var: ModelVar = None  # type: ignore[assignment]
         self.aux_down_grad_var: ModelVar = None  # type: ignore[assignment]
         self.dd_grad_var: ModelVar = None  # type: ignore[assignment]
+
+        # The dispatch
+        self.power_level_var: ModelVar = None  # type: ignore[assignment]
 
     # ── Public API ────────────────────────────────────────────────────────
 
@@ -128,18 +180,22 @@ class ThermalDispatch:
         :param time: The timestep for which to create variables
         :type time: DateTime
         """
+        # Always present: the unit is either off or moving, and either edge can fire
         self.off_var.set_model_var(time)
         self.on_up_var.set_model_var(time)
         self.on_down_var.set_model_var(time)
         self.turned_on.set_model_var(time)
         self.turned_off.set_model_var(time)
 
-        if self._T_start >= 1:
+        # One state per optional phase
+        if self._has_start:
             self.on_start_var.set_model_var(time)
-        if self._T_stop >= 1:
+        if self._has_stop:
             self.stop_var.set_model_var(time)
-        if self._T_stable >= 1:
+
+        if self._has_flat:
             self.on_flat_var.set_model_var(time)
+            # entering ON_UP / ON_FLAT / ON_DOWN, and the gradients those entries release
             self.stable_var.set_model_var(time)
             self.entered_up_var.set_model_var(time)
             self.entered_down_var.set_model_var(time)
@@ -147,16 +203,15 @@ class ThermalDispatch:
             self.aux_up_grad_var.set_model_var(time)
             self.down_grad_var.set_model_var(time)
             self.aux_down_grad_var.set_model_var(time)
-        if self._T_stop >= 1 and self._T_start == 0 and self._T_stable == 0:
+
+        # Entering the shutdown ramp. With a plateau the unit comes from ON_FLAT via
+        # ON_DOWN and needs the three-term marker; without one it comes straight from
+        # ON_DOWN, and dd_grad has no row to appear in.
+        if self._has_stop and not self._has_flat:
             self.down_to_stop_grad.set_model_var(time)
-        if self._T_stop >= 1 and self._T_stable >= 1:
+        if self._has_stop and self._has_flat:
             self.flat_down_stop.set_model_var(time)
-        # dd_grad only appears in the gradient constraints of a unit that has both a stable
-        # phase and a shutdown ramp — creating it otherwise leaves a variable no row mentions
-        if self._T_stable >= 1 and self._T_stop >= 1:
             self.dd_grad_var.set_model_var(time)
-        if self._T_stop >= 1 and self._T_start >= 1 and self._T_stable == 0:
-            self.down_to_stop_grad.set_model_var(time)
 
         self.power_level_var.set_model_var(time)
 
@@ -243,10 +298,18 @@ class ThermalDispatch:
 
     @property
     def combination(self) -> int:
+        """
+        Which of the eight model variants this unit falls into — see :attr:`_COMBINATIONS`.
+
+        Reported in logs and used to name the reference LP files; nothing in the model
+        branches on the number itself, only on :attr:`has_start`, :attr:`has_stop` and
+        :attr:`has_flat`.
+        """
         return self._combination
 
     @property
     def name(self) -> str:
+        """Name of the unit being dispatched."""
         return self._eq.name
 
     # ── Initialisation ────────────────────────────────────────────────────
@@ -290,117 +353,78 @@ class ThermalDispatch:
         self._has_stop = self._T_stop >= 1
         self._has_start = self._T_start >= 1
         self._has_flat = self._T_stable >= 1
-        self._combination = self._determine_combination()
+        self._combination = self._COMBINATIONS[self._has_stop, self._has_start, self._has_flat]
 
-    def _determine_combination(self) -> int:
-        s, st, f = self._has_stop, self._has_start, self._has_flat
-        if not s and not st and not f:
-            return 1
-        elif s and not st and not f:
-            return 2
-        elif not s and not st and f:
-            return 3
-        elif not s and st and not f:
-            return 4
-        elif s and not st and f:
-            return 5
-        elif not s and st and f:
-            return 6
-        elif s and st and not f:
-            return 7
-        else:
-            return 8
+    def _boolean_var(self, model: OptimisationModel, template: str) -> ModelVar:
+        """
+        Build a boolean :class:`ModelVar` whose LP name is *template*.
+
+        :param model: The optimisation model
+        :param template: Name pattern, formatted with ``n`` (unit name) and ``time``
+        :return: The wired ModelVar
+        """
+        name = lambda time: template.format(n=self._eq.name, time=time)  # noqa: E731
+        return ModelVar(
+            getter=lambda time: model.get_variable(name(time)),
+            setter=lambda time: model.add_boolean_variable(name(time)),
+        )
+
+    def _swing_bounded_var(self, model: OptimisationModel, template: str) -> ModelVar:
+        """
+        Build a continuous :class:`ModelVar` bounded by ±:attr:`_maximum_power_swing`.
+
+        The bound is read when the variable is created, not here, so it picks up the value
+        :meth:`_compute_time_parameters` has already stored.
+
+        :param model: The optimisation model
+        :param template: Name pattern, formatted with ``n`` (unit name) and ``time``
+        :return: The wired ModelVar
+        """
+        name = lambda time: template.format(n=self._eq.name, time=time)  # noqa: E731
+        return ModelVar(
+            getter=lambda time: model.get_variable(name(time)),
+            setter=lambda time: model.add_continuous_variable(
+                name(time), -self._maximum_power_swing, self._maximum_power_swing
+            ),
+        )
 
     def _setup_state_variables(self, model: OptimisationModel) -> None:
         eq = self._eq
         n = eq.name
 
-        self.off_var = ModelVar(
-            getter=lambda time: model.get_variable(f"off_{n}_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"off_{n}_{time}"),
-        )
-        self.on_flat_var = ModelVar(
-            getter=lambda time: model.get_variable(f"on_flat_{n}_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"on_flat_{n}_{time}"),
-        )
-        self.on_up_var = ModelVar(
-            getter=lambda time: model.get_variable(f"on_up_{n}_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"on_up_{n}_{time}"),
-        )
-        self.on_down_var = ModelVar(
-            getter=lambda time: model.get_variable(f"on_down_{n}_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"on_down_{n}_{time}"),
-        )
-        self.on_start_var = ModelVar(
-            getter=lambda time: model.get_variable(f"on_start_{n}_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"on_start_{n}_{time}"),
-        )
-        self.entered_up_var = ModelVar(
-            getter=lambda time: model.get_variable(f"entered_up_{time}_{n}"),
-            setter=lambda time: model.add_boolean_variable(f"entered_up_{time}_{n}"),
-        )
-        self.entered_down_var = ModelVar(
-            getter=lambda time: model.get_variable(f"entered_down_{time}_{n}"),
-            setter=lambda time: model.add_boolean_variable(f"entered_down_{time}_{n}"),
-        )
-        self.stable_var = ModelVar(
-            getter=lambda time: model.get_variable(f"stable_{time}_{n}"),
-            setter=lambda time: model.add_boolean_variable(f"stable_{time}_{n}"),
-        )
-        self.flat_down_stop = ModelVar(
-            getter=lambda time: model.get_variable(f"flat_down_stop_{time}_{n}"),
-            setter=lambda time: model.add_boolean_variable(f"flat_down_stop_{time}_{n}"),
-        )
-        self.down_to_stop_grad = ModelVar(
-            getter=lambda time: model.get_variable(f"down_to_stop_grad_{time}_{n}"),
-            setter=lambda time: model.add_boolean_variable(f"down_to_stop_grad_{time}_{n}"),
-        )
-        self.stop_var = ModelVar(
-            getter=lambda time: model.get_variable(f"stop_{n}_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"stop_{n}_{time}"),
-        )
-        self.turned_off = ModelVar(
-            getter=lambda time: model.get_variable(f"t_off_{n}_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"t_off_{n}_{time}"),
-        )
-        self.turned_on = ModelVar(
-            getter=lambda time: model.get_variable(f"t_on_{n}_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"t_on_{n}_{time}"),
-        )
+        # The six mutually exclusive states of the machine. on_flat, on_start and stop only
+        # ever get a model variable when the matching phase exists — see add_variables.
+        self.off_var = self._boolean_var(model, "off_{n}_{time}")
+        self.on_start_var = self._boolean_var(model, "on_start_{n}_{time}")
+        self.on_up_var = self._boolean_var(model, "on_up_{n}_{time}")
+        self.on_flat_var = self._boolean_var(model, "on_flat_{n}_{time}")
+        self.on_down_var = self._boolean_var(model, "on_down_{n}_{time}")
+        self.stop_var = self._boolean_var(model, "stop_{n}_{time}")
+
+        # Transition markers: each one fires on the single step the unit enters a state.
+        # Note the name layouts disagree — the states above put the unit name before the
+        # timestamp, these put it after. Load-bearing: the LP references carry both.
+        self.turned_on = self._boolean_var(model, "t_on_{n}_{time}")
+        self.turned_off = self._boolean_var(model, "t_off_{n}_{time}")
+        self.entered_up_var = self._boolean_var(model, "entered_up_{time}_{n}")
+        self.entered_down_var = self._boolean_var(model, "entered_down_{time}_{n}")
+        self.stable_var = self._boolean_var(model, "stable_{time}_{n}")
+        self.flat_down_stop = self._boolean_var(model, "flat_down_stop_{time}_{n}")
+        self.down_to_stop_grad = self._boolean_var(model, "down_to_stop_grad_{time}_{n}")
+
+        # Gradient auxiliaries: products of a power step by a state, linearised in
+        # _add_gradient_auxiliaries and _add_dd_constraints.
+        self.up_grad_var = self._swing_bounded_var(model, "up_grad_{time}_{n}")
+        self.down_grad_var = self._swing_bounded_var(model, "down_grad_{time}_{n}")
+        self.aux_up_grad_var = self._swing_bounded_var(model, "aux_up_grad_{time}_{n}")
+        self.aux_down_grad_var = self._swing_bounded_var(model, "aux_down_grad_{time}_{n}")
+        self.dd_grad_var = self._swing_bounded_var(model, "dd_grad_{time}_{n}")
+
+        # The dispatch itself. Alone in taking a time-varying bound, hence written out.
         self.power_level_var = ModelVar(
             getter=lambda time: model.get_variable(f"{n}_power_level_{time}"),
             setter=lambda time: model.add_continuous_variable(
                 f"{n}_power_level_{time}", 0, eq.maximum_power.get_value(time)
-            ),
-        )
-        self.up_grad_var = ModelVar(
-            getter=lambda time: model.get_variable(f"up_grad_{time}_{n}"),
-            setter=lambda time: model.add_continuous_variable(
-                f"up_grad_{time}_{n}", -self._maximum_power_swing, self._maximum_power_swing
-            ),
-        )
-        self.down_grad_var = ModelVar(
-            getter=lambda time: model.get_variable(f"down_grad_{time}_{n}"),
-            setter=lambda time: model.add_continuous_variable(
-                f"down_grad_{time}_{n}", -self._maximum_power_swing, self._maximum_power_swing
-            ),
-        )
-        self.aux_up_grad_var = ModelVar(
-            getter=lambda time: model.get_variable(f"aux_up_grad_{time}_{n}"),
-            setter=lambda time: model.add_continuous_variable(
-                f"aux_up_grad_{time}_{n}", -self._maximum_power_swing, self._maximum_power_swing
-            ),
-        )
-        self.aux_down_grad_var = ModelVar(
-            getter=lambda time: model.get_variable(f"aux_down_grad_{time}_{n}"),
-            setter=lambda time: model.add_continuous_variable(
-                f"aux_down_grad_{time}_{n}", -self._maximum_power_swing, self._maximum_power_swing
-            ),
-        )
-        self.dd_grad_var = ModelVar(
-            getter=lambda time: model.get_variable(f"dd_grad_{time}_{n}"),
-            setter=lambda time: model.add_continuous_variable(
-                f"dd_grad_{time}_{n}", -self._maximum_power_swing, self._maximum_power_swing
             ),
         )
 
