@@ -83,6 +83,103 @@ class ThermalDispatch:
         (True, True, True): 8,
     }
 
+    #: State changes the machine forbids, per ``(has_stop, has_start, has_flat)``. Each
+    #: ``(from, to)`` pair becomes ``from(t-1) + to(t) <= 1``.
+    #:
+    #: Two rules generate the whole table. A ramp cannot be skipped: a unit with a shutdown
+    #: ramp has to pass through STOP to reach OFF and cannot leave STOP for an ON state,
+    #: and symmetrically for START. And the power cannot reverse in one step: ON_UP → ON_DOWN
+    #: and back are barred whenever the plateau exists to sit between them.
+    #:
+    #: The constraint's number is its position in the tuple, so **the order is part of the
+    #: LP names** — append, never insert.
+    _BANNED_TRANSITIONS: ClassVar[dict[tuple[bool, bool, bool], tuple[tuple[str, str], ...]]] = {
+        # 1 — no ramp, no plateau: the unit is free, nothing to forbid
+        (False, False, False): (),
+        # 2 — shutdown ramp only: OFF is reachable through STOP alone
+        (True, False, False): (
+            ("stop", "on_up"),
+            ("stop", "on_down"),
+            ("off", "stop"),
+            ("on_up", "off"),
+            ("on_down", "off"),
+        ),
+        # 3 — plateau only: the power just cannot reverse without passing through it
+        (False, False, True): (
+            ("on_up", "on_down"),
+            ("on_down", "on_up"),
+        ),
+        # 4 — startup ramp only: ON is reachable through START alone
+        (False, True, False): (
+            ("on_up", "on_start"),
+            ("on_down", "on_start"),
+            ("on_start", "off"),
+            ("off", "on_up"),
+            ("off", "on_down"),
+        ),
+        # 5 — shutdown ramp + plateau
+        (True, False, True): (
+            ("on_up", "on_down"),
+            ("on_down", "on_up"),
+            ("on_up", "off"),
+            ("on_down", "off"),
+            ("stop", "on_flat"),
+            ("stop", "on_down"),
+            ("stop", "on_up"),
+            ("on_up", "stop"),
+            ("off", "stop"),
+        ),
+        # 6 — startup ramp + plateau
+        (False, True, True): (
+            ("on_up", "on_down"),
+            ("on_down", "on_up"),
+            ("on_up", "on_start"),
+            ("on_down", "on_start"),
+            ("on_flat", "on_start"),
+            ("on_start", "off"),
+            ("off", "on_flat"),
+            ("off", "on_down"),
+            ("off", "on_up"),
+        ),
+        # 7 — both ramps, no plateau
+        (True, True, False): (
+            ("stop", "on_up"),
+            ("stop", "on_down"),
+            ("off", "stop"),
+            ("on_up", "off"),
+            ("on_down", "off"),
+            ("on_up", "on_start"),
+            ("on_down", "on_start"),
+            ("on_start", "off"),
+            ("on_start", "stop"),
+            ("stop", "on_start"),
+            ("off", "on_up"),
+            ("off", "on_down"),
+        ),
+        # 8 — both ramps + plateau: every state exists, so every illegal pair is listed
+        (True, True, True): (
+            ("on_up", "on_down"),
+            ("on_down", "on_up"),
+            ("stop", "on_flat"),
+            ("stop", "on_down"),
+            ("stop", "on_up"),
+            ("on_up", "stop"),
+            ("off", "stop"),
+            ("on_up", "on_start"),
+            ("on_down", "on_start"),
+            ("on_flat", "on_start"),
+            ("on_up", "off"),
+            ("on_down", "off"),
+            ("on_flat", "off"),
+            ("on_start", "off"),
+            ("on_start", "stop"),
+            ("stop", "on_start"),
+            ("off", "on_up"),
+            ("off", "on_flat"),
+            ("off", "on_down"),
+        ),
+    }
+
     def __init__(self, equipment: ThermalDispatchInput) -> None:
         self._eq = equipment
 
@@ -363,7 +460,10 @@ class ThermalDispatch:
         :param template: Name pattern, formatted with ``n`` (unit name) and ``time``
         :return: The wired ModelVar
         """
-        name = lambda time: template.format(n=self._eq.name, time=time)  # noqa: E731
+
+        def name(time: DateTime) -> str:
+            return template.format(n=self._eq.name, time=time)
+
         return ModelVar(
             getter=lambda time: model.get_variable(name(time)),
             setter=lambda time: model.add_boolean_variable(name(time)),
@@ -380,7 +480,10 @@ class ThermalDispatch:
         :param template: Name pattern, formatted with ``n`` (unit name) and ``time``
         :return: The wired ModelVar
         """
-        name = lambda time: template.format(n=self._eq.name, time=time)  # noqa: E731
+
+        def name(time: DateTime) -> str:
+            return template.format(n=self._eq.name, time=time)
+
         return ModelVar(
             getter=lambda time: model.get_variable(name(time)),
             setter=lambda time: model.add_continuous_variable(
@@ -857,6 +960,21 @@ class ThermalDispatch:
         model.add_constraint(dts <= on_down_prev, f"down_to_stop_evol_2_{time}_{n}")
         model.add_constraint(dts >= stop + on_down_prev - 1, f"down_to_stop_evol_3_{time}_{n}")
 
+    def _state_vars(self) -> dict[str, ModelVar]:
+        """
+        Map each state name used in :attr:`_BANNED_TRANSITIONS` to its :class:`ModelVar`.
+
+        :return: State name to variable
+        """
+        return {
+            "off": self.off_var,
+            "on_start": self.on_start_var,
+            "on_up": self.on_up_var,
+            "on_flat": self.on_flat_var,
+            "on_down": self.on_down_var,
+            "stop": self.stop_var,
+        }
+
     def _add_mutual_exclusion(self, model: OptimisationModel, time: DateTime) -> None:
         n = self._eq.name
         expr = self.off_var.get_value(time) + self.on_up_var.get_value(time) + self.on_down_var.get_value(time)
@@ -871,6 +989,26 @@ class ThermalDispatch:
     def _add_initial_boundary_constraints(
         self, model: OptimisationModel, time: DateTime, prev_time: DateTime, ts: Duration
     ) -> None:
+        """
+        Re-apply the per-step constraints on the step *before* the window.
+
+        A unit with a plateau carries its state one step back from ``start_date``, so the
+        transition markers defined there need their defining rows too — otherwise the
+        solver is free to set them to anything. Called only when :attr:`has_flat`, and only
+        on the first timestep.
+
+        Everything here reads ``prev_time`` and ``prev2``, both outside the window, where
+        :class:`ModelVar` serves constants rather than variables. Rows that end up mixing
+        two constants are degenerate, not wrong — that is expected on this boundary.
+
+        :param model: The optimisation model
+        :param time: First timestep of the window
+        :type time: DateTime
+        :param prev_time: One step before the window
+        :type prev_time: DateTime
+        :param ts: Duration of one timestep
+        :type ts: Duration
+        """
         n = self._eq.name
         prev2 = prev_time - ts  # type: ignore[operator]
 
@@ -904,101 +1042,39 @@ class ThermalDispatch:
             expr_prev = expr_prev + self.on_start_var.get_value(prev_time)
         model.add_constraint(expr_prev == 1, f"mutual_exclusion_{prev_time}_{n}")
 
-        model.add_constraint(on_up_prev2 + on_down_prev <= 1, f"transition_constraint_1_{prev_time}_{n}")
-        model.add_constraint(on_down_prev2 + on_up_prev <= 1, f"transition_constraint_2_{prev_time}_{n}")
+        # Part of _BANNED_TRANSITIONS, applied one step earlier: the power reversals, and
+        # the bans out of STOP once that state exists. The rest are not re-emitted here.
+        # Each keeps the number it has inside the window, so it is looked up rather than
+        # counted — that is where the run 3,4,5 (or 5,6,7 without a startup ramp) comes from.
+        states = self._state_vars()
+        bans = self._BANNED_TRANSITIONS[self._has_stop, self._has_start, self._has_flat]
+        boundary_bans = [("on_up", "on_down"), ("on_down", "on_up")]
         if self._has_stop:
-            stop_prev2 = self.stop_var.get_value(prev2)
-            base = 3 if self._has_start else 5
-            model.add_constraint(stop_prev2 + on_flat_prev <= 1, f"transition_constraint_{base}_{prev_time}_{n}")
-            model.add_constraint(stop_prev2 + on_down_prev <= 1, f"transition_constraint_{base + 1}_{prev_time}_{n}")
-            model.add_constraint(stop_prev2 + on_up_prev <= 1, f"transition_constraint_{base + 2}_{prev_time}_{n}")
+            boundary_bans += [("stop", "on_flat"), ("stop", "on_down"), ("stop", "on_up")]
+        for from_state, to_state in boundary_bans:
+            model.add_constraint(
+                states[from_state].get_value(prev2) + states[to_state].get_value(prev_time) <= 1,
+                f"transition_constraint_{bans.index((from_state, to_state)) + 1}_{prev_time}_{n}",
+            )
 
     def _add_transition_constraints(self, model: OptimisationModel, time: DateTime, prev_time: DateTime) -> None:
+        """
+        Ban the state changes the unit's machine cannot make — see :attr:`_BANNED_TRANSITIONS`.
+
+        :param model: The optimisation model
+        :param time: Current timestep
+        :type time: DateTime
+        :param prev_time: Previous timestep
+        :type prev_time: DateTime
+        """
         n = self._eq.name
-        off = self.off_var.get_value(time)
-        off_prev = self.off_var.get_value(prev_time)
-        on_up = self.on_up_var.get_value(time)
-        on_up_prev = self.on_up_var.get_value(prev_time)
-        on_down = self.on_down_var.get_value(time)
-        on_down_prev = self.on_down_var.get_value(prev_time)
-
-        if not self._has_flat and not self._has_start and not self._has_stop:
-            return
-
-        if self._has_flat:
-            on_flat = self.on_flat_var.get_value(time)
-            on_flat_prev = self.on_flat_var.get_value(prev_time)
-            model.add_constraint(on_up_prev + on_down <= 1, f"transition_constraint_1_{time}_{n}")
-            model.add_constraint(on_down_prev + on_up <= 1, f"transition_constraint_2_{time}_{n}")
-            if self._has_stop and not self._has_start:
-                stop = self.stop_var.get_value(time)
-                stop_prev = self.stop_var.get_value(prev_time)
-                model.add_constraint(on_up_prev + off <= 1, f"transition_constraint_3_{time}_{n}")
-                model.add_constraint(on_down_prev + off <= 1, f"transition_constraint_4_{time}_{n}")
-                model.add_constraint(stop_prev + on_flat <= 1, f"transition_constraint_5_{time}_{n}")
-                model.add_constraint(stop_prev + on_down <= 1, f"transition_constraint_6_{time}_{n}")
-                model.add_constraint(stop_prev + on_up <= 1, f"transition_constraint_7_{time}_{n}")
-                model.add_constraint(on_up_prev + stop <= 1, f"transition_constraint_8_{time}_{n}")
-                model.add_constraint(off_prev + stop <= 1, f"transition_constraint_9_{time}_{n}")
-            elif self._has_start and not self._has_stop:
-                start = self.on_start_var.get_value(time)
-                start_prev = self.on_start_var.get_value(prev_time)
-                model.add_constraint(on_up_prev + start <= 1, f"transition_constraint_3_{time}_{n}")
-                model.add_constraint(on_down_prev + start <= 1, f"transition_constraint_4_{time}_{n}")
-                model.add_constraint(on_flat_prev + start <= 1, f"transition_constraint_5_{time}_{n}")
-                model.add_constraint(off + start_prev <= 1, f"transition_constraint_6_{time}_{n}")
-                model.add_constraint(off_prev + on_flat <= 1, f"transition_constraint_7_{time}_{n}")
-                model.add_constraint(off_prev + on_down <= 1, f"transition_constraint_8_{time}_{n}")
-                model.add_constraint(off_prev + on_up <= 1, f"transition_constraint_9_{time}_{n}")
-            elif self._has_stop and self._has_start:
-                stop = self.stop_var.get_value(time)
-                stop_prev = self.stop_var.get_value(prev_time)
-                start = self.on_start_var.get_value(time)
-                start_prev = self.on_start_var.get_value(prev_time)
-                model.add_constraint(stop_prev + on_flat <= 1, f"transition_constraint_3_{time}_{n}")
-                model.add_constraint(stop_prev + on_down <= 1, f"transition_constraint_4_{time}_{n}")
-                model.add_constraint(stop_prev + on_up <= 1, f"transition_constraint_5_{time}_{n}")
-                model.add_constraint(on_up_prev + stop <= 1, f"transition_constraint_6_{time}_{n}")
-                model.add_constraint(off_prev + stop <= 1, f"transition_constraint_7_{time}_{n}")
-                model.add_constraint(on_up_prev + start <= 1, f"transition_constraint_8_{time}_{n}")
-                model.add_constraint(on_down_prev + start <= 1, f"transition_constraint_9_{time}_{n}")
-                model.add_constraint(on_flat_prev + start <= 1, f"transition_constraint_10_{time}_{n}")
-                model.add_constraint(on_up_prev + off <= 1, f"transition_constraint_11_{time}_{n}")
-                model.add_constraint(on_down_prev + off <= 1, f"transition_constraint_12_{time}_{n}")
-                model.add_constraint(on_flat_prev + off <= 1, f"transition_constraint_13_{time}_{n}")
-                model.add_constraint(start_prev + off <= 1, f"transition_constraint_14_{time}_{n}")
-                model.add_constraint(start_prev + stop <= 1, f"transition_constraint_15_{time}_{n}")
-                model.add_constraint(stop_prev + start <= 1, f"transition_constraint_16_{time}_{n}")
-                model.add_constraint(off_prev + on_up <= 1, f"transition_constraint_17_{time}_{n}")
-                model.add_constraint(off_prev + on_flat <= 1, f"transition_constraint_18_{time}_{n}")
-                model.add_constraint(off_prev + on_down <= 1, f"transition_constraint_19_{time}_{n}")
-        else:
-            if self._has_stop:
-                stop = self.stop_var.get_value(time)
-                stop_prev = self.stop_var.get_value(prev_time)
-                model.add_constraint(stop_prev + on_up <= 1, f"transition_constraint_1_{time}_{n}")
-                model.add_constraint(stop_prev + on_down <= 1, f"transition_constraint_2_{time}_{n}")
-                model.add_constraint(off_prev + stop <= 1, f"transition_constraint_3_{time}_{n}")
-                model.add_constraint(on_up_prev + off <= 1, f"transition_constraint_4_{time}_{n}")
-                model.add_constraint(on_down_prev + off <= 1, f"transition_constraint_5_{time}_{n}")
-            if self._has_start:
-                start = self.on_start_var.get_value(time)
-                start_prev = self.on_start_var.get_value(prev_time)
-                if self._has_stop:
-                    stop = self.stop_var.get_value(time)
-                    model.add_constraint(on_up_prev + start <= 1, f"transition_constraint_6_{time}_{n}")
-                    model.add_constraint(on_down_prev + start <= 1, f"transition_constraint_7_{time}_{n}")
-                    model.add_constraint(start_prev + off <= 1, f"transition_constraint_8_{time}_{n}")
-                    model.add_constraint(start_prev + stop <= 1, f"transition_constraint_9_{time}_{n}")
-                    model.add_constraint(stop_prev + start <= 1, f"transition_constraint_10_{time}_{n}")
-                    model.add_constraint(off_prev + on_up <= 1, f"transition_constraint_11_{time}_{n}")
-                    model.add_constraint(off_prev + on_down <= 1, f"transition_constraint_12_{time}_{n}")
-                else:
-                    model.add_constraint(on_up_prev + start <= 1, f"transition_constraint_1_{time}_{n}")
-                    model.add_constraint(on_down_prev + start <= 1, f"transition_constraint_2_{time}_{n}")
-                    model.add_constraint(start_prev + off <= 1, f"transition_constraint_3_{time}_{n}")
-                    model.add_constraint(off_prev + on_up <= 1, f"transition_constraint_4_{time}_{n}")
-                    model.add_constraint(off_prev + on_down <= 1, f"transition_constraint_5_{time}_{n}")
+        states = self._state_vars()
+        bans = self._BANNED_TRANSITIONS[self._has_stop, self._has_start, self._has_flat]
+        for index, (from_state, to_state) in enumerate(bans, start=1):
+            model.add_constraint(
+                states[from_state].get_value(prev_time) + states[to_state].get_value(time) <= 1,
+                f"transition_constraint_{index}_{time}_{n}",
+            )
 
     def _add_eviction_constraints(
         self, model: OptimisationModel, time: DateTime, parameters: AbstractModuleParameters

@@ -864,3 +864,33 @@ class TestThermalDispatchFormulationFixes:
 
         assert dispatch.on_up_var.get_extended_value(previous) == 1
         assert dispatch.on_down_var.get_extended_value(previous) == 1
+
+
+class TestBannedTransitionsTable:
+    """Invariants of the declarative transition table driving _add_transition_constraints."""
+
+    STATES_REQUIRING = {"on_flat": 2, "on_start": 1, "stop": 0}
+    ALWAYS_PRESENT = {"off", "on_up", "on_down"}
+
+    def test_table_covers_exactly_the_eight_combinations(self):
+        assert set(ThermalDispatch._BANNED_TRANSITIONS) == set(ThermalDispatch._COMBINATIONS)
+
+    @pytest.mark.parametrize("flags", sorted(ThermalDispatch._COMBINATIONS))
+    def test_a_combination_only_bans_states_it_owns(self, flags):
+        """A ban naming a state the unit has no variable for would crash at model build."""
+        known = self.ALWAYS_PRESENT | {state for state, position in self.STATES_REQUIRING.items() if flags[position]}
+        for from_state, to_state in ThermalDispatch._BANNED_TRANSITIONS[flags]:
+            assert from_state in known, f"combination {ThermalDispatch._COMBINATIONS[flags]} bans from {from_state}"
+            assert to_state in known, f"combination {ThermalDispatch._COMBINATIONS[flags]} bans to {to_state}"
+
+    @pytest.mark.parametrize("flags", sorted(ThermalDispatch._COMBINATIONS))
+    def test_no_transition_is_banned_twice(self, flags):
+        """A duplicate would emit the same row twice under two different constraint names."""
+        bans = ThermalDispatch._BANNED_TRANSITIONS[flags]
+        assert len(set(bans)) == len(bans)
+
+    @pytest.mark.parametrize("flags", sorted(ThermalDispatch._COMBINATIONS))
+    def test_a_state_is_never_banned_from_holding(self, flags):
+        """`x(t-1) + x(t) <= 1` would forbid a unit from staying where it is."""
+        for from_state, to_state in ThermalDispatch._BANNED_TRANSITIONS[flags]:
+            assert from_state != to_state
