@@ -88,8 +88,11 @@ class BSPBalancingOrdersModule(
             output_dataset.orders.extend(orders)
 
         for thermal in input_dataset.thermal_equipments.values():
-            orders, _ = ThermalOrderFormulator(thermal, input_dataset.target_times, parameters).formulate()
+            orders, order_couplings = ThermalOrderFormulator(
+                thermal, input_dataset.target_times, parameters
+            ).formulate()
             output_dataset.orders.extend(orders)
+            output_dataset.couplings.extend(order_couplings)
 
         return output_dataset
 
