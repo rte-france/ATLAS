@@ -156,6 +156,7 @@ def _extract_hydro(
     schedule = EquipmentSchedule()
 
     for time in target_times:
+        # Fragments too small to bid carry no variable at that timestep; they read back as 0.0.
         activated_power = sum(
             optimisation_result.get_variable_value(f"{equipment.name}_power_level_frag_{category}_{time}")
             for category in equipment.fragment_data
