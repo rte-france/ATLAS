@@ -23,8 +23,14 @@ class BalancingStorage(Storage):
     maximum_gradient: float
     maximum_power: AbstractTimeseries
     minimum_power: AbstractTimeseries
+    rr_activated: AbstractTimeseries
+    mfrr_activated: AbstractTimeseries
+    afrr_activated: AbstractTimeseries
+    fcr_activated: AbstractTimeseries
+    specific_activated_power: ForecastingMatrix | LazyForecastingMatrix
     stored_energy: ForecastingMatrix | LazyForecastingMatrix
     maximum_energy: AbstractTimeseries
+    minimum_state_of_charge: AbstractTimeseries
     charge_efficiency: float
     storage_type: StorageType
     transition_duration: Duration

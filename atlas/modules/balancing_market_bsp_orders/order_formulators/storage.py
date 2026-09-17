@@ -38,6 +38,8 @@ def compute_average_clearing_prices(market_area: MarketArea, local_time: DateTim
     :rtype: float
     """
     number_of_reference_prices = 1
+    if market_area.da_price is None:
+        raise AttributeError(f"The market area {market_area.name} should have da_price attribute")
     total_price = market_area.da_price.get_value(local_time)
 
     wanted_date = local_time.start_of("hour")
