@@ -48,7 +48,9 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         orders: list[Order] = []
         couplings: list[OrderCoupling] = []
+        downward_by_time: dict[DateTime, tuple[DateTime, float]] = {}
 
+        # --- Upward pass
         for time in self.target_times:
             if not self.is_after_setup_delay(time):
                 continue
@@ -65,6 +67,8 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
             if self.equipment.maximum_gradient != 0:
                 qmax_up, qmax_down = self._apply_gradient_constraint(forecasted_power, time, qmax_up, qmax_down)
+
+            downward_by_time[time] = (next_time, qmax_down)
 
             startup_case = self._classify_startup_case(forecasted_power, time)
 
@@ -93,6 +97,8 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
                     orders.append(order)
                     self._record_upward_order(time, order)
 
+        # --- Downward pass
+        for time, (next_time, qmax_down) in downward_by_time.items():
             order = self._formulate_downward_order(time, next_time, qmax_down)
             if order is not None:
                 orders.append(order)
