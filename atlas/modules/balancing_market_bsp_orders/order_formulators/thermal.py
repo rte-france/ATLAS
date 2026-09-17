@@ -276,6 +276,61 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         return self._has_stable_power_before(time) and self._has_stable_power_after(time)
 
+    def _build_shutdown_order_name(self, start: DateTime, end: DateTime) -> str:
+        """
+        Same as AbstractOrderFormulator._build_order_name, but with direction 'S'
+        (legacy's convention for shutdown orders) instead of the 'U'/'D' that
+        method derives from order_type. A shutdown is technically a Buy order (it
+        buys down the equipment's own output), so calling build_order for it would
+        tag it 'D' like a regular downward order, losing the distinction legacy's
+        naming relies on. Duplicated here rather than changing the shared base,
+        since that base is used by every other formulator too.
+
+        :param start: Order start datetime
+        :type start: DateTime
+        :param end: Order end datetime
+        :type end: DateTime
+        :return: Standardised shutdown order name
+        :rtype: str
+        """
+        market_short = self._market_short_name()
+        return (
+            f"{self.equipment.name}_{market_short}_S_"
+            f"{self._fmt_time(start)}_{self._fmt_time(end)}_"
+            f"at_{self._fmt_time(self.parameters.temporal.execution_date)}"
+        ).lower()
+
+    def _build_shutdown_order(self, start: DateTime, end: DateTime, price: float, qmax: float) -> Order | None:
+        """
+        Shutdown order: built via build_order (Buy, indivisible — qmin == qmax) and
+        then renamed to use direction 'S' instead of the 'D' build_order would give
+        it, matching legacy's naming convention for shutdown orders. Order.name is
+        frozen, so the rename goes through model_copy rather than assignment.
+
+        :param start: Order start datetime
+        :type start: DateTime
+        :param end: Order end datetime
+        :type end: DateTime
+        :param price: Raw order price in euro/MWh
+        :type price: float
+        :param qmax: Quantity to shut down, in MW
+        :type qmax: float
+        :return: The Buy order, or None if qmax rounds to 0
+        :rtype: Order | None
+        """
+        order = self.build_order(
+            order_type=OrderType.Buy,
+            start=start,
+            end=end,
+            price=price,
+            qmin=qmax,
+            qmax=qmax,
+        )
+        if order is None:
+            return None
+
+        return order.model_copy(update={"name": self._build_shutdown_order_name(start, end)})
+
     def _apply_minimum_stable_power_duration_constraint(
         self,
         time: DateTime,
