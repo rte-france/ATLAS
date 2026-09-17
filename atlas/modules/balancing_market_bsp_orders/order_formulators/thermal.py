@@ -299,20 +299,20 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         return duration_requirement <= (studied_time - reference_time)
 
-    def _shutdown_mspd_gate(self, time: DateTime) -> bool:
+    def _shutdown_min_stable_power_duration_gate(self, time: DateTime) -> bool:
         """
-        Whether MSPD allows a shutdown order at this specific timestep.
+        Whether min_stable_power_duration allows a shutdown order at this specific timestep.
 
         Re-derived against legacy's apply_minimum_stable_power_duration_constraint
         for order_type == "Shutdown", case by case:
-          - MSPD < timestep: the function's own initial guard is a full no-op, so
-            MSPD never blocks a shutdown here.
-          - MSPD == timestep exactly: the initial guard doesn't fire (it tests '<',
+          - min_stable_power_duration < timestep: the function's own initial guard is a full no-op, so
+            min_stable_power_duration never blocks a shutdown here.
+          - min_stable_power_duration == timestep exactly: the initial guard doesn't fire (it tests '<',
             not '<='), but the later plateau-extension block doesn't fire either —
             its own guard is also a strict '<', false when the two are equal. Only
             the before/after stability checks in between actually run here, so
             they're the only thing that can block the order at this exact boundary.
-          - MSPD > timestep (strictly): stability still has to pass first, but even
+          - min_stable_power_duration > timestep (strictly): stability still has to pass first, but even
             when it does, the plateau-extension block that follows only ever sets
             validity True when order_type is "Upward" or "Downward" — "Shutdown"
             matches neither, in every branch, for every previous/next/starting
@@ -321,7 +321,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         :param time: Order start/end time (single timestep)
         :type time: DateTime
-        :return: True if MSPD allows a shutdown order at this timestep
+        :return: True if min_stable_power_duration allows a shutdown order at this timestep
         :rtype: bool
         """
         duration_requirement = self.equipment.minimum_stable_power_duration
@@ -489,7 +489,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
             equipment could restart within one timestep
             (_startup_fits_within_timestep). Priced with the shutdown cost (an
             implied future restart).
-        Also gated by _shutdown_mspd_gate — see that method for why.
+        Also gated by _shutdown_min_stable_power_duration_gate — see that method for why.
 
         :param time: Order start/end time (single timestep)
         :type time: DateTime
@@ -498,7 +498,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :return: The shutdown order (or None if invalid) and its EXCLUSION couplings
         :rtype: tuple[Order | None, list[OrderCoupling]]
         """
-        if not self._shutdown_mspd_gate(time):
+        if not self._shutdown_min_stable_power_duration_gate(time):
             return None, []
 
         shutdown_case = self._classify_shutdown_case(time)
@@ -562,7 +562,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         power_available: float,
     ) -> tuple[float, bool, bool]:
         """
-        MSPD check for a single-timestep order. No-op if MSPD is shorter than the
+        min_stable_power_duration check for a single-timestep order. No-op if min_stable_power_duration is shorter than the
         timestep. Otherwise the equipment needs to have been flat for long enough
         before `time`, or the order's invalid.
 
@@ -637,13 +637,13 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
     def _formulate_plain_upward_order(self, time: DateTime, next_time: DateTime, qmax_up: float) -> Order | None:
         """
-        Regular upward order (no startup involved), after the MSPD check.
+        Regular upward order (no startup involved), after the min_stable_power_duration check.
 
         :param time: order start/end time
         :type time: DateTime
         :param next_time: time + timestep
         :type next_time: DateTime
-        :param qmax_up: qty before MSPD
+        :param qmax_up: qty before min_stable_power_duration
         :type qmax_up: float
         :return: the order, or None if invalid / under 1 MW
         :rtype: Order | None
@@ -667,13 +667,13 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         self, time: DateTime, next_time: DateTime, qmax_down: float
     ) -> tuple[Order | None, list[OrderCoupling]]:
         """
-        Downward order, after the MSPD check.
+        Downward order, after the min_stable_power_duration check.
 
         :param time: order start/end time
         :type time: DateTime
         :param next_time: time + timestep
         :type next_time: DateTime
-        :param qmax_down: qty before MSPD
+        :param qmax_down: qty before min_stable_power_duration
         :type qmax_down: float
         :return: (the order, or None if invalid / under 1 MW, its EXCLUSION couplings)
         :rtype: tuple[Order | None, list[OrderCoupling]]
