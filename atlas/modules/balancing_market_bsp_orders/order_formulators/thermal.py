@@ -299,31 +299,43 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         return duration_requirement <= (studied_time - reference_time)
 
-    def _shutdown_mspd_ever_valid(self) -> bool:
+    def _shutdown_mspd_gate(self, time: DateTime) -> bool:
         """
-        Whether MSPD can ever validate a (single-timestep) shutdown order for this
-        equipment, independent of any particular timestep.
+        Whether MSPD allows a shutdown order at this specific timestep.
 
-        Re-reading legacy more carefully: after its stability checks (before/after)
-        pass, apply_minimum_stable_power_duration_constraint still falls into its
-        plateau-extension block whenever MinimumStablePowerDuration is longer than
-        the order — which for a single-timestep order is always true once we're
-        past the initial no-op check. That block only re-validates the order when
-        order_type is "Upward" or "Downward"; "Shutdown" matches neither, so
-        is_valid_order stays False there regardless of how stable the equipment
-        actually was. Net effect: once minimum_stable_power_duration >= timestep,
-        no shutdown order is ever valid — the stability checks run but their
-        result is discarded for this order type. This looks like a legacy blind
-        spot rather than an intentional rule, but it's what the code does, so we
-        reproduce it: no time-dependent check needed, just this duration
-        comparison.
+        Re-derived against legacy's apply_minimum_stable_power_duration_constraint
+        for order_type == "Shutdown", case by case:
+          - MSPD < timestep: the function's own initial guard is a full no-op, so
+            MSPD never blocks a shutdown here.
+          - MSPD == timestep exactly: the initial guard doesn't fire (it tests '<',
+            not '<='), but the later plateau-extension block doesn't fire either —
+            its own guard is also a strict '<', false when the two are equal. Only
+            the before/after stability checks in between actually run here, so
+            they're the only thing that can block the order at this exact boundary.
+          - MSPD > timestep (strictly): stability still has to pass first, but even
+            when it does, the plateau-extension block that follows only ever sets
+            validity True when order_type is "Upward" or "Downward" — "Shutdown"
+            matches neither, in every branch, for every previous/next/starting
+            pattern (checked exhaustively) — so a shutdown is always invalidated
+            here, regardless of how stable the equipment actually was.
 
-        :return: True if minimum_stable_power_duration is short enough that a
-            shutdown order could ever be valid (the plateau-extension trap
-            doesn't apply)
+        :param time: Order start/end time (single timestep)
+        :type time: DateTime
+        :return: True if MSPD allows a shutdown order at this timestep
         :rtype: bool
         """
-        return self.equipment.minimum_stable_power_duration < self.parameters.temporal.timestep
+        duration_requirement = self.equipment.minimum_stable_power_duration
+        timestep = self.parameters.temporal.timestep
+
+        if duration_requirement < timestep:
+            return True
+
+        if not self._has_stable_power_before(time):
+            return False
+        if not self._has_stable_power_after(time):
+            return False
+
+        return not (timestep < duration_requirement)
 
     def _build_shutdown_order_name(self, start: DateTime, end: DateTime) -> str:
         """
@@ -477,7 +489,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
             equipment could restart within one timestep
             (_startup_fits_within_timestep). Priced with the shutdown cost (an
             implied future restart).
-        Also gated by _shutdown_mspd_ever_valid — see that method for why.
+        Also gated by _shutdown_mspd_gate — see that method for why.
 
         :param time: Order start/end time (single timestep)
         :type time: DateTime
@@ -486,7 +498,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :return: The shutdown order (or None if invalid) and its EXCLUSION couplings
         :rtype: tuple[Order | None, list[OrderCoupling]]
         """
-        if not self._shutdown_mspd_ever_valid():
+        if not self._shutdown_mspd_gate(time):
             return None, []
 
         shutdown_case = self._classify_shutdown_case(time)
