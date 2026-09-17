@@ -331,6 +331,41 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         return order.model_copy(update={"name": self._build_shutdown_order_name(start, end)})
 
+    def _is_shutdown_eligible(
+        self,
+        time: DateTime,
+        forecasted_power,
+        min_power,
+        upward_procured,
+        downward_procured,
+    ) -> bool:
+        """
+        Mirrors legacy's find_consecutive_available_shutdown_orders_timesteps: a
+        shutdown order only makes sense if the equipment is actually running at or
+        above minimum_power, and isn't already committed to any procured reserve
+        at this timestep (shutting it down would break that commitment).
+
+        :param time: The timestep being evaluated
+        :type time: DateTime
+        :param forecasted_power: Forecasted power timeseries
+        :type forecasted_power: Timeseries
+        :param min_power: Minimum power timeseries
+        :type min_power: Timeseries
+        :param upward_procured: Upward procured power timeseries
+        :type upward_procured: Timeseries
+        :param downward_procured: Downward procured power timeseries
+        :type downward_procured: Timeseries
+        :return: True if a shutdown order can be considered at this timestep
+        :rtype: bool
+        """
+        min_power_at_time = min_power.get_value(time)
+        return (
+            min_power_at_time > 0
+            and forecasted_power.get_value(time) >= min_power_at_time
+            and upward_procured.get_value(time) == 0
+            and downward_procured.get_value(time) == 0
+        )
+
     def _apply_minimum_stable_power_duration_constraint(
         self,
         time: DateTime,
