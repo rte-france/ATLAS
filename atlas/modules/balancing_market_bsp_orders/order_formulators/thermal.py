@@ -99,9 +99,10 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         # --- Downward pass
         for time, (next_time, qmax_down) in downward_by_time.items():
-            order = self._formulate_downward_order(time, next_time, qmax_down)
+            order, order_couplings = self._formulate_downward_order(time, next_time, qmax_down)
             if order is not None:
                 orders.append(order)
+                couplings.extend(order_couplings)
 
         cfg.logger.info(f"Formulation of orders on equipment {self.equipment.name} completed")
         return orders, couplings
@@ -243,6 +244,38 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         return duration_requirement <= (studied_time - reference_time)
 
+    def _has_stable_power_around(self, time: DateTime) -> bool:
+        """
+        Shutdown-specific stand-in for _apply_minimum_stable_power_duration_constraint.
+
+        Legacy calls apply_minimum_stable_power_duration_constraint(..., "Shutdown", ...)
+        for shutdown orders too, but inside that function the plateau-extension logic
+        (the part that lets an order borrow quantity from a differing neighboring
+        stable level) only ever branches on order_type == "Upward" or "Downward" —
+        "Shutdown" matches neither, so that whole branch is unreachable for shutdowns
+        and always leaves is_valid_order at its pre-plateau value of False. In other
+        words, for Shutdown, MSPD boils down to: valid only if the equipment was
+        already stable long enough on both sides — never via plateau-borrowing.
+
+        That's exactly what _has_stable_power_before/_has_stable_power_after already
+        check, so we call those two directly here instead of routing through
+        _apply_minimum_stable_power_duration_constraint (which would need a third
+        OrderType-like value it doesn't have, and would still just skip its own
+        plateau logic anyway).
+
+        :param time: order start/end time
+        :type time: DateTime
+        :return: True if MSPD is satisfied (or not applicable) for a shutdown here
+        :rtype: bool
+        """
+        duration_requirement = self.equipment.minimum_stable_power_duration
+        timestep = self.parameters.temporal.timestep
+
+        if duration_requirement < timestep:
+            return True
+
+        return self._has_stable_power_before(time) and self._has_stable_power_after(time)
+
     def _apply_minimum_stable_power_duration_constraint(
         self,
         time: DateTime,
@@ -351,7 +384,9 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
             qmax=qmax_up,
         )
 
-    def _formulate_downward_order(self, time: DateTime, next_time: DateTime, qmax_down: float) -> Order | None:
+    def _formulate_downward_order(
+        self, time: DateTime, next_time: DateTime, qmax_down: float
+    ) -> tuple[Order | None, list[OrderCoupling]]:
         """
         Downward order, after the MSPD check.
 
@@ -361,16 +396,16 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :type next_time: DateTime
         :param qmax_down: qty before MSPD
         :type qmax_down: float
-        :return: the order, or None if invalid / under 1 MW
-        :rtype: Order | None
+        :return: (the order, or None if invalid / under 1 MW, its EXCLUSION couplings)
+        :rtype: tuple[Order | None, list[OrderCoupling]]
         """
         qmax_down, is_valid, is_undivisible = self._apply_minimum_stable_power_duration_constraint(
             time, OrderType.Buy, qmax_down
         )
         if not is_valid or qmax_down < 1.0:
-            return None
+            return None, []
 
-        return self.build_order(
+        order = self.build_order(
             order_type=OrderType.Buy,
             start=time,
             end=next_time,
@@ -378,6 +413,33 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
             qmin=qmax_down if is_undivisible else 0.0,
             qmax=qmax_down,
         )
+        if order is None:
+            return None, []
+
+        couplings: list[OrderCoupling] = []
+        if self.equipment.maximum_gradient != 0:
+            offset_minutes = int(self._timestep_minutes)
+            previous_time = time.subtract(minutes=offset_minutes)
+            for previous_order in self._upward_orders_by_time.get(previous_time, []):
+                couplings.append(
+                    OrderCoupling(
+                        name=self._next_coupling_name(CouplingType.EXCLUSION, order),
+                        orders=[previous_order, order],
+                        coupling_type=CouplingType.EXCLUSION,
+                    )
+                )
+
+            next_step_time = time.add(minutes=offset_minutes)
+            for next_order in self._upward_orders_by_time.get(next_step_time, []):
+                couplings.append(
+                    OrderCoupling(
+                        name=self._next_coupling_name(CouplingType.EXCLUSION, order),
+                        orders=[order, next_order],
+                        coupling_type=CouplingType.EXCLUSION,
+                    )
+                )
+
+        return order, couplings
 
     def _formulate_case_1_order(self, time: DateTime, next_time: DateTime) -> Order | None:
         """
