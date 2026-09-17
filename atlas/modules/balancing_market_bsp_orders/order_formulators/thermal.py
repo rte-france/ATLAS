@@ -187,6 +187,55 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         """
         self._upward_orders_by_time.setdefault(time, []).append(order)
 
+    def _exclusion_couplings_with_adjacent_upward_orders(
+        self, time: DateTime, order: Order, both_directions: bool = True
+    ) -> list[OrderCoupling]:
+        """
+        Build EXCLUSION couplings between `order` and the upward orders recorded at
+        the previous timestep (and, when both_directions, the next timestep too).
+        Shared by the downward and shutdown paths, both of which link to upward
+        orders on both sides per legacy — callers decide whether to call this at
+        all (e.g. downward only does so when maximum_gradient != 0), this helper
+        doesn't check that itself. Case 5's own EXCLUSION (start1 vs previous
+        timestep) only ever looks backward, since legacy's mirror lookup forward
+        always hits an empty, not-yet-populated dict at the point it runs — so
+        it isn't built on this helper.
+
+        :param time: The order's own timestep
+        :type time: DateTime
+        :param order: The order these couplings attach to
+        :type order: Order
+        :param both_directions: Also link to the next timestep's upward orders
+        :type both_directions: bool
+        :return: The EXCLUSION couplings (possibly empty)
+        :rtype: list[OrderCoupling]
+        """
+        offset_minutes = int(self._timestep_minutes)
+        couplings: list[OrderCoupling] = []
+
+        previous_time = time.subtract(minutes=offset_minutes)
+        for previous_order in self._upward_orders_by_time.get(previous_time, []):
+            couplings.append(
+                OrderCoupling(
+                    name=self._next_coupling_name(CouplingType.EXCLUSION, order),
+                    orders=[previous_order, order],
+                    coupling_type=CouplingType.EXCLUSION,
+                )
+            )
+
+        if both_directions:
+            next_time = time.add(minutes=offset_minutes)
+            for next_order in self._upward_orders_by_time.get(next_time, []):
+                couplings.append(
+                    OrderCoupling(
+                        name=self._next_coupling_name(CouplingType.EXCLUSION, order),
+                        orders=[order, next_order],
+                        coupling_type=CouplingType.EXCLUSION,
+                    )
+                )
+
+        return couplings
+
     def _has_stable_power_before(self, time: DateTime) -> bool:
         """
         Check whether the equipment's forecasted power stayed constant for at least
@@ -526,26 +575,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         couplings: list[OrderCoupling] = []
         if self.equipment.maximum_gradient != 0:
-            offset_minutes = int(self._timestep_minutes)
-            previous_time = time.subtract(minutes=offset_minutes)
-            for previous_order in self._upward_orders_by_time.get(previous_time, []):
-                couplings.append(
-                    OrderCoupling(
-                        name=self._next_coupling_name(CouplingType.EXCLUSION, order),
-                        orders=[previous_order, order],
-                        coupling_type=CouplingType.EXCLUSION,
-                    )
-                )
-
-            next_step_time = time.add(minutes=offset_minutes)
-            for next_order in self._upward_orders_by_time.get(next_step_time, []):
-                couplings.append(
-                    OrderCoupling(
-                        name=self._next_coupling_name(CouplingType.EXCLUSION, order),
-                        orders=[order, next_order],
-                        coupling_type=CouplingType.EXCLUSION,
-                    )
-                )
+            couplings = self._exclusion_couplings_with_adjacent_upward_orders(time, order)
 
         return order, couplings
 
