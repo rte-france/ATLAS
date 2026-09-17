@@ -104,6 +104,12 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
                 orders.append(order)
                 couplings.extend(order_couplings)
 
+            if self._is_shutdown_eligible(time, forecasted_power, min_power, upward_procured, downward_procured):
+                shutdown_order, shutdown_couplings = self._formulate_shutdown_order(time, next_time)
+                if shutdown_order is not None:
+                    orders.append(shutdown_order)
+                    couplings.extend(shutdown_couplings)
+
         cfg.logger.info(f"Formulation of orders on equipment {self.equipment.name} completed")
         return orders, couplings
 
@@ -293,37 +299,31 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         return duration_requirement <= (studied_time - reference_time)
 
-    def _has_stable_power_around(self, time: DateTime) -> bool:
+    def _shutdown_mspd_ever_valid(self) -> bool:
         """
-        Shutdown-specific stand-in for _apply_minimum_stable_power_duration_constraint.
+        Whether MSPD can ever validate a (single-timestep) shutdown order for this
+        equipment, independent of any particular timestep.
 
-        Legacy calls apply_minimum_stable_power_duration_constraint(..., "Shutdown", ...)
-        for shutdown orders too, but inside that function the plateau-extension logic
-        (the part that lets an order borrow quantity from a differing neighboring
-        stable level) only ever branches on order_type == "Upward" or "Downward" —
-        "Shutdown" matches neither, so that whole branch is unreachable for shutdowns
-        and always leaves is_valid_order at its pre-plateau value of False. In other
-        words, for Shutdown, MSPD boils down to: valid only if the equipment was
-        already stable long enough on both sides — never via plateau-borrowing.
+        Re-reading legacy more carefully: after its stability checks (before/after)
+        pass, apply_minimum_stable_power_duration_constraint still falls into its
+        plateau-extension block whenever MinimumStablePowerDuration is longer than
+        the order — which for a single-timestep order is always true once we're
+        past the initial no-op check. That block only re-validates the order when
+        order_type is "Upward" or "Downward"; "Shutdown" matches neither, so
+        is_valid_order stays False there regardless of how stable the equipment
+        actually was. Net effect: once minimum_stable_power_duration >= timestep,
+        no shutdown order is ever valid — the stability checks run but their
+        result is discarded for this order type. This looks like a legacy blind
+        spot rather than an intentional rule, but it's what the code does, so we
+        reproduce it: no time-dependent check needed, just this duration
+        comparison.
 
-        That's exactly what _has_stable_power_before/_has_stable_power_after already
-        check, so we call those two directly here instead of routing through
-        _apply_minimum_stable_power_duration_constraint (which would need a third
-        OrderType-like value it doesn't have, and would still just skip its own
-        plateau logic anyway).
-
-        :param time: order start/end time
-        :type time: DateTime
-        :return: True if MSPD is satisfied (or not applicable) for a shutdown here
+        :return: True if minimum_stable_power_duration is short enough that a
+            shutdown order could ever be valid (the plateau-extension trap
+            doesn't apply)
         :rtype: bool
         """
-        duration_requirement = self.equipment.minimum_stable_power_duration
-        timestep = self.parameters.temporal.timestep
-
-        if duration_requirement < timestep:
-            return True
-
-        return self._has_stable_power_before(time) and self._has_stable_power_after(time)
+        return self.equipment.minimum_stable_power_duration < self.parameters.temporal.timestep
 
     def _build_shutdown_order_name(self, start: DateTime, end: DateTime) -> str:
         """
@@ -432,6 +432,116 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         startup_duration_minutes = self.equipment.startup_duration.total_seconds() / 60
         setup_delay_minutes = self.equipment.setup_delay * 60
         return startup_duration_minutes + setup_delay_minutes <= self._timestep_minutes
+
+    def _classify_shutdown_case(self, time: DateTime) -> str:
+        """
+        Classify the equipment's on/off transition case for a shutdown order at
+        this timestep. Mirrors legacy's shutdown Cases 1-4 — distinct from the
+        startup Cases 1/2/3/5 in _classify_startup_case, even though the
+        previous/next-power logic looks similar.
+
+        :param time: The timestep being evaluated
+        :type time: DateTime
+        :return: One of 'case_1', 'case_2', 'case_3', 'case_4'
+        :rtype: str
+        """
+        previous_power = self._neighbor_power(time, forward=False)
+        next_power = self._neighbor_power(time, forward=True)
+
+        if previous_power == 0 and next_power == 0:
+            return "case_1"
+        if previous_power == 0:
+            return "case_2"
+        if next_power == 0:
+            return "case_3"
+        return "case_4"
+
+    def _formulate_shutdown_order(
+        self,
+        time: DateTime,
+        next_time: DateTime,
+    ) -> tuple[Order | None, list[OrderCoupling]]:
+        """
+        Formulate the shutdown order for this timestep, if any. Assumes the
+        caller already checked _is_shutdown_eligible. Buys down the equipment's
+        full current output (indivisible — qmin == qmax). Price and validity
+        depend on the on/off transition case:
+          - Case 1 (OFF before and after): valid, cancels an implied startup,
+            price drops by the startup cost — same idea as Case 1 upward orders.
+          - Case 2 (OFF before only) / Case 3 (OFF after only): always valid;
+            free of shutdown cost only if the equipment stays on the other side
+            for at least MinimumTimeOn, otherwise priced with the shutdown cost
+            like Case 4.
+          - Case 4 (ON before and after): valid only if MinimumTimeOff fits the
+            timestep, MinimumTimeOn is satisfied on both sides, and the
+            equipment could restart within one timestep
+            (_startup_fits_within_timestep). Priced with the shutdown cost (an
+            implied future restart).
+        Also gated by _shutdown_mspd_ever_valid — see that method for why.
+
+        :param time: Order start/end time (single timestep)
+        :type time: DateTime
+        :param next_time: Order end boundary (time + timestep)
+        :type next_time: DateTime
+        :return: The shutdown order (or None if invalid) and its EXCLUSION couplings
+        :rtype: tuple[Order | None, list[OrderCoupling]]
+        """
+        if not self._shutdown_mspd_ever_valid():
+            return None, []
+
+        shutdown_case = self._classify_shutdown_case(time)
+
+        has_shutdown_costs = True
+        is_startup_cancelled = False
+        is_valid = True
+
+        if shutdown_case == "case_1":
+            has_shutdown_costs = False
+            is_startup_cancelled = True
+        elif shutdown_case == "case_2":
+            if self._check_on_off_time_requirement(time, searching_on=True, searching_backwards=False):
+                has_shutdown_costs = False
+        elif shutdown_case == "case_3":
+            if self._check_on_off_time_requirement(time, searching_on=True, searching_backwards=True):
+                has_shutdown_costs = False
+        else:
+            if self.parameters.temporal.timestep < self.equipment.minimum_time_off:
+                is_valid = False
+            if not self._check_on_off_time_requirement(time, searching_on=True, searching_backwards=True):
+                is_valid = False
+            if not self._check_on_off_time_requirement(time, searching_on=True, searching_backwards=False):
+                is_valid = False
+            if not self._startup_fits_within_timestep():
+                is_valid = False
+
+        if not is_valid:
+            return None, []
+
+        qmax = round(self._forecasted_power_at(time))
+        if qmax <= 0:
+            return None, []
+
+        duration_hours = self._timestep_minutes / 60
+        startup_cost = self._startup_cost_at(time)
+        variable_cost = self.equipment.variable_cost.get_value(time)
+
+        if has_shutdown_costs:
+            price = variable_cost + startup_cost / (qmax * duration_hours)
+        elif is_startup_cancelled:
+            price = variable_cost - startup_cost / (qmax * duration_hours)
+        else:
+            price = variable_cost
+        price = round(price, 2)
+
+        order = self._build_shutdown_order(time, next_time, price, qmax)
+        if order is None:
+            return None, []
+
+        couplings: list[OrderCoupling] = []
+        if self.equipment.maximum_gradient != 0:
+            couplings = self._exclusion_couplings_with_adjacent_upward_orders(time, order)
+
+        return order, couplings
 
     def _apply_minimum_stable_power_duration_constraint(
         self,
