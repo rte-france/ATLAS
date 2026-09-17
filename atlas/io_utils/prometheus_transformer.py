@@ -856,12 +856,3 @@ def find_hdf5_files(directory: Path) -> list[Path]:
             continue
 
     return valid_hdf5_files
-
-
-if __name__ == "__main__":
-    transformer = PrometheusToAtlasDataParser(
-        timeseries_path="C:/Users/boutetale/ATLAS/data/BSP_Orders/output",
-        hdf5_path="C:/Users/boutetale/ATLAS/data/BSP_Orders/4e000344-ee63-4c73-9fca-976643a25b70",
-        output_dir="C:/Users/boutetale/ATLAS/tests/dataset/intraday/bsp_orders_output",
-    )
-    transformer.process()
