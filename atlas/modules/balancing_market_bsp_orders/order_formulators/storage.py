@@ -40,8 +40,6 @@ def compute_average_clearing_prices(market_area: MarketArea, local_time: DateTim
     number_of_reference_prices = 1
     total_price = market_area.da_price.get_value(local_time)
 
-    # TODO : the original rounds local_time down to the hour before matching against id_price
-    # timeseries indexes. Kept as-is here, but worth re-checking this rounding behavior later.
     wanted_date = local_time.start_of("hour")
 
     if market_area.id_price is not None:
@@ -65,7 +63,6 @@ def compute_daily_balancing_energy(equipment: BalancingStorage, parameters: BSPB
     Sums RR, mFRR, aFRR, FCR activated power, and specific activated power over the
     current day, then integrates at the market timestep.
 
-    # TODO : the original prometheus implementation integrates at a fixed 5-minute
     # timestep regardless of the market timestep. Here we integrate at the market
     # timestep directly for simplicity; unclear whether this distinction matters.
 
@@ -83,6 +80,8 @@ def compute_daily_balancing_energy(equipment: BalancingStorage, parameters: BSPB
     current_day_start = start.start_of("day")
     current_day_end = current_day_start.end_of("day")
 
+    # TODO : the original prometheus implementation integrates at a fixed 5-minute
+    # If timesteps are not equal, there will be an error
     energy_timeframe_power = (
         equipment.rr_activated.slice(current_day_start, current_day_end)
         + equipment.mfrr_activated.slice(current_day_start, current_day_end)

@@ -151,7 +151,6 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
             if qmax_up >= 1.0:
                 orders.extend(self._build_upward_fragment_orders(time, next_time, qmax_up, water_value))
 
-            # TODO: Constraint not present in prometheus : Check with validation
             if qmax_down >= 1.0:
                 orders.extend(self._build_downward_fragment_orders(time, next_time, qmax_down, water_value))
 
