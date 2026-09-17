@@ -175,8 +175,12 @@ def build_order_windows(
         # determines whether we are extending an existing run, bridging a gap, or starting fresh.
         t_before = window_start.add(minutes=-parameters.temporal.timestep.in_minutes())
         t_after = window_end.add(minutes=parameters.temporal.timestep.in_minutes())
-        was_running_before = cleared_engagement.get_value(t_before) >= equipment.minimum_power.get_value(t_before)
-        is_running_after = cleared_engagement.get_value(t_after) >= equipment.minimum_power.get_value(t_after)
+        was_running_before = t_before in cleared_engagement and cleared_engagement.get_value(
+            t_before
+        ) >= equipment.minimum_power.get_value(t_before)
+        is_running_after = t_after in cleared_engagement and cleared_engagement.get_value(
+            t_after
+        ) >= equipment.minimum_power.get_value(t_after)
 
         code = PlanningDelta(int(planning_delta.get_value(window_start)))
         if code == PlanningDelta.STARTUP and was_running_before:

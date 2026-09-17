@@ -7,12 +7,11 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 
-from atlas.abstract_class.dataset import AbstractDataset
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
-from atlas.io_utils.parameters import ContextParameters
-from atlas.orchestrator.workflow.job import Step, WorkflowJob
+from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
 
 
@@ -21,48 +20,46 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
     Each job processes the output of the previous one, starting from the input dataset."""
 
-    def __init__(self, parameters: WorkflowParameters):
+    @classmethod
+    def get_param_class(cls):
+        return WorkflowParameters
+
+    def __init__(self, parameters: WorkflowParameters, prefix_job_name: str = ""):
         """Initialize a Workflow instance.
 
         :param parameters: Name of the workflow.
         :type parameters: WorkflowParameters
         """
-        self.parameters = parameters
+        super().__init__(parameters)
         self._jobs: list[WorkflowJob] = []
-        self.build_jobs()
+        self.build_jobs(prefix_job_name)
 
-    @classmethod
-    def from_file(cls, file_path: str | Path, context: ContextParameters | None = None) -> Workflow:
-        file_path = Path(file_path)
-        parameters = WorkflowParameters.from_file(file_path=file_path)
-        if context is not None:
-            parameters.context.use(context)
-        parameters._orchestrator_path = file_path.parent
-        return cls(parameters=parameters)
-
-    def build_jobs(self):
-        Step.add_index_in_step_name(self.parameters.steps)
-
+    def build_jobs(self, prefix_job_name: str | None = None):
         for step in self.parameters.steps:
             parameters_class = step.module.value().get_parameters_class()
-            if step.parameters_path is not None:
+            if isinstance(step.parameters, (str, Path)):
                 parameters = parameters_class.from_file(
-                    self.parameters.resolve_path(step.parameters_path), self.parameters.context
+                    self.parameters.resolve_path(Path(step.parameters)), self.parameters.context
                 )
-            else:
+            elif isinstance(step.parameters, dict):
                 parameters = parameters_class.from_dict(step.parameters, self.parameters.context)
             parameters.output.output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
-            workflow_job = WorkflowJob(step.name, step.module.value, parameters)
+            job_name = f"{prefix_job_name} {step.name}" if prefix_job_name else step.name
+            workflow_job = WorkflowJob(f"{job_name!r}", step.module.value, parameters)
             self.add_job(workflow_job)
 
     @property
-    def jobs(self) -> list[WorkflowJob]:
+    def jobs(self) -> Iterator[WorkflowJob]:
         """
         Access the workflow jobs.
 
         :return: The list of WorkflowJob instances.
         """
-        return self._jobs
+        return iter(self._jobs)
+
+    @property
+    def jobs_count(self) -> int:
+        return len(self._jobs)
 
     def add_job(self, job: WorkflowJob | list[WorkflowJob]) -> None:
         """Add one or multiple jobs to the end of the workflow."""
@@ -74,10 +71,6 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
             if not isinstance(job, WorkflowJob):
                 raise TypeError(f"Expected a WorkflowJob instance, got {type(job).__name__}.")
             self._jobs.append(job)
-
-    def get_output_dataset(self) -> AbstractDataset | None:
-        """Returns the final dataset of the workflow"""
-        return self.jobs[-1].get_output_dataset()
 
     def __repr__(self) -> str:
         """Return a human-readable string representation of the workflow."""

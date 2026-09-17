@@ -8,7 +8,7 @@ This page describes the input data required by the Market Clearing module.
 
 | Field | Type | Description |
 |---|---|---|
-| `mc_orders` | `dict[str, Order]` | All orders assigned to this market area, indexed by order name. |
+| `orders` | `dict[str, Order]` | All orders assigned to this market area, indexed by order name. |
 
 The following fields are optional and used when present:
 

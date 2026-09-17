@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from datetime import datetime
 from types import UnionType
-from typing import Any, TypeAliasType, TypedDict, get_args, get_origin
+from typing import Annotated, Any, TypeAliasType, TypedDict, Union, get_args, get_origin
 
 from pendulum import DateTime
 
@@ -47,12 +47,18 @@ def get_type_attribute(
         return None
     attribute_type = cfg.MODEL_MAPPING_NAME[object_type].model_fields[attribute].annotation
 
-    if get_origin(attribute_type) is UnionType:
+    if get_origin(attribute_type) in (UnionType, Union):
         model = get_args(attribute_type)[0]
         if model is None:
             model = get_args(attribute_type)[1]
     else:
         model = attribute_type
+
+    # `Annotated[X, ...] | None` resolves to `Optional[Annotated[X, ...]]`, so `model` may still
+    # be wrapped in Annotated (e.g. DurationField). Unwrap to the underlying type X.
+    if get_origin(model) is Annotated:
+        model = model.__origin__
+
     return _unwrap_generic_alias(model)
 
 

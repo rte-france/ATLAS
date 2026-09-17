@@ -32,7 +32,7 @@ The Atlas project uses an automated release workflow that:
 
 ### 3. Post-Release
 
-1. **Verify PyPI Publication**: Check https://pypi.org/project/rte-atlas/
+1. **Verify PyPI Publication**: Check https://pypi.org/project/atlas-model/
 2. **Verify Documentation**: Check the documentation site for the new version
 3. **Create GitHub Release**: Optionally create a GitHub release with release notes
 
@@ -74,8 +74,8 @@ reproduce a build locally:
 uv sync --group docs
 
 # Build the static site (output in ./public)
-uv run zensical build 
+uv run zensical build
 
 # Build and serve locally on http://localhost:8000
-uv run zensical serve 
+uv run zensical serve
 ```

@@ -23,7 +23,7 @@ WORKFLOW_CONFIGS = [
         INTRADAY_WORKFLOW_CONFIG,
         id="intraday",
         marks=pytest.mark.skipif(
-            True,  # not INTRADAY_WORKFLOW_CONFIG.exists(), # TODO FIX WHEN THE WHOLE WORKFLOW WORKS
+            not INTRADAY_WORKFLOW_CONFIG.exists(),  # not INTRADAY_WORKFLOW_CONFIG.exists(), # TODO FIX WHEN THE WHOLE WORKFLOW WORKS
             reason=f"Workflow config not found: {INTRADAY_WORKFLOW_CONFIG}",
         ),
     ),

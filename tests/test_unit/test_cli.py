@@ -159,7 +159,7 @@ class TestRunCommandWorkflowMode:
             dataset_path: ./dataset
             steps:
             - module: PortfolioOptimisation
-                parameters_path: params.yaml
+                parameters: params.yaml
             """
         )
 
@@ -194,9 +194,9 @@ class TestRunWorkflowListCommand:
             "dataset_path: ./dataset\n"
             "steps:\n"
             "  - module: PortfolioOptimisation\n"
-            "    parameters_path: params.yaml\n"
+            "    parameters: params.yaml\n"
             "  - module: MarketClearing\n"
-            "    parameters_path: mc_params.yaml\n"
+            "    parameters: mc_params.yaml\n"
         )
         result = runner.invoke(app, ["workflow", "list", str(workflow_config)])
         assert result.exit_code == 0

@@ -140,7 +140,12 @@ def list_workflow(
     table.add_column("Module")
     table.add_column("Parameters file", style="dim")
     for i, step in enumerate(params.steps, 1):
-        table.add_row(str(i), step.name or "", step.module.name, str(step.parameters_path))
+        table.add_row(
+            str(i),
+            step.name or "",
+            step.module.name,
+            str(step.parameters) if isinstance(step.parameters, Path) else None,
+        )
     rprint(table)
 
 

@@ -1,6 +1,6 @@
 # ATLAS
 
-Power market simulator (day-ahead, intraday, reserves) developed by Artelys for RTE.
+Power market simulator (day-ahead, intraday, reserves) developed by Rte.
 
 ## Stack
 

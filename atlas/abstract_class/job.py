@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, TypeVar
 
 from atlas.abstract_class.dataset import AbstractModuleOutput
@@ -21,7 +22,12 @@ class AbstractJob:
     and producing an output dataset from an input dataset.
     """
 
-    def __init__(self, name: str, module: type[AbstractModule], parameters: AbstractModuleParameters | dict[str, Any]):
+    def __init__(
+        self,
+        name: str,
+        module: type[AbstractModule],
+        parameters: dict[str, Any] | str | Path | AbstractModuleParameters,
+    ):
         """
         Initialize an AbstractJob.
 
@@ -29,15 +35,15 @@ class AbstractJob:
         :type name: str
         :param module: Module to be executed in this job.
         :type module: AbstractModule
-        :param parameters: Typed parameters or raw dict validated via the module's parameters class.
-        :type parameters: AbstractModuleParameters or dict
+        :param parameters: Typed parameters ; raw dict ; path to parameter file ; will be validated via the module's parameters class.
+        :type parameters: dict or str or Path or AbstractModuleParameters
         """
         self.name: str = name
         self.module = module()
         if isinstance(parameters, AbstractModuleParameters):
             self.parameters = parameters
         else:
-            self.parameters = self.module.get_parameters_class().model_validate(parameters)
+            self.parameters = self.module.import_parameters(parameters)
         self._output_dataset: AbstractModuleOutput | None = None
 
     @property

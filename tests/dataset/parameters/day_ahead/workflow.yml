@@ -4,8 +4,8 @@ name: workflow
 export_output: false
 steps:
   - module: DayAheadOrders
-    parameters_path: tests/dataset/parameters/day_ahead/day_ahead_orders.yml
+    parameters: tests/dataset/parameters/day_ahead/day_ahead_orders.yml
   - module: MarketClearing
-    parameters_path: tests/dataset/parameters/day_ahead/market_clearing.yml
+    parameters: tests/dataset/parameters/day_ahead/market_clearing.yml
   - module: PortfolioOptimisation
-    parameters_path: tests/dataset/parameters/day_ahead/portfolio_optimisation.yml
+    parameters: tests/dataset/parameters/day_ahead/portfolio_optimisation.yml

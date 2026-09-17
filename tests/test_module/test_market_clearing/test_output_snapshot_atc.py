@@ -23,11 +23,12 @@ NUMERICAL_TOLERANCE = 1e-6
 
 
 def _dump_snapshot(output_dataset: MarketClearingOutputDataset) -> dict[str, list]:
+    """Render the outputs as JSON-comparable rows, with each timestep as its datetime string."""
     return {
         "accepted_powers": [[a, o, v] for (a, o), v in sorted(output_dataset.accepted_powers.items())],
-        "local_balances": [[a, t, v] for (a, t), v in sorted(output_dataset.local_balances.items())],
-        "border_exchanges": [[b, t, v] for (b, t), v in sorted(output_dataset.border_exchanges.items())],
-        "market_prices": [[a, t, v] for (a, t), v in sorted(output_dataset.market_prices.items())],
+        "local_balances": [[a, str(t), v] for (a, t), v in sorted(output_dataset.local_balances.items())],
+        "border_exchanges": [[b, str(t), v] for (b, t), v in sorted(output_dataset.border_exchanges.items())],
+        "market_prices": [[a, str(t), v] for (a, t), v in sorted(output_dataset.market_prices.items())],
     }
 
 

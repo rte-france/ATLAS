@@ -560,7 +560,7 @@ def _finalize_power_update(
     end_date = parameters.temporal.end_date
     if equipment.power:
         next_power_value = equipment.power.get_forecast(
-            parameters.temporal.execution_date, end_date, end_date
+            parameters.temporal.execution_date, end_date, end_date, default_value=0.0
         ).get_value(end_date)
     else:
         next_power_value = 0.0
