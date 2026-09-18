@@ -72,7 +72,7 @@ class AbstractOrderFormulator(ABC):
         """
         if matrix is None:
             return Timeseries.from_index(start, self.parameters.temporal.timestep, end, default_value=0.0)
-        return matrix.get_forecast(execution_date, start, end)
+        return matrix.get_forecast(execution_date, start, end, default_value=0.0)
 
     def compute_procured_power(
         self,

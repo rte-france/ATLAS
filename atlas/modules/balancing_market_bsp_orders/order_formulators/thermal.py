@@ -6,6 +6,8 @@ This file is part of the ATLAS project.
 Module that implements ThermalOrderFormulator.
 """
 
+from enum import Enum
+
 from pendulum import DateTime
 
 import atlas.config as cfg
@@ -13,6 +15,16 @@ from atlas.enums import CouplingType, OrderType
 from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
+
+
+class StartupCase(Enum):
+    """On/off transition case for an upward order at a given timestep (legacy's Cases 1/2/3/5)."""
+
+    NO_STARTUP = "no_startup"
+    ON_BOTH_SIDES = "on_both_sides"
+    ON_BEFORE_ONLY = "on_before_only"
+    ON_AFTER_ONLY = "on_after_only"
+    FULL_STARTUP = "full_startup"
 
 
 class ThermalOrderFormulator(AbstractOrderFormulator):
@@ -72,27 +84,20 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
             startup_case = self._classify_startup_case(forecasted_power, time)
 
-            if startup_case == "case_5":
+            if startup_case == StartupCase.FULL_STARTUP:
                 start_orders, start_couplings = self._formulate_case_5_orders(time, next_time)
                 orders.extend(start_orders)
                 couplings.extend(start_couplings)
-            elif startup_case == "case_1":
-                order = self._formulate_case_1_order(time, next_time)
-                if order is not None:
-                    orders.append(order)
-                    self._record_upward_order(time, order)
-            elif startup_case == "case_2":
-                order = self._formulate_case_2_order(time, next_time)
-                if order is not None:
-                    orders.append(order)
-                    self._record_upward_order(time, order)
-            elif startup_case == "case_3":
-                order = self._formulate_case_3_order(time, next_time)
-                if order is not None:
-                    orders.append(order)
-                    self._record_upward_order(time, order)
             else:
-                order = self._formulate_plain_upward_order(time, next_time, qmax_up)
+                if startup_case == StartupCase.ON_BOTH_SIDES:
+                    order = self._formulate_case_1_order(time, next_time)
+                elif startup_case == StartupCase.ON_BEFORE_ONLY:
+                    order = self._formulate_case_2_order(time, next_time)
+                elif startup_case == StartupCase.ON_AFTER_ONLY:
+                    order = self._formulate_case_3_order(time, next_time)
+                else:
+                    order = self._formulate_plain_upward_order(time, next_time, qmax_up)
+
                 if order is not None:
                     orders.append(order)
                     self._record_upward_order(time, order)
@@ -129,10 +134,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :rtype: float
         """
         execution_date = self.parameters.temporal.execution_date
-        try:
-            return self.equipment.power.get_forecast(execution_date, time, time).get_value(time)
-        except (KeyError, ValueError):
-            return 0.0
+        return self.equipment.power.get_forecast(execution_date, time, time, default_value=0.0).get_value(time)
 
     def _neighbor_power(self, time: DateTime, forward: bool) -> float:
         """
@@ -726,20 +728,20 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if max_gradient > 0 and abs(next_power - previous_power) > 2 * (max_gradient * self._timestep_minutes):
             return None
 
-        max_power_at_time = self.equipment.maximum_power.get_value(time)
-        min_power_at_time = self.equipment.minimum_power.get_value(time)
+        max_power = self.equipment.maximum_power.get_value(time)
+        min_power = self.equipment.minimum_power.get_value(time)
 
         if max_gradient > 0:
             max_grad = max_gradient * self._timestep_minutes
             if next_power >= previous_power:
-                bounded_qmax = min(max_power_at_time, previous_power + max_grad)
-                bounded_qmin = max(min_power_at_time, next_power - max_grad)
+                bounded_qmax = min(max_power, previous_power + max_grad)
+                bounded_qmin = max(min_power, next_power - max_grad)
             else:
-                bounded_qmax = min(max_power_at_time, next_power + max_grad)
-                bounded_qmin = max(min_power_at_time, previous_power - max_grad)
+                bounded_qmax = min(max_power, next_power + max_grad)
+                bounded_qmin = max(min_power, previous_power - max_grad)
         else:
-            bounded_qmax = max_power_at_time
-            bounded_qmin = min_power_at_time
+            bounded_qmax = max_power
+            bounded_qmin = min_power
 
         bounded_qmax, is_valid, is_undivisible = self._apply_minimum_stable_power_duration_constraint(
             time, OrderType.Sell, bounded_qmax
@@ -785,16 +787,16 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         previous_power = self._neighbor_power(time, forward=False)
 
-        max_power_at_time = self.equipment.maximum_power.get_value(time)
-        min_power_at_time = self.equipment.minimum_power.get_value(time)
+        max_power = self.equipment.maximum_power.get_value(time)
+        min_power = self.equipment.minimum_power.get_value(time)
 
         if self.equipment.maximum_gradient > 0:
             max_grad = self.equipment.maximum_gradient * self._timestep_minutes
-            bounded_qmax = min(max_power_at_time, previous_power + max_grad)
+            bounded_qmax = min(max_power, previous_power + max_grad)
         else:
-            bounded_qmax = max_power_at_time
+            bounded_qmax = max_power
 
-        bounded_qmin = max(min_power_at_time, previous_power)
+        bounded_qmin = max(min_power, previous_power)
 
         bounded_qmax, is_valid, is_undivisible = self._apply_minimum_stable_power_duration_constraint(
             time, OrderType.Sell, bounded_qmax
@@ -839,16 +841,16 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         next_power = self._neighbor_power(time, forward=True)
 
-        max_power_at_time = self.equipment.maximum_power.get_value(time)
-        min_power_at_time = self.equipment.minimum_power.get_value(time)
+        max_power = self.equipment.maximum_power.get_value(time)
+        min_power = self.equipment.minimum_power.get_value(time)
 
         if self.equipment.maximum_gradient > 0:
             max_grad = self.equipment.maximum_gradient * self._timestep_minutes
-            bounded_qmax = min(max_power_at_time, next_power + max_grad)
+            bounded_qmax = min(max_power, next_power + max_grad)
         else:
-            bounded_qmax = max_power_at_time
+            bounded_qmax = max_power
 
-        bounded_qmin = max(min_power_at_time, next_power)
+        bounded_qmin = max(min_power, next_power)
 
         bounded_qmax, is_valid, is_undivisible = self._apply_minimum_stable_power_duration_constraint(
             time, OrderType.Sell, bounded_qmax
@@ -890,29 +892,25 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         """
         execution_date = self.parameters.temporal.execution_date
 
-        if (time - execution_date) < self.equipment.startup_duration:
+        if (
+            (time - execution_date) < self.equipment.startup_duration
+            or not self._check_on_off_time_requirement(time, searching_on=False, searching_backwards=True)
+            or not self._check_on_off_time_requirement(time, searching_on=False, searching_backwards=False)
+            or self.parameters.temporal.timestep < self.equipment.minimum_time_on
+        ):
             return [], []
 
-        if not self._check_on_off_time_requirement(time, searching_on=False, searching_backwards=True):
-            return [], []
+        max_power = self.equipment.maximum_power.get_value(time)
+        min_power = self.equipment.minimum_power.get_value(time)
 
-        if not self._check_on_off_time_requirement(time, searching_on=False, searching_backwards=False):
-            return [], []
-
-        if self.parameters.temporal.timestep < self.equipment.minimum_time_on:
-            return [], []
-
-        max_power_at_time = self.equipment.maximum_power.get_value(time)
-        min_power_at_time = self.equipment.minimum_power.get_value(time)
-
-        _, is_valid, _ = self._apply_minimum_stable_power_duration_constraint(time, OrderType.Sell, max_power_at_time)
+        _, is_valid, _ = self._apply_minimum_stable_power_duration_constraint(time, OrderType.Sell, max_power)
         if not is_valid:
             return [], []
 
         duration_hours = self._timestep_minutes / 60
         startup_cost = self._startup_cost_at(time)
 
-        start1_qmax = min_power_at_time
+        start1_qmax = min_power
         start1_price = round(
             self.equipment.variable_cost.get_value(time) + startup_cost / (start1_qmax * duration_hours), 2
         )
@@ -926,7 +924,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
             suffix="_start1",
         )
 
-        start2_qmax = max_power_at_time - min_power_at_time
+        start2_qmax = max_power - min_power
         order_2 = self.build_order(
             order_type=OrderType.Sell,
             start=time,
@@ -966,7 +964,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         self,
         forecasted_power,
         time: DateTime,
-    ) -> str:
+    ) -> StartupCase:
         """
         Classify the equipment's on/off transition case at a given timestep.
 
@@ -977,26 +975,26 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :type forecasted_power: Timeseries
         :param time: The timestep being evaluated
         :type time: DateTime
-        :return: One of 'no_startup', 'case_1', 'case_2', 'case_3', 'case_5'
-        :rtype: str
+        :return: The matching StartupCase
+        :rtype: StartupCase
         """
         power_at_time = forecasted_power.get_value(time)
         if power_at_time != 0:
-            return "no_startup"
+            return StartupCase.NO_STARTUP
 
         if self.equipment.minimum_power.get_value(time) <= 0:
-            return "no_startup"
+            return StartupCase.NO_STARTUP
 
         previous_power = self._neighbor_power(time, forward=False)
         next_power = self._neighbor_power(time, forward=True)
 
         if previous_power > 0 and next_power > 0:
-            return "case_1"
+            return StartupCase.ON_BOTH_SIDES
         if previous_power > 0:
-            return "case_2"
+            return StartupCase.ON_BEFORE_ONLY
         if next_power > 0:
-            return "case_3"
-        return "case_5"
+            return StartupCase.ON_AFTER_ONLY
+        return StartupCase.FULL_STARTUP
 
     def _check_on_off_time_requirement(
         self,
