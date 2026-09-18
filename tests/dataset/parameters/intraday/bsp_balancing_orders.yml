@@ -1,0 +1,13 @@
+temporal:
+  start_date: "2028-09-27 12:00:00"
+  execution_date: "2028-09-27 11:30:00"
+  end_date: "2028-09-27 13:00:00"
+  timestep: "PT15M"
+conservative_stored_energy: true
+res_self_balancing: false
+with_combinatorial_options: true
+with_fixed_id_markets: true
+hydro_storage_quantity_percentage: 1
+storage_price_threshold: 0.1
+market_price_cap: 15000
+market_type: RRActivation
