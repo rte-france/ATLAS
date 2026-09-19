@@ -15,19 +15,21 @@ import pytest
 from atlas import WorkflowJob
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import ContextParameters
-from atlas.orchestrator.workflow.workflow import Workflow
+from atlas.orchestrator.workflow.workflow import Workflow, WorkflowParameters
 from atlas.timing import build_datetime
-from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, OrchestratorConfigBuilder
+from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, OrchestratorConfigBuilder, \
+    generate_step_from_job
 
 
 class TestWorkflowAddStep:
     @pytest.fixture
     def empty_workflow(self, tmp_path):
         conf = OrchestratorConfigBuilder().build_workflow_config(tmp_path)
-        params = Workflow.from_file(conf)
+        params = WorkflowParameters.from_file(conf)
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
-        wf._jobs = []
+        wf._steps = []
+        wf._resolved_parameters = []
         return wf
 
     @pytest.fixture(autouse=True)
@@ -35,38 +37,43 @@ class TestWorkflowAddStep:
         self.job_builder = MockJobBuilder().with_job_class(WorkflowJob)
 
     def test_add_single_step(self, tmp_path, empty_workflow):
-        step = self.job_builder.with_name("s1").build()
-        empty_workflow.add_job(step)
+        job = self.job_builder.with_name("s1").build()
+        step = generate_step_from_job(job)
+        empty_workflow.add_step(step)
 
         assert empty_workflow.jobs_count == 1
-        assert next(empty_workflow.jobs) is step
+        assert next(empty_workflow.jobs).name == repr("s1")
 
     def test_add_list_of_steps(self, tmp_path, empty_workflow):
-        steps = [self.job_builder.with_name(f"s{i}").build() for i in range(3)]
-        empty_workflow.add_job(steps)
+        jobs = [self.job_builder.with_name(f"s{i}").build() for i in range(3)]
+        steps = [generate_step_from_job(job) for job in jobs]
+        empty_workflow.add_step(steps)
 
         assert empty_workflow.jobs_count == 3
         for original, stored in zip(steps, empty_workflow.jobs):
-            assert stored is original
+            assert stored.name == repr(str(original.name))
 
     def test_add_invalid_type_raises_type_error(self, tmp_path, empty_workflow):
         with pytest.raises(TypeError):
-            empty_workflow.add_job("not_a_step")
+            empty_workflow.add_step("not_a_step")
 
     def test_add_list_with_invalid_item_raises_type_error(self, tmp_path, empty_workflow):
-        valid_step = self.job_builder.with_name("s1").build()
+        job = self.job_builder.with_name("s1").build()
+        valid_step = generate_step_from_job(job)
         with pytest.raises(TypeError):
-            empty_workflow.add_job([valid_step, "not_a_step"])
+            empty_workflow.add_step([valid_step, "not_a_step"])
 
     def test_steps_appended_in_order(self, tmp_path, empty_workflow):
-        s1 = self.job_builder.with_name("first").build()
-        s2 = self.job_builder.with_name("second").build()
-        empty_workflow.add_job(s1)
-        empty_workflow.add_job(s2)
+        j1 = self.job_builder.with_name("first").build()
+        j2 = self.job_builder.with_name("second").build()
+        s1 = generate_step_from_job(j1)
+        s2 = generate_step_from_job(j2)
+        empty_workflow.add_step(s1)
+        empty_workflow.add_step(s2)
 
         jobs = empty_workflow.jobs
-        assert next(jobs) is s1
-        assert next(jobs) is s2
+        assert next(jobs).name == repr("first")
+        assert next(jobs).name == repr("second")
 
 
 class TestWorkflowFromFile:

@@ -9,6 +9,7 @@ Unit tests for Orchestrator.
 
 import heapq
 from unittest.mock import MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -25,7 +26,8 @@ from tests.test_unit.test_orchestrator.orchestrator_factory import (
     MockOutPutBuilder,
     MockJobBuilder,
     MockTaskBuilder,
-    OrchestratorConfigBuilder
+    OrchestratorConfigBuilder,
+    generate_step_from_job
 )
 
 class _OrchestratorBuilder():
@@ -51,7 +53,8 @@ class _OrchestratorBuilder():
         params = WorkflowParameters.from_file(config, overall_context)
         workflow = Workflow.__new__(Workflow)
         workflow.parameters = params
-        workflow._jobs = jobs
+        workflow._steps = [generate_step_from_job(job) for job in jobs]
+        workflow._resolved_parameters = [step.parameters.model_copy() for step in jobs]
         return workflow
 
 
@@ -89,21 +92,19 @@ class TestOrchestratorExecute:
         output1 = MockOutPutBuilder().build()
         output2 = MockOutPutBuilder().build()
 
-        def run1(ds):
+        def run1(ds, params):
             call_order.append("job1")
-            job1._output_dataset = output1
+            return output1
 
-        def run2(ds):
+        def run2(ds, params):
             call_order.append("job2")
-            job2._output_dataset = output2
+            return output2
 
         job1 = MockJobBuilder().with_name("job1").build()
-        job1.module.run = MagicMock(side_effect=lambda ds, params: output1)
-        job1.run = run1
+        job1.module.run = MagicMock(side_effect=run1)
 
         job2 = MockJobBuilder().with_name("job2").build()
-        job2.module.run = MagicMock(side_effect=lambda ds, params: output2)
-        job2.run = run2
+        job2.module.run = MagicMock(side_effect=run2)
 
         orchestrator = orchestrator_builder(tmp_path, [job1, job2])
         assert orchestrator.jobs_count == 2
@@ -144,7 +145,7 @@ class TestOrchestratorExecute:
         mock_change_set = MagicMock()
         output = MockOutPutBuilder().with_change_sets([mock_change_set]).build()
 
-        job = MockJobBuilder().with_name("job").build()
+        job = MockJobBuilder().with_name("job").with_output(output).build()
         job._output_dataset = output
         job.run = lambda ds: None  # run is a no-op; _output_dataset is pre-set
 
@@ -168,6 +169,7 @@ class TestOrchestratorExecute:
 
     def test_execute_save_last_step_output(self, tmp_path, orchestrator_builder):
         mock_output = MockOutPutBuilder().build()
+        mock_output.marker = str(uuid4())
         job1 = MockJobBuilder().with_name("job1").build()
         job2 = MockJobBuilder().with_name("job2").with_output(mock_output).build()
         orchestrator = orchestrator_builder(tmp_path, [job1, job2])
@@ -188,4 +190,6 @@ class TestOrchestratorExecute:
 
             orchestrator.execute()
 
-        assert orchestrator.get_output_dataset() is mock_output
+        result = orchestrator.get_output_dataset()
+        assert result is not None
+        assert result.marker == mock_output.marker

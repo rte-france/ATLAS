@@ -120,7 +120,7 @@ class ModuleTaskJobsGenerator(TaskJobsGenerator):
         """Build and return the list of ActionPlanJob for the given iteration."""
         return [
             ActionPlanJob(
-                f"task {self._task.name} iteration {iteration}",
+                f"task {self._task.name!r} iteration {iteration}",
                 self.module,
                 self._build_parameters(iteration),
             )
@@ -173,5 +173,5 @@ class WorkflowTaskJobsGenerator(TaskJobsGenerator):
 
     def _build_jobs(self, iteration) -> list[AbstractJob]:
         """Build and return the list of ActionPlanJob for the given iteration."""
-        workflow = Workflow(self._build_parameters(iteration), f"task {self._task.name} iteration {iteration}")
+        workflow = Workflow(self._build_parameters(iteration), f"task {self._task.name!r} iteration {iteration}")
         return list(workflow.jobs)

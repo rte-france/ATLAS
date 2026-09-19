@@ -121,7 +121,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
     @property
     def jobs(self) -> Iterator[ActionPlanJob]:
         """
-        Access the action plan jobs.
+        Generate and return the action plan jobs.
 
         :return: The list of ActionPlanJob instances.
         """
