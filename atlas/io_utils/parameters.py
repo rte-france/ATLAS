@@ -177,7 +177,7 @@ class ContextParameters(BaseModel):
 
     def apply_on_parameters(self, parameter: Parameters, inplace: bool = False) -> Parameters:
         """
-        Copy and update parameters based on this context, return a deepcopy if deepcopy is True.
+        Copy and update parameters based on this context, return a deepcopy if inplace is False.
         Any default value in this context will be added if value is None in the parameter.
         Override any forced value from this context that are also present in given parameter.
         :param parameter: parameter to copy and update using this context
