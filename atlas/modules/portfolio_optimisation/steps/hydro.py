@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 import atlas.config as cfg
 from atlas.common.optimal_dispatch.dispatch.hydro import HydroDispatch
-from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue
+from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue, bid_volumes
 from atlas.common.optimal_dispatch.reserves import HydroReserveHandler, ReserveFactory
 from atlas.common.optimal_dispatch.steps import AbstractOptimStep
 from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
@@ -37,7 +37,7 @@ class HydroStep(AbstractOptimStep[HydroPO, "PortfolioOptimisationParameters"]):
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
-        self._dispatch.setup(model, parameters)
+        self._dispatch.setup(model, parameters, parameters.hydraulic_minimal_fragment_size)
         self._reserves.setup(model)
         for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding variables for hydro unit {eq.name} at time {time}")
@@ -68,14 +68,19 @@ class HydroStep(AbstractOptimStep[HydroPO, "PortfolioOptimisationParameters"]):
             price_forecasts = {}
         eq = self.equipment
         dt_h = parameters.temporal.timestep.total_hours()
-        energy_level = self._get_current_energy_level(eq, parameters)
-        marginal_value = InterpolatedMarginalValue.at_level(eq.storage_marginal_value, energy_level)
+        marginal_value = InterpolatedMarginalValue.for_unit(
+            eq,
+            parameters.temporal.execution_date,
+            parameters.temporal.start_date - parameters.temporal.timestep,
+            eq._cached_energy_forecast,
+        )
 
         for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding objective for hydro unit {eq.name} at time {time}")
             price_forecast = price_forecasts.get(time, 0.0)
 
-            for k in range(len(eq.fragment_data.keys())):
+            capacity = eq.maximum_power.get_value(time)
+            for k in bid_volumes(eq.fragment_data, capacity, parameters.hydraulic_minimal_fragment_size):
                 fragment_price = eq.fragment_data[k].price + marginal_value.value_at(time)
                 power_level_frag_var = self._dispatch.get_fragment_var(time, k)
 
@@ -83,11 +88,4 @@ class HydroStep(AbstractOptimStep[HydroPO, "PortfolioOptimisationParameters"]):
                     model.add_objective(fragment_price * power_level_frag_var * dt_h)
                 else:
                     model.add_objective(-(price_forecast - fragment_price) * power_level_frag_var * dt_h)
-
-    @staticmethod
-    def _get_current_energy_level(equipment: HydroPO, parameters: PortfolioOptimisationParameters) -> float:
-        """Resolve the reservoir's energy level at the time just before optimisation starts."""
-        prev = parameters.temporal.start_date - parameters.temporal.timestep
-        if equipment._cached_energy_forecast and prev in equipment._cached_energy_forecast:
-            return equipment._cached_energy_forecast.get_value(prev)
-        return equipment.initial_level.get_value(prev)
+            cfg.logger.debug(f"Finished adding objective for hydro unit {eq.name} at time {time}")

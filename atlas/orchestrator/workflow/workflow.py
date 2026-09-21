@@ -12,7 +12,7 @@ from pathlib import Path
 
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.orchestrator.workflow.job import WorkflowJob
-from atlas.orchestrator.workflow.parameters import Step, WorkflowParameters
+from atlas.orchestrator.workflow.parameters import WorkflowParameters
 
 
 class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
@@ -35,8 +35,6 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         self.build_jobs(prefix_job_name)
 
     def build_jobs(self, prefix_job_name: str | None = None):
-        Step.add_index_in_step_name(self.parameters.steps)
-
         for step in self.parameters.steps:
             parameters_class = step.module.value().get_parameters_class()
             if isinstance(step.parameters, (str, Path)):
