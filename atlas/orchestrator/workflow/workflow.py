@@ -25,7 +25,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
     def get_param_class(cls):
         return WorkflowParameters
 
-    def __init__(self, parameters: WorkflowParameters, prefix_job_name: str = ""):
+    def __init__(self, parameters: WorkflowParameters, prefix_job_name: str | None = None):
         """Initialize a Workflow instance.
 
         :param parameters: Name of the workflow.
@@ -35,7 +35,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         self._steps: list[Step] = []
         self._resolved_parameters: list[AbstractModuleParameters] = []
         for step in self.parameters.steps:
-            self.add_step(step)
+            self.add_step(step, prefix_job_name)
 
     @property
     def jobs(self) -> Iterator[WorkflowJob]:
