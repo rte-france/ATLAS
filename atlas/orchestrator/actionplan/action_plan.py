@@ -92,7 +92,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
                 task.module.value().get_parameters_class().from_dict(task.parameters, self.parameters.context)
             )
         else:
-            task_parameters = self.parameters.context.apply_on_parameters(task.parameters, inplace=False)
+            task_parameters = self.parameters.context.apply_on_parameters(task.parameters)
 
         task_generator = ModuleTaskJobsGenerator(task, task_parameters, root_output_dir)
         self._task_job_generators.append(task_generator)
@@ -111,7 +111,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         elif isinstance(task.workflow, dict):
             task_parameters = WorkflowParameters.from_dict(task.workflow, self.parameters.context)
         else:
-            task_parameters = self.parameters.context.apply_on_parameters(task.workflow.parameters, inplace=False)
+            task_parameters = self.parameters.context.apply_on_parameters(task.workflow.parameters)
 
         workflow_iterator = WorkflowTaskJobsGenerator(task, task_parameters, root_output_dir)
         self._task_job_generators.append(workflow_iterator)

@@ -86,7 +86,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         elif isinstance(parameters, dict):
             parameters = parameters_class.from_dict(parameters, self.parameters.context)
         elif isinstance(parameters, AbstractModuleParameters):
-            parameters = self.parameters.context.apply_on_parameters(parameters, inplace=False)
+            parameters = self.parameters.context.apply_on_parameters(parameters)
         return parameters
 
     def __repr__(self) -> str:
