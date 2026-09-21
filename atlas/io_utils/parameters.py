@@ -9,7 +9,7 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
-from typing import Self
+from typing import Self, TypeVar
 
 import yaml
 from pendulum import duration
@@ -141,6 +141,9 @@ class OutputParameters(BaseModel):
     output_dir: Path = Path("output")
 
 
+PT = TypeVar("PT", bound=Parameters)
+
+
 class ContextParameters(BaseModel):
     """A context contains values to use as default or to forced on corresponding parameters."""
 
@@ -175,7 +178,7 @@ class ContextParameters(BaseModel):
         deep_update(updated_dict, self.forced, True)
         return updated_dict
 
-    def apply_on_parameters(self, parameter: Parameters, inplace: bool = False) -> Parameters:
+    def apply_on_parameters(self, parameter: PT, inplace: bool = False) -> PT:
         """
         Copy and update parameters based on this context, return a deepcopy if inplace is False.
         Any default value in this context will be added if value is None in the parameter.

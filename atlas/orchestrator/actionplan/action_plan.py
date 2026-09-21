@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-import copy
 import heapq
 from collections import namedtuple
 from collections.abc import Iterator
