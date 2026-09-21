@@ -45,7 +45,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         :return: The list of WorkflowJob instances.
         """
         for step, resolved_parameter in zip(self._steps, self._resolved_parameters, strict=True):
-            parameters = resolved_parameter.model_copy()
+            parameters = resolved_parameter.model_copy(deep=True)
             yield WorkflowJob(f"{step.name!r}", step.module.value, parameters)
 
     @property
