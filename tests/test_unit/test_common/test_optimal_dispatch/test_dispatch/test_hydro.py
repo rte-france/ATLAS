@@ -106,9 +106,15 @@ def hydro_equipment(node, portfolio, power_ts, min_power_ts, energy_ts, initial_
     )
 
 
+class _Parameters(AbstractModuleParameters):
+    """Stands in for a real module's parameters, which always declare this field."""
+
+    hydraulic_minimal_fragment_size: float = 0.0
+
+
 @pytest.fixture
 def parameters(start_date, timestep):
-    return AbstractModuleParameters(
+    return _Parameters(
         temporal=DateParameters(
             start_date=start_date,
             end_date=start_date.add(hours=4),

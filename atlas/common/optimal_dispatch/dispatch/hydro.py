@@ -54,19 +54,10 @@ class HydroDispatch:
         self.stored_energy_var: ModelVar = None  # type: ignore[assignment]
         self._minimal_fragment_size: float = 0.0
 
-    def setup(
-        self, model: OptimisationModel, parameters: AbstractModuleParameters, minimal_fragment_size: float = 0.0
-    ) -> None:
-        """
-        Bind to a solver model and prepare the stored-energy variable handle.
-
-        :param minimal_fragment_size: Smallest fragment volume worth its own variable — smaller
-            ones are dropped and redistributed, see :func:`~atlas.common.optimal_dispatch.marginal_pricing.bid_volumes`.
-            Defaults to 0, i.e. one variable per fragment.
-        """
-        del parameters
+    def setup(self, model: OptimisationModel, parameters: AbstractModuleParameters) -> None:
+        """Bind to a solver model and prepare the stored-energy variable handle."""
         self._model = model
-        self._minimal_fragment_size = minimal_fragment_size
+        self._minimal_fragment_size = parameters.hydraulic_minimal_fragment_size  # type: ignore[attr-defined]
         eq = self._eq
         n = eq.name
         self.stored_energy_var = ModelVar(

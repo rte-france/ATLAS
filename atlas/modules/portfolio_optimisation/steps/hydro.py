@@ -37,7 +37,7 @@ class HydroStep(AbstractOptimStep[HydroPO, "PortfolioOptimisationParameters"]):
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
-        self._dispatch.setup(model, parameters, parameters.hydraulic_minimal_fragment_size)
+        self._dispatch.setup(model, parameters)
         self._reserves.setup(model)
         for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding variables for hydro unit {eq.name} at time {time}")
