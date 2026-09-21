@@ -160,9 +160,9 @@ class TestActionPlanAddTask:
                 offset_end_date=Duration(days=2),
         ))
         assert ap.jobs_count == 3
-        expected_job_order = ["task 1 iteration 1",
-                              "task 2 iteration 1",
-                              "task 3 iteration 1"]
+        expected_job_order = ["task '1' iteration 1",
+                              "task '2' iteration 1",
+                              "task '3' iteration 1"]
         for idx, job in enumerate(ap.jobs):
             assert job.name == expected_job_order[idx]
 
@@ -191,13 +191,13 @@ class TestActionPlanAddTask:
                 offset_end_date=Duration(days=2),
         ))
         assert ap.jobs_count == 7
-        expected_job_order = ["task 1 iteration 1",
-                              "task 2 iteration 1",
-                              "task 1 iteration 2",
-                              "task 2 iteration 2",
-                              "task 1 iteration 3",
-                              "task 1 iteration 4",
-                              "task 2 iteration 3"]
+        expected_job_order = ["task '1' iteration 1",
+                              "task '2' iteration 1",
+                              "task '1' iteration 2",
+                              "task '2' iteration 2",
+                              "task '1' iteration 3",
+                              "task '1' iteration 4",
+                              "task '2' iteration 3"]
         for idx, job in enumerate(ap.jobs):
             assert job.name == expected_job_order[idx]
 
