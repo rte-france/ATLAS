@@ -4,7 +4,6 @@ Copyright (c) 2025, RTE (www.rte-france.com)
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
-
 import pendulum
 
 from atlas import ForecastingMatrix, Timeseries
@@ -17,9 +16,8 @@ def _make_formulator(equipment, time_index, parameters) -> ThermalOrderFormulato
 
 
 def _set_power_pattern(equipment, parameters, overrides, default=0.0):
-    """Rebuilds equipment.power as a full-range ForecastingMatrix (covering all of
-    parameters.temporal, since formulate()/the formulator's own helpers always read
-    over that full window) with a constant baseline, specific timesteps overridden.
+    """Rebuilds equipment.power as a full-range ForecastingMatrix (the formulator's
+    helpers always read over the whole window), specific timesteps overridden.
     """
     ts = Timeseries.from_index(
         start_date=parameters.temporal.start_date,
@@ -93,9 +91,7 @@ class TestClassifyStartupCase:
         assert formulator._classify_startup_case(forecasted_power, test_time) == StartupCase.NO_STARTUP
 
     def test_no_startup_when_minimum_power_not_positive(self, thermal_equipment, parameters):
-        """current=0 but minimum_power(t)=0 -> NO_STARTUP (a unit with no floor
-        can't be said to be 'starting up').
-        """
+        """current=0 but minimum_power(t)=0 -> NO_STARTUP."""
         test_time = parameters.temporal.start_date.add(minutes=15)
         _set_power_pattern(thermal_equipment, parameters, {})
         min_power_ts = Timeseries.from_index(
@@ -122,10 +118,7 @@ class TestCheckOnOffTimeRequirement:
         assert formulator._check_on_off_time_requirement(test_time, searching_on=True, searching_backwards=False)
 
     def test_minimum_time_on_satisfied_when_on_long_enough(self, thermal_equipment, parameters):
-        """Default fixture is a constant 50 (on) across the whole window; with
-        minimum_time_on=15min, looking backward from 00:30 finds >= 15 min of
-        uninterrupted 'on' history before it.
-        """
+        """Constant-50 fixture -> >= 15min of 'on' history backward from 00:30."""
         object.__setattr__(thermal_equipment, "minimum_time_on", pendulum.duration(minutes=15))
         test_time = parameters.temporal.start_date.add(minutes=30)
         formulator = _make_formulator(thermal_equipment, [test_time], parameters)
@@ -133,9 +126,7 @@ class TestCheckOnOffTimeRequirement:
         assert formulator._check_on_off_time_requirement(test_time, searching_on=True, searching_backwards=True)
 
     def test_minimum_time_on_not_satisfied_when_turned_on_recently(self, thermal_equipment, parameters):
-        """Equipment turned on at 00:15 (00:00 is off), only 15 min before the 00:30
-        test point -> short of the 30 min minimum_time_on requirement.
-        """
+        """Turned on at 00:15, only 15min before the 00:30 test point -> short of the 30min requirement."""
         object.__setattr__(thermal_equipment, "minimum_time_on", pendulum.duration(minutes=30))
         test_time = parameters.temporal.start_date.add(minutes=30)
         _set_power_pattern(thermal_equipment, parameters, {test_time.subtract(minutes=15): 50.0}, default=0.0)
@@ -155,11 +146,7 @@ class TestCheckOnOffTimeRequirement:
 
 class TestCase5FullStartup:
     def test_splits_into_indivisible_and_divisible_orders(self, thermal_equipment, parameters):
-        """start1 (indivisible, up to minimum_power=20): price = variable_cost(80) +
-        startup_cost(500) / (20 * duration_hours(0.25)) = 80 + 100 = 180.
-        start2 (divisible, minimum_power to maximum_power = 100-20=80): price =
-        variable_cost = 80. Linked by a single PARENT_CHILDREN coupling.
-        """
+        """start1 price = 80 + 500/(20*0.25) = 180. start2 price = 80. Linked by PARENT_CHILDREN."""
         test_time = parameters.temporal.start_date.add(minutes=15)
         next_time = test_time.add(minutes=15)
         formulator = _make_formulator(thermal_equipment, [test_time], parameters)
@@ -193,10 +180,7 @@ class TestCase5FullStartup:
         assert couplings == []
 
     def test_no_startup_when_minimum_stable_power_duration_invalidates(self, thermal_equipment, parameters):
-        """minimum_stable_power_duration (30min) > timestep (15min), and the
-        equipment's power changed just 15 min before test_time (50 -> 30) -> not
-        stable long enough -> the gate invalidates the startup.
-        """
+        """Power changed 15min before test_time (50->30), short of the 30min MSPD -> gate invalidates."""
         object.__setattr__(thermal_equipment, "minimum_stable_power_duration", pendulum.duration(minutes=30))
         test_time = parameters.temporal.start_date.add(minutes=30)
         _set_power_pattern(thermal_equipment, parameters, {test_time.subtract(minutes=15): 30.0}, default=50.0)
@@ -224,9 +208,8 @@ class TestCase1OnBothSides:
         assert order.price == 60
 
     def test_bounded_order_with_gradient(self, thermal_equipment, parameters):
-        """maximum_gradient=2 MW/min -> max_grad = 2*15 = 30. previous=40, next=60
-        (next >= previous): bounded_qmax=min(100,40+30)=70, bounded_qmin=max(20,60-30)=30.
-        price = 80 - 500/(70*0.25) = 80 - 28.57 = 51.43.
+        """max_grad=30. previous=40,next=60 -> bounded_qmax=min(100,70)=70,
+        bounded_qmin=max(20,30)=30. price = 80 - 500/(70*0.25) = 51.43.
         """
         object.__setattr__(thermal_equipment, "maximum_gradient", 2.0)
         test_time = parameters.temporal.start_date.add(minutes=15)
@@ -246,10 +229,7 @@ class TestCase1OnBothSides:
         assert order.price == 51.43
 
     def test_invalid_when_gradient_feasibility_exceeded(self, thermal_equipment, parameters):
-        """Deviation from legacy (documented in thermal.py): the feasibility check
-        uses maximum_gradient * timestep_minutes rather than legacy's hardcoded * 60.
-        threshold = 2*(2*15) = 60; |next(70) - previous(0)| = 70 > 60 -> invalid.
-        """
+        """threshold = 2*(2*15) = 60; |next(70) - previous(0)| = 70 > 60 -> invalid."""
         object.__setattr__(thermal_equipment, "maximum_gradient", 2.0)
         test_time = parameters.temporal.start_date.add(minutes=15)
         _set_power_pattern(
@@ -266,9 +246,7 @@ class TestCase1OnBothSides:
 
 class TestCase2OnBeforeOnly:
     def test_bounded_order_around_previous_power(self, thermal_equipment, parameters):
-        """gradient disabled -> bounded_qmax=maximum_power=100. previous_power=50
-        (the default constant fixture) -> bounded_qmin=max(20,50)=50.
-        """
+        """gradient disabled -> bounded_qmax=100, bounded_qmin=max(20,previous=50)=50."""
         test_time = parameters.temporal.start_date.add(minutes=15)
         next_time = test_time.add(minutes=15)
         formulator = _make_formulator(thermal_equipment, [test_time], parameters)
@@ -280,9 +258,7 @@ class TestCase2OnBeforeOnly:
         assert order.price == 80
 
     def test_invalid_when_minimum_time_off_not_satisfied(self, thermal_equipment, parameters):
-        """The default fixture never actually goes to 0 going forward from
-        test_time, so the MinimumTimeOff-forward check fails immediately.
-        """
+        """Default fixture never goes to 0 forward -> MinimumTimeOff-forward check fails immediately."""
         object.__setattr__(thermal_equipment, "minimum_time_off", pendulum.duration(minutes=30))
         test_time = parameters.temporal.start_date.add(minutes=15)
         next_time = test_time.add(minutes=15)
@@ -293,9 +269,7 @@ class TestCase2OnBeforeOnly:
 
 class TestCase3OnAfterOnly:
     def test_bounded_order_around_next_power(self, thermal_equipment, parameters):
-        """gradient disabled -> bounded_qmax=maximum_power=100. next_power=50
-        (the default constant fixture) -> bounded_qmin=max(20,50)=50.
-        """
+        """gradient disabled -> bounded_qmax=100, bounded_qmin=max(20,next=50)=50."""
         test_time = parameters.temporal.start_date.add(minutes=15)
         next_time = test_time.add(minutes=15)
         formulator = _make_formulator(thermal_equipment, [test_time], parameters)
@@ -316,9 +290,7 @@ class TestCase3OnAfterOnly:
         assert formulator._formulate_case_3_order(test_time, next_time) is None
 
     def test_invalid_when_minimum_time_off_not_satisfied(self, thermal_equipment, parameters):
-        """The default fixture never actually goes to 0 going backward from
-        test_time, so the MinimumTimeOff-backward check fails immediately.
-        """
+        """Default fixture never goes to 0 backward -> MinimumTimeOff-backward check fails immediately."""
         object.__setattr__(thermal_equipment, "minimum_time_off", pendulum.duration(minutes=30))
         test_time = parameters.temporal.start_date.add(minutes=15)
         next_time = test_time.add(minutes=15)

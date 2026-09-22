@@ -20,10 +20,7 @@ def _upward_orders(orders):
 
 
 def _downward_orders(orders):
-    """Regular downward (Buy) orders, identified by the '_d_' direction segment —
-    excludes shutdown orders ('_s_'), which may coexist and are covered separately
-    in test_shutdown.py.
-    """
+    """Regular downward orders ('_d_'), excludes shutdown orders ('_s_')."""
     return [o for o in orders if o.order_type == OrderType.Buy and "_d_" in o.name]
 
 
@@ -72,9 +69,7 @@ class TestDownwardAvailablePower:
 
 class TestStartupRampGuard:
     def test_ramp_guard_zeroes_both_directions(self, thermal_equipment, time_index, parameters):
-        """0 < power(10) < minimum_power(20) -> both upward and downward available
-        power are forced to 0, regardless of maximum_power/minimum_power headroom.
-        """
+        """0 < power(10) < minimum_power(20) -> both directions forced to 0."""
         object.__setattr__(thermal_equipment, "power", make_forecasting_matrix(parameters, 10.0))
 
         orders, _ = _make_formulator(thermal_equipment, time_index, parameters).formulate()
@@ -113,12 +108,9 @@ class TestSetupDelay:
 
 class TestGradientConstraint:
     def _make_forecasted_power(self, parameters, overrides):
-        """Full-range forecast covering parameters.temporal's whole window (a
-        constant 50.0 baseline), with specific timesteps overridden. formulate()
-        computes forecasted_power/min_power/max_power over the full [start_date,
-        end_date] window regardless of target_times, so the underlying power
-        matrix has to cover that whole range too, not just the timesteps we
-        actually target.
+        """Full-range forecast (50.0 baseline), specific timesteps overridden —
+        formulate() reads forecasted_power/min_power/max_power over the whole
+        [start_date, end_date] window regardless of target_times.
         """
         ts = Timeseries.from_index(
             start_date=parameters.temporal.start_date,
@@ -134,18 +126,8 @@ class TestGradientConstraint:
         return fm
 
     def test_gradient_narrows_upward_and_can_clamp_downward_to_zero(self, thermal_equipment, parameters):
-        """maximum_gradient = 2 MW/min -> max_grad = 2 * 15 = 30 MW per timestep.
-        previous=50, current=50 (both from the 50.0 baseline), next=90 (a sharp
-        upward evolution just after 'time').
-
-        upward_available before gradient = 100 - 50 = 50
-          -> min(50, 30 - prev_upward_evo(0), 30 - next_downward_evo(0)) = 30
-        downward_available before gradient = 50 - 20 = 30
-          -> min(30, 30 - prev_downward_evo(0), 30 - next_upward_evo(40)) = -10 -> clamped to 0
-
-        target_times is restricted to 'time' itself so only that timestep is
-        formulated, even though the underlying power forecast spans the full
-        balancing window.
+        """max_grad=2*15=30. previous=50=current, next=90 -> upward_available
+        min(50,30,30)=30; downward_available min(30,30,30-40)=-10 -> clamped to 0.
         """
         object.__setattr__(thermal_equipment, "maximum_gradient", 2.0)
 
