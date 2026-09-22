@@ -333,15 +333,14 @@ class TestActionPlanContextParameters:
             "    file_exclusive: 'forced_value_file_exclusive'\n"
         )
 
-        overriding_context = ContextParameters()
-        overriding_context.default = {
+        overriding_context = ContextParameters(
+            default = {
             "foo": "default_value_overriding",
             "override_exclusive": "default_value_override_exclusive",
-        }
-        overriding_context.forced = {
+        }, forced = {
             "foo": "forced_value_overriding",
             "override_exclusive": "forced_value_override_exclusive",
-        }
+        })
 
         action_plan = ActionPlan.from_file(
             TestActionPlanContextParameters.create_config(tmp_path, context_file), overriding_context

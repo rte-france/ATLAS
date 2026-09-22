@@ -38,9 +38,9 @@ class _OrchestratorBuilder():
         config = OrchestratorConfigBuilder().with_context(yaml_context).build(tmp_path)
         params = ConcreteOrchestratorParameters.from_file(config)
         orchestrator = ConcreteOrchestrator.__new__(ConcreteOrchestrator)
-        orchestrator.parameters = params
         if overall_context is not None:
-            orchestrator.parameters.context.evolve(overall_context)
+            params.evolve(context=params.context.evolve(overall_context))
+        orchestrator.parameters = params
         orchestrator._jobs = jobs
         return orchestrator
 

@@ -64,7 +64,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
         parameters = cls.get_param_class().from_file(file_path)
         if context is not None:
             parameters = parameters.evolve(
-                orchestrator_path=file_path.parent, context=parameters.context.evolve(context, False)
+                orchestrator_path=file_path.parent, context=parameters.context.evolve(context)
             )
         else:
             parameters = parameters.evolve(orchestrator_path=file_path.parent)
