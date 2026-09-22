@@ -137,8 +137,9 @@ def run_parallel(
     :type portfolios: list[PortfolioPO]
     :param parameters: Optimization parameters
     :type parameters: PortfolioOptimisationParameters
-    :return: List of optimization results
+    :return: List of optimization results, one per portfolio
     :rtype: list[PortfolioOptimisationResult]
+    :raises Exception: any worker failure is propagated, so a partial result never flows on
     """
     optimisation_results: list[PortfolioOptimisationResult] = []
 
@@ -150,12 +151,11 @@ def run_parallel(
 
         for future in as_completed(future_to_portfolio):
             portfolio_name = future_to_portfolio[future]
-            try:
-                result = future.result()
-                optimisation_results.append(result)
-                cfg.logger.info(f"Completed optimization for: {portfolio_name}")
-            except Exception as e:
-                cfg.logger.error(f"Error processing {portfolio_name}: {e}")
+            # Solver failures are already handled in optimise_single_portfolio (degraded result);
+            # anything reaching here is a worker crash and must not silently shrink the result list.
+            result = future.result()
+            optimisation_results.append(result)
+            cfg.logger.info(f"Completed optimization for: {portfolio_name}")
 
     return optimisation_results
 
@@ -171,18 +171,16 @@ def run_sequential(
     :type portfolios: list[PortfolioPO]
     :param parameters: Optimization parameters
     :type parameters: PortfolioOptimisationParameters
-    :return: List of optimization results
+    :return: List of optimization results, one per portfolio
     :rtype: list[PortfolioOptimisationResult]
+    :raises Exception: any failure is propagated, so a partial result never flows on
     """
     optimisation_results: list[PortfolioOptimisationResult] = []
 
     for portfolio in portfolios:
-        try:
-            result = optimise_single_portfolio(portfolio, parameters)
-            optimisation_results.append(result)
-            cfg.logger.info(f"Completed optimization for: {result.name}")
-        except Exception as e:
-            cfg.logger.error(f"Error processing {portfolio.name}: {e}")
+        result = optimise_single_portfolio(portfolio, parameters)
+        optimisation_results.append(result)
+        cfg.logger.info(f"Completed optimization for: {result.name}")
 
     return optimisation_results
 
