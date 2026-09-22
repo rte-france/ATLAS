@@ -12,12 +12,12 @@ from unittest.mock import MagicMock
 import pytest
 from pendulum import DateTime, Duration
 
-from atlas import MarketClearingModule
+from atlas import MarketClearingModule, WorkflowParameters
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.orchestrator.actionplan.job import ActionPlanJob, ModuleTaskJobsGenerator, WorkflowTaskJobsGenerator
 from atlas.orchestrator.actionplan.parameters import TaskModule, TaskWorkflow
 from atlas.timing import build_datetime
-from tests.test_unit.test_orchestrator.orchestrator_factory import ModuleConfigBuilder
+from tests.test_unit.test_orchestrator.orchestrator_factory import ModuleConfigBuilder, generate_step_from_job
 from tests.test_unit.test_orchestrator.orchestrator_factory import MockModuleBuilder, MockModuleParametersBuilder, \
     MockTaskBuilder, ConcreteTaskGenerator
 from atlas.orchestrator.workflow.workflow import Workflow
@@ -291,8 +291,9 @@ class TestWorkflowTaskIterator:
 
         conf = OrchestratorConfigBuilder().build_workflow_config(tmp_path)
         wf = Workflow.__new__(Workflow)
-        wf.parameters = Workflow.from_file(conf)
-        wf._jobs = [MockJobBuilder().with_module_parameters(module_parameters).build()]
+        wf.parameters = WorkflowParameters.from_file(conf)
+        _jobs = [MockJobBuilder().with_module_parameters(module_parameters).build()]
+        wf._steps = [generate_step_from_job(job) for job in _jobs]
 
         partial_task = MockTaskBuilder().with_priority(1).with_workflow(wf)
 
