@@ -217,7 +217,7 @@ class CurrentInputState:
 
         Example:
             >>> with cis.transaction({"order"}):
-            ...     CISHandler.evolve(change_sets, cis)
+            ...     CISHandler.apply(change_sets, cis)
             ...     # If any error occurs here, only the order container is rolled back
         """
         backups = {mt: copy_module.deepcopy(getattr(self.data, mt)) for mt in model_types}

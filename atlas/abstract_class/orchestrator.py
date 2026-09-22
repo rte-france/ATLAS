@@ -81,7 +81,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
         :param context: add this context parameters to the existing one, overwriting any parameters if it exists.
         :type context: ContextParameters
         """
-        self.parameters = self.parameters.evolve(context=context)
+        self.parameters = self.parameters.evolve(context=self.parameters.context.apply(context))
 
     def execute(self) -> CurrentInputState:
         """

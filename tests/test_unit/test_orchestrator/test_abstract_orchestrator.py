@@ -39,7 +39,7 @@ class _OrchestratorBuilder():
         params = ConcreteOrchestratorParameters.from_file(config)
         orchestrator = ConcreteOrchestrator.__new__(ConcreteOrchestrator)
         if overall_context is not None:
-            params.evolve(context=params.context.apply(overall_context))
+            params = params.evolve(context=params.context.apply(overall_context))
         orchestrator.parameters = params
         orchestrator._jobs = jobs
         return orchestrator
@@ -193,3 +193,16 @@ class TestOrchestratorExecute:
         result = orchestrator.get_output_dataset()
         assert result is not None
         assert result.marker == mock_output.marker
+
+
+class TestOrchestratorUseContext:
+    def test_use_context_merges_into_the_existing_context(self, tmp_path):
+        orchestrator = _OrchestratorBuilder.make_mock_orchestrator(tmp_path, [])
+        orchestrator.parameters = orchestrator.parameters.evolve(
+            context=ContextParameters(default={"kept": 1, "overridden": 1}, forced={"kept_forced": 1})
+        )
+
+        orchestrator.use_context(ContextParameters(default={"overridden": 2, "added": 3}))
+
+        assert orchestrator.parameters.context.default == {"kept": 1, "overridden": 2, "added": 3}
+        assert orchestrator.parameters.context.forced == {"kept_forced": 1}
