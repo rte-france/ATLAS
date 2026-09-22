@@ -63,8 +63,11 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
         file_path = Path(file_path)
         parameters = cls.get_param_class().from_file(file_path)
         if context is not None:
-            parameters.context.evolve(context)
-        parameters.orchestrator_path = file_path.parent
+            parameters = parameters.evolve(
+                orchestrator_path=file_path.parent, context=parameters.context.evolve(context, False)
+            )
+        else:
+            parameters = parameters.evolve(orchestrator_path=file_path.parent)
         return cls(parameters=parameters)
 
     def get_output_dataset(self) -> AbstractDataset | None:

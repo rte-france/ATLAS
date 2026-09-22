@@ -66,28 +66,42 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
     def _add_one_step(self, step: Step, prefix_job_name: str | None = None) -> None:
         """Add a single step to the end of the workflow, add the prefix given and build parameters."""
-        step.name = f"{prefix_job_name} {step.name}" if prefix_job_name else step.name
+        step_name = f"{prefix_job_name} {step.name}" if prefix_job_name else step.name
         try:
-            resolved_parameter = self._resolve_parameters(step)
+            resolved_parameters = self._build_step_parameters(step)
         except Exception as exc:
             raise ValueError(f"Step {step.name!r}: unable to resolve parameters ({exc})") from exc
-        resolved_parameter.output.output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
-        self._steps.append(step)
-        self._resolved_parameters.append(resolved_parameter)
-
-    def _resolve_parameters(self, step: Step) -> AbstractModuleParameters:
-        """Resolve a step's parameters against the workflow's context."""
-        parameters_class = step.module.value().get_parameters_class()
-        parameters = step.parameters
-        if isinstance(parameters, (str, Path)):
-            parameters = parameters_class.from_file(
-                self.parameters.resolve_path(Path(parameters)), self.parameters.context
+        self._steps.append(
+            step.model_copy(
+                update={
+                    "name": step_name,
+                    "parameters": resolved_parameters,
+                }
             )
-        elif isinstance(parameters, dict):
-            parameters = parameters_class.from_dict(parameters, self.parameters.context)
-        elif isinstance(parameters, AbstractModuleParameters):
-            parameters = self.parameters.context.apply_on_parameters(parameters)
-        return parameters
+        )
+        self._resolved_parameters.append(resolved_parameters)
+
+    def _build_step_parameters(self, step: Step) -> AbstractModuleParameters:
+        """Build a step's parameters against the workflow's context."""
+        parameters_class = step.module.value().get_parameters_class()
+        if isinstance(step.parameters, (str, Path)):
+            contextualized_parameters = parameters_class.from_file(
+                self.parameters.resolve_path(Path(step.parameters)), self.context
+            )
+        elif isinstance(step.parameters, dict):
+            contextualized_parameters = parameters_class.from_dict(step.parameters, self.context)
+        elif isinstance(step.parameters, AbstractModuleParameters):
+            contextualized_parameters = self.context.apply_on_parameters(step.parameters)
+        else:
+            contextualized_parameters = step.parameters
+        step_output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
+        return contextualized_parameters.evolve(
+            output=contextualized_parameters.output.evolve(output_dir=step_output_dir)
+        )
+
+    @property
+    def context(self):
+        return self.parameters.context
 
     def __repr__(self) -> str:
         """Return a human-readable string representation of the workflow."""
