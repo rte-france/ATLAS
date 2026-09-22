@@ -49,20 +49,15 @@ class ThermalBiddingStep(AbstractOrderStep):
 
             for future in as_completed(future_to_thermal):
                 thermal_name = future_to_thermal[future]
-                try:
-                    unit_result = future.result()
+                # A failing unit is propagated: dropping it here would leave the step result
+                # silently short of orders for that unit.
+                unit_result = future.result()
 
-                    if unit_result.success:
-                        result.orders.extend(unit_result.orders)
-                        result.order_couplings.extend(unit_result.order_couplings)
-                        cfg.logger.info(
-                            f"Completed order formulation for thermal unit: {thermal_name} ({unit_result.strategy.value})"
-                        )
-                    else:
-                        cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal_name}")
-
-                except Exception as e:
-                    cfg.logger.error(f"Error processing thermal unit {thermal_name}: {e}")
+                result.orders.extend(unit_result.orders)
+                result.order_couplings.extend(unit_result.order_couplings)
+                cfg.logger.info(
+                    f"Completed order formulation for thermal unit: {thermal_name} ({unit_result.strategy.value})"
+                )
 
         return result
 
@@ -73,14 +68,11 @@ class ThermalBiddingStep(AbstractOrderStep):
         for thermal in self.dataset.thermal:
             unit_result = optimize_single_thermal_unit(thermal, self.orders_time, self.parameters)
 
-            if unit_result.success:
-                result.orders.extend(unit_result.orders)
-                result.order_couplings.extend(unit_result.order_couplings)
-                cfg.logger.info(
-                    f"Completed order formulation for thermal unit: {thermal.name} ({unit_result.strategy.value})"
-                )
-            else:
-                cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal.name}")
+            result.orders.extend(unit_result.orders)
+            result.order_couplings.extend(unit_result.order_couplings)
+            cfg.logger.info(
+                f"Completed order formulation for thermal unit: {thermal.name} ({unit_result.strategy.value})"
+            )
 
         return result
 
