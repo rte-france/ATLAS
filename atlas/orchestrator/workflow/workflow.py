@@ -66,19 +66,15 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
     def _add_one_step(self, step: Step, prefix_job_name: str | None = None) -> None:
         """Add a single step to the end of the workflow, add the prefix given and build parameters."""
-        step_name = f"{prefix_job_name} {step.name}" if prefix_job_name else step.name
+        # Rename before resolving: the step output directory is derived from step.name, and iterations of a same
+        # action plan task only differ by this prefix.
+        if prefix_job_name:
+            step = step.model_copy(update={"name": f"{prefix_job_name} {step.name}"})
         try:
             resolved_parameters = self._build_step_parameters(step)
         except Exception as exc:
             raise ValueError(f"Step {step.name!r}: unable to resolve parameters ({exc})") from exc
-        self._steps.append(
-            step.model_copy(
-                update={
-                    "name": step_name,
-                    "parameters": resolved_parameters,
-                }
-            )
-        )
+        self._steps.append(step.model_copy(update={"parameters": resolved_parameters}))
         self._resolved_parameters.append(resolved_parameters)
 
     def _build_step_parameters(self, step: Step) -> AbstractModuleParameters:
