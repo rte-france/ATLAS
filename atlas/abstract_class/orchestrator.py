@@ -64,7 +64,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
         parameters = cls.get_param_class().from_file(file_path)
         if context is not None:
             parameters = parameters.evolve(
-                orchestrator_path=file_path.parent, context=parameters.context.evolve(context)
+                orchestrator_path=file_path.parent, context=parameters.context.apply(context)
             )
         else:
             parameters = parameters.evolve(orchestrator_path=file_path.parent)
@@ -81,7 +81,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
         :param context: add this context parameters to the existing one, overwriting any parameters if it exists.
         :type context: ContextParameters
         """
-        self.parameters.context.evolve(context)
+        self.parameters = self.parameters.evolve(context=context)
 
     def execute(self) -> CurrentInputState:
         """

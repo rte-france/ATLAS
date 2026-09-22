@@ -150,7 +150,7 @@ class ContextParameters(FrozenBaseModel):
     default: dict = Field(default_factory=lambda: {})
     forced: dict = Field(default_factory=lambda: {})
 
-    def evolve(self, context: ContextParameters) -> ContextParameters:
+    def apply(self, context: ContextParameters) -> ContextParameters:
         """
         Return a validated copy with the given fields replaced.
         :param context: context to use for this parameter
