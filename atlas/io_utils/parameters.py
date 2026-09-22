@@ -17,11 +17,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.enums import SolverEnum
-from atlas.io_utils.utils import deep_update
+from atlas.io_utils.utils import FrozenBaseModel, deep_update
 from atlas.validators import DurationField
 
 
-class Parameters(BaseModel):
+class Parameters(FrozenBaseModel):
     """A class to parse parameters from a YAML or JSON file."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
@@ -65,8 +65,8 @@ class Parameters(BaseModel):
         if parameters is None:
             parameters = {}
 
-        parameters = context.apply_on_dict(parameters)
-        return cls(**parameters)
+        contextualized_parameters = context.apply_on_dict(parameters)
+        return cls(**contextualized_parameters)
 
     @staticmethod
     def _parse_yaml(file_path: str | Path) -> dict:
@@ -91,7 +91,7 @@ class Parameters(BaseModel):
             return json.load(file)
 
 
-class DateParameters(BaseModel):
+class DateParameters(FrozenBaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     start_date: DateTime
@@ -118,7 +118,7 @@ class DateParameters(BaseModel):
         return self
 
 
-class SolverParameters(BaseModel):
+class SolverParameters(FrozenBaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     solver_name: SolverEnum = SolverEnum.XPRESS
@@ -130,12 +130,12 @@ class SolverParameters(BaseModel):
     )
 
 
-class MultiProcessingParameters(BaseModel):
+class MultiProcessingParameters(FrozenBaseModel):
     enable: bool = False
     max_workers: int | None = None
 
 
-class OutputParameters(BaseModel):
+class OutputParameters(FrozenBaseModel):
     export_result: bool = False
     export_output_dataset: bool = False
     output_dir: Path = Path("output")
@@ -150,7 +150,7 @@ class ContextParameters(BaseModel):
     default: dict = Field(default_factory=lambda: {})
     forced: dict = Field(default_factory=lambda: {})
 
-    def apply(self, context: ContextParameters, inplace: bool = True) -> ContextParameters:
+    def evolve(self, context: ContextParameters, inplace: bool = True) -> ContextParameters:
         """
         Override any value in this context that are also present in given context.
         :param context: context to use for this parameter

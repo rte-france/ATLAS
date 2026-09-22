@@ -40,7 +40,7 @@ class _OrchestratorBuilder():
         orchestrator = ConcreteOrchestrator.__new__(ConcreteOrchestrator)
         orchestrator.parameters = params
         if overall_context is not None:
-            orchestrator.parameters.context.apply(overall_context)
+            orchestrator.parameters.context.evolve(overall_context)
         orchestrator._jobs = jobs
         return orchestrator
 
