@@ -13,7 +13,7 @@ from typing import Self, TypeVar
 
 import yaml
 from pendulum import duration
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.enums import SolverEnum
