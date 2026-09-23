@@ -13,6 +13,7 @@ from typing import Any
 from pydantic import BaseModel, field_validator, model_validator
 
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
+from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.validators import UniqueNamedList
 
@@ -32,7 +33,7 @@ class Step(BaseModel):
 
     name: str
     module: ModuleRegistry
-    parameters: Path | dict[str, Any]
+    parameters: AbstractModuleParameters | Path | dict[str, Any]
 
     @field_validator("module", mode="before")
     @classmethod

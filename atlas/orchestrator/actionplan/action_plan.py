@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-import copy
 import heapq
 from collections import namedtuple
 from collections.abc import Iterator
@@ -93,7 +92,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
                 task.module.value().get_parameters_class().from_dict(task.parameters, self.parameters.context)
             )
         else:
-            task_parameters = self.parameters.context.apply_on_parameters(task.parameters, inplace=True)
+            task_parameters = self.parameters.context.apply_on_parameters(task.parameters)
 
         task_generator = ModuleTaskJobsGenerator(task, task_parameters, root_output_dir)
         self._task_job_generators.append(task_generator)
@@ -112,8 +111,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         elif isinstance(task.workflow, dict):
             task_parameters = WorkflowParameters.from_dict(task.workflow, self.parameters.context)
         else:
-            task_parameters = copy.deepcopy(task.workflow.parameters)
-            task_parameters.context.apply(self.parameters.context, inplace=True)
+            task_parameters = self.parameters.context.apply_on_parameters(task.workflow.parameters)
 
         workflow_iterator = WorkflowTaskJobsGenerator(task, task_parameters, root_output_dir)
         self._task_job_generators.append(workflow_iterator)
@@ -121,7 +119,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
     @property
     def jobs(self) -> Iterator[ActionPlanJob]:
         """
-        Access the action plan jobs.
+        Generate and return the action plan jobs.
 
         :return: The list of ActionPlanJob instances.
         """
