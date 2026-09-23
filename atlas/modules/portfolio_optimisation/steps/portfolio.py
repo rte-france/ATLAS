@@ -32,7 +32,7 @@ class PortfolioStep:
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters) -> None:
         portfolio = self.portfolio
-        for time in parameters.target_times:
+        for time in parameters.portfolio_time_window:
             cfg.logger.debug(f"Adding variables for portfolio :{portfolio.name} at time {time}")
             residual_energy = portfolio._compute_residual_energy(time, parameters)
             maximum_power = portfolio._compute_maximum_power(time, parameters)
@@ -47,7 +47,7 @@ class PortfolioStep:
         for step in self._equipment_steps:
             step.add_constraints(model, parameters)
 
-        for time in parameters.target_times:
+        for time in parameters.portfolio_time_window:
             cfg.logger.debug(f"Adding constraints for portfolio :{portfolio.name}")
             self._add_global_constraints(time, model, parameters)
             if portfolio.equipments.has_generation_equipment():
@@ -55,16 +55,16 @@ class PortfolioStep:
 
     def add_objective(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters) -> None:
         portfolio = self.portfolio
-        all_times: set[DateTime] = set(parameters.target_times)
+        all_times: set[DateTime] = set(parameters.portfolio_time_window)
         for step in self._equipment_steps:
-            all_times.update(step.equipment.optimisation_time_window)
+            all_times.update(parameters.equipment_time_window(step.equipment))
 
         price_forecasts = {time: portfolio.get_price_forecast(time, parameters) or 0.0 for time in all_times}
 
         for step in self._equipment_steps:
             step.add_objective(model, parameters, price_forecasts)
 
-        for time in sorted(parameters.target_times):
+        for time in sorted(parameters.portfolio_time_window):
             cfg.logger.debug(f"Adding objective terms for portfolio :{portfolio.name} at time {time}")
             imbalance_prices = estimate_imbalance_prices(
                 time, portfolio.market_area, portfolio.control_block, parameters
@@ -184,12 +184,12 @@ class PortfolioStep:
         total_power = 0
 
         for storage in portfolio.equipments.storage:
-            if time in storage.optimisation_time_window:
+            if time in parameters.equipment_time_window(storage):
                 total_power += model.get_variable(f"{storage.name}_power_level_sell_{time}")
                 total_power += model.get_variable(f"{storage.name}_power_level_buy_{time}")
 
         for hydro in portfolio.equipments.hydro:
-            if time in hydro.optimisation_time_window:
+            if time in parameters.equipment_time_window(hydro):
                 capacity = hydro.maximum_power.get_value(time)
                 for category in bid_volumes(hydro.fragment_data, capacity, parameters.hydraulic_minimal_fragment_size):
                     total_power += model.get_variable(f"{hydro.name}_power_level_frag_{category}_{time}")
@@ -200,7 +200,7 @@ class PortfolioStep:
             + portfolio.equipments.solar
             + portfolio.equipments.dispatchable_load
         ):
-            if time in obj.optimisation_time_window:
+            if time in parameters.equipment_time_window(obj):
                 total_power += model.get_variable(f"{obj.name}_power_level_{time}")
 
         return total_power

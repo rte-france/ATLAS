@@ -9,120 +9,56 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import atlas.config as cfg
+from atlas.common.optimal_dispatch.dispatch.hydro import HydroDispatch
 from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue, bid_volumes
+from atlas.common.optimal_dispatch.reserves import HydroReserveHandler, ReserveFactory
+from atlas.common.optimal_dispatch.steps import AbstractOptimStep
 from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
-from atlas.modules.portfolio_optimisation.steps.base import AbstractOptimStep
-from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
-from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
 from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
-class HydroStep(AbstractOptimStep[HydroPO]):
+class HydroStep(AbstractOptimStep[HydroPO, "PortfolioOptimisationParameters"]):
+    """
+    LP step for a hydro reservoir unit. Composes :class:`HydroDispatch` (stored energy +
+    fragments + balance) and :class:`HydroReserveHandler` (reserves + storage-level
+    coupling). The PO-specific marginal-value pricing is kept here as it is a property of
+    the objective, not the physical dispatch.
+    """
+
+    _reserves: HydroReserveHandler
+
+    def __init__(self, equipment: HydroPO):
+        super().__init__(equipment)
+        self._dispatch = HydroDispatch(equipment)
+        self._reserves = ReserveFactory.for_hydro(equipment, self._dispatch)
+
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
-        for time in eq.optimisation_time_window:
+        self._dispatch.setup(model, parameters)
+        self._reserves.setup(model)
+        for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding variables for hydro unit {eq.name} at time {time}")
-            min_power = eq.minimum_power.get_value(time)
-            max_power = eq.maximum_power.get_value(time)
-            max_energy = eq.maximum_energy.get_value(time)
-            maximum_automated = get_maximum_automated(eq)
-
-            model.add_continuous_variable(name=f"{eq.name}_stored_energy_{time}", lower_bound=0, upper_bound=max_energy)
-
-            # Only the fragments large enough to be bid get a variable, so the plan is made of
-            # the fragments the order modules will actually submit.
-            for category, volume in bid_volumes(
-                eq.fragment_data, max_power, parameters.hydraulic_minimal_fragment_size
-            ).items():
-                model.add_continuous_variable(
-                    name=f"{eq.name}_power_level_frag_{category}_{time}", lower_bound=0, upper_bound=volume
-                )
-
-            add_reserve_variables(
-                model,
-                eq.name,
-                time,
-                min_power,
-                max_power,
-                maximum_automated,
-                relaxed_reserves=True,
-                storage_equipment=False,
-                thermal_equipment=False,
-            )
+            self._dispatch.add_variables(time)
+            self._reserves.add_variables(time, eq.maximum_power.get_value(time), eq.minimum_power.get_value(time))
 
     def add_constraints(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
-        for time in eq.optimisation_time_window:
+        for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding constraints for hydro unit {eq.name} at time {time}")
-
-            maximum_energy = eq.maximum_energy.get_value(time)
-            minimum_energy = eq.minimum_energy.get_value(time)
             min_power = eq.minimum_power.get_value(time)
             max_power = eq.maximum_power.get_value(time)
 
-            automated_reserves_up_var = model.get_variable(f"automated_reserves_up_{eq.name}_{time}")
-            automated_reserves_down_var = model.get_variable(f"automated_reserves_down_{eq.name}_{time}")
-            relaxed_reserves_var = model.get_variable(f"relaxed_reserves_{eq.name}_{time}")
-            reserves_up_var = model.get_variable(f"reserves_up_{eq.name}_{time}")
-            reserves_down_var = model.get_variable(f"reserves_down_{eq.name}_{time}")
-            stored_energy_var = model.get_variable(f"{eq.name}_stored_energy_{time}")
+            self._reserves.add_relaxed_reserve_constraint(time, min_power)
+            self._reserves.add_automated_capacity_constraints(time)
+            self._reserves.add_capacity_constraints(time, max_power)
 
-            model.add_constraint(relaxed_reserves_var <= min_power, f"relaxed_reserves_{time}_{eq.name}")
-            model.add_constraint(
-                automated_reserves_up_var <= get_maximum_automated(eq), f"automated_reserves_up_max_{time}_{eq.name}"
-            )
-            model.add_constraint(
-                automated_reserves_down_var <= get_maximum_automated(eq),
-                f"automated_reserves_down_max_{time}_{eq.name}",
-            )
-            model.add_constraint(reserves_up_var <= max_power, f"reserves_up_max_{time}_{eq.name}")
-            model.add_constraint(reserves_down_var <= max_power, f"reserves_down_max_{time}_{eq.name}")
-
-            power_level_fragment_sum_var = sum(
-                model.get_variable(f"{eq.name}_power_level_frag_{category}_{time}")
-                for category in bid_volumes(eq.fragment_data, max_power, parameters.hydraulic_minimal_fragment_size)
-            )
-
-            if time in parameters.target_times:
-                inflow = (
-                    eq.inflows.get_value(time) * parameters.temporal.timestep.total_days()
-                    if eq.inflows is not None
-                    else 0
-                )
-
-                if time == parameters.temporal.start_date:
-                    model.add_constraint(
-                        stored_energy_var
-                        == eq.initial_level.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
-                        - power_level_fragment_sum_var * parameters.temporal.timestep.total_hours()
-                        + inflow,
-                        f"storage_level_evol_{time}_{eq.name}",
-                    )
-                else:
-                    stored_energy_prev_var = model.get_variable(
-                        f"{eq.name}_stored_energy_{time - parameters.temporal.timestep}"
-                    )
-                    model.add_constraint(
-                        stored_energy_var
-                        == stored_energy_prev_var
-                        - power_level_fragment_sum_var * parameters.temporal.timestep.total_hours()
-                        + inflow,
-                        f"storage_level_evol_{time}_{eq.name}",
-                    )
-
-                reserve_stored_energy_up_var = reserves_up_var + automated_reserves_up_var
-                reserve_stored_energy_down_var = reserves_down_var + automated_reserves_down_var
-
-                model.add_constraint(
-                    stored_energy_var >= minimum_energy + reserve_stored_energy_up_var,
-                    f"min_storage_level_{time}_{eq.name}",
-                )
-                model.add_constraint(
-                    stored_energy_var <= maximum_energy - reserve_stored_energy_down_var,
-                    f"max_storage_level_{time}_{eq.name}",
+            if time in parameters.portfolio_time_window:
+                self._dispatch.add_energy_balance(model, time, parameters)
+                self._reserves.add_storage_level_constraints(
+                    time, eq.minimum_energy.get_value(time), eq.maximum_energy.get_value(time)
                 )
 
     def add_objective(
@@ -131,6 +67,7 @@ class HydroStep(AbstractOptimStep[HydroPO]):
         if price_forecasts is None:
             price_forecasts = {}
         eq = self.equipment
+        dt_h = parameters.temporal.timestep.total_hours()
         marginal_value = InterpolatedMarginalValue.for_unit(
             eq,
             parameters.temporal.execution_date,
@@ -138,23 +75,17 @@ class HydroStep(AbstractOptimStep[HydroPO]):
             eq._cached_energy_forecast,
         )
 
-        for time in eq.optimisation_time_window:
+        for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding objective for hydro unit {eq.name} at time {time}")
             price_forecast = price_forecasts.get(time, 0.0)
 
             capacity = eq.maximum_power.get_value(time)
             for k in bid_volumes(eq.fragment_data, capacity, parameters.hydraulic_minimal_fragment_size):
                 fragment_price = eq.fragment_data[k].price + marginal_value.value_at(time)
-                power_level_frag_var = model.get_variable(f"{eq.name}_power_level_frag_{k}_{time}")
+                power_level_frag_var = self._dispatch.get_fragment_var(time, k)
 
-                if time in parameters.target_times:
-                    model.add_objective(
-                        fragment_price * power_level_frag_var * parameters.temporal.timestep.total_hours()
-                    )
+                if time in parameters.portfolio_time_window:
+                    model.add_objective(fragment_price * power_level_frag_var * dt_h)
                 else:
-                    model.add_objective(
-                        -(price_forecast - fragment_price)
-                        * power_level_frag_var
-                        * parameters.temporal.timestep.total_hours()
-                    )
+                    model.add_objective(-(price_forecast - fragment_price) * power_level_frag_var * dt_h)
             cfg.logger.debug(f"Finished adding objective for hydro unit {eq.name} at time {time}")

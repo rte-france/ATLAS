@@ -10,6 +10,7 @@ import pytest
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.common.optimal_dispatch.dispatch.hydro import HydroDispatch
 from atlas.common.optimal_dispatch.input_objects.hydro import HydroDispatchInput
+from atlas.common.optimal_dispatch.reserves.hydro import HydroReserveHandler
 from atlas.io_utils.parameters import DateParameters
 from atlas.math.timeseries import Timeseries
 from atlas.objects.market.market_area import MarketArea
@@ -126,7 +127,7 @@ def parameters(start_date, timestep):
 
 @pytest.fixture
 def model():
-    return OptimisationModel("SCIP", "test_hydro_dispatch")
+    return OptimisationModel("SCIP", "test_hydro_reserves")
 
 
 @pytest.fixture
@@ -134,73 +135,72 @@ def time_window(start_date):
     return [start_date.add(hours=h) for h in range(4)]
 
 
-class TestHydroDispatchVariables:
-    def test_setup_creates_stored_energy_var(self, hydro_equipment, model, parameters):
-        d = HydroDispatch(hydro_equipment)
-        d.setup(model, parameters)
-        assert d.stored_energy_var is not None
-
-    def test_add_variables_creates_stored_energy_and_fragments(self, hydro_equipment, model, parameters, time_window):
-        d = HydroDispatch(hydro_equipment)
-        d.setup(model, parameters)
-        t = time_window[0]
+@pytest.fixture
+def dispatch(hydro_equipment, model, parameters, time_window):
+    d = HydroDispatch(hydro_equipment)
+    d.setup(model, parameters)
+    for t in time_window:
         d.add_variables(t)
-        n = hydro_equipment.name
-        assert f"{n}_stored_energy_{t}" in model.variables
-        # Two fragments declared in fragment_prices/volumes → indices 0 and 1.
-        assert f"{n}_power_level_frag_0_{t}" in model.variables
-        assert f"{n}_power_level_frag_1_{t}" in model.variables
+    return d
 
-    def test_stored_energy_bounds(self, hydro_equipment, model, parameters, time_window):
-        d = HydroDispatch(hydro_equipment)
-        d.setup(model, parameters)
+
+@pytest.fixture
+def handler(dispatch):
+    return HydroReserveHandler(name="hydro_1", dispatch=dispatch, maximum_automated=15.0)
+
+
+class TestHydroReserveHandlerVariables:
+    def test_add_variables_creates_all_reserve_vars_including_relaxed(self, handler, model, time_window):
+        handler.setup(model)
         t = time_window[0]
-        d.add_variables(t)
-        var = model.get_variable(f"{hydro_equipment.name}_stored_energy_{t}")
+        handler.add_variables(t, max_power=100.0, min_power=0.0)
+
+        assert f"reserves_up_hydro_1_{t}" in model.variables
+        assert f"reserves_down_hydro_1_{t}" in model.variables
+        assert f"unprovided_reserves_up_hydro_1_{t}" in model.variables
+        assert f"unprovided_reserves_down_hydro_1_{t}" in model.variables
+        assert f"automated_reserves_up_hydro_1_{t}" in model.variables
+        assert f"automated_reserves_down_hydro_1_{t}" in model.variables
+        assert f"relaxed_reserves_hydro_1_{t}" in model.variables
+
+    def test_relaxed_reserves_bounds(self, handler, model, time_window):
+        """relaxed_reserves for hydro is bounded ``[min_power, 0]`` (mirroring the legacy formulation)."""
+        handler.setup(model)
+        t = time_window[0]
+        handler.add_variables(t, max_power=100.0, min_power=0.0)
+        var = model.get_variable(f"relaxed_reserves_hydro_1_{t}")
         assert var.lb() == 0
-        assert var.ub() == pytest.approx(500.0)
+        assert var.ub() == 0
 
-    def test_fragment_bounds_scale_with_max_power(self, hydro_equipment, model, parameters, time_window):
-        d = HydroDispatch(hydro_equipment)
-        d.setup(model, parameters)
+
+class TestHydroReserveHandlerConstraints:
+    def test_capacity_constraints_names(self, handler, model, time_window):
+        handler.setup(model)
         t = time_window[0]
-        d.add_variables(t)
-        # max_power = 100, fragment_volumes = [0.5, 0.5] → bounds [0, 50].
-        for idx in (0, 1):
-            var = model.get_variable(f"{hydro_equipment.name}_power_level_frag_{idx}_{t}")
-            assert var.lb() == 0
-            assert var.ub() == pytest.approx(50.0)
+        handler.add_variables(t, max_power=100.0, min_power=0.0)
+        handler.add_capacity_constraints(t, max_power=100.0)
+        assert f"reserves_up_max_{t}_hydro_1" in model.constraints
+        assert f"reserves_down_max_{t}_hydro_1" in model.constraints
 
-
-class TestHydroDispatchEnergyBalance:
-    def _setup(self, hydro_equipment, model, parameters, time_window):
-        d = HydroDispatch(hydro_equipment)
-        d.setup(model, parameters)
-        for t in time_window:
-            d.add_variables(t)
-        return d
-
-    def test_balance_constraint_at_start_uses_initial_level(
-        self, hydro_equipment, model, parameters, time_window
-    ):
-        d = self._setup(hydro_equipment, model, parameters, time_window)
+    def test_automated_capacity_constraints_names(self, handler, model, time_window):
+        handler.setup(model)
         t = time_window[0]
-        d.add_energy_balance(model, t, parameters)
-        assert f"storage_level_evol_{t}_{hydro_equipment.name}" in model.constraints
+        handler.add_variables(t, max_power=100.0, min_power=0.0)
+        handler.add_automated_capacity_constraints(t)
+        assert f"automated_reserves_up_max_{t}_hydro_1" in model.constraints
+        assert f"automated_reserves_down_max_{t}_hydro_1" in model.constraints
 
-    def test_balance_constraint_after_start_uses_previous_var(
-        self, hydro_equipment, model, parameters, time_window
-    ):
-        d = self._setup(hydro_equipment, model, parameters, time_window)
-        t = time_window[1]
-        d.add_energy_balance(model, t, parameters)
-        assert f"storage_level_evol_{t}_{hydro_equipment.name}" in model.constraints
-
-    def test_power_fragments_sum_aggregates_all_fragments(
-        self, hydro_equipment, model, parameters, time_window
-    ):
-        d = self._setup(hydro_equipment, model, parameters, time_window)
+    def test_relaxed_constraint_name(self, handler, model, time_window):
+        handler.setup(model)
         t = time_window[0]
-        # Should not raise — exercises the sum expression construction.
-        expr = d.power_fragments_sum(t)
-        assert expr is not None
+        handler.add_variables(t, max_power=100.0, min_power=0.0)
+        handler.add_relaxed_reserve_constraint(t, min_power=0.0)
+        assert f"relaxed_reserves_{t}_hydro_1" in model.constraints
+
+    def test_storage_level_constraints_couple_reserves(self, handler, model, time_window):
+        handler.setup(model)
+        t = time_window[0]
+        handler.add_variables(t, max_power=100.0, min_power=0.0)
+        handler.add_storage_level_constraints(t, min_energy=10.0, max_energy=500.0)
+        assert f"min_storage_level_{t}_hydro_1" in model.constraints
+        assert f"max_storage_level_{t}_hydro_1" in model.constraints
