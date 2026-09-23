@@ -137,8 +137,8 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
                 qmax_up, qmax_down = self._apply_gradient_constraint(forecasted_power, time, qmax_up, qmax_down)
 
             if self.equipment.has_daily_energy_constraint:
-                qmax_up = self._apply_maximum_daily_energy_constraint(qmax_up)
-                qmax_down = self._apply_minimum_daily_energy_constraint(qmax_down)
+                qmax_up = self._compute_maximum_daily_energy_bound(qmax_up)
+                qmax_down = self._compute_minimum_daily_energy_bound(qmax_down)
 
             water_value = extract_mean_from_scenario(
                 self.equipment.storage_marginal_value,
@@ -156,17 +156,17 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
 
         return orders, []
 
-    def _apply_maximum_daily_energy_constraint(self, upward_available: float) -> float:
+    def _compute_maximum_daily_energy_bound(self, upward_available: float) -> float:
         """
-        Apply the maximum_daily_energy constraint to the upward available power.
+        Compute the upward available power bounded by the maximum_daily_energy constraint.
 
         Reduces the upward order volume so that the equipment's total energy produced
         over the day does not exceed maximum_daily_energy. If the daily energy is
         already at or above the maximum, no upward order can be formulated.
 
-        :param upward_available: Upward available power before the daily energy constraint
+        :param upward_available: Upward available power before the daily energy bound
         :type upward_available: float
-        :return: upward_available after the daily energy constraint
+        :return: upward_available bounded by the daily energy constraint
         :rtype: float
         """
         start = self.parameters.temporal.start_date
@@ -181,17 +181,17 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
         upward_available = min(upward_available, remaining_margin / timeframe_hours)
         return upward_available
 
-    def _apply_minimum_daily_energy_constraint(self, downward_available: float) -> float:
+    def _compute_minimum_daily_energy_bound(self, downward_available: float) -> float:
         """
-        Apply the minimum_daily_energy constraint to the downward available power.
+        Compute the downward available power bounded by the minimum_daily_energy constraint.
 
         Reduces the downward order volume so that the equipment's total energy produced
         over the day does not fall below minimum_daily_energy. If the daily energy is
         already at or below the minimum, no downward order can be formulated.
 
-        :param downward_available: Downward available power before the daily energy constraint
+        :param downward_available: Downward available power before the daily energy bound
         :type downward_available: float
-        :return: downward_available after the daily energy constraint
+        :return: downward_available bounded by the daily energy constraint
         :rtype: float
         """
         start = self.parameters.temporal.start_date
