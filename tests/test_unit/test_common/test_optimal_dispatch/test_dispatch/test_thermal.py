@@ -13,6 +13,7 @@ from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.common.optimal_dispatch.dispatch.thermal import ThermalDispatch
 from atlas.common.optimal_dispatch.input_objects.thermal import ThermalDispatchInput
 from atlas.io_utils.parameters import DateParameters
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market_operator.portfolio import Portfolio
@@ -132,7 +133,12 @@ class TestThermalDispatchCombinations:
     def test_combination_2_stop_only(self, node, portfolio, power_ts, min_power_ts, parameters, model):
         assert (
             self._combination(
-                node, portfolio, power_ts, min_power_ts, parameters, model,
+                node,
+                portfolio,
+                power_ts,
+                min_power_ts,
+                parameters,
+                model,
                 shutdown_duration=pendulum.duration(hours=2),
             )
             == 2
@@ -141,7 +147,12 @@ class TestThermalDispatchCombinations:
     def test_combination_3_flat_only(self, node, portfolio, power_ts, min_power_ts, parameters, model):
         assert (
             self._combination(
-                node, portfolio, power_ts, min_power_ts, parameters, model,
+                node,
+                portfolio,
+                power_ts,
+                min_power_ts,
+                parameters,
+                model,
                 minimum_stable_power_duration=pendulum.duration(hours=3),
             )
             == 3
@@ -150,7 +161,12 @@ class TestThermalDispatchCombinations:
     def test_combination_4_start_only(self, node, portfolio, power_ts, min_power_ts, parameters, model):
         assert (
             self._combination(
-                node, portfolio, power_ts, min_power_ts, parameters, model,
+                node,
+                portfolio,
+                power_ts,
+                min_power_ts,
+                parameters,
+                model,
                 startup_duration=pendulum.duration(hours=2),
             )
             == 4
@@ -159,7 +175,12 @@ class TestThermalDispatchCombinations:
     def test_combination_5_stop_and_flat(self, node, portfolio, power_ts, min_power_ts, parameters, model):
         assert (
             self._combination(
-                node, portfolio, power_ts, min_power_ts, parameters, model,
+                node,
+                portfolio,
+                power_ts,
+                min_power_ts,
+                parameters,
+                model,
                 shutdown_duration=pendulum.duration(hours=2),
                 minimum_stable_power_duration=pendulum.duration(hours=3),
             )
@@ -169,7 +190,12 @@ class TestThermalDispatchCombinations:
     def test_combination_6_start_and_flat(self, node, portfolio, power_ts, min_power_ts, parameters, model):
         assert (
             self._combination(
-                node, portfolio, power_ts, min_power_ts, parameters, model,
+                node,
+                portfolio,
+                power_ts,
+                min_power_ts,
+                parameters,
+                model,
                 startup_duration=pendulum.duration(hours=2),
                 minimum_stable_power_duration=pendulum.duration(hours=3),
             )
@@ -179,7 +205,12 @@ class TestThermalDispatchCombinations:
     def test_combination_7_stop_and_start(self, node, portfolio, power_ts, min_power_ts, parameters, model):
         assert (
             self._combination(
-                node, portfolio, power_ts, min_power_ts, parameters, model,
+                node,
+                portfolio,
+                power_ts,
+                min_power_ts,
+                parameters,
+                model,
                 shutdown_duration=pendulum.duration(hours=2),
                 startup_duration=pendulum.duration(hours=2),
             )
@@ -189,7 +220,12 @@ class TestThermalDispatchCombinations:
     def test_combination_8_all_flags(self, node, portfolio, power_ts, min_power_ts, parameters, model):
         assert (
             self._combination(
-                node, portfolio, power_ts, min_power_ts, parameters, model,
+                node,
+                portfolio,
+                power_ts,
+                min_power_ts,
+                parameters,
+                model,
                 shutdown_duration=pendulum.duration(hours=2),
                 startup_duration=pendulum.duration(hours=2),
                 minimum_stable_power_duration=pendulum.duration(hours=3),
@@ -255,9 +291,14 @@ class TestThermalDispatchVariables:
         assert f"stop_{n}_{t}" not in model.variables
         assert f"on_flat_{n}_{t}" not in model.variables
 
-    def test_stop_var_present_for_combination_2(self, node, portfolio, power_ts, min_power_ts, model, parameters, time_window):
+    def test_stop_var_present_for_combination_2(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters, time_window
+    ):
         eq = _make_equipment(
-            node, portfolio, power_ts, min_power_ts,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
             shutdown_duration=pendulum.duration(hours=2),
         )
         d = ThermalDispatch(eq)
@@ -267,9 +308,14 @@ class TestThermalDispatchVariables:
 
         assert f"stop_{eq.name}_{t}" in model.variables
 
-    def test_start_var_present_for_combination_4(self, node, portfolio, power_ts, min_power_ts, model, parameters, time_window):
+    def test_start_var_present_for_combination_4(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters, time_window
+    ):
         eq = _make_equipment(
-            node, portfolio, power_ts, min_power_ts,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
             startup_duration=pendulum.duration(hours=2),
         )
         d = ThermalDispatch(eq)
@@ -279,9 +325,14 @@ class TestThermalDispatchVariables:
 
         assert f"on_start_{eq.name}_{t}" in model.variables
 
-    def test_flat_var_present_for_combination_3(self, node, portfolio, power_ts, min_power_ts, model, parameters, time_window):
+    def test_flat_var_present_for_combination_3(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters, time_window
+    ):
         eq = _make_equipment(
-            node, portfolio, power_ts, min_power_ts,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
             minimum_stable_power_duration=pendulum.duration(hours=3),
         )
         d = ThermalDispatch(eq)
@@ -380,7 +431,10 @@ class TestThermalDispatchConstraintsAcrossCombinations:
 
     def _build(self, node, portfolio, power_ts, min_power_ts, model, parameters, combination):
         eq = _make_equipment(
-            node, portfolio, power_ts, min_power_ts,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
             **REALISTIC_MIN_TIMES,
             **DURATION_BY_COMBINATION[combination],
         )
@@ -430,16 +484,19 @@ class TestThermalDispatchMinimumTimeConstraints:
             d.add_constraints(model, t, parameters)
         return d
 
-    def test_zero_minimum_time_emits_no_constraint(
-        self, node, portfolio, power_ts, min_power_ts, model, parameters
-    ):
+    def test_zero_minimum_time_emits_no_constraint(self, node, portfolio, power_ts, min_power_ts, model, parameters):
         self._build(node, portfolio, power_ts, min_power_ts, model, parameters)
 
         assert not any("minimum_time_on" in c or "minimum_time_off" in c for c in model.constraints)
 
     def test_minimum_time_on_emits_constraints(self, node, portfolio, power_ts, min_power_ts, model, parameters):
         d = self._build(
-            node, portfolio, power_ts, min_power_ts, model, parameters,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            model,
+            parameters,
             minimum_time_on=pendulum.duration(hours=4),
         )
 
@@ -449,7 +506,12 @@ class TestThermalDispatchMinimumTimeConstraints:
 
     def test_minimum_time_off_emits_constraints(self, node, portfolio, power_ts, min_power_ts, model, parameters):
         d = self._build(
-            node, portfolio, power_ts, min_power_ts, model, parameters,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            model,
+            parameters,
             minimum_time_off=pendulum.duration(hours=2),
         )
 
@@ -473,7 +535,12 @@ class TestThermalDispatchSubTimestepDurations:
         self, node, portfolio, power_ts, min_power_ts, model, parameters
     ):
         d = self._combination(
-            node, portfolio, power_ts, min_power_ts, model, parameters,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            model,
+            parameters,
             minimum_stable_power_duration=pendulum.duration(minutes=30),
         )
 
@@ -484,7 +551,12 @@ class TestThermalDispatchSubTimestepDurations:
         self, node, portfolio, power_ts, min_power_ts, model, parameters
     ):
         d = self._combination(
-            node, portfolio, power_ts, min_power_ts, model, parameters,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            model,
+            parameters,
             startup_duration=pendulum.duration(minutes=30),
         )
 
@@ -495,7 +567,12 @@ class TestThermalDispatchSubTimestepDurations:
         self, node, portfolio, power_ts, min_power_ts, model, parameters
     ):
         d = self._combination(
-            node, portfolio, power_ts, min_power_ts, model, parameters,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            model,
+            parameters,
             minimum_stable_power_duration=pendulum.duration(hours=1),
         )
 
@@ -516,7 +593,10 @@ class TestThermalDispatchLongStableDuration:
         self, node, portfolio, power_ts, min_power_ts, model, parameters, stable_hours
     ):
         eq = _make_equipment(
-            node, portfolio, power_ts, min_power_ts,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
             **REALISTIC_MIN_TIMES,
             startup_duration=pendulum.duration(hours=2),
             minimum_stable_power_duration=pendulum.duration(hours=stable_hours),
@@ -572,7 +652,10 @@ class TestThermalDispatchDailyEnergyConstraint:
     def test_constraint_added_when_active(self, node, portfolio, power_ts, min_power_ts, model, start_date, timestep):
         daily_energy_ts = self._make_daily_energy_ts(start_date, timestep)
         eq = _make_equipment(
-            node, portfolio, power_ts, min_power_ts,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
             has_daily_energy_constraint=True,
             maximum_daily_energy=daily_energy_ts,
         )
@@ -588,7 +671,9 @@ class TestThermalDispatchDailyEnergyConstraint:
         day0 = datetime(start_date.year, start_date.month, start_date.day)
         assert f"energy_limit_of_{eq.name}_at_{day0}" in model.constraints
 
-    def test_constraint_skipped_when_inactive(self, node, portfolio, power_ts, min_power_ts, model, start_date, timestep):
+    def test_constraint_skipped_when_inactive(
+        self, node, portfolio, power_ts, min_power_ts, model, start_date, timestep
+    ):
         eq = _make_equipment(node, portfolio, power_ts, min_power_ts, has_daily_energy_constraint=False)
         params = self._make_daily_params(start_date, timestep)
         d = ThermalDispatch(eq)
@@ -604,7 +689,10 @@ class TestThermalDispatchDailyEnergyConstraint:
     def test_one_constraint_per_day(self, node, portfolio, power_ts, min_power_ts, model, start_date, timestep):
         daily_energy_ts = self._make_daily_energy_ts(start_date, timestep)
         eq = _make_equipment(
-            node, portfolio, power_ts, min_power_ts,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
             has_daily_energy_constraint=True,
             maximum_daily_energy=daily_energy_ts,
         )
@@ -619,3 +707,190 @@ class TestThermalDispatchDailyEnergyConstraint:
 
         energy_constraints = [c for c in model.constraints if "energy_limit_of" in c]
         assert len(energy_constraints) == 2
+
+
+class TestThermalDispatchFormulationFixes:
+    """Rows and bounds that the day-ahead migration pinned down on the shared dispatch."""
+
+    def _build(self, node, portfolio, power_ts, min_power_ts, parameters, model, **kwargs):
+        eq = _make_equipment(node, portfolio, power_ts, min_power_ts, **REALISTIC_MIN_TIMES, **kwargs)
+        dispatch = ThermalDispatch(eq)
+        dispatch.setup(model, parameters)
+        window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
+        for time in window:
+            dispatch.add_variables(time)
+        for time in window:
+            dispatch.add_constraints(model, time, parameters)
+            dispatch.add_dd_and_gradient_constraints(model, time, time - parameters.temporal.timestep)
+        return eq, dispatch, window
+
+    def test_ramp_eviction_spans_the_full_ramp(self, node, portfolio, power_ts, min_power_ts, parameters, model):
+        """A unit that stopped at t must have left STOP exactly T_stop steps later."""
+        eq, dispatch, window = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            parameters,
+            model,
+            shutdown_duration=pendulum.duration(hours=2),
+        )
+        time = window[-1]
+        evicted_at = time - dispatch.T_stop * parameters.temporal.timestep
+
+        assert f"eviction_constraint_{time}_{eq.name}" in model.constraints
+        # the evicted turned_off is inside the window, so the row really couples the two
+        assert f"t_off_{eq.name}_{evicted_at}" in model.variables
+
+    def test_down_to_stop_tracks_the_transition_into_stop(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model
+    ):
+        """Without a startup ramp the auxiliary still means "entered STOP from ON_DOWN"."""
+        eq, _, window = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            parameters,
+            model,
+            shutdown_duration=pendulum.duration(hours=2),
+        )
+        time = window[1]
+
+        assert f"down_to_stop_evol_1_{time}_{eq.name}" in model.constraints
+        assert f"t_stop_evol_1_{time}_{eq.name}" not in model.constraints
+
+    def test_gradient_auxiliary_bounds_span_the_whole_series(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model, start_date, timestep
+    ):
+        """The gradient bound must cover every power step, including outside the delivery window."""
+        varying_power = Timeseries.from_index(
+            start_date=start_date.subtract(days=1),
+            frequency=timestep,
+            end_date=start_date.add(days=2),
+            default_value=200.0,
+        )
+        varying_power.set_value(start_date.add(days=1), 900.0)
+        eq, dispatch, window = self._build(
+            node,
+            portfolio,
+            varying_power,
+            min_power_ts,
+            parameters,
+            model,
+            minimum_stable_power_duration=pendulum.duration(hours=3),
+        )
+        bounds = model.get_variable(f"up_grad_{window[0]}_{eq.name}")
+
+        assert bounds.ub() == 900.0
+        assert bounds.lb() == -900.0
+
+    def test_stable_is_barred_when_the_unit_was_already_flat(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model
+    ):
+        """At the boundary, stable is bounded by 1 - on_flat(t-2), as it is inside the window."""
+        eq, _, _ = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            parameters,
+            model,
+            startup_duration=pendulum.duration(hours=2),
+            shutdown_duration=pendulum.duration(hours=2),
+            minimum_stable_power_duration=pendulum.duration(hours=3),
+        )
+        previous = parameters.temporal.start_date - parameters.temporal.timestep
+
+        # the unit enters the window offline, so on_flat(t-2) is 0 and the row leaves
+        # stable free; bounding it by on_flat(t-2) instead would pin it to 0
+        assert model.get_constraint(f"stable_evol_1_{previous}_{eq.name}").ub() == 1
+
+    def test_minimum_time_on_covers_the_step_before_the_window(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model
+    ):
+        """A stable unit puts the previous step in the model, so it has to constrain it."""
+        eq, _, _ = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            parameters,
+            model,
+            minimum_stable_power_duration=pendulum.duration(hours=3),
+        )
+        previous = parameters.temporal.start_date - parameters.temporal.timestep
+
+        assert any(
+            name.startswith(f"minimum_time_on_{eq.name}_") and name.endswith(str(previous))
+            for name in model.constraints
+        )
+
+    def test_dd_variable_only_exists_with_a_shutdown_ramp(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model
+    ):
+        """A start-and-flat unit has no DD row, so it must not carry a DD variable either."""
+        eq, _, window = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            parameters,
+            model,
+            startup_duration=pendulum.duration(hours=2),
+            minimum_stable_power_duration=pendulum.duration(hours=3),
+        )
+        assert not any(name.startswith("dd_grad_") for name in model.variables)
+        assert not any(name.startswith("DD_evol_") for name in model.constraints)
+
+    def test_a_running_unit_without_ramps_enters_the_window_free_to_move(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model, start_date, timestep
+    ):
+        """Both ON states are set before the window, so the first gradient is not one-sided."""
+        history = ForecastingMatrix()
+        history.add(
+            Timeseries.from_index(
+                start_date=start_date.subtract(hours=4),
+                frequency=timestep,
+                end_date=start_date - timestep,
+                default_value=200.0,
+            ),
+            parameters.temporal.execution_date,
+        )
+        eq = _make_equipment(node, portfolio, power_ts, min_power_ts, **REALISTIC_MIN_TIMES, power=history)
+        dispatch = ThermalDispatch(eq)
+        dispatch.setup(model, parameters)
+        previous = start_date - timestep
+
+        assert dispatch.on_up_var.get_extended_value(previous) == 1
+        assert dispatch.on_down_var.get_extended_value(previous) == 1
+
+
+class TestBannedTransitionsTable:
+    """Invariants of the declarative transition table driving _add_transition_constraints."""
+
+    STATES_REQUIRING = {"on_flat": 2, "on_start": 1, "stop": 0}
+    ALWAYS_PRESENT = {"off", "on_up", "on_down"}
+
+    def test_table_covers_exactly_the_eight_combinations(self):
+        assert set(ThermalDispatch._BANNED_TRANSITIONS) == set(ThermalDispatch._COMBINATIONS)
+
+    @pytest.mark.parametrize("flags", sorted(ThermalDispatch._COMBINATIONS))
+    def test_a_combination_only_bans_states_it_owns(self, flags):
+        """A ban naming a state the unit has no variable for would crash at model build."""
+        known = self.ALWAYS_PRESENT | {state for state, position in self.STATES_REQUIRING.items() if flags[position]}
+        for from_state, to_state in ThermalDispatch._BANNED_TRANSITIONS[flags]:
+            assert from_state in known, f"combination {ThermalDispatch._COMBINATIONS[flags]} bans from {from_state}"
+            assert to_state in known, f"combination {ThermalDispatch._COMBINATIONS[flags]} bans to {to_state}"
+
+    @pytest.mark.parametrize("flags", sorted(ThermalDispatch._COMBINATIONS))
+    def test_no_transition_is_banned_twice(self, flags):
+        """A duplicate would emit the same row twice under two different constraint names."""
+        bans = ThermalDispatch._BANNED_TRANSITIONS[flags]
+        assert len(set(bans)) == len(bans)
+
+    @pytest.mark.parametrize("flags", sorted(ThermalDispatch._COMBINATIONS))
+    def test_a_state_is_never_banned_from_holding(self, flags):
+        """`x(t-1) + x(t) <= 1` would forbid a unit from staying where it is."""
+        for from_state, to_state in ThermalDispatch._BANNED_TRANSITIONS[flags]:
+            assert from_state != to_state
