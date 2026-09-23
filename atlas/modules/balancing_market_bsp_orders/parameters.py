@@ -23,9 +23,6 @@ class BSPBalancingOrdersParameters(AbstractModuleParameters):
         and as the price of 'at all costs' bids. Usual values: 10000 for RR, 15000 for mFRR.
         Default: 15000
     :type market_price_cap: float
-    :param with_combinatorial_options: Whether to formulate combinatorial (multi-timestep linked)
-        orders. Default: True
-    :type with_combinatorial_options: bool
     :param market_area_names: Market area names to include. Accepts 'all' to include all,
         or a list like '[FR, BE]'. Default: 'all'
     :type market_area_names: str | list[str]
@@ -35,9 +32,6 @@ class BSPBalancingOrdersParameters(AbstractModuleParameters):
     :param excluded_technologies: Technology class names to exclude, semicolon-separated or
         as a list. 'None' and ['none'] resolve to an empty list. Default: None
     :type excluded_technologies: ExclusionList
-    :param hydro_storage_quantity_percentage: Fraction of available power offered for hydraulic
-        and storage units. Should be kept at 1 unless used in specific studies. Default: 1.0
-    :type hydro_storage_quantity_percentage: float
     :param with_fixed_id_markets: Whether the simulation includes fixed intraday markets.
         Affects the storage adequacy constraint horizon. Default: True
     :type with_fixed_id_markets: bool
@@ -67,11 +61,6 @@ class BSPBalancingOrdersParameters(AbstractModuleParameters):
             "Usual values: 10000 for RR markets, 15000 for mFRR markets."
         ),
     )
-    with_combinatorial_options: bool = Field(
-        True,
-        description="Whether to formulate combinatorial (multi-timestep linked) orders.",
-    )
-
     market_area_names: str | list[str] = Field(
         "all",
         description=(
@@ -95,15 +84,6 @@ class BSPBalancingOrdersParameters(AbstractModuleParameters):
         alias="excluded_technologies",
     )
 
-    hydro_storage_quantity_percentage: float = Field(
-        1.0,
-        ge=0.0,
-        le=1.0,
-        description=(
-            "Fraction of available power offered for hydraulic and storage units. "
-            "Should be kept at 1 unless used in specific studies."
-        ),
-    )
     with_fixed_id_markets: bool = Field(
         True,
         description=(

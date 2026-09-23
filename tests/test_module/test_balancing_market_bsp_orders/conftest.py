@@ -27,7 +27,6 @@ PARAMETERS_DICT = {
     },
     "product_type": MarketType.rr_activation,
     "market_price_cap": 15000,
-    "with_combinatorial_options": True,
     "market_area_names": "all",
     "conservative_stored_energy": True,
     "storage_price_threshold": 0.1,

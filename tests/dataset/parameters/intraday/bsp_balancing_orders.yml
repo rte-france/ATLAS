@@ -5,9 +5,7 @@ temporal:
   timestep: "PT15M"
 conservative_stored_energy: true
 res_self_balancing: false
-with_combinatorial_options: true
 with_fixed_id_markets: true
-hydro_storage_quantity_percentage: 1
 storage_price_threshold: 0.1
 market_price_cap: 15000
 market_type: RRActivation
