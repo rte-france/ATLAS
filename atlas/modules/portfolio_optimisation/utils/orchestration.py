@@ -139,7 +139,8 @@ def run_parallel(
     :type parameters: PortfolioOptimisationParameters
     :return: List of optimization results, one per portfolio
     :rtype: list[PortfolioOptimisationResult]
-    :raises Exception: any worker failure is propagated, so a partial result never flows on
+    :raises RuntimeError: any worker failure is propagated, named after the failing portfolio,
+        so a partial result never flows on
     """
     optimisation_results: list[PortfolioOptimisationResult] = []
 
@@ -153,7 +154,10 @@ def run_parallel(
             portfolio_name = future_to_portfolio[future]
             # Solver failures are already handled in optimise_single_portfolio (degraded result);
             # anything reaching here is a worker crash and must not silently shrink the result list.
-            result = future.result()
+            try:
+                result = future.result()
+            except Exception as e:
+                raise RuntimeError(f"Optimisation failed for portfolio {portfolio_name}") from e
             optimisation_results.append(result)
             cfg.logger.info(f"Completed optimization for: {portfolio_name}")
 
@@ -173,12 +177,16 @@ def run_sequential(
     :type parameters: PortfolioOptimisationParameters
     :return: List of optimization results, one per portfolio
     :rtype: list[PortfolioOptimisationResult]
-    :raises Exception: any failure is propagated, so a partial result never flows on
+    :raises RuntimeError: any failure is propagated, named after the failing portfolio,
+        so a partial result never flows on
     """
     optimisation_results: list[PortfolioOptimisationResult] = []
 
     for portfolio in portfolios:
-        result = optimise_single_portfolio(portfolio, parameters)
+        try:
+            result = optimise_single_portfolio(portfolio, parameters)
+        except Exception as e:
+            raise RuntimeError(f"Optimisation failed for portfolio {portfolio.name}") from e
         optimisation_results.append(result)
         cfg.logger.info(f"Completed optimization for: {result.name}")
 

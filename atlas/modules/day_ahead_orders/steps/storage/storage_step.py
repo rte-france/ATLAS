@@ -70,9 +70,13 @@ class StorageStep(AbstractOrderStep):
             }
 
             for future in as_completed(future_to_storage):
+                storage_name = future_to_storage[future]
                 # A failing unit is propagated: dropping it here would leave the step result
                 # silently short of orders for that unit.
-                unit_result = future.result()
+                try:
+                    unit_result = future.result()
+                except Exception as e:
+                    raise RuntimeError(f"Storage optimisation failed for {storage_name}") from e
                 self._process_unit_result(result, unit_result, storage_by_name[unit_result.storage_name])
 
         return result
@@ -82,7 +86,10 @@ class StorageStep(AbstractOrderStep):
         result = StepResult()
 
         for storage in self.dataset.storage:
-            unit_result = optimize_single_storage(storage, self.parameters, local_timewindow)
+            try:
+                unit_result = optimize_single_storage(storage, self.parameters, local_timewindow)
+            except Exception as e:
+                raise RuntimeError(f"Storage optimisation failed for {storage.name}") from e
             self._process_unit_result(result, unit_result, storage)
 
         return result

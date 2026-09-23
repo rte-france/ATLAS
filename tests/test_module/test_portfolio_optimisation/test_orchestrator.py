@@ -266,8 +266,10 @@ class TestRunSequential:
 
         mock_optimise.side_effect = [result1, Exception("Optimization failed")]
 
-        with pytest.raises(Exception, match="Optimization failed"):
+        with pytest.raises(RuntimeError, match="portfolio_2") as error:
             run_sequential(portfolios, mock_parameters)
+
+        assert str(error.value.__cause__) == "Optimization failed"
 
 
 class TestRunParallel:
@@ -345,8 +347,10 @@ class TestRunParallel:
         with patch("atlas.modules.portfolio_optimisation.utils.orchestration.as_completed") as mock_as_completed:
             mock_as_completed.return_value = [future1, future2]
 
-            with pytest.raises(Exception, match="Optimization failed"):
+            with pytest.raises(RuntimeError, match="portfolio_2") as error:
                 run_parallel(portfolios, mock_parameters)
+
+        assert str(error.value.__cause__) == "Optimization failed"
 
 
 class TestOptimisePortfolioManualActivated:

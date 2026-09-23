@@ -51,7 +51,10 @@ class ThermalBiddingStep(AbstractOrderStep):
                 thermal_name = future_to_thermal[future]
                 # A failing unit is propagated: dropping it here would leave the step result
                 # silently short of orders for that unit.
-                unit_result = future.result()
+                try:
+                    unit_result = future.result()
+                except Exception as e:
+                    raise RuntimeError(f"Order formulation failed for thermal unit {thermal_name}") from e
 
                 result.orders.extend(unit_result.orders)
                 result.order_couplings.extend(unit_result.order_couplings)
@@ -66,7 +69,10 @@ class ThermalBiddingStep(AbstractOrderStep):
         result = StepResult()
 
         for thermal in self.dataset.thermal:
-            unit_result = optimize_single_thermal_unit(thermal, self.orders_time, self.parameters)
+            try:
+                unit_result = optimize_single_thermal_unit(thermal, self.orders_time, self.parameters)
+            except Exception as e:
+                raise RuntimeError(f"Order formulation failed for thermal unit {thermal.name}") from e
 
             result.orders.extend(unit_result.orders)
             result.order_couplings.extend(unit_result.order_couplings)

@@ -8,7 +8,7 @@ A unit that fails must not be dropped from the step result: the step has no way 
 caller that its orders are incomplete, so the failure is propagated instead.
 """
 
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -25,6 +25,14 @@ def _step(step_class, dataset_attribute: str, unit_name: str):
     return step_class(dataset, orders_time=[], parameters=Mock())
 
 
+def _crashed_executor(executor_class: MagicMock) -> None:
+    """Make every unit submitted to a patched ProcessPoolExecutor come back crashed."""
+    executor = executor_class.return_value.__enter__.return_value
+    executor.submit.side_effect = lambda *args, **kwargs: MagicMock(
+        result=MagicMock(side_effect=RuntimeError("solver crashed"))
+    )
+
+
 def test_storage_step_propagates_unit_failure():
     step = _step(StorageStep, "storage", "a_battery")
 
@@ -32,8 +40,22 @@ def test_storage_step_propagates_unit_failure():
         "atlas.modules.day_ahead_orders.steps.storage.storage_step.optimize_single_storage",
         side_effect=RuntimeError("solver crashed"),
     ):
-        with pytest.raises(RuntimeError, match="solver crashed"):
+        with pytest.raises(RuntimeError, match="a_battery") as error:
             step._formulate_sequential(local_timewindow=[])
+
+    assert str(error.value.__cause__) == "solver crashed"
+
+
+def test_storage_step_parallel_names_the_failing_unit():
+    step = _step(StorageStep, "storage", "a_battery")
+
+    with patch("atlas.modules.day_ahead_orders.steps.storage.storage_step.ProcessPoolExecutor") as executor_class:
+        _crashed_executor(executor_class)
+
+        with pytest.raises(RuntimeError, match="a_battery") as error:
+            step._formulate_parallel(local_timewindow=[])
+
+    assert str(error.value.__cause__) == "solver crashed"
 
 
 def test_thermal_step_propagates_unit_failure():
@@ -43,8 +65,24 @@ def test_thermal_step_propagates_unit_failure():
         "atlas.modules.day_ahead_orders.steps.thermal.thermal_bidding_step.optimize_single_thermal_unit",
         side_effect=RuntimeError("solver crashed"),
     ):
-        with pytest.raises(RuntimeError, match="solver crashed"):
+        with pytest.raises(RuntimeError, match="a_thermal") as error:
             step._formulate_sequential()
+
+    assert str(error.value.__cause__) == "solver crashed"
+
+
+def test_thermal_step_parallel_names_the_failing_unit():
+    step = _step(ThermalBiddingStep, "thermal", "a_thermal")
+
+    with patch(
+        "atlas.modules.day_ahead_orders.steps.thermal.thermal_bidding_step.ProcessPoolExecutor"
+    ) as executor_class:
+        _crashed_executor(executor_class)
+
+        with pytest.raises(RuntimeError, match="a_thermal") as error:
+            step._formulate_parallel()
+
+    assert str(error.value.__cause__) == "solver crashed"
 
 
 def test_thermal_worker_rejects_unknown_strategy():
