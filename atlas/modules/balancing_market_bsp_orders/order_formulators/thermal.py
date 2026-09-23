@@ -359,8 +359,8 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         market_short = self._market_short_name()
         return (
             f"{self.equipment.name}_{market_short}_S_"
-            f"{self._fmt_time(start)}_{self._fmt_time(end)}_"
-            f"at_{self._fmt_time(self.parameters.temporal.execution_date)}"
+            f"{start.strftime('%H_%M')}_{end.strftime('%H_%M')}_"
+            f"at_{self.parameters.temporal.execution_date.strftime('%H_%M')}"
         ).lower()
 
     def _build_shutdown_order(self, start: DateTime, end: DateTime, price: float, qmax: float) -> Order | None:

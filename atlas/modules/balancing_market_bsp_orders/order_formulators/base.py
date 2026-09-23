@@ -214,8 +214,8 @@ class AbstractOrderFormulator(ABC):
         market_short = self._market_short_name()
         return (
             f"{self.equipment.name}_{market_short}_{direction}_"
-            f"{self._fmt_time(start)}_{self._fmt_time(end)}_"
-            f"at_{self._fmt_time(self.parameters.temporal.execution_date)}{suffix}"
+            f"{start.strftime('%H_%M')}_{end.strftime('%H_%M')}_"
+            f"at_{self.parameters.temporal.execution_date.strftime('%H_%M')}{suffix}"
         ).lower()
 
     def _market_short_name(self) -> str:
@@ -230,18 +230,6 @@ class AbstractOrderFormulator(ABC):
         if self.parameters.product_type == MarketType.mfrr_activation:
             return "MFRR"
         return "Other"
-
-    @staticmethod
-    def _fmt_time(dt: DateTime) -> str:
-        """
-        Format a DateTime to HH_MM string for use in order names.
-
-        :param dt: Datetime to format
-        :type dt: DateTime
-        :return: Formatted time string
-        :rtype: str
-        """
-        return dt.strftime("%H_%M")
 
     def _apply_gradient_constraint(
         self,
