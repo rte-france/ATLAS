@@ -10,11 +10,13 @@ import re
 from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 import pandas as pd
 import pendulum
 import polars as pl
+from loguru import logger
+from pydantic import BaseModel, ConfigDict
 
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
@@ -272,7 +274,8 @@ def diff_on_other_than_business_model(
             ref = joined["value"].abs().max() or 1.0
             if max_diff > _TIMESERIES_DIFF_RTOL * ref or joined.height != df_val.height:
                 return {"changed": "not-serializable yet"}
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Couldn't check diff on {type(val).__name__}: {e}")
             return {"error": "Couldn't check diff"}
     elif isinstance(val, AbstractScenarioMatrix) and isinstance(other_val, AbstractScenarioMatrix):
         # ForecastingMatrix columns accumulate float ops — use tolerance.
@@ -296,19 +299,22 @@ def diff_on_other_than_business_model(
                 ref = df_val[col].fill_null(0.0).abs().max() or 1.0
                 if max_diff > _TIMESERIES_DIFF_RTOL * ref:
                     return {"changed": "not-serializable yet"}
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Couldn't check diff on {type(val).__name__}: {e}")
             return {"error": "Couldn't check diff"}
     elif hasattr(val, "equals") and hasattr(other_val, "equals"):
         try:
             if not val.equals(other_val):
                 return {"changed": "not-serializable yet"}
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Couldn't check diff on {type(val).__name__}: {e}")
             return {"error": "Couldn't check diff"}
     else:
         try:
             if val != other_val:
                 return {"changed": "not-serializable yet"}
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Couldn't check diff on {type(val).__name__}: {e}")
             return {"error": "Couldn't check diff"}
     return None
 
@@ -340,7 +346,8 @@ def diff_lists(
                 diff = diff_on_other_than_business_model(a, b, _visited)
                 if diff:
                     diffs[str(i)] = diff
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Couldn't check diff at index {i}: {e}")
                 diffs[str(i)] = {"error": "Couldn't check diff"}
     return diffs if diffs else None
 
@@ -395,3 +402,11 @@ def deduplicate_names(names: Sequence[str]) -> list[str]:
                 )
         resolved.append(candidate)
     return resolved
+
+
+class FrozenBaseModel(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    def evolve(self, **changes) -> Self:
+        """Return a validated copy with the given fields replaced."""
+        return type(self).model_validate({**self.__dict__, **changes})

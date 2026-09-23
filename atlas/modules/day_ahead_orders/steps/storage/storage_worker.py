@@ -43,15 +43,16 @@ class StorageOptimizationResult:
     :type sell_submitted_volume: Timeseries
     :param variable_cost: Updated variable cost timeseries
     :type variable_cost: Timeseries | None
-    :param success: Whether the optimization was successful
-    :type success: bool
+    :param skipped: Whether the unit was deliberately left out of the optimization (no capacity
+        over the local time window). A failed optimization raises instead of being reported here.
+    :type skipped: bool
     """
 
     storage_name: str
     buy_submitted_volume: Timeseries = field(default_factory=Timeseries)
     sell_submitted_volume: Timeseries = field(default_factory=Timeseries)
     variable_cost: Timeseries = field(default_factory=Timeseries)
-    success: bool = True
+    skipped: bool = False
     orders: list[OrderDAO] = field(default_factory=list)
     order_couplings: list[OrderCouplingDAO] = field(default_factory=list)
 
@@ -73,74 +74,69 @@ def optimize_single_storage(
     :type parameters: DayAheadOrdersParameters
     :return: Storage optimization result
     :rtype: StorageOptimizationResult
+    :raises Exception: a failed optimization is propagated rather than reported as an empty result
     """
-    try:
-        local_max_energy = storage.maximum_energy.filter(item=local_timewindow, inplace=False).max()
+    local_max_energy = storage.maximum_energy.filter(item=local_timewindow, inplace=False).max()
 
-        if local_max_energy <= 0:
-            cfg.logger.debug(f"Equipment {str(storage.name)} avoided, as its maximum_energy is 0")
-            return StorageOptimizationResult(storage_name=storage.name, success=False)
+    if local_max_energy <= 0:
+        cfg.logger.debug(f"Equipment {str(storage.name)} avoided, as its maximum_energy is 0")
+        return StorageOptimizationResult(storage_name=storage.name, skipped=True)
 
-        cfg.logger.debug(f"Optimizing storage equipment {str(storage.name)}")
+    cfg.logger.debug(f"Optimizing storage equipment {str(storage.name)}")
 
-        initial_stock = _initiate_stock(storage, parameters)
+    initial_stock = _initiate_stock(storage, parameters)
 
-        solver_options = SolverOptions(
-            presolve=parameters.solver.use_presolve,
-            duality_gap=parameters.solver.duality_gap,
-            time_limit=parameters.solver.timeout,
+    solver_options = SolverOptions(
+        presolve=parameters.solver.use_presolve,
+        duality_gap=parameters.solver.duality_gap,
+        time_limit=parameters.solver.timeout,
+    )
+
+    if storage.storage_type == StorageType.ELECTRIC_VEHICLE:
+        Qv, Qa = _optimize_ev(storage, initial_stock, solver_options, parameters)
+    else:
+        Qv, Qa = _optimize_battery(storage, initial_stock, solver_options, parameters)
+
+    buy_submitted_volume = Timeseries.from_values(
+        parameters.temporal.start_date, parameters.temporal.timestep, list(Qa.values())
+    )
+    sell_submitted_volume = Timeseries.from_values(
+        parameters.temporal.start_date, parameters.temporal.timestep, list(Qv.values())
+    )
+
+    # Calculate prices
+    Psale, Ppurchase = _price_calculation(storage, Qv, Qa, parameters)
+
+    # Update variable cost
+    if Ppurchase != 0:
+        variable_cost = round(Ppurchase, 2)
+    elif storage.discharge_efficiency != 0 and storage.charge_efficiency != 0:
+        variable_cost = round(Psale * storage.discharge_efficiency * storage.charge_efficiency, 2)
+    else:
+        variable_cost = round(Psale, 2)
+        cfg.logger.warning(
+            f"ChargeEfficiency or DischargeEfficiency is null for equipment {storage.name}. "
+            "This is not supposed to be the case, as the default value for these is 1 and not 0"
         )
+    variable_costs = Timeseries.from_values(
+        parameters.temporal.start_date,
+        parameters.temporal.timestep,
+        [variable_cost] * len(local_timewindow),
+    )
 
-        if storage.storage_type == StorageType.ELECTRIC_VEHICLE:
-            Qv, Qa = _optimize_ev(storage, initial_stock, solver_options, parameters)
-        else:
-            Qv, Qa = _optimize_battery(storage, initial_stock, solver_options, parameters)
+    # Create orders and couplings
+    orders, order_couplings = _create_orders_with_couplings(
+        storage, Qa, Qv, Ppurchase, Psale, buy_submitted_volume, sell_submitted_volume, parameters
+    )
 
-        buy_submitted_volume = Timeseries.from_values(
-            parameters.temporal.start_date, parameters.temporal.timestep, list(Qa.values())
-        )
-        sell_submitted_volume = Timeseries.from_values(
-            parameters.temporal.start_date, parameters.temporal.timestep, list(Qv.values())
-        )
-
-        # Calculate prices
-        Psale, Ppurchase = _price_calculation(storage, Qv, Qa, parameters)
-
-        # Update variable cost
-        if Ppurchase != 0:
-            variable_cost = round(Ppurchase, 2)
-        elif storage.discharge_efficiency != 0 and storage.charge_efficiency != 0:
-            variable_cost = round(Psale * storage.discharge_efficiency * storage.charge_efficiency, 2)
-        else:
-            variable_cost = round(Psale, 2)
-            cfg.logger.warning(
-                f"ChargeEfficiency or DischargeEfficiency is null for equipment {storage.name}. "
-                "This is not supposed to be the case, as the default value for these is 1 and not 0"
-            )
-        variable_costs = Timeseries.from_values(
-            parameters.temporal.start_date,
-            parameters.temporal.timestep,
-            [variable_cost] * len(local_timewindow),
-        )
-
-        # Create orders and couplings
-        orders, order_couplings = _create_orders_with_couplings(
-            storage, Qa, Qv, Ppurchase, Psale, buy_submitted_volume, sell_submitted_volume, parameters
-        )
-
-        return StorageOptimizationResult(
-            storage_name=storage.name,
-            orders=orders,
-            order_couplings=order_couplings,
-            buy_submitted_volume=buy_submitted_volume,
-            sell_submitted_volume=sell_submitted_volume,
-            variable_cost=variable_costs,
-            success=True,
-        )
-
-    except Exception as e:
-        cfg.logger.error(f"Optimization failed for storage {storage.name}: {e}")
-        return StorageOptimizationResult(storage_name=storage.name, success=False)
+    return StorageOptimizationResult(
+        storage_name=storage.name,
+        orders=orders,
+        order_couplings=order_couplings,
+        buy_submitted_volume=buy_submitted_volume,
+        sell_submitted_volume=sell_submitted_volume,
+        variable_cost=variable_costs,
+    )
 
 
 def _initiate_stock(storage: StorageDAO, parameters: DayAheadOrdersParameters) -> float | None:

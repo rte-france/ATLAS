@@ -194,15 +194,14 @@ class TestWorkflowContextParameters:
             "    file_exclusive: 'forced_value_file_exclusive'\n"
         )
 
-        overriding_context = ContextParameters()
-        overriding_context.default = {
+        overriding_context = ContextParameters(
+            default = {
             "foo": "default_value_overriding",
             "override_exclusive": "default_value_override_exclusive",
-        }
-        overriding_context.forced = {
+        }, forced = {
             "foo": "forced_value_overriding",
             "override_exclusive": "forced_value_override_exclusive",
-        }
+        })
 
         workflow = Workflow.from_file(
             TestWorkflowContextParameters.create_config(tmp_path, context_file), overriding_context
@@ -399,3 +398,35 @@ class TestWorkflowPathFromWorkflow:
         step = next(workflow.jobs)
 
         assert step.parameters.output.output_dir == tmp_path / "results" / "MarketClearing"
+
+    def test_step_output_dir_includes_job_name_prefix(self, tmp_path):
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text(
+            "temporal:\n"
+            "  start_date: '2028-09-27 00:00:00'\n"
+            "  end_date: '2028-09-28 00:00:00'\n"
+            "  execution_date: '2028-09-26 12:00:00'\n"
+        )
+
+        config = tmp_path / "workflow.yaml"
+        config.write_text(
+            f"name: test_workflow\n"
+            f"dataset_path: dataset\n"
+            f"output_dataset_path: output\n"
+            f"path_from_workflow: true\n"
+            f"workflow_path: {tmp_path}\n"
+            f"output_dir: results\n"
+            f"steps:\n"
+            f"  - module: MarketClearing\n"
+            f"    parameters: {params_file}\n"
+        )
+
+        prefix = "task 'my_task' iteration 3"
+        workflow = Workflow(WorkflowParameters.from_file(config), prefix)
+        step = next(workflow.jobs)
+
+        assert step.parameters.output.output_dir == tmp_path / "results" / f"{prefix} MarketClearing"
