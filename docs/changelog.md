@@ -23,6 +23,39 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 0.1.1
+
+### Market modules
+
+- 🐛 Fixed a sign error in the displacement term of the storage cycle balance.
+- 🐛 Fixed a recursive issue in parent/children order coupling.
+- 🐛 Fixed a stale loop variable in `update_orders` and bogus border neighbours in market clearing.
+- 🐛 Intraday workflow no longer infeasible from iterating on the residual market-clearing order instead of the order itself.
+- 🐛 Portfolios and orders that fail optimisation are no longer silently dropped; failures now propagate.
+- 🔄 Refactored day-ahead orders and portfolio optimisation to share a marginal value dataclass, removing duplicated code, and migrated intraday orders onto the same fragment data as day-ahead orders.
+
+### Orchestrator
+
+- ✨ Parameters are now immutable (frozen), with deep copies made where mutation was previously relied upon.
+- ✨ `Workflow` and `ActionPlan` now deduplicate step/task names and raise on ambiguous names instead of silently colliding.
+- 🐛 Fixed several parity gaps between `Workflow` and `ActionPlan` (context application to module parameters, job naming, parameter completeness checks).
+- 🐛 Fixed `use_context` merge semantics and the job name prefix in step output directories.
+
+### I/O
+
+- 🐛 Matrix concatenation now raises instead of silently dropping data when a file cannot be read.
+- 🔄 Simplified input loading by removing a triple try/except.
+
+### Error handling
+
+- 🐛 Cleaned up error handling across the orchestrator, container and dataset: exceptions are now logged instead of swallowed, and `Container` raises `KeyError` when removing an unknown item.
+
+### Packaging
+
+- 📚 Updated README installation instructions for the PyPI package.
+
+---
+
 ## 0.1.0
 
 First public release, published on PyPI as `atlas-model`.
