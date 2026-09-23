@@ -177,7 +177,7 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
         if remaining_margin <= 0:
             return 0.0
 
-        timeframe_hours = (self.parameters.temporal.end_date - start).total_seconds() / 3600
+        timeframe_hours = (self.parameters.temporal.end_date - start).total_hours()
         upward_available = min(upward_available, remaining_margin / timeframe_hours)
         return upward_available
 
@@ -202,7 +202,7 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
         if remaining_margin <= 0:
             return 0.0
 
-        timeframe_hours = (self.parameters.temporal.end_date - start).total_seconds() / 3600
+        timeframe_hours = (self.parameters.temporal.end_date - start).total_hours()
         downward_available = min(downward_available, remaining_margin / timeframe_hours)
         return downward_available
 
@@ -224,7 +224,7 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
 
         daily_power = self.equipment.power.get_forecast(execution_date, current_day_start, current_day_end)
         # timestep may not be needed : use frequency of matrix if 15 -> divide by 4, if 30 divide by 2
-        return daily_power.sum() * (timestep.total_seconds() / 3600)
+        return daily_power.sum() * timestep.total_hours()
 
     def _build_upward_fragment_orders(
         self,

@@ -92,7 +92,7 @@ def compute_daily_balancing_energy(equipment: BalancingStorage, parameters: BSPB
         + equipment.specific_activated_power.get_forecast(execution_date, current_day_start, current_day_end)
     )
 
-    return energy_timeframe_power.sum() * (timestep.total_seconds() / 3600)
+    return energy_timeframe_power.sum() * timestep.total_hours()
 
 
 class StorageOrderFormulator(AbstractOrderFormulator):
@@ -275,7 +275,7 @@ class StorageOrderFormulator(AbstractOrderFormulator):
         if stored_energy_min <= local_minimum_energy:
             return 0.0, False
 
-        timeframe_hours = (self.parameters.temporal.end_date - start).total_seconds() / 3600
+        timeframe_hours = (self.parameters.temporal.end_date - start).total_hours()
         upward_available = min(
             upward_available,
             self.equipment.discharge_efficiency * (stored_energy_min - local_minimum_energy) / timeframe_hours,
@@ -319,7 +319,7 @@ class StorageOrderFormulator(AbstractOrderFormulator):
         if current_storage_capacity <= max_stored_energy:
             return 0.0, False
 
-        timeframe_hours = (self.parameters.temporal.end_date - start).total_seconds() / 3600
+        timeframe_hours = (self.parameters.temporal.end_date - start).total_hours()
         downward_available = min(
             downward_available,
             (current_storage_capacity - max_stored_energy) / (self.equipment.charge_efficiency * timeframe_hours),
