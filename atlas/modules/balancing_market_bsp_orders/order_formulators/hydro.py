@@ -9,71 +9,13 @@ Module that implements HydraulicOrderFormulator.
 from pendulum import DateTime
 
 import atlas.config as cfg
+from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue
 from atlas.enums import OrderType
-from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.modules.balancing_market_bsp_orders.input_objects.hydro import BalancingHydro
 from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
-
-
-def extract_mean_from_scenario(
-    scenario_matrix: AbstractScenarioMatrix,
-    index_input: float,
-    time_input: DateTime,
-) -> float:
-    """
-    Extract a linearly interpolated value from a ScenarioMatrix.
-
-    Interpolates between the scenario index value preceding index_input and the one
-    following it, at the given time_input. The scenario_matrix indexes are assumed to
-    represent numeric values (e.g. storage levels) and are sorted by increasing value.
-    If index_input falls outside the index range, it is clamped to the nearest bound.
-
-    :param scenario_matrix: Matrix of timeseries indexed by numeric scenario values
-    :type scenario_matrix: AbstractScenarioMatrix
-    :param index_input: The numeric value to interpolate between scenario indexes
-    :type index_input: float
-    :param time_input: The datetime at which to read the interpolated value
-    :type time_input: DateTime
-    :return: The interpolated value, or 0.0 if the matrix has no indexes
-    :rtype: float
-    """
-    # Map numeric value -> original column name, to avoid reformatting mismatches
-    index_by_value = {float(index_name): index_name for index_name in scenario_matrix.index}
-    scenario_values = sorted(index_by_value)
-
-    if not scenario_values:
-        return 0.0
-
-    if index_input <= scenario_values[0]:
-        preceding_value_key = following_value_key = scenario_values[0]
-    elif index_input >= scenario_values[-1]:
-        preceding_value_key = following_value_key = scenario_values[-1]
-    else:
-        preceding_value_key = scenario_values[0]
-        following_value_key = scenario_values[-1]
-        for scenario_value in scenario_values:
-            if scenario_value == index_input:
-                preceding_value_key = following_value_key = scenario_value
-                break
-            if scenario_value < index_input:
-                preceding_value_key = scenario_value
-            else:
-                following_value_key = scenario_value
-                break
-
-    preceding_value = scenario_matrix.select(index_by_value[preceding_value_key]).get_value(time_input)
-
-    if preceding_value_key == following_value_key:
-        return preceding_value
-
-    following_value = scenario_matrix.select(index_by_value[following_value_key]).get_value(time_input)
-
-    return preceding_value + (following_value - preceding_value) * (index_input - preceding_value_key) / (
-        following_value_key - preceding_value_key
-    )
 
 
 class HydraulicOrderFormulator(AbstractOrderFormulator):
@@ -114,6 +56,7 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
         forecasted_power = self.equipment.power.get_forecast(execution_date, start, end)
         max_power = self.equipment.maximum_power.slice(start, end)
         min_power = self.equipment.minimum_power.slice(start, end)
+        stored_energy = self.equipment.stored_energy.get_forecast(execution_date, start, end)
 
         upward_procured, downward_procured = self.compute_procured_power(
             execution_date, start, end, self.parameters.product_type
@@ -140,13 +83,10 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
                 qmax_up = self._compute_maximum_daily_energy_bound(qmax_up)
                 qmax_down = self._compute_minimum_daily_energy_bound(qmax_down)
 
-            water_value = extract_mean_from_scenario(
+            water_value = InterpolatedMarginalValue.at_level(
                 self.equipment.storage_marginal_value,
-                self.equipment.stored_energy.get_forecast(
-                    self.parameters.temporal.execution_date, time, time
-                ).get_value(time),
-                time,
-            )
+                stored_energy.get_value(time),
+            ).value_at(time)
 
             if qmax_up >= 1.0:
                 orders.extend(self._build_upward_fragment_orders(time, next_time, qmax_up, water_value))
