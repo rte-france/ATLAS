@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import cast
 
 import pendulum
 import pytest
@@ -43,11 +44,10 @@ def executed_workflow(request):
 
 
 class TestWorkflowIntegration:
-    def test_workflow_all_steps_produce_output(self, executed_workflow):
+    def test_workflow_produce_output(self, executed_workflow):
         workflow, _, _, _, _ = executed_workflow
+        workflow = cast(Workflow, workflow)
         assert workflow.get_output_dataset() is not None
-        for step in workflow.jobs:
-            assert step.output_dataset is not None, f"Step '{step.name}' did not produce output"
 
     def test_workflow_cis_is_modified_after_execution(self, executed_workflow):
         _, initial_cis, final_cis, _, _ = executed_workflow

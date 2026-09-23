@@ -63,8 +63,11 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
         file_path = Path(file_path)
         parameters = cls.get_param_class().from_file(file_path)
         if context is not None:
-            parameters.context.apply(context)
-        parameters.orchestrator_path = file_path.parent
+            parameters = parameters.evolve(
+                orchestrator_path=file_path.parent, context=parameters.context.apply(context)
+            )
+        else:
+            parameters = parameters.evolve(orchestrator_path=file_path.parent)
         return cls(parameters=parameters)
 
     def get_output_dataset(self) -> AbstractDataset | None:
@@ -78,7 +81,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
         :param context: add this context parameters to the existing one, overwriting any parameters if it exists.
         :type context: ContextParameters
         """
-        self.parameters.context.apply(context)
+        self.parameters = self.parameters.evolve(context=self.parameters.context.apply(context))
 
     def execute(self) -> CurrentInputState:
         """
@@ -113,12 +116,15 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
             try:
                 self._execute_job(job, cis)
                 last_executed_job = job
-            except WorkflowJobError:
+            except WorkflowJobError as e:
+                logger.error(f"'{job}' failed: {e}")
+                if self.parameters.rollback_on_job_failure:
+                    logger.error(f"Current Input State automatically rolled back to state before '{job}'")
                 if self.parameters.create_job_snapshots:
                     logger.info(f"Available snapshots: {cis.list_snapshots()}")
                 raise
             except Exception as e:
-                logger.error(f"{job}' failed: {e}")
+                logger.error(f"'{job}' failed: {e}")
                 if self.parameters.rollback_on_job_failure:
                     logger.error(f"Current Input State automatically rolled back to state before '{job}'")
                 if self.parameters.create_job_snapshots:

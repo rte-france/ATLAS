@@ -256,8 +256,8 @@ class TestRunSequential:
         assert mock_optimise.call_count == 2
 
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.optimise_single_portfolio")
-    def test_run_sequential_handles_errors(self, mock_optimise, portfolios, mock_parameters):
-        """Test run_sequential handles errors gracefully."""
+    def test_run_sequential_propagates_errors(self, mock_optimise, portfolios, mock_parameters):
+        """A failing portfolio raises instead of silently shrinking the result list."""
         result1 = PortfolioOptimisationResult(
             portfolio=portfolios[0],
             variable_values={},
@@ -266,10 +266,10 @@ class TestRunSequential:
 
         mock_optimise.side_effect = [result1, Exception("Optimization failed")]
 
-        results = run_sequential(portfolios, mock_parameters)
+        with pytest.raises(RuntimeError, match="portfolio_2") as error:
+            run_sequential(portfolios, mock_parameters)
 
-        assert len(results) == 1
-        assert result1 in results
+        assert str(error.value.__cause__) == "Optimization failed"
 
 
 class TestRunParallel:
@@ -326,8 +326,8 @@ class TestRunParallel:
         mock_executor_class.assert_called_once_with(max_workers=2)
 
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.ProcessPoolExecutor")
-    def test_run_parallel_handles_errors(self, mock_executor_class, portfolios, mock_parameters):
-        """Test run_parallel handles errors gracefully."""
+    def test_run_parallel_propagates_errors(self, mock_executor_class, portfolios, mock_parameters):
+        """A crashed worker raises instead of silently shrinking the result list."""
         mock_executor = MagicMock()
         mock_executor_class.return_value.__enter__.return_value = mock_executor
 
@@ -347,10 +347,10 @@ class TestRunParallel:
         with patch("atlas.modules.portfolio_optimisation.utils.orchestration.as_completed") as mock_as_completed:
             mock_as_completed.return_value = [future1, future2]
 
-            results = run_parallel(portfolios, mock_parameters)
+            with pytest.raises(RuntimeError, match="portfolio_2") as error:
+                run_parallel(portfolios, mock_parameters)
 
-        assert len(results) == 1
-        assert result1 in results
+        assert str(error.value.__cause__) == "Optimization failed"
 
 
 class TestOptimisePortfolioManualActivated:

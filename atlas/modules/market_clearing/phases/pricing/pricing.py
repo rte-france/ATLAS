@@ -97,16 +97,25 @@ class Pricing:
     ##################################
     # Price groups — shared across the three attempts
     ##################################
-    # Generator of border ranks and names of neighbour area for each border of a given market area:
+    # Borders touching a given market area, paired with the area on the other end:
     def get_market_area_neighbours(self, market_area_name: str) -> list[tuple[MarketBorderMC, str]]:
+        """List the borders connected to a market area and the area on the other side of each.
+
+        Borders that do not touch ``market_area_name`` are skipped: on a network with three areas
+        or more, a border between two unrelated areas is not a connection of the queried area, and
+        treating it as one would merge price groups across a link that does not exist.
+
+        :param market_area_name: Name of the market area whose connections are looked up
+        :type market_area_name: str
+        :return: One ``(border, neighbour area name)`` pair per border touching the area
+        :rtype: list[tuple[MarketBorderMC, str]]
+        """
         neighbours_area = []
         for border in self.input_dataset.market_borders.values():
-            neighbour_area = (
-                border.downhill_market_area
-                if border.uphill_market_area.name == market_area_name
-                else border.uphill_market_area
-            )
-            neighbours_area.append((border, neighbour_area.name))
+            if border.uphill_market_area.name == market_area_name:
+                neighbours_area.append((border, border.downhill_market_area.name))
+            elif border.downhill_market_area.name == market_area_name:
+                neighbours_area.append((border, border.uphill_market_area.name))
         return neighbours_area
 
     # Append all neighbour areas recursively as long as they are not already part of the group and the connection is not

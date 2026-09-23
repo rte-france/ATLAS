@@ -37,8 +37,10 @@ def parameters(market_clearing_module: MarketClearingModule, lp_export_dir: Path
     if not PARAMETERS_PATH.exists():
         pytest.skip(f"Market clearing parameters not found: {PARAMETERS_PATH}")
     params = market_clearing_module.import_parameters(PARAMETERS_PATH)
-    params.output.output_dir = lp_export_dir
-    params.solver.export_lp = True
+    params = params.evolve(
+        output=params.output.evolve(output_dir=lp_export_dir),
+        solver=params.solver.evolve(export_lp=True)
+    )
     return params
 
 
@@ -87,8 +89,10 @@ def parameters_id(market_clearing_module: MarketClearingModule, lp_export_id_dir
     if not PARAMETERS_ID_PATH.exists():
         pytest.skip(f"Market clearing parameters not found: {PARAMETERS_ID_PATH}")
     params = market_clearing_module.import_parameters(PARAMETERS_ID_PATH)
-    params.output.output_dir = lp_export_id_dir
-    params.solver.export_lp = True
+    params = params.evolve(
+        output=params.output.evolve(output_dir=lp_export_id_dir),
+        solver=params.solver.evolve(export_lp=True)
+    )
     return params
 
 
