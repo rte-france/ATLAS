@@ -16,7 +16,6 @@ from atlas.custom_errors import (
     DataValidationError,
     DirectoryStructureError,
     FileParsingError,
-    InputLoaderError,
     ObjectInstantiationError,
 )
 from atlas.enums import BusinessModelName
@@ -67,64 +66,52 @@ def load_from_directory(
     :rtype: dict[str, list[type[BusinessModel]]]
 
     """
-    try:
-        cfg.logger.info(f"Loading Atlas input from directory: {directory_path}")
+    cfg.logger.info(f"Loading Atlas input from directory: {directory_path}")
 
-        config = InputLoaderConfig(
-            directory_path=directory_path,
-            separator=separator,
-            timeseries_file_extension=timeseries_file_extension,
-            matrix_file_extension=matrix_file_extension,
-            lazy=lazy,
-            timezone=timezone,
-            date_format_forecasting_matrix=date_format_forecasting_matrix,
-            date_format_input_files=date_format_input_files,
+    config = InputLoaderConfig(
+        directory_path=directory_path,
+        separator=separator,
+        timeseries_file_extension=timeseries_file_extension,
+        matrix_file_extension=matrix_file_extension,
+        lazy=lazy,
+        timezone=timezone,
+        date_format_forecasting_matrix=date_format_forecasting_matrix,
+        date_format_input_files=date_format_input_files,
+    )
+
+    objects_dir = config.directory_path / "objects"
+    objects = _parse_objects_files(objects_dir, separator=config.separator)
+
+    if not objects:
+        raise DataValidationError(
+            f"No valid object files found in {objects_dir}. "
+            f"Expected files named after object types with supported extensions."
         )
 
-        objects_dir = config.directory_path / "objects"
-        objects = _parse_objects_files(objects_dir, separator=config.separator)
+    objects_instantiated: dict[str, list[BusinessModel]] = {}
+    # Name references are resolved against this registry by the BusinessModelRef annotation,
+    # hence the MODEL_ORDER_INSTANTIATION ordering below: a type is built after the types it references.
+    registry: dict[str, list[BusinessModel]] = defaultdict(list)
 
-        if not objects:
-            raise DataValidationError(
-                f"No valid object files found in {objects_dir}. "
-                f"Expected files named after object types with supported extensions."
-            )
+    objects_type_sorted = sorted(objects, key=lambda x: cfg.MODEL_ORDER_INSTANTIATION.index(x))
 
-        objects_instantiated: dict[str, list[BusinessModel]] = {}
-        # Name references are resolved against this registry by the BusinessModelRef annotation,
-        # hence the MODEL_ORDER_INSTANTIATION ordering below: a type is built after the types it references.
-        registry: dict[str, list[BusinessModel]] = defaultdict(list)
+    for object_type in objects_type_sorted:
+        objects_instantiated[object_type] = _build_business_models(
+            _build_math_objects(objects[object_type], object_type, config),
+            object_type,
+            registry,
+        )
 
-        objects_type_sorted = sorted(objects, key=lambda x: cfg.MODEL_ORDER_INSTANTIATION.index(x))
+        for business_model in objects_instantiated[object_type]:
+            registry[business_model.name].append(business_model)
 
-        for object_type in objects_type_sorted:
-            try:
-                objects_instantiated[object_type] = _build_business_models(
-                    _build_math_objects(objects[object_type], object_type, config),
-                    object_type,
-                    registry,
-                )
+        cfg.logger.debug(
+            f"Instantiated {len(objects_instantiated[object_type])} "
+            f"objects of type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"
+        )
 
-                for business_model in objects_instantiated[object_type]:
-                    registry[business_model.name].append(business_model)
-
-                cfg.logger.debug(
-                    f"Instantiated {len(objects_instantiated[object_type])} "
-                    f"objects of type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"
-                )
-
-            except Exception as e:
-                raise ObjectInstantiationError(
-                    f"Failed to instantiate objects of type '{object_type}': {str(e)}"
-                ) from e
-
-        cfg.logger.info("Atlas data loaded successfully.")
-        return objects_instantiated
-
-    except (DirectoryStructureError, FileParsingError, ObjectInstantiationError, DataValidationError):
-        raise
-    except Exception as e:
-        raise InputLoaderError(f"Unexpected error during data loading: {str(e)}") from e
+    cfg.logger.info("Atlas data loaded successfully.")
+    return objects_instantiated
 
 
 def _parse_objects_files(objects_path: Path, separator: str = ";") -> dict[BusinessModelName, list[dict[str, str]]]:
@@ -196,53 +183,51 @@ def _process_single_object_math(
     object_type: BusinessModelName,
     config: InputLoaderConfig,
 ) -> dict[str, Any]:
-    """Load the timeseries/matrix attributes of a single object."""
+    """Load the timeseries/matrix attributes of a single object.
+
+    The object is the single error-wrapping boundary of the loading chain: everything raised
+    below (missing directory, missing file, parsing failure) is chained into one
+    :class:`FileParsingError` naming the object and the attribute being read.
+    """
+    object_name = cast(str, obj["name"])
+    cfg.logger.debug(f"Processing math objects for '{object_name}' (type: {object_type})")
+
+    object_instantiated: dict[str, Any] = {}
+    key = None
+
     try:
-        object_name = cast(str, obj["name"])
-        cfg.logger.debug(f"Processing math objects for '{object_name}' (type: {object_type})")
-
-        object_instantiated: dict[str, Any] = {}
-
         for key, value in obj.items():
-            try:
-                attribute_type = get_type_attribute(object_type, key)
+            attribute_type = get_type_attribute(object_type, key)
 
-                if value == "timeseries" and attribute_type is AbstractTimeseries:
-                    object_instantiated[key] = _load_timeseries(
-                        object_type=object_type,
-                        name=object_name,
-                        attribute_name=key,
-                        config=config,
-                    )
+            if value == "timeseries" and attribute_type is AbstractTimeseries:
+                object_instantiated[key] = _load_timeseries(
+                    object_type=object_type,
+                    name=object_name,
+                    attribute_name=key,
+                    config=config,
+                )
 
-                elif value in ["forecasting_matrix", "scenario_matrix"] and attribute_type in (
-                    ForecastingMatrix,
-                    LazyForecastingMatrix,
-                    AbstractScenarioMatrix,
-                ):
-                    object_instantiated[key] = _load_matrix(
-                        name=object_name,
-                        attribute_name=key,
-                        object_type=object_type,
-                        matrix_type=value,
-                        config=config,
-                    )
-                else:
-                    object_instantiated[key] = value
-
-            except Exception as e:
-                raise FileParsingError(
-                    f"Error processing attribute '{key}' for object '{object_name}' of type '{object_type}': {str(e)}"
-                ) from e
-
-        return object_instantiated
+            elif value in ["forecasting_matrix", "scenario_matrix"] and attribute_type in (
+                ForecastingMatrix,
+                LazyForecastingMatrix,
+                AbstractScenarioMatrix,
+            ):
+                object_instantiated[key] = _load_matrix(
+                    name=object_name,
+                    attribute_name=key,
+                    object_type=object_type,
+                    matrix_type=value,
+                    config=config,
+                )
+            else:
+                object_instantiated[key] = value
 
     except Exception as e:
-        if isinstance(e, FileParsingError):
-            raise
         raise FileParsingError(
-            f"Error processing object '{obj.get('name', 'unnamed_object')}' of type '{object_type}': {str(e)}"
+            f"Error processing attribute '{key}' for object '{object_name}' of type '{object_type}'"
         ) from e
+
+    return object_instantiated
 
 
 def _load_timeseries(
@@ -277,20 +262,15 @@ def _load_timeseries(
 
     cfg.logger.debug(f"Loading timeseries from file: {timeseries_path} with attribute {attribute_name}")
 
-    try:
-        if config.lazy:
-            return LazyTimeseries.from_file(
-                file_path=timeseries_path,
-                timezone=config.timezone,
-                filters=("attribute", attribute_name),
-            )
-        return Timeseries.from_file(
-            file_path=timeseries_path, timezone=config.timezone, filters=("attribute", attribute_name)
+    if config.lazy:
+        return LazyTimeseries.from_file(
+            file_path=timeseries_path,
+            timezone=config.timezone,
+            filters=("attribute", attribute_name),
         )
-    except Exception as e:
-        raise FileParsingError(
-            f"Failed to load timeseries from {timeseries_path} for attribute '{attribute_name}': {str(e)}"
-        ) from e
+    return Timeseries.from_file(
+        file_path=timeseries_path, timezone=config.timezone, filters=("attribute", attribute_name)
+    )
 
 
 def _load_matrix(
@@ -329,44 +309,31 @@ def _load_matrix(
 
     cfg.logger.debug(f"Loading {matrix_type} from file: {matrix_file_path}")
 
-    try:
-        if not config.lazy:
-            if matrix_type == "scenario_matrix":
-                return ScenarioMatrix.from_file(
-                    file_path=matrix_file_path,
-                    timezone=config.timezone,
-                    filters=("attribute", attribute_name),
-                )
-            elif matrix_type == "forecasting_matrix":
-                return ForecastingMatrix.from_file(
-                    file_path=matrix_file_path,
-                    timezone=config.timezone,
-                    filters=("attribute", attribute_name),
-                    date_format=config.date_format_forecasting_matrix,
-                )
-        else:
-            if matrix_type == "scenario_matrix":
-                return LazyScenarioMatrix.from_file(
-                    file_path=matrix_file_path,
-                    timezone=config.timezone,
-                    filters=("attribute", attribute_name),
-                )
-            elif matrix_type == "forecasting_matrix":
-                return LazyForecastingMatrix.from_file(
-                    file_path=matrix_file_path,
-                    timezone=config.timezone,
-                    filters=("attribute", attribute_name),
-                )
+    if not config.lazy:
+        if matrix_type == "scenario_matrix":
+            return ScenarioMatrix.from_file(
+                file_path=matrix_file_path,
+                timezone=config.timezone,
+                filters=("attribute", attribute_name),
+            )
+        return ForecastingMatrix.from_file(
+            file_path=matrix_file_path,
+            timezone=config.timezone,
+            filters=("attribute", attribute_name),
+            date_format=config.date_format_forecasting_matrix,
+        )
 
-        # This should never be reached due to the validation above
-        raise ValueError(f"Invalid matrix_type: {matrix_type}")
-
-    except Exception as e:
-        if isinstance(e, ValueError):
-            raise
-        raise FileParsingError(
-            f"Failed to load {matrix_type} from {matrix_file_path} for attribute '{attribute_name}': {str(e)}"
-        ) from e
+    if matrix_type == "scenario_matrix":
+        return LazyScenarioMatrix.from_file(
+            file_path=matrix_file_path,
+            timezone=config.timezone,
+            filters=("attribute", attribute_name),
+        )
+    return LazyForecastingMatrix.from_file(
+        file_path=matrix_file_path,
+        timezone=config.timezone,
+        filters=("attribute", attribute_name),
+    )
 
 
 def _build_business_models(
@@ -389,7 +356,7 @@ def _build_business_models(
         except Exception as e:
             object_name: str = obj["name"]
             raise ObjectInstantiationError(
-                f"Failed to instantiate business model '{object_name}' of type '{object_type}': {str(e)}"
+                f"Failed to instantiate business model '{object_name}' of type '{object_type}'"
             ) from e
 
     return business_models

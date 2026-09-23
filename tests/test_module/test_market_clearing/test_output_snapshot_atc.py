@@ -35,14 +35,14 @@ def _dump_snapshot(output_dataset: MarketClearingOutputDataset) -> dict[str, lis
 @pytest.fixture(scope="module")
 def expected_snapshot() -> dict[str, list]:
     if not SNAPSHOT_PATH.exists():
-        pytest.fail(f"Output snapshot missing: {SNAPSHOT_PATH}. Generate it once with MC_REGENERATE_REFS=1.")
+        pytest.fail(f"Output snapshot missing: {SNAPSHOT_PATH}. Rebuild it with _dump_snapshot on a module run.")
     return json.loads(SNAPSHOT_PATH.read_text())
 
 
 @pytest.fixture(scope="module")
 def expected_snapshot_id() -> dict[str, list]:
     if not SNAPSHOT_ID_PATH.exists():
-        pytest.fail(f"Output snapshot missing: {SNAPSHOT_ID_PATH}. Generate it once with MC_REGENERATE_REFS=1.")
+        pytest.fail(f"Output snapshot missing: {SNAPSHOT_ID_PATH}. Rebuild it with _dump_snapshot on a module run.")
     return json.loads(SNAPSHOT_ID_PATH.read_text())
 
 

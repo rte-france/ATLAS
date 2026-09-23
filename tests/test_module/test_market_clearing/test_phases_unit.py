@@ -11,7 +11,6 @@ exercised via the unbound-method technique against a lightweight duck-typed stan
 """
 
 import pendulum
-import pytest
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.enums import CouplingType, OrderType, Product
@@ -284,22 +283,14 @@ class TestCreatePriceGroups:
         exchanges = {("ab", times[0]): ab_flow, ("bc", times[0]): bc_flow}
         return input_dataset, exchanges
 
-    @pytest.mark.xfail(
-        reason=(
-            "ATLAS-296 (new finding, not in the original B1-B13 list): "
-            "Pricing.get_market_area_neighbours (pricing.py) does not check that a border actually "
-            "touches the queried area — for a border where the area is neither the uphill nor the "
-            "downhill endpoint, it still returns `uphill_market_area` as a bogus 'neighbour'. With "
-            "only 2 zones (the real day-ahead fixture) every border always touches both areas, so "
-            "this is invisible there; a 3-zone chain (A-B-C, no direct A-C border) exposes it: "
-            "propagating from C spuriously treats B as reachable through the unrelated A-B border, "
-            "merging groups it shouldn't. Needs business validation before a fix lands in PR-2."
-        ),
-        strict=True,
-    )
     def test_areas_merge_across_an_unsaturated_border_and_split_at_a_saturated_one(
         self, parameters: MarketClearingParameters
     ) -> None:
+        """`get_market_area_neighbours` used to return a bogus neighbour for a border that does not
+        touch the queried area. With only 2 zones (the real fixtures) every border touches both
+        areas, so this was invisible there; the A-B-C chain below exposes it: propagating from C
+        reached A through the unrelated A-B border and merged groups that should stay split.
+        """
         times = [parameters.temporal.start_date]
         input_dataset, exchanges = self._build_network(times, ab_flow=0.0, bc_flow=100.0)
         pricing = _PricingAlgorithms(input_dataset, parameters, clearing_border_exchanges=exchanges)
@@ -398,9 +389,8 @@ class TestOrderLinkResolverLinkedBids:
         """ATLAS-296 B2 regression: `circular_pc_id` (not `circular_PC_id`) must resolve, and the
         lookup must use the order actually being linked, not a variable leaked from an earlier
         unrelated loop. The circular precondition is injected directly on the resolver's internal
-        state rather than produced by `_get_circular_parent_child_sets`, since building a
-        genuinely circular PC chain hits a separate, unrelated infinite-recursion bug in
-        `_get_circular_children`.
+        state rather than produced by `_get_circular_parent_child_sets`, to keep this test focused
+        on the linking step alone.
         """
         times = [parameters.temporal.start_date]
         area = make_market_area("ma_a", ONE_HOUR, times)
@@ -447,6 +437,26 @@ class TestOrderLinkResolverParentChild:
 
         assert order_links.full_pc_id_by_order["parent"] == order_links.full_pc_id_by_order["child"]
         assert order_links.child_id_by_order["child"] == "0"
+
+    def test_transitive_parent_child_chain_terminates(self, parameters: MarketClearingParameters) -> None:
+        """`_get_circular_children` used to recurse on the coupling it was already processing, so a
+        chain where the child is itself a parent (a -> b -> c) never exhausted
+        `order_coupling_parent_ids` and blew the stack.
+        """
+        times = [parameters.temporal.start_date]
+        area = make_market_area("ma_a", ONE_HOUR, times)
+        kwargs = {"start_date": times[0], "end_date": times[0] + ONE_HOUR}
+        order_a = make_order("a", area, ONE_HOUR, is_parent=True, **kwargs)
+        order_b = make_order("b", area, ONE_HOUR, is_parent=True, order_coupling_parent_ids=["pc_2"], **kwargs)
+        order_c = make_order("c", area, ONE_HOUR, **kwargs)
+        couplings = {
+            "pc_1": make_order_coupling("pc_1", CouplingType.PARENT_CHILDREN, [order_a, order_b]),
+            "pc_2": make_order_coupling("pc_2", CouplingType.PARENT_CHILDREN, [order_b, order_c]),
+        }
+
+        order_links = OrderLinkResolver({"a": order_a, "b": order_b, "c": order_c}, couplings).resolve()
+
+        assert set(order_links.circular_pc_id_by_order) == {"a", "b"}
 
 
 class TestMarginalFixingUpdateAcceptedPower:
