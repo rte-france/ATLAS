@@ -116,12 +116,15 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
             try:
                 self._execute_job(job, cis)
                 last_executed_job = job
-            except WorkflowJobError:
+            except WorkflowJobError as e:
+                logger.error(f"'{job}' failed: {e}")
+                if self.parameters.rollback_on_job_failure:
+                    logger.error(f"Current Input State automatically rolled back to state before '{job}'")
                 if self.parameters.create_job_snapshots:
                     logger.info(f"Available snapshots: {cis.list_snapshots()}")
                 raise
             except Exception as e:
-                logger.error(f"{job}' failed: {e}")
+                logger.error(f"'{job}' failed: {e}")
                 if self.parameters.rollback_on_job_failure:
                     logger.error(f"Current Input State automatically rolled back to state before '{job}'")
                 if self.parameters.create_job_snapshots:
