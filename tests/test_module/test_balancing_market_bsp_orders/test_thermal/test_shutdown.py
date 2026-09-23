@@ -8,7 +8,7 @@ import pendulum
 
 from atlas import ForecastingMatrix, Timeseries
 from atlas.enums import CouplingType, OrderType
-from atlas.modules.balancing_market_bsp_orders.order_formulators.thermal import ThermalOrderFormulator
+from atlas.modules.balancing_market_bsp_orders.order_formulators.thermal import ShutdownCase, ThermalOrderFormulator
 
 
 def _make_formulator(equipment, time_index, parameters) -> ThermalOrderFormulator:
@@ -90,28 +90,28 @@ class TestClassifyShutdownCase:
         _set_power_pattern(thermal_equipment, parameters, {}, default=0.0)
         formulator = _make_formulator(thermal_equipment, [test_time], parameters)
 
-        assert formulator._classify_shutdown_case(test_time) == "case_1"
+        assert formulator._classify_shutdown_case(test_time) == ShutdownCase.OFF_BOTH_SIDES
 
     def test_case_2_when_off_before_only(self, thermal_equipment, parameters):
         test_time = parameters.temporal.start_date.add(minutes=15)
         _set_power_pattern(thermal_equipment, parameters, {test_time.add(minutes=15): 50.0}, default=0.0)
         formulator = _make_formulator(thermal_equipment, [test_time], parameters)
 
-        assert formulator._classify_shutdown_case(test_time) == "case_2"
+        assert formulator._classify_shutdown_case(test_time) == ShutdownCase.OFF_BEFORE_ONLY
 
     def test_case_3_when_off_after_only(self, thermal_equipment, parameters):
         test_time = parameters.temporal.start_date.add(minutes=15)
         _set_power_pattern(thermal_equipment, parameters, {test_time.subtract(minutes=15): 50.0}, default=0.0)
         formulator = _make_formulator(thermal_equipment, [test_time], parameters)
 
-        assert formulator._classify_shutdown_case(test_time) == "case_3"
+        assert formulator._classify_shutdown_case(test_time) == ShutdownCase.OFF_AFTER_ONLY
 
     def test_case_4_when_on_both_sides(self, thermal_equipment, parameters):
         """Default fixture (constant 50) -> on both sides."""
         test_time = parameters.temporal.start_date.add(minutes=15)
         formulator = _make_formulator(thermal_equipment, [test_time], parameters)
 
-        assert formulator._classify_shutdown_case(test_time) == "case_4"
+        assert formulator._classify_shutdown_case(test_time) == ShutdownCase.ON_BOTH_SIDES
 
 
 class TestStartupFitsWithinTimestep:

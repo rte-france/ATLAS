@@ -27,6 +27,15 @@ class StartupCase(Enum):
     FULL_STARTUP = "full_startup"
 
 
+class ShutdownCase(Enum):
+    """On/off transition case for a shutdown order at a given timestep (legacy's Cases 1-4)."""
+
+    OFF_BOTH_SIDES = "off_both_sides"
+    OFF_BEFORE_ONLY = "off_before_only"
+    OFF_AFTER_ONLY = "off_after_only"
+    ON_BOTH_SIDES = "on_both_sides"
+
+
 class ThermalOrderFormulator(AbstractOrderFormulator):
     """Formulates balancing orders for thermal equipment."""
 
@@ -440,7 +449,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         setup_delay = Duration(hours=self.equipment.setup_delay)
         return self.equipment.startup_duration + setup_delay <= self.parameters.temporal.timestep
 
-    def _classify_shutdown_case(self, time: DateTime) -> str:
+    def _classify_shutdown_case(self, time: DateTime) -> ShutdownCase:
         """
         Classify the equipment's on/off transition case for a shutdown order at
         this timestep. Mirrors legacy's shutdown Cases 1-4 — distinct from the
@@ -449,19 +458,19 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         :param time: The timestep being evaluated
         :type time: DateTime
-        :return: One of 'case_1', 'case_2', 'case_3', 'case_4'
-        :rtype: str
+        :return: The matching ShutdownCase
+        :rtype: ShutdownCase
         """
         previous_power = self._neighbor_power(time, forward=False)
         next_power = self._neighbor_power(time, forward=True)
 
         if previous_power == 0 and next_power == 0:
-            return "case_1"
+            return ShutdownCase.OFF_BOTH_SIDES
         if previous_power == 0:
-            return "case_2"
+            return ShutdownCase.OFF_BEFORE_ONLY
         if next_power == 0:
-            return "case_3"
-        return "case_4"
+            return ShutdownCase.OFF_AFTER_ONLY
+        return ShutdownCase.ON_BOTH_SIDES
 
     def _formulate_shutdown_order(
         self,
@@ -502,13 +511,13 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         is_startup_cancelled = False
         is_valid = True
 
-        if shutdown_case == "case_1":
+        if shutdown_case == ShutdownCase.OFF_BOTH_SIDES:
             has_shutdown_costs = False
             is_startup_cancelled = True
-        elif shutdown_case == "case_2":
+        elif shutdown_case == ShutdownCase.OFF_BEFORE_ONLY:
             if self._check_on_off_time_requirement(time, searching_on=True, searching_backwards=False):
                 has_shutdown_costs = False
-        elif shutdown_case == "case_3":
+        elif shutdown_case == ShutdownCase.OFF_AFTER_ONLY:
             if self._check_on_off_time_requirement(time, searching_on=True, searching_backwards=True):
                 has_shutdown_costs = False
         else:
