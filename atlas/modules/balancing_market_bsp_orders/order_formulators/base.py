@@ -263,23 +263,13 @@ class AbstractOrderFormulator(ABC):
         previous_time = time - timestep
         next_time = time + timestep
 
-        try:
-            previous_forecasted_power = self.equipment.power.get_forecast(
-                execution_date, previous_time, previous_time
-            ).get_value(previous_time)
-            if previous_forecasted_power is None:
-                previous_forecasted_power = 0.0
-        except (KeyError, ValueError):
-            previous_forecasted_power = 0.0
+        previous_forecasted_power = self.equipment.power.get_forecast(
+            execution_date, previous_time, previous_time, default_value=0.0
+        ).get_value(previous_time)
 
-        try:
-            next_forecasted_power = self.equipment.power.get_forecast(execution_date, next_time, next_time).get_value(
-                next_time
-            )
-            if next_forecasted_power is None:
-                next_forecasted_power = 0.0
-        except (KeyError, ValueError):
-            next_forecasted_power = 0.0
+        next_forecasted_power = self.equipment.power.get_forecast(
+            execution_date, next_time, next_time, default_value=0.0
+        ).get_value(next_time)
 
         if previous_forecasted_power > 0:
             previous_upward_evolution = max(forecasted_power.get_value(time) - previous_forecasted_power, 0)
