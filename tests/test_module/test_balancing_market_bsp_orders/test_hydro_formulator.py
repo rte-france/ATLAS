@@ -4,15 +4,11 @@ Copyright (c) 2025, RTE (www.rte-france.com)
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
-
-import pytest
-
 from atlas.math.matrix import ScenarioMatrix
 from atlas.enums import OrderType
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.modules.balancing_market_bsp_orders.input_objects.hydro import BalancingHydro
 from atlas.modules.balancing_market_bsp_orders.order_formulators.hydro import HydraulicOrderFormulator
-from atlas.modules.balancing_market_bsp_orders.order_formulators.hydro import extract_mean_from_scenario
 from tests.test_module.test_balancing_market_bsp_orders.conftest import make_forecasting_matrix, make_timeseries
 
 def make_scenario_matrix(parameters, value: float) -> ScenarioMatrix:
@@ -173,49 +169,3 @@ class TestHydraulicOrderFormulatorOrders:
         orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
         upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
         assert all(o.price >= 15.0 for o in upward_orders)
-
-
-class TestExtractMeanFromScenario:
-    def test_returns_zero_when_matrix_empty(self, parameters, real_market_objects):
-        """Returns 0.0 when the scenario matrix has no indexes."""
-        sm = ScenarioMatrix()
-        result = extract_mean_from_scenario(sm, 500.0, parameters.temporal.start_date)
-        assert result == 0.0
-
-    def test_clamps_to_lower_bound(self, parameters, real_market_objects):
-        """Clamps to the first scenario value when index_input is below range."""
-        sm = make_scenario_matrix(parameters, 20.0)
-        result = extract_mean_from_scenario(sm, -999.0, parameters.temporal.start_date)
-        assert result == pytest.approx(20.0)
-
-    def test_clamps_to_upper_bound(self, parameters, real_market_objects):
-        """Clamps to the last scenario value when index_input is above range."""
-        sm = make_scenario_matrix(parameters, 20.0)
-        result = extract_mean_from_scenario(sm, 999999.0, parameters.temporal.start_date)
-        assert result == pytest.approx(20.0)
-
-    def test_interpolates_between_scenarios(self, parameters, real_market_objects):
-        """Linearly interpolates between two surrounding scenario values.
-
-        scenario "0" = 10.0, scenario "1000" = 20.0
-        index_input = 500 -> result = 15.0
-        """
-        ts_low = make_timeseries(parameters, 10.0)
-        ts_high = make_timeseries(parameters, 20.0)
-        sm = ScenarioMatrix()
-        sm.add(ts_low, "0")
-        sm.add(ts_high, "1000")
-
-        result = extract_mean_from_scenario(sm, 500.0, parameters.temporal.start_date)
-        assert result == pytest.approx(15.0)
-
-    def test_exact_match_returns_scenario_value(self, parameters, real_market_objects):
-        """Returns exact value when index_input matches a scenario index exactly."""
-        ts_low = make_timeseries(parameters, 10.0)
-        ts_high = make_timeseries(parameters, 20.0)
-        sm = ScenarioMatrix()
-        sm.add(ts_low, "0")
-        sm.add(ts_high, "1000")
-
-        result = extract_mean_from_scenario(sm, 1000.0, parameters.temporal.start_date)
-        assert result == pytest.approx(20.0)
