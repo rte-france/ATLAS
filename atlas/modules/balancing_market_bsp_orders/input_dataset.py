@@ -6,7 +6,8 @@ This file is part of the ATLAS project.
 Module that implements BSPBalancingOrdersInputDataset.
 """
 
-from typing import Any
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from pendulum import DateTime
 from pydantic import BaseModel
@@ -23,6 +24,7 @@ from atlas.modules.balancing_market_bsp_orders.input_objects.storage import Bala
 from atlas.modules.balancing_market_bsp_orders.input_objects.thermal import BalancingThermal
 from atlas.modules.balancing_market_bsp_orders.input_objects.wind import BalancingWind
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
+from atlas.objects.equipment.equipment import Equipment
 from atlas.objects.equipment.hydro import Hydro
 from atlas.objects.equipment.load import Load
 from atlas.objects.equipment.solar import Solar
@@ -39,6 +41,8 @@ BalancingEquipment = (
 
 # Load types that cannot provide balancing reserves
 _NON_DISPATCHABLE_LOAD_TYPES = {LoadType.BASE_LOAD, LoadType.OTHER_NON_DISPATCHABLE_LOAD}
+
+_EquipmentT = TypeVar("_EquipmentT", bound=Equipment)
 
 
 class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameters]):
@@ -121,83 +125,71 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
 
     def get_hydro_equipments(self, equipments: Container[Hydro]) -> dict[str, BalancingHydro]:
         """Filter hydro equipments and cast them to BalancingHydro."""
-        result = {}
-        for equipment in equipments:
-            if not isinstance(equipment, Hydro):
-                continue
-            if not self._is_eligible(equipment):
-                continue
-            equipment_dump = BSPBalancingOrdersInputDataset.shallow_dump(equipment)
-            result[equipment.name] = BalancingHydro.model_validate(equipment_dump)
-        return result
+        return self._get_equipments(equipments, Hydro, BalancingHydro)
 
     def get_storage_equipments(self, equipments: Container[Storage]) -> dict[str, BalancingStorage]:
         """Filter storage equipments and cast them to BalancingStorage."""
-        result = {}
-        for equipment in equipments:
-            if not isinstance(equipment, Storage):
-                continue
-            if not self._is_eligible(equipment):
-                continue
-            equipment_dump = BSPBalancingOrdersInputDataset.shallow_dump(equipment)
-            result[equipment.name] = BalancingStorage.model_validate(equipment_dump)
-        return result
+        return self._get_equipments(equipments, Storage, BalancingStorage)
 
     def get_load_equipments(self, equipments: Container[Load]) -> dict[str, BalancingLoad]:
         """Filter load equipments, excluding non-dispatchable types, and cast to BalancingLoad."""
-        result = {}
-        for equipment in equipments:
-            if not isinstance(equipment, Load):
-                continue
-            if equipment.load_type in _NON_DISPATCHABLE_LOAD_TYPES:
-                logger.debug(f"Load {equipment.name} excluded: non-dispatchable load type {equipment.load_type}.")
-                continue
-            if not self._is_eligible(equipment):
-                continue
-            equipment_dump = BSPBalancingOrdersInputDataset.shallow_dump(equipment)
-            result[equipment.name] = BalancingLoad.model_validate(equipment_dump)
-        return result
+        return self._get_equipments(equipments, Load, BalancingLoad, self._is_non_dispatchable_load)
 
     def get_wind_equipments(self, equipments: Container[Wind]) -> dict[str, BalancingWind]:
         """Filter wind equipments and cast them to BalancingWind."""
-        result = {}
-        for equipment in equipments:
-            if not isinstance(equipment, Wind):
-                continue
-            if not self._is_eligible(equipment):
-                continue
-            equipment_dump = BSPBalancingOrdersInputDataset.shallow_dump(equipment)
-            result[equipment.name] = BalancingWind.model_validate(equipment_dump)
-        return result
+        return self._get_equipments(equipments, Wind, BalancingWind)
 
     def get_solar_equipments(self, equipments: Container[Solar]) -> dict[str, BalancingSolar]:
         """Filter solar equipments and cast them to BalancingSolar."""
-        result = {}
-        for equipment in equipments:
-            if not isinstance(equipment, Solar):
-                continue
-            if not self._is_eligible(equipment):
-                continue
-            equipment_dump = BSPBalancingOrdersInputDataset.shallow_dump(equipment)
-            result[equipment.name] = BalancingSolar.model_validate(equipment_dump)
-        return result
+        return self._get_equipments(equipments, Solar, BalancingSolar)
 
     def get_thermal_equipments(self, equipments: Container[Thermal]) -> dict[str, BalancingThermal]:
         """Filter thermal equipments, excluding those in maintenance, and cast to BalancingThermal."""
+        return self._get_equipments(equipments, Thermal, BalancingThermal, self._is_thermal_in_maintenance)
+
+    def _get_equipments(
+        self,
+        equipments: Container[Any],
+        equipment_type: type[_EquipmentT],
+        balancing_cls: type[BaseModel],
+        extra_exclusion: Callable[[_EquipmentT], bool] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Filter equipments of a given technology and cast them to their balancing subclass.
+
+        Applies the common eligibility filters (market area, exclusion-list parameters),
+        plus an optional technology-specific exclusion check.
+
+        :param equipments: Equipments to filter, as found on the AtlasDataset
+        :type equipments: Container[Any]
+        :param equipment_type: Concrete equipment class to isinstance-check against
+        :type equipment_type: type[_EquipmentT]
+        :param balancing_cls: Local balancing subclass to validate each eligible equipment into
+        :type balancing_cls: type[BaseModel]
+        :param extra_exclusion: Optional predicate returning True when an otherwise-eligible
+            equipment should still be excluded (e.g. non-dispatchable loads, thermal in maintenance)
+        :type extra_exclusion: Callable[[_EquipmentT], bool] | None
+        :return: Eligible equipments cast to `balancing_cls`, keyed by equipment name
+        :rtype: dict[str, Any]
+        """
         result = {}
         for equipment in equipments:
-            if not isinstance(equipment, Thermal):
+            if not isinstance(equipment, equipment_type):
                 continue
             if not self._is_eligible(equipment):
                 continue
-            if self._is_thermal_in_maintenance(equipment):
-                logger.debug(
-                    f"Thermal equipment {equipment.name} excluded: in maintenance during balancing time frame."
-                )
+            if extra_exclusion is not None and extra_exclusion(equipment):
                 continue
             equipment_dump = BSPBalancingOrdersInputDataset.shallow_dump(equipment)
-            result[equipment.name] = BalancingThermal.model_validate(equipment_dump)
+            result[equipment.name] = balancing_cls.model_validate(equipment_dump)
         return result
+
+    def _is_non_dispatchable_load(self, equipment: Load) -> bool:
+        """Return True if the load's type makes it ineligible for balancing."""
+        if equipment.load_type in _NON_DISPATCHABLE_LOAD_TYPES:
+            logger.debug(f"Load {equipment.name} excluded: non-dispatchable load type {equipment.load_type}.")
+            return True
+        return False
 
     def _is_thermal_in_maintenance(self, equipment: Thermal) -> bool:
         """Return True if the thermal equipment is in maintenance at any point in the time index.
@@ -211,6 +203,9 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
             max_power = equipment.maximum_power.get_value(time)
             min_power = equipment.minimum_power.get_value(time)
             if max_power < 0.01 or max_power < min_power:
+                logger.debug(
+                    f"Thermal equipment {equipment.name} excluded: in maintenance during balancing time frame."
+                )
                 return True
         return False
 
