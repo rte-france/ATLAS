@@ -65,7 +65,7 @@ class LoadOrderFormulator(AbstractOrderFormulator):
             if not self.is_after_setup_delay(time):  # TODO : setup_delay is not only for going from 0 to x ?
                 continue
 
-            next_time = time.add(minutes=int(self.parameters.temporal.timestep.total_seconds() // 60))
+            next_time = time + self.parameters.temporal.timestep
 
             # Upward order
             qmax_up = max(0.0, upward_available.get_value(time))
