@@ -7,6 +7,12 @@ A workflow is one of the two [orchestrators](orchestrator.md) provided by Atlas.
 once**. If you need the same modules to run repeatedly over a rolling horizon, use an
 [action plan](action-plan.md) instead.
 
+
+<!--
+FIXME - make on other pass on this, coolhead
+-->
+As an [orchestrator](orchestrator.md), a workflow shares its execution model, rollback, snapshot and export behaviour.
+
 ---
 
 ## Define a Workflow
@@ -26,20 +32,21 @@ steps:
     parameters: ./parameters/portfolio_optimisation.yml
 ```
 
-The order in which steps are written in the YAML is important: it defines the actual chain of modules in the
-simulation. The `module` field has to correspond to an existing module name (cf. the overview of each individual
-module for its name in the [Modules section](index.md)). For the (optional) `name` field, however, the user can
-choose whatever is best for clarity purposes.
+The order in which `steps` are written in the YAML is important: it defines the actual chain of modules in the simulation. The `module` field has to correspond to an existing module name (cf. the overview of each individual
+module for its name in the [Modules section](index.md)).
+<!-- 
+FIXME - precise that `parameters` field can be a dict or a path
+-->
 
-Two different types of parameters are present in this file:
+Three different types of parameters exist:
 
-- **Top-level parameters** either define global information (such as the workflow name), or are applied to *every*
-  step in the chain.
-- **Step parameters** are applied to a given step.
+- **Top-level parameters** define global information (such as the workflow name).
+- **Step parameters** define a step, the module and parameters to execute.
+- (optional) **Context parameters** define values to apply to *every* step's parameters.
 
 ### Top-level Parameters
 
-Every workflow inherits the [common orchestrator parameters](orchestrator.md#orchestrator-parameters):
+Every workflow inherits the [common orchestrator parameters](orchestrator.md#orchestrator-parameters) and add to it the `steps` parameters:
 
 | Parameter | Required | Default | Description |
 |---|---|---|---|
@@ -56,7 +63,7 @@ Every workflow inherits the [common orchestrator parameters](orchestrator.md#orc
 
 !!! note "Parameter aliases"
     `path_from_workflow` and `workflow_path` are aliases of the generic `path_from_orchestrator` and
-    `orchestrator_path` fields shared with [action plans](action-plan.md). Either spelling is accepted.
+    `orchestrator_path` fields. Either spelling is accepted.
 
 !!! warning "`path_from_workflow` defaults to `false`"
     By default, relative paths are resolved from the **current working directory**, not from the workflow file.
@@ -84,23 +91,15 @@ steps:
         execution_date: '2028-09-26 12:00:00'
 ```
 
-Inline parameters are convenient for short parameter sets or dynamically generated workflows, avoiding the need
-for a separate file per step.
-
-!!! warning "`parameters_path` has been removed"
-    Earlier versions accepted a separate `parameters_path` key. A step now carries a single `parameters` field
-    that takes a path *or* an inline mapping. A workflow file still using `parameters_path` fails validation with
-    a missing-`parameters` error.
+Inline parameters are convenient for short parameter sets, avoiding the need for a separate file per step.
 
 !!! note "Duplicate step names"
     If several steps end up with the same name, Atlas appends `_1`, `_2`, … to **every** occurrence, in order:
-    two `MarketClearing` steps become `MarketClearing_1` and `MarketClearing_2`. Names that are already unique are
+    two `my_step` steps become `my_step_1` and `my_step_2`. Names that are already unique are
     left untouched. Step names are used as output directory names, so keeping them explicit and unique is worthwhile.
 
-An absolute `parameters` path is checked at validation time and raises immediately if the file does not exist.
-Relative paths are only resolved later, when the step is built.
 
-### Applying a Context
+### Context parameters
 
 The optional `context` block sets values applied to every step's parameters, either as defaults (used only where
 the step leaves a value unset) or as forced values (overriding whatever the step declares):
@@ -185,17 +184,11 @@ cis = workflow.execute()
 
 This is useful for building workflows dynamically, for example when the list of steps depends on runtime conditions.
 
-!!! note "Where `Step` lives"
-    `Step` is defined in `atlas.orchestrator.workflow.parameters`. `Workflow` and `WorkflowParameters` are
-    re-exported at the top level of the package and can be imported directly from `atlas`.
-
 Steps can also be appended after construction with `add_step`, which accepts a single `Step` or a list of them:
 
 ```python
 workflow.add_step(Step(module="PortfolioOptimisation", parameters="./parameters/po.yml"))
 ```
-
-`add_step` resolves the step's parameters immediately, so it must be called **before** `execute()`.
 
 ---
 
@@ -212,21 +205,16 @@ for order in dataset.order.all():
     print(f"{order.name}: {order.accepted_power} MW")
 ```
 
-`get_output_dataset()` returns something different: the **module output object produced by the last executed step**,
-which carries that module's own results and its list of [ChangeSets](../api/orchestrator/change_set.md). It returns
-`None` if the workflow has not been executed to the end.
-
-```python
-last_output = workflow.get_output_dataset()
-print(len(last_output.change_sets))
-```
+!!! note last step **module output**
+    This result is obtained by using `workflow.get_output_dataset()` and carries the last executed module's own results and its list of [ChangeSets](../api/orchestrator/change_set.md). It returns
+    `None` if the workflow has not been executed to the end.
 
 !!! warning "Per-step outputs are not retained in memory"
     `workflow.jobs` is a **generator**: each access builds a fresh set of unexecuted jobs. Iterating over it after
-    `execute()` therefore yields new objects whose `get_output_dataset()` is `None` — it does not give you the
+    `execute()` therefore yields new objects: it does not give you the
     results of the run that just happened.
 
-    To keep per-step results, set `output.export_output_dataset: true` in the relevant step's module parameters and
+    To keep per-step results, set `output.export_output_dataset: true` in the relevant step's module parameters (or use *context parameters* to that end) and
     read the exported dataset from disk (see below), or inspect the state between steps with
     [snapshots](orchestrator.md#snapshots).
 
@@ -253,11 +241,18 @@ my-workflow/
     └── workflow_output/        # final state, written when export_output is true
 ```
 
+<!--
+FIXME - check on this
+-->
 Each step's module parameters get their `output.output_dir` rewritten to `<output_dir>/<step name>`, overriding
 whatever `output_dir` the module parameters file declares. A step only writes there if its own module parameters
 set `output.export_output_dataset: true` (or `export_result`); see
 [common module parameters](common-parameters.md#output-output-configuration-optional).
 
+
+<!--
+FIXME - make on other pass on this, coolhead
+-->
 When `path_from_workflow: true`, all relative paths in `workflow.yaml` are resolved from `workflow_path` — which
 `Workflow.from_file` sets to the directory containing the workflow file — so you can move the whole folder without
 breaking paths. Absolute paths are always used as-is.

@@ -31,6 +31,9 @@ own file does not provide one.
 
 The same `context` block works identically in a [workflow](workflow.md) and an [action plan](action-plan.md).
 
+!!! note Merging is **deep**
+        a context touching `temporal.execution_date` leaves `temporal.start_date` alone.
+        Nested mappings are merged key by key rather than replaced wholesale.
 ---
 
 ## Precedence
@@ -40,9 +43,6 @@ For any given key, the winner is:
 ```
 forced  >  module parameters  >  default
 ```
-
-Merging is **deep**: a context touching `temporal.execution_date` leaves `temporal.start_date` alone. Nested
-mappings are merged key by key rather than replaced wholesale.
 
 A worked example — with these module parameters:
 
@@ -81,14 +81,19 @@ the module ends up running with:
 | `solver.solver_name` | `SCIP` | The module set it — `default` loses |
 | `solver.duality_gap` | `0.05` | `forced` always wins |
 
+<!--
+FIXME - we don't want that behaviour, it's not user friendly.
+When fix is done, remove following paragraph
+-->
+
 A context only supplies values; it does not remove the need for required ones. If neither the module parameters
 nor the context provide a required field, building the orchestrator fails with a validation error.
 
 ---
 
-## Where a Context Can Come From
+## Context priority on multi-declaration
 
-There are three sources, applied in this order — later ones overwrite earlier ones on overlapping keys:
+There are three sources where an orchestrator context can be defined, they are applied in this order — later ones overwrite earlier ones on **overlapping keys**:
 
 1. The `context` block in the orchestrator's configuration file.
 2. A `ContextParameters` passed to `from_file`.
@@ -99,16 +104,24 @@ from atlas import Workflow
 from atlas.io_utils.parameters import ContextParameters
 
 workflow = Workflow.from_file(
-    "workflow.yaml",
+    "workflow.yaml", # note: may contain a context
     ContextParameters(forced={"solver": {"solver_name": "SCIP"}}),
 )
+workflow.execute()
+
+workflow.use_context(ContextParameters(forced={"solver": {"solver_name": "XPRESS"}}))
+workflow.execute()
 ```
 
 This is the usual way to override a committed configuration for one run — a different solver, a shifted execution
-date — without editing the file.
+date — without editing the file or rebuilding a new orchestrator.
 
+
+<!--
+FIXME - fix that, should not be an issue, and remove that part of the doc
+-->
 !!! warning "`use_context()` after construction does not re-resolve jobs"
-    A `Workflow` resolves each step's parameters against the context in its **constructor**, and an `ActionPlan`
+    An `Workflow` resolves each step's parameters against the context in its **constructor**, and an `ActionPlan`
     does the same for each task. `use_context()` updates `parameters.context`, but steps and tasks already built
     keep the parameters they were resolved with, so the new values are not applied to them.
 
@@ -117,7 +130,7 @@ date — without editing the file.
 
 ---
 
-## How a Context Is Applied
+## How a Context is applied
 
 The mechanism differs depending on how the module parameters were given, but the precedence rules above hold in
 every case:
@@ -128,6 +141,9 @@ every case:
 | An inline mapping | Same, starting from the mapping |
 | An already-built parameters object | `default` fills only fields whose current value is `None`; `forced` overwrites matching fields |
 
+<!--
+FIXME - need to watch on this and make is a non-issue for the user sanity sake
+-->
 The last row is the one to watch: on an already-validated parameters object, a `default` entry applies only where
 the field is literally `None`, and both blocks only reach **top-level** fields of that object.
 

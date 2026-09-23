@@ -168,6 +168,21 @@ rewrites each job's `output.output_dir` before the run:
 
 ---
 
+### Context parameters
+
+A **context** is a set of parameter values an [orchestrator](orchestrator.md) applies to *every* module it runs.
+It exists so that a value shared by all steps or tasks — an execution date, a solver, an output flag — is written
+once in the orchestrator configuration instead of being repeated in each module parameters file.
+
+A context has exactly two blocks:
+
+| Block | Applies when | Precedence |
+|---|---|---|
+| `default` | The module parameters leave the value unset | Lowest — the module's own value wins |
+| `forced` | Always | Highest — overrides the module's own value |
+
+See [Context](context.md) for the full precedence rules and the important caveat about when a context is applied.
+
 ## Common API
 
 Both orchestrators expose the same surface:
