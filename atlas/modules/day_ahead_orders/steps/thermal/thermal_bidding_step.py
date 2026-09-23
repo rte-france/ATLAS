@@ -6,7 +6,6 @@ This file is part of the ATLAS project.
 """
 
 from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import atlas.config as cfg
 from atlas.enums import CouplingType, Product, ThermalStrategy
@@ -26,53 +25,15 @@ class Coupling:
 
 class ThermalBiddingStep(AbstractOrderStep):
     def formulate(self) -> StepResult:
-        if self.parameters.multiprocessing.enable:
-            result = self._formulate_parallel()
-        else:
-            result = self._formulate_sequential()
-
-        cfg.logger.info("Computing maximum sell volumes...")
-        self._compute_da_sell_submitted_volume(result)
-        cfg.logger.info("End of computation.")
-
-        return result
-
-    def _formulate_parallel(self) -> StepResult:
-        cfg.logger.info(f"Starting parallel thermal optimization for {len(self.dataset.thermal)} units")
         result = StepResult()
 
-        with ProcessPoolExecutor(max_workers=self.parameters.multiprocessing.max_workers) as executor:
-            future_to_thermal = {
-                executor.submit(optimize_single_thermal_unit, thermal, self.orders_time, self.parameters): thermal.name
-                for thermal in self.dataset.thermal
-            }
-
-            for future in as_completed(future_to_thermal):
-                thermal_name = future_to_thermal[future]
-                try:
-                    unit_result = future.result()
-
-                    if unit_result.success:
-                        result.orders.extend(unit_result.orders)
-                        result.order_couplings.extend(unit_result.order_couplings)
-                        cfg.logger.info(
-                            f"Completed order formulation for thermal unit: {thermal_name} ({unit_result.strategy.value})"
-                        )
-                    else:
-                        cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal_name}")
-
-                except Exception as e:
-                    cfg.logger.error(f"Error processing thermal unit {thermal_name}: {e}")
-
-        return result
-
-    def _formulate_sequential(self) -> StepResult:
-        cfg.logger.info(f"Starting sequential thermal optimization for {len(self.dataset.thermal)} units")
-        result = StepResult()
-
-        for thermal in self.dataset.thermal:
-            unit_result = optimize_single_thermal_unit(thermal, self.orders_time, self.parameters)
-
+        for thermal, unit_result in self.run_units(
+            self.dataset.thermal,
+            optimize_single_thermal_unit,
+            self.orders_time,
+            self.parameters,
+            label="thermal",
+        ):
             if unit_result.success:
                 result.orders.extend(unit_result.orders)
                 result.order_couplings.extend(unit_result.order_couplings)
@@ -81,6 +42,10 @@ class ThermalBiddingStep(AbstractOrderStep):
                 )
             else:
                 cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal.name}")
+
+        cfg.logger.info("Computing maximum sell volumes...")
+        self._compute_da_sell_submitted_volume(result)
+        cfg.logger.info("End of computation.")
 
         return result
 
