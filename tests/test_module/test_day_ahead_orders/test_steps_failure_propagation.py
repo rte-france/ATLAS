@@ -8,6 +8,7 @@ A unit that fails must not be dropped from the step result: the step has no way 
 caller that its orders are incomplete, so the failure is propagated instead.
 """
 
+from concurrent.futures import Future
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -27,10 +28,13 @@ def _step(step_class, dataset_attribute: str, unit_name: str):
 
 def _crashed_executor(executor_class: MagicMock) -> None:
     """Make every unit submitted to a patched ProcessPoolExecutor come back crashed."""
-    executor = executor_class.return_value.__enter__.return_value
-    executor.submit.side_effect = lambda *args, **kwargs: MagicMock(
-        result=MagicMock(side_effect=RuntimeError("solver crashed"))
-    )
+
+    def submit(*args, **kwargs) -> Future:
+        future: Future = Future()
+        future.set_exception(RuntimeError("solver crashed"))
+        return future
+
+    executor_class.return_value.__enter__.return_value.submit.side_effect = submit
 
 
 def test_storage_step_propagates_unit_failure():
