@@ -141,7 +141,7 @@ class StorageOrderFormulator(AbstractOrderFormulator):
         start = self.parameters.temporal.start_date
         end = self.parameters.temporal.end_date - self.parameters.temporal.timestep
         execution_date = self.parameters.temporal.execution_date
-        timestep_minutes = int(self.parameters.temporal.timestep.total_seconds() // 60)
+        timestep = self.parameters.temporal.timestep
 
         forecasted_power = self.equipment.power.get_forecast(execution_date, start, end)
         max_power = self.equipment.maximum_power.slice(start, end)
@@ -161,7 +161,7 @@ class StorageOrderFormulator(AbstractOrderFormulator):
             if not self.is_after_setup_delay(time):
                 continue
 
-            next_time = time.add(minutes=timestep_minutes)
+            next_time = time + timestep
 
             qmax_up = max(0.0, upward_available.get_value(time))
             qmax_down = max(0.0, downward_available.get_value(time))
@@ -225,9 +225,7 @@ class StorageOrderFormulator(AbstractOrderFormulator):
         execution_date = self.parameters.temporal.execution_date
 
         if not self.parameters.conservative_stored_energy:
-            return self.parameters.temporal.end_date.subtract(
-                minutes=int(self.parameters.temporal.timestep.total_seconds() // 60)
-            )
+            return self.parameters.temporal.end_date - self.parameters.temporal.timestep
 
         if self.parameters.with_fixed_id_markets:
             if execution_date.hour < 10:
@@ -260,11 +258,11 @@ class StorageOrderFormulator(AbstractOrderFormulator):
         """
         execution_date = self.parameters.temporal.execution_date
         start = self.parameters.temporal.start_date
-        timestep_minutes = int(self.parameters.temporal.timestep.total_seconds() // 60)
+        timestep = self.parameters.temporal.timestep
         time = self.parameters.temporal.start_date
 
         stored_energy = self.equipment.stored_energy.get_forecast(
-            execution_date, start.subtract(minutes=timestep_minutes), storage_constraint_end_date
+            execution_date, start - timestep, storage_constraint_end_date
         )
         stored_energy_min = stored_energy.min() if len(stored_energy) > 0 else 0.0
 
@@ -359,8 +357,8 @@ class StorageOrderFormulator(AbstractOrderFormulator):
         if not is_valid:
             return available, is_valid
 
-        timestep_minutes = self.parameters.temporal.timestep.total_seconds() / 60
-        transition_duration_minutes = self.equipment.transition_duration.total_seconds() / 60
+        timestep_minutes = self.parameters.temporal.timestep.total_minutes()
+        transition_duration_minutes = self.equipment.transition_duration.total_minutes()
         if round(transition_duration_minutes / timestep_minutes) < 1:
             return available, is_valid
 

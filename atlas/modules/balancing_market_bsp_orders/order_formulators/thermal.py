@@ -45,7 +45,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         start = self.parameters.temporal.start_date
         end = self.parameters.temporal.end_date - self.parameters.temporal.timestep
         execution_date = self.parameters.temporal.execution_date
-        timestep_minutes = int(self._timestep_minutes)
+        timestep = self.parameters.temporal.timestep
 
         forecasted_power = self.equipment.power.get_forecast(execution_date, start, end)
         max_power = self.equipment.maximum_power.slice(start, end)
@@ -72,7 +72,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
                 upward_available.set_value(time, 0.0)
                 downward_available.set_value(time, 0.0)
 
-            next_time = time.add(minutes=timestep_minutes)
+            next_time = time + timestep
 
             qmax_up = max(0.0, upward_available.get_value(time))
             qmax_down = max(0.0, downward_available.get_value(time))
@@ -118,11 +118,6 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         cfg.logger.info(f"Formulation of orders on equipment {self.equipment.name} completed")
         return orders, couplings
 
-    @property
-    def _timestep_minutes(self) -> float:
-        """Timestep duration in minutes, as a float."""
-        return self.parameters.temporal.timestep.total_seconds() / 60
-
     def _forecasted_power_at(self, time: DateTime) -> float:
         """
         Return the forecasted power at a given time, or 0.0 if unavailable (e.g. outside
@@ -147,8 +142,8 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :return: Forecasted power at the neighboring timestep, or 0.0 if unavailable
         :rtype: float
         """
-        offset_minutes = int(self._timestep_minutes)
-        neighbor_time = time.add(minutes=offset_minutes) if forward else time.subtract(minutes=offset_minutes)
+        timestep = self.parameters.temporal.timestep
+        neighbor_time = time + timestep if forward else time - timestep
         return self._forecasted_power_at(neighbor_time)
 
     def _startup_cost_at(self, time: DateTime) -> float:
@@ -218,10 +213,10 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :return: The EXCLUSION couplings (possibly empty)
         :rtype: list[OrderCoupling]
         """
-        offset_minutes = int(self._timestep_minutes)
+        timestep = self.parameters.temporal.timestep
         couplings: list[OrderCoupling] = []
 
-        previous_time = time.subtract(minutes=offset_minutes)
+        previous_time = time - timestep
         for previous_order in self._upward_orders_by_time.get(previous_time, []):
             couplings.append(
                 OrderCoupling(
@@ -232,7 +227,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
             )
 
         if both_directions:
-            next_time = time.add(minutes=offset_minutes)
+            next_time = time + timestep
             for next_order in self._upward_orders_by_time.get(next_time, []):
                 couplings.append(
                     OrderCoupling(
@@ -257,8 +252,8 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :rtype: bool
         """
         duration_requirement = self.equipment.minimum_stable_power_duration
-        offset_minutes = int(self._timestep_minutes)
-        reference_time = time.subtract(minutes=offset_minutes)
+        timestep = self.parameters.temporal.timestep
+        reference_time = time - timestep
 
         studied_time = reference_time
         studied_power = self._forecasted_power_at(studied_time)
@@ -269,7 +264,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         while studied_power == previous_power and (reference_time - studied_time) < duration_requirement:
             previous_power = studied_power
-            studied_time = studied_time.subtract(minutes=offset_minutes)
+            studied_time = studied_time - timestep
             studied_power = self._forecasted_power_at(studied_time)
 
         return duration_requirement <= (reference_time - studied_time)
@@ -284,8 +279,8 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         :rtype: bool
         """
         duration_requirement = self.equipment.minimum_stable_power_duration
-        offset_minutes = int(self._timestep_minutes)
-        reference_time = time.add(minutes=offset_minutes)
+        timestep = self.parameters.temporal.timestep
+        reference_time = time + timestep
 
         studied_time = reference_time
         studied_power = self._forecasted_power_at(studied_time)
@@ -296,7 +291,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
 
         while studied_power == previous_power and (studied_time - reference_time) < duration_requirement:
             previous_power = studied_power
-            studied_time = studied_time.add(minutes=offset_minutes)
+            studied_time = studied_time + timestep
             studied_power = self._forecasted_power_at(studied_time)
 
         return duration_requirement <= (studied_time - reference_time)
@@ -533,7 +528,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if qmax <= 0:
             return None, []
 
-        duration_hours = self._timestep_minutes / 60
+        duration_hours = self.parameters.temporal.timestep.total_hours()
         startup_cost = self._startup_cost_at(time)
         variable_cost = self.equipment.variable_cost.get_value(time)
 
@@ -723,14 +718,16 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         next_power = self._neighbor_power(time, forward=True)
 
         max_gradient = self.equipment.maximum_gradient
-        if max_gradient > 0 and abs(next_power - previous_power) > 2 * (max_gradient * self._timestep_minutes):
+        if max_gradient > 0 and abs(next_power - previous_power) > 2 * (
+            max_gradient * self.parameters.temporal.timestep.total_minutes()
+        ):
             return None
 
         max_power = self.equipment.maximum_power.get_value(time)
         min_power = self.equipment.minimum_power.get_value(time)
 
         if max_gradient > 0:
-            max_grad = max_gradient * self._timestep_minutes
+            max_grad = max_gradient * self.parameters.temporal.timestep.total_minutes()
             if next_power >= previous_power:
                 bounded_qmax = min(max_power, previous_power + max_grad)
                 bounded_qmin = max(min_power, next_power - max_grad)
@@ -752,7 +749,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if bounded_qmax < 1.0 or bounded_qmin > bounded_qmax:
             return None
 
-        duration_hours = self._timestep_minutes / 60
+        duration_hours = self.parameters.temporal.timestep.total_hours()
         price = self.equipment.variable_cost.get_value(time) - self._startup_cost_at(time) / (
             bounded_qmax * duration_hours
         )
@@ -789,7 +786,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         min_power = self.equipment.minimum_power.get_value(time)
 
         if self.equipment.maximum_gradient > 0:
-            max_grad = self.equipment.maximum_gradient * self._timestep_minutes
+            max_grad = self.equipment.maximum_gradient * self.parameters.temporal.timestep.total_minutes()
             bounded_qmax = min(max_power, previous_power + max_grad)
         else:
             bounded_qmax = max_power
@@ -843,7 +840,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         min_power = self.equipment.minimum_power.get_value(time)
 
         if self.equipment.maximum_gradient > 0:
-            max_grad = self.equipment.maximum_gradient * self._timestep_minutes
+            max_grad = self.equipment.maximum_gradient * self.parameters.temporal.timestep.total_minutes()
             bounded_qmax = min(max_power, next_power + max_grad)
         else:
             bounded_qmax = max_power
@@ -905,7 +902,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         if not is_valid:
             return [], []
 
-        duration_hours = self._timestep_minutes / 60
+        duration_hours = self.parameters.temporal.timestep.total_hours()
         startup_cost = self._startup_cost_at(time)
 
         start1_qmax = min_power
@@ -943,7 +940,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator):
         )
         couplings: list[OrderCoupling] = [coupling]
 
-        previous_time = time.subtract(minutes=int(self._timestep_minutes))
+        previous_time = time - self.parameters.temporal.timestep
         for previous_order in self._upward_orders_by_time.get(previous_time, []):
             couplings.append(
                 OrderCoupling(

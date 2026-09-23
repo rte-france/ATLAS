@@ -109,7 +109,7 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
         start = self.parameters.temporal.start_date
         end = self.parameters.temporal.end_date - self.parameters.temporal.timestep
         execution_date = self.parameters.temporal.execution_date
-        timestep_minutes = int(self.parameters.temporal.timestep.total_seconds() // 60)
+        timestep = self.parameters.temporal.timestep
 
         forecasted_power = self.equipment.power.get_forecast(execution_date, start, end)
         max_power = self.equipment.maximum_power.slice(start, end)
@@ -128,7 +128,7 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
             if not self.is_after_setup_delay(time):
                 continue
 
-            next_time = time.add(minutes=timestep_minutes)
+            next_time = time + timestep
 
             qmax_up = max(0.0, upward_available.get_value(time))
             qmax_down = max(0.0, downward_available.get_value(time))
