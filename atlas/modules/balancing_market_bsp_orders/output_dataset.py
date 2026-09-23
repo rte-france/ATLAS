@@ -22,8 +22,10 @@ class BSPBalancingOrdersOutputDataset(AbstractModuleOutput[BSPBalancingOrdersPar
     To be completed when order formulators are implemented.
     """
 
-    orders: list[Order] = []
-    couplings: list[OrderCoupling] = []
+    def __init__(self) -> None:
+        self.change_sets = []
+        self.orders: list[Order] = []
+        self.couplings: list[OrderCoupling] = []
 
     def build_change_sets(self) -> None:
         for order in self.orders:
