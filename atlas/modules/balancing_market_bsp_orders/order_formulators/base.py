@@ -258,10 +258,10 @@ class AbstractOrderFormulator(ABC):
         """
         timestep = self.parameters.temporal.timestep
         execution_date = self.parameters.temporal.execution_date
-        max_grad = self.equipment.maximum_gradient * (timestep.total_seconds() / 60)
+        max_grad = self.equipment.maximum_gradient * timestep.total_minutes()
 
-        previous_time = time.subtract(minutes=int(timestep.total_seconds() // 60))
-        next_time = time.add(minutes=int(timestep.total_seconds() // 60))
+        previous_time = time - timestep
+        next_time = time + timestep
 
         try:
             previous_forecasted_power = self.equipment.power.get_forecast(
