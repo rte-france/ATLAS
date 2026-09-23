@@ -8,7 +8,7 @@ Module that implements AbstractOrderFormulator.
 
 from abc import ABC, abstractmethod
 
-from pendulum import DateTime
+from pendulum import DateTime, Duration
 
 from atlas.enums import MarketType, OrderType, Product
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
@@ -128,8 +128,8 @@ class AbstractOrderFormulator(ABC):
         :return: Whether the setup delay has elapsed
         :rtype: bool
         """
-        elapsed_minutes = (time - self.parameters.temporal.execution_date).total_seconds() / 60
-        return elapsed_minutes >= self.equipment.setup_delay * 60
+        elapsed = time - self.parameters.temporal.execution_date
+        return elapsed >= Duration(hours=self.equipment.setup_delay)
 
     def build_order(
         self,
