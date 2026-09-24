@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from atlas.enums import SolverStatus
 from atlas.orchestrator.change_set import ChangeSet
 
 if TYPE_CHECKING:
@@ -76,6 +77,41 @@ class WorkflowJobError(RuntimeError):
         self.job_name = job_name
         self.cis = cis
         self.input_dataset = input_dataset
+
+
+class SolverError(RuntimeError):
+    """Base exception for optimisation solver errors."""
+
+    pass
+
+
+class ModelNotSolvedError(SolverError):
+    """Raised when a solution is read from a model that has never been solved."""
+
+    pass
+
+
+class UnsuccessfulSolveError(SolverError):
+    """Raised when a solution is read from a model whose last solve did not succeed.
+
+    OR-Tools returns ``0.0`` for every variable of an ``INFEASIBLE`` / ``UNBOUNDED`` / ``ABNORMAL``
+    model instead of failing, so reading the solution would silently produce a plausible-looking
+    but meaningless result.
+
+    :param status: The status of the last solve
+    :type status: SolverStatus
+    :param model_name: Name of the optimisation model, when it has one
+    :type model_name: str | None
+    """
+
+    def __init__(self, status: SolverStatus, model_name: str | None = None):
+        model = f" '{model_name}'" if model_name else ""
+        super().__init__(
+            f"Optimisation model{model} has no usable solution: last solve finished with status "
+            f"{status.name}. Reading the solution would return solver defaults, not optimisation results."
+        )
+        self.status = status
+        self.model_name = model_name
 
 
 class DataQualityWarning(UserWarning):
