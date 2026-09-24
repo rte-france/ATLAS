@@ -9,7 +9,8 @@ import json
 import pendulum
 
 import atlas.modules.market_clearing.constants as constants
-from atlas.enums import SolverStatus
+from atlas.config import logger
+from atlas.custom_errors import SolverError
 from atlas.modules.market_clearing.data_classes import ClearingOutputs, PriceGroup
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
@@ -46,23 +47,44 @@ class Pricing:
         self._full_link_id_by_order = order_links.full_link_id_by_order
 
     def compute(self):
+        """Price the cleared market, relaxing the model over up to three attempts.
+
+        Each attempt is only built if the previous one failed. The third one is the last resort:
+        if it fails too there is no price to report, so the phase raises rather than returning
+        the solver's default zeros.
+
+        :raises SolverError: If none of the three attempts produced a solution
+        """
         self.build_first()
         solver_info = self.model.solve()
         output_path = self.parameters.get_lp_dir()
         if self.parameters.solver.export_lp:
             output_path.mkdir(parents=True, exist_ok=True)
             self.model.export_model(str(output_path / "pricing_1_model.lp"))
-        if solver_info.status not in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:
+        attempt_statuses = [solver_info.status]
+
+        if not solver_info.is_successful:
+            logger.warning(f"First pricing attempt failed ({solver_info.status.name}), trying the second one")
             self.build_second()
             solver_info = self.model.solve()
+            attempt_statuses.append(solver_info.status)
             if self.parameters.solver.export_lp:
                 self.model.export_model(str(output_path / "pricing_2_model.lp"))
 
-        if solver_info.status not in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:
+        if not solver_info.is_successful:
+            logger.warning(f"Second pricing attempt failed ({solver_info.status.name}), trying the third one")
             self.build_third()
-            _ = self.model.solve()
+            solver_info = self.model.solve()
+            attempt_statuses.append(solver_info.status)
             if self.parameters.solver.export_lp:
                 self.model.export_model(str(output_path / "pricing_3_model.lp"))
+
+        if not solver_info.is_successful:
+            raise SolverError(
+                "Pricing failed: all pricing attempts finished without a solution "
+                f"({', '.join(status.name for status in attempt_statuses)}). Market prices cannot be computed."
+            )
+
         if self.parameters.solver.export_lp:
             with open(output_path / "pricing_market_prices.json", "w") as f:
                 json.dump(
@@ -289,5 +311,5 @@ class Pricing:
             for price_group in price_groups:
                 for market_area_name in price_group.market_area_names:
                     market_price_name = constants.price_on_group_variable_name(price_group.id, time)
-                    market_prices[market_area_name, time] = self.model.get_variable(market_price_name).solution_value()
+                    market_prices[market_area_name, time] = self.model.get_variable_value(market_price_name)
         return market_prices
