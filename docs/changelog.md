@@ -23,6 +23,15 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## Unreleased
+
+### Solver interface
+
+- 🐛 Reading a solution from a model whose solve did not succeed now raises `UnsuccessfulSolveError` instead of returning OR-Tools' default `0.0` for every variable. A failed solve is also logged as an error rather than an info.
+- 🐛 Market clearing pricing now fails when none of its three attempts finds a solution, instead of reporting zero prices.
+
+---
+
 ## 0.1.1
 
 ### Market modules
