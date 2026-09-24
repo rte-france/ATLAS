@@ -158,19 +158,17 @@ class TemporalVariable:
         """
         times = list(times)
         self._check_all_undefined(times)
-        name, variables = self._name, self._variables
 
         if self._variable_type == VariableType.BOOLEAN:
-            add_boolean = self._model.add_boolean_variable
             for t in times:
-                variables[t] = add_boolean(f"{name}_{t}")
+                self._variables[t] = self._model.add_boolean_variable(f"{self._name}_{t}")
             return
 
         lowers = _resolve_all(self._lower_bound, times)
         uppers = _resolve_all(self._upper_bound, times)
         create = self._create_bounded()
         for t, lower, upper in zip(times, lowers, uppers, strict=True):
-            variables[t] = create(f"{name}_{t}", lower, upper)
+            self._variables[t] = create(f"{self._name}_{t}", lower, upper)
 
     def fix(self, t: DateTime, value: float) -> None:
         """
