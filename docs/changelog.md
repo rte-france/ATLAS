@@ -23,6 +23,48 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## Unreleased
+
+### Breaking changes
+
+The word `output` named at least six unrelated concepts. One word now stands for one concept: `run_dir` for the per-execution root directory, `export` for booleans, `result` for what a module returns, `columns` for Antares column-name configuration.
+
+Parameter files must be updated — unknown keys are silently ignored, so a stale key degrades to its default instead of raising.
+
+| Before | After |
+|---|---|
+| `output:` (module parameters section) | `export:` |
+| `output.export_result` | `export.export_results` |
+| `output.export_output_dataset` | `export.export_dataset` |
+| `output.output_dir` | `export.run_dir` |
+| `export_output` (orchestrator) | `export_final_state` |
+| `output:` (antares_to_atlas) | `columns:` |
+
+Python API:
+
+| Before | After |
+|---|---|
+| `io_utils.parameters.OutputParameters` | `ExportParameters` |
+| `abstract_class.dataset.AbstractModuleOutput` | `ModuleResult` |
+| `<Module>Output` / `<Module>OutputDataset` | `<Module>Result`, in `modules/<name>/result.py` |
+| `AbstractJob.output_dataset` / `get_output_dataset()` | `AbstractJob.result` |
+| `AbstractOrchestrator.final_dataset` / `get_output_dataset()` | `AbstractOrchestrator.final_result` |
+| `AbstractModuleParameters.get_output_results_dir()` | `.results_dir` (property) |
+| `AbstractModuleParameters.get_output_dataset_dir()` | `.dataset_dir` (property) |
+| `AbstractModuleParameters.get_lp_dir()` | `.lp_dir` (property) |
+| `antares_to_atlas.parameters.OutputParameters` | `AntaresColumnNames` |
+| `portfolio_optimisation.utils.orchestration.PortfolioOptimisationResult` | `SinglePortfolioResult` |
+
+`AntaresToAtlasParameters.output_name` is unchanged: it names an Antares study output, which is antares-craft vocabulary, not Atlas vocabulary.
+
+### Orchestrator
+
+- 🧹 Introduced `RunPaths`, which owns the `results/`, `output_dataset/` and `lp_export/` layout of a run directory. On-disk names are unchanged.
+- 🐛 Fixed `AttributeError` in the profiling workflow when `export_dataset` was enabled (an unfinished refactor left `job.parameters.get_`).
+- 📚 Fixed the `export_final_state` docstring, which described a path instead of a boolean.
+
+---
+
 ## 0.1.1
 
 ### Market modules
