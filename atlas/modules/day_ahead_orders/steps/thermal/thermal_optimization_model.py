@@ -499,11 +499,19 @@ class ThermalOptimizationModel(OptimisationModel):
             ),
         )
 
-    def _solution_ts(self, getter: Callable[[DateTime], float]) -> Timeseries:
+    def _solution_ts(self, variable_name_at: Callable[[DateTime], str]) -> Timeseries:
+        """Read one decision variable's solved values over the time frame.
+
+        :param variable_name_at: Builds the variable name for a given timestep
+        :type variable_name_at: Callable[[DateTime], str]
+        :return: The solved values of that variable
+        :rtype: Timeseries
+        :raises UnsuccessfulSolveError: If the solver did not produce a solution
+        """
         return Timeseries.from_values(
             start_date=self.parameters.temporal.start_date,
             frequency=self.parameters.temporal.timestep,
-            values=[getter(t) for t in self.time_frame],
+            values=[self.get_variable_value(variable_name_at(t)) for t in self.time_frame],
         )
 
     def _export_lp_if_requested(self) -> None:
@@ -516,7 +524,7 @@ class ThermalOptimizationModel(OptimisationModel):
     def _extract_results(self) -> dict[str, Timeseries]:
         results: dict[str, Timeseries] = {}
 
-        q_star = self._solution_ts(lambda t: self.q.get_model_var(t).solution_value())
+        q_star = self._solution_ts(self.power_equip_at)
         if abs(q_star.min() - 0.0) <= 1e-6 and abs(q_star.max() - 0.0) <= 1e-6:
             cfg.logger.debug(
                 f"*** Info *** The optimal solution for the unit {self.thermal_unit.name} is such that "
@@ -524,39 +532,38 @@ class ThermalOptimizationModel(OptimisationModel):
             )
 
         results["q"] = q_star
-        results["contracted_difference_up"] = self._solution_ts(
-            lambda t: self.get_variable(self.contracted_difference_up_at(t)).solution_value()
-        )
-        results["contracted_difference_down"] = self._solution_ts(
-            lambda t: self.get_variable(self.contracted_difference_down_at(t)).solution_value()
-        )
-        results["automated_contracted_difference_up"] = self._solution_ts(
-            lambda t: self.get_variable(self.automated_contracted_difference_up_at(t)).solution_value()
-        )
+        results["contracted_difference_up"] = self._solution_ts(self.contracted_difference_up_at)
+        results["contracted_difference_down"] = self._solution_ts(self.contracted_difference_down_at)
+        results["automated_contracted_difference_up"] = self._solution_ts(self.automated_contracted_difference_up_at)
         results["automated_contracted_difference_down"] = self._solution_ts(
-            lambda t: self.get_variable(self.automated_contracted_difference_down_at(t)).solution_value()
+            self.automated_contracted_difference_down_at
         )
-        results["ON_UP"] = self._solution_ts(lambda t: self.ON_UP.get_model_var(t).solution_value())
-        results["ON_DOWN"] = self._solution_ts(lambda t: self.ON_DOWN.get_model_var(t).solution_value())
-        results["OFF"] = self._solution_ts(lambda t: self.OFF.get_model_var(t).solution_value())
+        results["ON_UP"] = self._solution_ts(self.on_up_equip_at)
+        results["ON_DOWN"] = self._solution_ts(self.on_down_equip_at)
+        results["OFF"] = self._solution_ts(self.off_equip_at)
 
         if self.T_start >= 1:
-            results["START"] = self._solution_ts(lambda t: self.START.get_model_var(t).solution_value())
+            results["START"] = self._solution_ts(self.start_equip_at)
         if self.T_stop >= 1:
-            results["STOP"] = self._solution_ts(lambda t: self.STOP.get_model_var(t).solution_value())
+            results["STOP"] = self._solution_ts(self.stop_equip_at)
         if self.T_stable >= 1:
-            results["ON_FLAT"] = self._solution_ts(lambda t: self.ON_FLAT.get_model_var(t).solution_value())
+            results["ON_FLAT"] = self._solution_ts(self.on_flat_equip_at)
 
         return results
 
     def solve_thermal_optimization(self) -> dict[str, Timeseries]:
+        """Solve the unit's optimisation and extract its solution.
+
+        :return: One timeseries per output variable of the unit
+        :rtype: dict[str, Timeseries]
+        :raises UnsuccessfulSolveError: If the solver did not produce a solution for this unit
+        """
         self._export_lp_if_requested()
 
         cfg.logger.info(f"Optimisation model '{self.name}' with price type '{self.price_type}'")
-        self.solve()
+        solution_info = self.solve()
 
-        status = self.solution_info.status if self.solution_info else None
-        cfg.logger.debug(f"Solver status: {status}")
+        cfg.logger.debug(f"Solver status: {solution_info.status}")
         cfg.logger.debug(f"Objective function value: {self._objective}")
 
         return self._extract_results()
