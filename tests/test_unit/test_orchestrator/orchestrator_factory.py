@@ -5,13 +5,18 @@ from typing import Self
 from unittest.mock import MagicMock
 
 import yaml
-from pendulum import Duration, DateTime
+from pendulum import DateTime, Duration
 
 from atlas.abstract_class.job import AbstractJob
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
-from atlas.io_utils.parameters import ContextParameters
-from atlas.orchestrator.actionplan.job import Task, TaskJobsGenerator, ModuleTaskJobsGenerator, WorkflowTaskJobsGenerator
+from atlas.io_utils.parameters import ContextParameters, ExportParameters
+from atlas.orchestrator.actionplan.job import (
+    ModuleTaskJobsGenerator,
+    Task,
+    TaskJobsGenerator,
+    WorkflowTaskJobsGenerator,
+)
 from atlas.orchestrator.workflow.parameters import Step
 
 
@@ -21,16 +26,18 @@ class ConcreteJob(AbstractJob):
     def __repr__(self) -> str:
         return self.name
 
+
 class ConcreteTaskGenerator(TaskJobsGenerator):
     """Minimalist implementation of TaskGenerator"""
 
-    def __init__(self, task: Task, job = None, module_parameters = None):
+    def __init__(self, task: Task, job=None, module_parameters=None):
         super().__init__(task)
         self._job: ConcreteJob = job
         self.parameters = module_parameters
 
     def _build_jobs(self, iteration):
         return [self._job]
+
 
 class ConcreteOrchestratorParameters(AbstractOrchestratorParameters):
     """Minimalist implementation of AbstractOrchestratorParameters"""
@@ -71,6 +78,7 @@ class MockOutPutBuilder:
     def build(self):
         return copy.copy(self.mock_output)
 
+
 class MockModuleParametersBuilder:
     def __init__(self):
         self.temporal = MagicMock()
@@ -78,8 +86,7 @@ class MockModuleParametersBuilder:
         self.temporal.end_date = None
         self.temporal.execution_date = None
         self.temporal.timestep = Duration(minutes=60)
-        self.output = None
-        self.relative_src = None
+        self.export = None
 
     def with_start_date(self, date) -> Self:
         self.temporal.start_date = date
@@ -97,20 +104,15 @@ class MockModuleParametersBuilder:
         self.temporal.timestep = duration
         return self
 
-    def with_output(self, path) -> Self:
-        self.output = path
+    def with_export(self, export) -> Self:
+        self.export = export
         return self
 
-    def with_relative_src(self, path) -> Self:
-        self.relative_src = path
-        return self
-
-    def build(self, tmp_path = None):
-        if not self.output and tmp_path is not None:
-            self.output = tmp_path / "output_path"
-        if not self.relative_src and tmp_path is not None:
-            self.relative_src = tmp_path / "relative_src"
+    def build(self, tmp_path=None):
+        if not self.export and tmp_path is not None:
+            self.export = ExportParameters(run_dir=tmp_path / "run")
         return copy.copy(self)
+
 
 class MockModuleBuilder:
     """Default: return a module so that module.run() returns an output with no change set."""
@@ -167,14 +169,15 @@ class MockJobBuilder:
             self.module_cls = MagicMock(return_value=self.module)
         return self.job_cls(self.name, self.module_cls, self.module_parameters)
 
+
 class ModuleConfigBuilder:
     """Default: a path to a minimal module YAML with no other parameters than temporale."""
 
     def __init__(self):
         self.misc = ""
-        self.start_date = '2028-09-27 00:00:00'
-        self.end_date = '2028-09-28 00:00:00'
-        self.execution_date = '2028-09-26 12:00:00'
+        self.start_date = "2028-09-27 00:00:00"
+        self.end_date = "2028-09-28 00:00:00"
+        self.execution_date = "2028-09-26 12:00:00"
 
     def with_start_date(self, start_date):
         self.start_date = start_date
@@ -201,11 +204,13 @@ class ModuleConfigBuilder:
         config.write_text(content)
         return config
 
+
 def generate_step_from_job(job) -> MagicMock:
     """Build a genuine Step backed by a mocked module/parameters."""
     step = Step.model_construct(name=job.name, module=MagicMock(), parameters=job.parameters)
     step.module.value = MagicMock(return_value=job.module)
     return step
+
 
 class OrchestratorConfigBuilder:
     """Default: a path to a minimal orchestrator YAML with no job named test_orchestrator."""

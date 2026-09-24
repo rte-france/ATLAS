@@ -34,10 +34,9 @@ class TestJobInit:
         self.mock_class.assert_called_once()
         assert job.module is self.mock_instance
 
-    def test_output_dataset_is_none_before_run(self, job_builder):
+    def test_result_is_none_before_run(self, job_builder):
         job = job_builder("my_job", self.mock_class, {})
-        assert job.output_dataset is None
-        assert job.get_output_dataset() is None
+        assert job.result is None
 
 
 class TestJobRun:
@@ -58,17 +57,16 @@ class TestJobRun:
         job.run(atlas_dataset)
         self.mock_instance.run.assert_called_once_with(atlas_dataset, job.parameters)
 
-    def test_run_stores_output_dataset(self, atlas_dataset):
+    def test_run_stores_result(self, atlas_dataset):
         self.job.run(atlas_dataset)
-        assert self.job.output_dataset is self.mock_output
-        assert self.job.get_output_dataset() is self.mock_output
+        assert self.job.result is self.mock_output
 
     def test_run_with_none_output_stores_none(self, atlas_dataset, job_builder):
         mock_instance = MockModuleBuilder().with_output(None).build()
         mock_class = MagicMock(return_value=mock_instance)
         job = job_builder("job", mock_class, {})
         job.run(atlas_dataset)
-        assert job.output_dataset is None
+        assert job.result is None
 
     def test_run_overwrites_previous_output(self, atlas_dataset, job_builder):
         first_output = MagicMock(name="first")
@@ -77,10 +75,10 @@ class TestJobRun:
 
         job = job_builder("job", self.mock_class, {})
         job.run(atlas_dataset)
-        assert job.output_dataset is first_output
+        assert job.result is first_output
 
         job.run(atlas_dataset)
-        assert job.output_dataset is second_output
+        assert job.result is second_output
 
     def test_run_propagates_module_exception(self, atlas_dataset, job_builder):
         self.mock_instance.run.side_effect = RuntimeError("module crashed")
@@ -88,9 +86,3 @@ class TestJobRun:
         job = job_builder("job", self.mock_class, {})
         with pytest.raises(RuntimeError, match="module crashed"):
             job.run(atlas_dataset)
-
-    def test_output_dataset_property_and_get_method_are_consistent(self, atlas_dataset, job_builder):
-        job = job_builder("job", self.mock_class, {})
-        job.run(atlas_dataset)
-
-        assert job.output_dataset is job.get_output_dataset()

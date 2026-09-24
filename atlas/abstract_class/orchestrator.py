@@ -10,7 +10,7 @@ from atlas.abstract_class.job import AbstractJob
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.config import logger
 from atlas.custom_errors import WorkflowJobError
-from atlas.io_utils.parameters import ContextParameters
+from atlas.io_utils.parameters import ContextParameters, RunPaths
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.timing import timer
@@ -20,7 +20,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
     """Placeholder abstract class for orchestrator."""
 
     parameters: PO
-    final_dataset: AbstractDataset | None = None
+    final_result: AbstractDataset | None = None
     PARAMETERS_CLASS: type[PO]
 
     def __init__(self, parameters: PO):
@@ -69,12 +69,6 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
         else:
             parameters = parameters.evolve(orchestrator_path=file_path.parent)
         return cls(parameters=parameters)
-
-    def get_output_dataset(self) -> AbstractDataset | None:
-        """
-        Returns the final dataset of the workflow, return None if the orchestrator hasn't been executed to the end.
-        """
-        return self.final_dataset
 
     def use_context(self, context: ContextParameters) -> None:
         """
@@ -138,11 +132,11 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
             logger.info(f"Finishing job :'{job.name}'")
 
         if last_executed_job is not None:
-            self.final_dataset = last_executed_job.output_dataset
+            self.final_result = last_executed_job.result
 
-        if self.parameters.export_output:
+        if self.parameters.export_final_state:
             logger.info(
-                f"Exporting final {self.__class__.__name__.lower()} output to {self.parameters.resolve_path(self.parameters.output_dir)}"
+                f"Exporting final {self.__class__.__name__.lower()} state to {self.parameters.resolve_path(self.parameters.output_dir)}"
             )
             cis.to_directory(
                 self.parameters.resolve_path(self.parameters.output_dir) / f"{self.__class__.__name__.lower()}_output"
@@ -177,14 +171,14 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
                 ) from e
         logger.info(f"'{job.name}' completed in {t()} seconds")
 
-        output_dataset = job.output_dataset
+        result = job.result
 
-        if not output_dataset:
-            raise RuntimeError(f"{job} did not produce output_dataset")
+        if not result:
+            raise RuntimeError(f"{job} did not produce a result")
 
         logger.debug("Applying all change sets to the current input state")
         # CISHandler will use transaction internally based on rollback_on_job_failure parameter
-        CISHandler.apply(output_dataset.change_sets, cis, rollback_on_error=self.parameters.rollback_on_job_failure)
+        CISHandler.apply(result.change_sets, cis, rollback_on_error=self.parameters.rollback_on_job_failure)
 
-        if job.parameters.output.export_output_dataset:
-            cis.to_directory(self.parameters.resolve_path(job.parameters.output.output_dir) / "output_dataset")
+        if job.parameters.export.export_dataset:
+            cis.to_directory(RunPaths(self.parameters.resolve_path(job.parameters.export.run_dir)).dataset)

@@ -15,7 +15,7 @@ market_clearing/
 ├── market_clearing_constants.py         # Global constants
 ├── market_clearing_parameters.py        # Configuration parameters
 ├── market_clearing_input_dataset.py     # Input data aggregation
-├── market_clearing_output_dataset.py    # Output data aggregation
+├── result.py    # Output data aggregation
 ├── marker_clearing_module.py            # Core clearing module
 ├── price_group.py                       # group of market area with the same price for every timestep
 └── input_objects/                             # Market Clearing models

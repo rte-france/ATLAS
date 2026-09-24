@@ -125,8 +125,12 @@ class TestStorageReserveHandlerCapacitySolved:
         self._pin_reserves(handler, model, time, up=4.0, automated_up=6.0, down=0.0, automated_down=0.0)
         stored_energy = model.add_continuous_variable("stored_energy", 0, 500.0)
         handler.add_capacity_constraints(
-            time, stored_energy, max_energy=500.0, min_soc=0.1,
-            reserve_duration_h=2.0, automated_reserve_duration_h=0.5,
+            time,
+            stored_energy,
+            max_energy=500.0,
+            min_soc=0.1,
+            reserve_duration_h=2.0,
+            automated_reserve_duration_h=0.5,
         )
 
         model.set_direction("minimize")
@@ -140,8 +144,12 @@ class TestStorageReserveHandlerCapacitySolved:
         self._pin_reserves(handler, model, time, up=0.0, automated_up=0.0, down=4.0, automated_down=6.0)
         stored_energy = model.add_continuous_variable("stored_energy", 0, 500.0)
         handler.add_capacity_constraints(
-            time, stored_energy, max_energy=500.0, min_soc=0.1,
-            reserve_duration_h=2.0, automated_reserve_duration_h=0.5,
+            time,
+            stored_energy,
+            max_energy=500.0,
+            min_soc=0.1,
+            reserve_duration_h=2.0,
+            automated_reserve_duration_h=0.5,
         )
 
         model.set_direction("maximize")

@@ -17,8 +17,11 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.workflow.workflow import Workflow, WorkflowParameters
 from atlas.timing import build_datetime
-from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, OrchestratorConfigBuilder, \
-    generate_step_from_job
+from tests.test_unit.test_orchestrator.orchestrator_factory import (
+    MockJobBuilder,
+    OrchestratorConfigBuilder,
+    generate_step_from_job,
+)
 
 
 class TestWorkflowAddStep:
@@ -78,11 +81,11 @@ class TestWorkflowAddStep:
 
 class TestWorkflowFromFile:
     def test_from_file_raises_if_steps_reference_nonexistent_params(self, tmp_path):
-        config = OrchestratorConfigBuilder().with_any(
-            f"steps:\n"
-            f"  - module: PortfolioOptimisation\n"
-            f"    parameters: /nonexistent/path/params.yaml\n"
-        ).build(tmp_path)
+        config = (
+            OrchestratorConfigBuilder()
+            .with_any(f"steps:\n  - module: PortfolioOptimisation\n    parameters: /nonexistent/path/params.yaml\n")
+            .build(tmp_path)
+        )
 
         # build_steps will try to open the parameters file -- should raise
         with pytest.raises(Exception):
@@ -122,11 +125,12 @@ class TestWorkflowRepresentation:
             "solver:\n"
             "  solver_name: GLOP\n"
         )
-        config = OrchestratorConfigBuilder().with_name("test_workflow").with_any(
-            f"steps:\n"
-            f"  - module: MarketClearing\n"
-            f"    parameters: {params_file}\n"
-        ).build(tmp_path)
+        config = (
+            OrchestratorConfigBuilder()
+            .with_name("test_workflow")
+            .with_any(f"steps:\n  - module: MarketClearing\n    parameters: {params_file}\n")
+            .build(tmp_path)
+        )
 
         workflow = Workflow.from_file(config)
         result = repr(workflow)
@@ -195,13 +199,15 @@ class TestWorkflowContextParameters:
         )
 
         overriding_context = ContextParameters(
-            default = {
-            "foo": "default_value_overriding",
-            "override_exclusive": "default_value_override_exclusive",
-        }, forced = {
-            "foo": "forced_value_overriding",
-            "override_exclusive": "forced_value_override_exclusive",
-        })
+            default={
+                "foo": "default_value_overriding",
+                "override_exclusive": "default_value_override_exclusive",
+            },
+            forced={
+                "foo": "forced_value_overriding",
+                "override_exclusive": "forced_value_override_exclusive",
+            },
+        )
 
         workflow = Workflow.from_file(
             TestWorkflowContextParameters.create_config(tmp_path, context_file), overriding_context
@@ -368,7 +374,7 @@ class TestWorkflowPathFromWorkflow:
             workflow.execute()
             mock_from_dir.assert_called_once_with(dataset_dir)
 
-    def test_step_output_dir_resolved_relative_to_workflow(self, tmp_path):
+    def test_step_run_dir_resolved_relative_to_workflow(self, tmp_path):
         dataset_dir = tmp_path / "dataset"
         dataset_dir.mkdir()
         output_dir = tmp_path / "output"
@@ -397,9 +403,9 @@ class TestWorkflowPathFromWorkflow:
         workflow = Workflow.from_file(config)
         step = next(workflow.jobs)
 
-        assert step.parameters.output.output_dir == tmp_path / "results" / "MarketClearing"
+        assert step.parameters.export.run_dir == tmp_path / "results" / "MarketClearing"
 
-    def test_step_output_dir_includes_job_name_prefix(self, tmp_path):
+    def test_step_run_dir_includes_job_name_prefix(self, tmp_path):
         dataset_dir = tmp_path / "dataset"
         dataset_dir.mkdir()
         output_dir = tmp_path / "output"
@@ -429,4 +435,4 @@ class TestWorkflowPathFromWorkflow:
         workflow = Workflow(WorkflowParameters.from_file(config), prefix)
         step = next(workflow.jobs)
 
-        assert step.parameters.output.output_dir == tmp_path / "results" / f"{prefix} MarketClearing"
+        assert step.parameters.export.run_dir == tmp_path / "results" / f"{prefix} MarketClearing"

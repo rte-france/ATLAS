@@ -246,7 +246,9 @@ class ResParameters(BaseModel):
     )
 
 
-class OutputParameters(BaseModel):
+class AntaresColumnNames(BaseModel):
+    """Names and indices of the Antares Monte-Carlo output columns Atlas reads from."""
+
     marginal_price_column: str = Field(
         default="MRG. PRICE", description="MC output column name for area marginal price"
     )
@@ -408,7 +410,9 @@ class AntaresToAtlasParameters(Parameters):
     start_date: DateTime
     execution_date: DateTime
     hypothesis: HypothesisEnum | None = Field(None, description="Hypothesis identifier (e.g., 'BP23', 'BP24')")
-    output_name: str
+    output_name: str = Field(
+        description="Name of the Antares study output (simulation folder) to read, as passed to Study.get_output()"
+    )
 
     # Data selection
     market_areas: list[str] | Literal["all"] = Field(
@@ -439,7 +443,9 @@ class AntaresToAtlasParameters(Parameters):
     baseline_displacement_energy: Path | None = Field(default=None, description="Baseline displacement energy file")
     disp_energy_node_parameters: Path | None = Field(default=None, description="Displacement energy node parameters")
     dsr: DsrParameters = Field(default_factory=DsrParameters, description="DSR unit configurations")
-    output: OutputParameters = Field(default_factory=OutputParameters, description="MC output column names")
+    columns: AntaresColumnNames = Field(
+        default_factory=AntaresColumnNames, description="Antares MC output column names"
+    )
 
     # Portfolio settings
     consumption_production_separation: bool = Field(

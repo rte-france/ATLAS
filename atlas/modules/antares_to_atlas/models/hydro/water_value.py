@@ -184,7 +184,7 @@ def _run_bellman_iteration(
                 frequency=Frequency.HOURLY,
                 data_type=MCIndAreasDataType.VALUES,
                 area=area.id,
-            )[(parameters.output.marginal_price_column, "Euro")],
+            )[(parameters.columns.marginal_price_column, "Euro")],
             dtype=float,
         )
         if len(price_arr) < n_time_steps:

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
+from atlas.modules.market_clearing.result import MarketClearingResult
 
 SNAPSHOT_PATH = Path(__file__).parent / "output_snapshot" / "atc_day_ahead.json"
 SNAPSHOT_ID_PATH = Path(__file__).parent / "output_snapshot" / "atc_intraday.json"
@@ -22,13 +22,13 @@ SNAPSHOT_FIELDS = ("accepted_powers", "local_balances", "border_exchanges", "mar
 NUMERICAL_TOLERANCE = 1e-6
 
 
-def _dump_snapshot(output_dataset: MarketClearingOutputDataset) -> dict[str, list]:
+def _dump_snapshot(result: MarketClearingResult) -> dict[str, list]:
     """Render the outputs as JSON-comparable rows, with each timestep as its datetime string."""
     return {
-        "accepted_powers": [[a, o, v] for (a, o), v in sorted(output_dataset.accepted_powers.items())],
-        "local_balances": [[a, str(t), v] for (a, t), v in sorted(output_dataset.local_balances.items())],
-        "border_exchanges": [[b, str(t), v] for (b, t), v in sorted(output_dataset.border_exchanges.items())],
-        "market_prices": [[a, str(t), v] for (a, t), v in sorted(output_dataset.market_prices.items())],
+        "accepted_powers": [[a, o, v] for (a, o), v in sorted(result.accepted_powers.items())],
+        "local_balances": [[a, str(t), v] for (a, t), v in sorted(result.local_balances.items())],
+        "border_exchanges": [[b, str(t), v] for (b, t), v in sorted(result.border_exchanges.items())],
+        "market_prices": [[a, str(t), v] for (a, t), v in sorted(result.market_prices.items())],
     }
 
 
@@ -50,11 +50,11 @@ class TestOutputSnapshotATC:
     @pytest.mark.parametrize("field", SNAPSHOT_FIELDS)
     def test_field_keys_match_snapshot(
         self,
-        output_dataset: tuple[MarketClearingOutputDataset, float],
+        result: tuple[MarketClearingResult, float],
         expected_snapshot: dict[str, list],
         field: str,
     ) -> None:
-        actual_keys = {tuple(entry[:-1]) for entry in _dump_snapshot(output_dataset[0])[field]}
+        actual_keys = {tuple(entry[:-1]) for entry in _dump_snapshot(result[0])[field]}
         expected_keys = {tuple(entry[:-1]) for entry in expected_snapshot[field]}
 
         missing = expected_keys - actual_keys
@@ -65,11 +65,11 @@ class TestOutputSnapshotATC:
     @pytest.mark.parametrize("field", SNAPSHOT_FIELDS)
     def test_field_values_match_snapshot_within_tolerance(
         self,
-        output_dataset: tuple[MarketClearingOutputDataset, float],
+        result: tuple[MarketClearingResult, float],
         expected_snapshot: dict[str, list],
         field: str,
     ) -> None:
-        actual = {tuple(entry[:-1]): entry[-1] for entry in _dump_snapshot(output_dataset[0])[field]}
+        actual = {tuple(entry[:-1]): entry[-1] for entry in _dump_snapshot(result[0])[field]}
         expected = {tuple(entry[:-1]): entry[-1] for entry in expected_snapshot[field]}
 
         drifted = []
@@ -89,11 +89,11 @@ class TestOutputSnapshotATCID:
     @pytest.mark.parametrize("field", SNAPSHOT_FIELDS)
     def test_field_keys_match_snapshot(
         self,
-        output_dataset_id: tuple[MarketClearingOutputDataset, float],
+        result_id: tuple[MarketClearingResult, float],
         expected_snapshot_id: dict[str, list],
         field: str,
     ) -> None:
-        actual_keys = {tuple(entry[:-1]) for entry in _dump_snapshot(output_dataset_id[0])[field]}
+        actual_keys = {tuple(entry[:-1]) for entry in _dump_snapshot(result_id[0])[field]}
         expected_keys = {tuple(entry[:-1]) for entry in expected_snapshot_id[field]}
 
         missing = expected_keys - actual_keys
@@ -104,11 +104,11 @@ class TestOutputSnapshotATCID:
     @pytest.mark.parametrize("field", SNAPSHOT_FIELDS)
     def test_field_values_match_snapshot_within_tolerance(
         self,
-        output_dataset_id: tuple[MarketClearingOutputDataset, float],
+        result_id: tuple[MarketClearingResult, float],
         expected_snapshot_id: dict[str, list],
         field: str,
     ) -> None:
-        actual = {tuple(entry[:-1]): entry[-1] for entry in _dump_snapshot(output_dataset_id[0])[field]}
+        actual = {tuple(entry[:-1]): entry[-1] for entry in _dump_snapshot(result_id[0])[field]}
         expected = {tuple(entry[:-1]): entry[-1] for entry in expected_snapshot_id[field]}
 
         drifted = []

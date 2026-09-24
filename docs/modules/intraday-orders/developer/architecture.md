@@ -13,7 +13,7 @@ atlas/modules/intraday_orders/
 ├── module.py                            # IntradayOrdersModule (AbstractModule)
 ├── parameters.py                        # IntradayOrdersParameters
 ├── input_dataset.py                     # IntradayOrdersInputDataset
-├── output_dataset.py                    # IntradayOrdersOutputDataset (builds change sets)
+├── result.py                    # IntradayOrdersOutputDataset (builds change sets)
 ├── utils.py                             # engaged_quantity(), build_intraday_order()
 ├── models/
 │   ├── enums.py                         # PlanningDelta, WindowType, InflexibleChaining

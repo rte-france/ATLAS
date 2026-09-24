@@ -22,7 +22,7 @@ class TestStep:
     @pytest.fixture
     def params_file(self, tmp_path):
         params_file = tmp_path / "params.yaml"
-        params_file.write_text("export_result: false\n")
+        params_file.write_text("export_results: false\n")
         return params_file
 
     def test_step_coerces_string_module(self, tmp_path, params_file):
@@ -70,6 +70,6 @@ class TestWorkflowJobRepresentation:
 
     def test_repr_after_execution(self, mc_params):
         job = WorkflowJob("TestJob", MarketClearingModule, mc_params)
-        job._output_dataset = MagicMock()
+        job._result = MagicMock()
         result = repr(job)
         assert "executed=True" in result

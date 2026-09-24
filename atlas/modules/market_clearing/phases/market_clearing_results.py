@@ -41,8 +41,8 @@ class MarketClearingResults:
         self.accepted_powers = accepted_powers
 
     def compute(self) -> None:
-        if not self.parameters.get_output_results_dir().exists():
-            self.parameters.get_output_results_dir().mkdir(parents=True, exist_ok=True)
+        if not self.parameters.results_dir.exists():
+            self.parameters.results_dir.mkdir(parents=True, exist_ok=True)
         self.export_offers()
         self.export_market_areas_data()
         self.export_couplings_data()
@@ -85,7 +85,7 @@ class MarketClearingResults:
                     "AcceptedPower": self.accepted_powers[order.market_area.name, order_name],
                 }
             )
-        build_rows_dataframe(rows, schema).write_csv(self.parameters.get_output_results_dir() / "offers.csv")
+        build_rows_dataframe(rows, schema).write_csv(self.parameters.results_dir / "offers.csv")
 
     def export_market_areas_data(self):
         if self.parameters.market == Product.DayAhead:
@@ -97,7 +97,7 @@ class MarketClearingResults:
         else:
             # Consider only MFRRActivation
             market_area_data = self.create_mfrr_market_areas_data()
-        market_area_data.write_csv(self.parameters.get_output_results_dir() / "market_area_data.csv")
+        market_area_data.write_csv(self.parameters.results_dir / "market_area_data.csv")
 
     def create_day_ahead_market_areas_data(self) -> pl.DataFrame:
         schema = {
@@ -214,7 +214,7 @@ class MarketClearingResults:
             }
             for order_coupling_name, order_coupling in self.input_dataset.order_couplings.items()
         ]
-        build_rows_dataframe(rows, schema).write_csv(self.parameters.get_output_results_dir() / "coupling_data.csv")
+        build_rows_dataframe(rows, schema).write_csv(self.parameters.results_dir / "coupling_data.csv")
 
     def export_borders_data(self):
         if self.parameters.market == Product.DayAhead:
@@ -227,7 +227,7 @@ class MarketClearingResults:
             # Consider only MFRRActivation
             borders_data = self.create_mfrr_borders_data()
 
-        borders_data.write_csv(self.parameters.get_output_results_dir() / "border.csv")
+        borders_data.write_csv(self.parameters.results_dir / "border.csv")
 
     def create_day_ahead_borders_data(self) -> pl.DataFrame:
         schema = {

@@ -28,7 +28,7 @@ class ExchangesFixing:
         self.build(clearing_local_balances)
         self.model.solve()
         if self.parameters.solver.export_lp:
-            output_path = self.parameters.get_lp_dir()
+            output_path = self.parameters.lp_dir
             output_path.mkdir(parents=True, exist_ok=True)
             self.model.export_model(output_path / "exchanges_fixing_model.lp")
 

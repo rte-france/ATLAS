@@ -17,21 +17,22 @@ from atlas import AtlasDataset, WorkflowParameters
 from atlas.custom_errors import WorkflowJobError
 from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.actionplan.action_plan import ActionPlan
-from atlas.orchestrator.actionplan.job import TaskJobsGenerator, TaskIterationPriority
+from atlas.orchestrator.actionplan.job import TaskIterationPriority, TaskJobsGenerator
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters
 from atlas.orchestrator.workflow.workflow import Workflow
 from tests.test_unit.test_orchestrator.orchestrator_factory import (
-    ConcreteTaskGenerator,
     ConcreteOrchestrator,
     ConcreteOrchestratorParameters,
-    MockOutPutBuilder,
+    ConcreteTaskGenerator,
     MockJobBuilder,
+    MockOutPutBuilder,
     MockTaskBuilder,
     OrchestratorConfigBuilder,
-    generate_step_from_job
+    generate_step_from_job,
 )
 
-class _OrchestratorBuilder():
+
+class _OrchestratorBuilder:
     @staticmethod
     def make_mock_orchestrator(
         tmp_path, jobs: list, yaml_context: str = "", overall_context: ContextParameters | None = None
@@ -45,7 +46,6 @@ class _OrchestratorBuilder():
         orchestrator._jobs = jobs
         return orchestrator
 
-
     @staticmethod
     def make_mock_workflow(
         tmp_path, jobs: list, yaml_context: str = "", overall_context: ContextParameters | None = None
@@ -57,7 +57,6 @@ class _OrchestratorBuilder():
         workflow._steps = [generate_step_from_job(job) for job in jobs]
         workflow._resolved_parameters = [step.parameters.model_copy() for step in jobs]
         return workflow
-
 
     @staticmethod
     def make_mock_action_plan(
@@ -127,7 +126,7 @@ class TestOrchestratorExecute:
 
     def test_execute_raises_if_step_produces_no_output(self, tmp_path, orchestrator_builder):
         job = MockJobBuilder().with_name("bad_job").with_output(None).build()
-        # job.run will set _output_dataset = None (the default)
+        # job.run will set _result = None (the default)
         orchestrator = orchestrator_builder(tmp_path, [job])
         assert orchestrator.jobs_count == 1
 
@@ -167,8 +166,8 @@ class TestOrchestratorExecute:
         output = MockOutPutBuilder().with_change_sets([mock_change_set]).build()
 
         job = MockJobBuilder().with_name("job").with_output(output).build()
-        job._output_dataset = output
-        job.run = lambda ds: None  # run is a no-op; _output_dataset is pre-set
+        job._result = output
+        job.run = lambda ds: None  # run is a no-op; _result is pre-set
 
         orchestrator = orchestrator_builder(tmp_path, [job])
         assert orchestrator.jobs_count == 1
@@ -195,7 +194,7 @@ class TestOrchestratorExecute:
         job2 = MockJobBuilder().with_name("job2").with_output(mock_output).build()
         orchestrator = orchestrator_builder(tmp_path, [job1, job2])
 
-        assert orchestrator.get_output_dataset() is None
+        assert orchestrator.final_result is None
         assert orchestrator.jobs_count == 2
 
         with (
@@ -211,7 +210,7 @@ class TestOrchestratorExecute:
 
             orchestrator.execute()
 
-        result = orchestrator.get_output_dataset()
+        result = orchestrator.final_result
         assert result is not None
         assert result.marker == mock_output.marker
 

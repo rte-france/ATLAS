@@ -38,7 +38,7 @@ The `run()` method executes these standard steps:
 3. **Validate**: Perform data validation (typically timestep consistency checks)
 4. **Execute**: Run the module's core logic
 5. **Validate Results**: Check output validity
-6. **Export**: Update business model objects with results (if `export_result=True`)
+6. **Export**: Update business model objects with results (if `export_results=True`)
 
 Results are stored directly in the business model objects.
 

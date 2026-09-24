@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, TypeVar
 
-from atlas.abstract_class.dataset import AbstractModuleOutput
+from atlas.abstract_class.dataset import ModuleResult
 from atlas.abstract_class.module import AbstractModule
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.io_utils.atlas_dataset import AtlasDataset
@@ -19,7 +19,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 class AbstractJob:
     """
     A job in an orchestrator, responsible for executing a module using provided parameters
-    and producing an output dataset from an input dataset.
+    and producing a result from an input dataset.
     """
 
     def __init__(
@@ -44,31 +44,23 @@ class AbstractJob:
             self.parameters = parameters
         else:
             self.parameters = self.module.import_parameters(parameters)
-        self._output_dataset: AbstractModuleOutput | None = None
+        self._result: ModuleResult | None = None
 
     @property
-    def output_dataset(self) -> AbstractModuleOutput | None:
+    def result(self) -> ModuleResult | None:
         """
-        Output dataset produced after executing the job.
+        Result produced after executing the job.
 
-        :return: An AbstractDataset or None if not yet executed.
+        :return: A ModuleResult, or None if the job has not been executed yet.
         """
-        return self._output_dataset
-
-    def get_output_dataset(self) -> AbstractModuleOutput | None:
-        """
-        Get the output dataset produced by this orchestrator job.
-
-        :return: An AbstractDataset or None if not yet executed.
-        """
-        return self._output_dataset
+        return self._result
 
     def run(self, input_dataset: AtlasDataset) -> None:
         """
         Execute the job's module with the given parameters and input dataset.
-        Stores the resulting dataset as output.
+        Stores the resulting ModuleResult.
         """
-        self._output_dataset = self.module.run(input_dataset, self.parameters)
+        self._result = self.module.run(input_dataset, self.parameters)
 
 
 J = TypeVar("J", bound=AbstractJob)

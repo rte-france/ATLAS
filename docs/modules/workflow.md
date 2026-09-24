@@ -41,7 +41,7 @@ Possible options for these two types are detailed in the following sections.
 | `path_from_workflow` | No | `true` | Resolve relative paths from the workflow file location |
 | `rollback_on_job_failure` | No | `true` | Roll back to the previous step's state if a step fails |
 | `create_job_snapshots` | No | `false` | Save a dataset snapshot before each step |
-| `export_output` | No | `true` | Export the output dataset after each step |
+| `export_final_state` | No | `true` | Serialize the final Current Input State once every step has run |
 
 ### Step Parameters
 
@@ -138,7 +138,7 @@ After execution, access the final output dataset:
 workflow.execute()
 
 # Final dataset after all steps
-result = workflow.get_output_dataset()
+result = workflow.final_result
 
 # Access results from the final dataset
 for order in result.order.all():
@@ -150,7 +150,7 @@ To access the output of a specific step:
 ```python
 # Access individual step results
 for job in workflow.jobs:
-    step_result = job.get_output_dataset()
+    step_result = job.result
     print(f"Step '{job.name}': {len(step_result.order.all())} orders")
 ```
 
