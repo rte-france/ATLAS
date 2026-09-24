@@ -333,8 +333,9 @@ time_window = [start + k * timestep for k in range(24)]
 
 model = OptimisationModel(solver_name=SolverEnum.SCIP, name="unit_dispatch")
 
-# Declare the family once over the horizon; bounds can be constants or functions of time
-power = model.add_temporal_variable("unit_power", time_window, lower_bound=0, upper_bound=max_power.get_value)
+# Declare the family once over the horizon; bounds can be constants, timeseries or functions of time.
+# A timeseries bound is read for the whole window in one lookup: prefer it over max_power.get_value.
+power = model.add_temporal_variable("unit_power", time_window, lower_bound=0, upper_bound=max_power)
 on = model.add_temporal_variable("unit_on", time_window, VariableType.BOOLEAN)
 
 # Initial condition before the horizon: a fixed value, not a solver variable
