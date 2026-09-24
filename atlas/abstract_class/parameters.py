@@ -21,23 +21,17 @@ class AbstractModuleParameters(Parameters):
     :type temporal: DateParameters
     :param export: What the module writes to disk, and the run directory it writes into
     :type export: ExportParameters
-    :param relative_src: Source for the relative path
-    :type relative_src: Path
     """
 
     ConfigDict(arbitrary_types_allowed=True)
 
     temporal: DateParameters
     export: ExportParameters = ExportParameters()
-    relative_src: Path = Path()
-
-    def get_path(self, relative_path: Path) -> Path:
-        return self.relative_src / relative_path
 
     @property
     def run_paths(self) -> RunPaths:
         """Resolved directory layout of the run this module executes in."""
-        return RunPaths(self.get_path(self.export.run_dir))
+        return RunPaths(self.export.run_dir)
 
     @property
     def results_dir(self) -> Path:

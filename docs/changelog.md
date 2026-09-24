@@ -57,6 +57,8 @@ Python API:
 
 `AntaresToAtlasParameters.output_name` is unchanged: it names an Antares study output, which is antares-craft vocabulary, not Atlas vocabulary.
 
+`AbstractModuleParameters.relative_src` and `get_path()` are removed. `relative_src` was never assigned anywhere in Atlas, so `get_path()` was the identity; a module parameter file setting `relative_src` had its run directory silently prefixed by a mechanism nothing else used. Relative run directories are resolved by the orchestrator, through `path_from_orchestrator` and `orchestrator_path`.
+
 ### Orchestrator
 
 - 🧹 Introduced `RunPaths`, which owns the `results/`, `output_dataset/` and `lp_export/` layout of a run directory. On-disk names are unchanged.

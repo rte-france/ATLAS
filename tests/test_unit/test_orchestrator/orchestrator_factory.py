@@ -10,7 +10,7 @@ from pendulum import DateTime, Duration
 from atlas.abstract_class.job import AbstractJob
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
-from atlas.io_utils.parameters import ContextParameters
+from atlas.io_utils.parameters import ContextParameters, ExportParameters
 from atlas.orchestrator.actionplan.job import (
     ModuleTaskJobsGenerator,
     Task,
@@ -86,8 +86,7 @@ class MockModuleParametersBuilder:
         self.temporal.end_date = None
         self.temporal.execution_date = None
         self.temporal.timestep = Duration(minutes=60)
-        self.output = None
-        self.relative_src = None
+        self.export = None
 
     def with_start_date(self, date) -> Self:
         self.temporal.start_date = date
@@ -105,19 +104,13 @@ class MockModuleParametersBuilder:
         self.temporal.timestep = duration
         return self
 
-    def with_output(self, path) -> Self:
-        self.output = path
-        return self
-
-    def with_relative_src(self, path) -> Self:
-        self.relative_src = path
+    def with_export(self, export) -> Self:
+        self.export = export
         return self
 
     def build(self, tmp_path=None):
-        if not self.output and tmp_path is not None:
-            self.output = tmp_path / "output_path"
-        if not self.relative_src and tmp_path is not None:
-            self.relative_src = tmp_path / "relative_src"
+        if not self.export and tmp_path is not None:
+            self.export = ExportParameters(run_dir=tmp_path / "run")
         return copy.copy(self)
 
 
