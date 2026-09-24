@@ -14,7 +14,7 @@ intraday_price_forecast/
 ├── module.py                             # Core module implementation
 ├── parameters.py                         # Configuration parameters
 ├── input_dataset.py                      # Input data aggregation
-├── output_dataset.py                     # Output data aggregation
+├── result.py                     # Output data aggregation
 ├── orchestrator.py                       # Main computation logic
 └── input_objects/                        # Intraday-specific models
     ├── __init__.py
@@ -61,7 +61,7 @@ Converts business models to intraday-specific models:
 
 ### IntradayPriceForecastOutputDataset
 
-Inherits from `AbstractModuleOutput`. Contains:
+Inherits from `ModuleResult`. Contains:
 
 - `market_area`: List of market areas with updated price forecasts
 - `build_change_sets()`: Creates `UpdateObject` change sets for each market area's `id_price_forecast`

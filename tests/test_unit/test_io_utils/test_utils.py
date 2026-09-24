@@ -3,7 +3,7 @@ import pendulum
 import polars as pl
 import pytest
 
-from atlas.io_utils.utils import deep_update, get_metadata_from_file, get_metadata_from_frame, deduplicate_names
+from atlas.io_utils.utils import deduplicate_names, deep_update, get_metadata_from_file, get_metadata_from_frame
 
 
 def test_get_metadata_from_frame_polars():

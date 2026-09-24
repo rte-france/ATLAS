@@ -15,7 +15,7 @@ import pytest
 
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
+from atlas.modules.market_clearing.result import MarketClearingResult
 from atlas.orchestrator.change_set import UpdateObject
 from tests.utils import load_threshold_for_module
 
@@ -39,58 +39,58 @@ class TestOutputShape:
     def test_one_local_balance_per_market_area_and_time(
         self,
         input_dataset: MarketClearingInputDataset,
-        output_dataset: tuple[MarketClearingOutputDataset, float],
+        result: tuple[MarketClearingResult, float],
     ) -> None:
         expected_keys = {(area_name, time) for area_name in input_dataset.market_areas for time in input_dataset.times}
-        assert set(output_dataset[0].local_balances) == expected_keys
+        assert set(result[0].local_balances) == expected_keys
 
     def test_one_market_price_per_market_area_and_time(
         self,
         input_dataset: MarketClearingInputDataset,
-        output_dataset: tuple[MarketClearingOutputDataset, float],
+        result: tuple[MarketClearingResult, float],
     ) -> None:
         expected_keys = {(area_name, time) for area_name in input_dataset.market_areas for time in input_dataset.times}
-        assert set(output_dataset[0].market_prices) == expected_keys
+        assert set(result[0].market_prices) == expected_keys
 
     def test_one_border_exchange_per_border_and_time(
         self,
         input_dataset: MarketClearingInputDataset,
-        output_dataset: tuple[MarketClearingOutputDataset, float],
+        result: tuple[MarketClearingResult, float],
     ) -> None:
         expected_keys = {
             (border_name, time) for border_name in input_dataset.market_borders for time in input_dataset.times
         }
-        assert set(output_dataset[0].border_exchanges) == expected_keys
+        assert set(result[0].border_exchanges) == expected_keys
 
     def test_accepted_powers_reference_known_orders(
         self,
         input_dataset: MarketClearingInputDataset,
-        output_dataset: tuple[MarketClearingOutputDataset, float],
+        result: tuple[MarketClearingResult, float],
     ) -> None:
-        for area_name, order_name in output_dataset[0].accepted_powers:
+        for area_name, order_name in result[0].accepted_powers:
             assert area_name in input_dataset.market_areas
             assert order_name in input_dataset.orders
             assert input_dataset.orders[order_name].market_area.name == area_name
 
 
 class TestOutputValues:
-    def test_all_output_values_are_finite(self, output_dataset: tuple[MarketClearingOutputDataset, float]) -> None:
-        for value in output_dataset[0].local_balances.values():
+    def test_all_output_values_are_finite(self, result: tuple[MarketClearingResult, float]) -> None:
+        for value in result[0].local_balances.values():
             assert _is_finite(value)
-        for value in output_dataset[0].market_prices.values():
+        for value in result[0].market_prices.values():
             assert _is_finite(value)
-        for value in output_dataset[0].border_exchanges.values():
+        for value in result[0].border_exchanges.values():
             assert _is_finite(value)
-        for value in output_dataset[0].accepted_powers.values():
+        for value in result[0].accepted_powers.values():
             assert _is_finite(value)
 
     def test_border_exchanges_respect_capacity_bounds(
         self,
         input_dataset: MarketClearingInputDataset,
-        output_dataset: tuple[MarketClearingOutputDataset, float],
+        result: tuple[MarketClearingResult, float],
     ) -> None:
         tolerance = input_dataset.parameters.allowed_round_off_error
-        for (border_name, time), exchange in output_dataset[0].border_exchanges.items():
+        for (border_name, time), exchange in result[0].border_exchanges.items():
             border = input_dataset.market_borders[border_name]
             assert exchange <= border.max_flow.get_value(time) + tolerance
             assert exchange >= border.min_flow.get_value(time) - tolerance
@@ -98,33 +98,31 @@ class TestOutputValues:
     def test_market_prices_within_area_price_bounds(
         self,
         input_dataset: MarketClearingInputDataset,
-        output_dataset: tuple[MarketClearingOutputDataset, float],
+        result: tuple[MarketClearingResult, float],
     ) -> None:
         tolerance = input_dataset.parameters.allowed_round_off_error
-        for (area_name, time), price in output_dataset[0].market_prices.items():
+        for (area_name, time), price in result[0].market_prices.items():
             market_area = input_dataset.market_areas[area_name]
             assert price <= market_area.max_price.get_value(time) + tolerance
             assert price >= market_area.min_price.get_value(time) - tolerance
 
 
 class TestChangeSets:
-    def test_run_produces_non_empty_change_sets(
-        self, output_dataset: tuple[MarketClearingOutputDataset, float]
-    ) -> None:
-        assert isinstance(output_dataset[0].change_sets, list)
-        assert len(output_dataset[0].change_sets) > 0
+    def test_run_produces_non_empty_change_sets(self, result: tuple[MarketClearingResult, float]) -> None:
+        assert isinstance(result[0].change_sets, list)
+        assert len(result[0].change_sets) > 0
 
     def test_every_equipment_of_the_perimeter_gets_a_da_cleared_quantity(
         self,
         input_dataset: MarketClearingInputDataset,
-        output_dataset: tuple[MarketClearingOutputDataset, float],
+        result: tuple[MarketClearingResult, float],
     ) -> None:
         expected = _perimeter_equipment_names(input_dataset)
         assert expected, "No equipment in the cleared perimeter, test dataset is not relevant anymore"
 
         updated = {
             change_set.data["name"]
-            for change_set in output_dataset[0].change_sets
+            for change_set in result[0].change_sets
             if isinstance(change_set, UpdateObject) and "da_cleared_quantity" in change_set.data
         }
         assert not expected - updated
@@ -132,12 +130,12 @@ class TestChangeSets:
     def test_da_cleared_quantity_covers_the_whole_clearing_horizon(
         self,
         input_dataset: MarketClearingInputDataset,
-        output_dataset: tuple[MarketClearingOutputDataset, float],
+        result: tuple[MarketClearingResult, float],
     ) -> None:
         expected_times = set(input_dataset.times)
         perimeter = _perimeter_equipment_names(input_dataset)
 
-        for change_set in output_dataset[0].change_sets:
+        for change_set in result[0].change_sets:
             if not isinstance(change_set, UpdateObject) or "da_cleared_quantity" not in change_set.data:
                 continue
             if change_set.data["name"] not in perimeter:
@@ -150,16 +148,16 @@ class TestChangeSets:
             )
 
 
-def test_execution_time_within_threshold(output_dataset):
-    _, elapsed = output_dataset
+def test_execution_time_within_threshold(result):
+    _, elapsed = result
     threshold = load_threshold_for_module("MarketClearing")
     if threshold is None:
         pytest.skip("No performance threshold defined for MarketClearing")
     assert elapsed <= threshold, f"MarketClearing took {elapsed:.2f}s, expected <= {threshold}s"
 
 
-def test_execution_time_within_threshold_id(output_dataset_id):
-    _, elapsed = output_dataset_id
+def test_execution_time_within_threshold_id(result_id):
+    _, elapsed = result_id
     threshold = load_threshold_for_module("MarketClearingId")
     if threshold is None:
         pytest.skip("No performance threshold defined for MarketClearingId")

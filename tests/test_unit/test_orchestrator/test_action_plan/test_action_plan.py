@@ -14,22 +14,21 @@ import pytest
 from pendulum import DateTime, Duration
 
 from atlas import Workflow
-from atlas.orchestrator.module_registry import ModuleRegistry
-from tests.test_unit.test_orchestrator.orchestrator_factory import (
-    MockJobBuilder,
-    MockTaskBuilder,
-    ConcreteTaskGenerator,
-    MockModuleBuilder,
-    OrchestratorConfigBuilder,
-    ModuleConfigBuilder,
-)
-
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.actionplan.action_plan import ActionPlan
 from atlas.orchestrator.actionplan.job import ActionPlanJob
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, TaskModule, TaskWorkflow
+from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.timing import build_datetime
+from tests.test_unit.test_orchestrator.orchestrator_factory import (
+    ConcreteTaskGenerator,
+    MockJobBuilder,
+    MockModuleBuilder,
+    MockTaskBuilder,
+    ModuleConfigBuilder,
+    OrchestratorConfigBuilder,
+)
 
 
 class ActionPlanMockFactory:

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from atlas.abstract_class.dataset import AbstractModuleOutput
+from atlas.abstract_class.dataset import ModuleResult
 from atlas.modules.intraday_orders.input_objects.hydro import HydroIDO
 from atlas.modules.intraday_orders.input_objects.load import LoadIDO
 from atlas.modules.intraday_orders.input_objects.other_non_dispatchable import OtherNonDispatchableIDO
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from atlas.modules.intraday_orders.input_dataset import IntradayOrdersInputDataset
 
 
-class IntradayOrdersOutputDataset(AbstractModuleOutput[IntradayOrdersParameters]):
+class IntradayOrdersResult(ModuleResult[IntradayOrdersParameters]):
     def __init__(self, input_dataset: IntradayOrdersInputDataset):
         self.change_sets = []
         self.order: list[Order] = []

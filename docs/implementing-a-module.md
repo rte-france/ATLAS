@@ -11,7 +11,7 @@ atlas/modules/my_module/
     __init__.py
     parameters.py      # Input parameters (Pydantic)
     input_dataset.py   # Data imported from AtlasDataset
-    output_dataset.py  # Results + ChangeSets
+    result.py  # Results + ChangeSets
     module.py          # Core logic
 ```
 
@@ -23,12 +23,12 @@ from atlas.abstract_class.module import AbstractModule
 from atlas.io_utils.atlas_dataset import AtlasDataset
 
 from atlas.modules.my_module.input_dataset import MyModuleInputDataset
-from atlas.modules.my_module.output_dataset import MyModuleOutputDataset
+from atlas.modules.my_module.result import MyModuleResult
 from atlas.modules.my_module.parameters import MyModuleParameters
 
 
 class MyModule(
-    AbstractModule[MyModuleParameters, MyModuleInputDataset, MyModuleOutputDataset]
+    AbstractModule[MyModuleParameters, MyModuleInputDataset, MyModuleResult]
 ):
     def get_parameters_class(self) -> type[MyModuleParameters]:
         return MyModuleParameters
@@ -45,27 +45,27 @@ class MyModule(
 
     def execute(
         self, parameters: MyModuleParameters, input_dataset: MyModuleInputDataset
-    ) -> MyModuleOutputDataset:
-        output = MyModuleOutputDataset(input_dataset)
+    ) -> MyModuleResult:
+        result = MyModuleResult(input_dataset)
 
-        for area in output.market_areas:
+        for area in result.market_areas:
             area.my_result_field = self._compute(area, parameters)
 
-        return output
+        return result
 
     def validates_results(
         self,
         parameters: MyModuleParameters,
         input_dataset: MyModuleInputDataset,
-        output_dataset: MyModuleOutputDataset,
+        result: MyModuleResult,
     ) -> bool:
-        return all(area.my_result_field is not None for area in output_dataset.market_areas)
+        return all(area.my_result_field is not None for area in result.market_areas)
 
     def export_results(
         self,
         parameters: MyModuleParameters,
         input_dataset: MyModuleInputDataset,
-        output_dataset: MyModuleOutputDataset,
+        result: MyModuleResult,
     ) -> None:
         # Write results back to the original business objects when export_results=True.
         # Leave empty if the module only populates ChangeSets.
@@ -135,18 +135,18 @@ add computed properties or restrict the interface of a business object.
 
 ## Step 3 — OutputDataset
 
-Extend `AbstractModuleOutput` and implement `build_change_sets()`.
+Extend `ModuleResult` and implement `build_change_sets()`.
 Change sets tell the orchestrator what was modified so it can propagate results downstream.
 
 ```python
-# output_dataset.py
-from atlas.abstract_class.dataset import AbstractModuleOutput
+# result.py
+from atlas.abstract_class.dataset import ModuleResult
 from atlas.modules.my_module.input_dataset import MyModuleInputDataset
 from atlas.modules.my_module.parameters import MyModuleParameters
 from atlas.orchestrator.change_set import UpdateObject
 
 
-class MyModuleOutputDataset(AbstractModuleOutput[MyModuleParameters]):
+class MyModuleResult(ModuleResult[MyModuleParameters]):
     def __init__(self, input_dataset: MyModuleInputDataset):
         self.market_areas = input_dataset.market_areas  # mutated during execute()
 
@@ -167,7 +167,7 @@ All require a `"name"` key in the data dict.
 
 ## Step 4 — Module
 
-See the full `module.py` at the top of this page. Once `parameters.py`, `input_dataset.py`, and `output_dataset.py` are ready, the module class simply calls them in sequence through the six lifecycle methods.
+See the full `module.py` at the top of this page. Once `parameters.py`, `input_dataset.py`, and `result.py` are ready, the module class simply calls them in sequence through the six lifecycle methods.
 
 ---
 

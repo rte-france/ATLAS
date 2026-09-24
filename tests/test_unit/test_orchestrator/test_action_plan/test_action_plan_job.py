@@ -16,16 +16,18 @@ from atlas import MarketClearingModule, WorkflowParameters
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.orchestrator.actionplan.job import ActionPlanJob, ModuleTaskJobsGenerator, WorkflowTaskJobsGenerator
 from atlas.orchestrator.actionplan.parameters import TaskModule, TaskWorkflow
+from atlas.orchestrator.workflow.workflow import Workflow
 from atlas.timing import build_datetime
-from tests.test_unit.test_orchestrator.orchestrator_factory import ModuleConfigBuilder, generate_step_from_job
 from tests.test_unit.test_orchestrator.orchestrator_factory import (
+    ConcreteTaskGenerator,
+    MockJobBuilder,
     MockModuleBuilder,
     MockModuleParametersBuilder,
     MockTaskBuilder,
-    ConcreteTaskGenerator,
+    ModuleConfigBuilder,
+    OrchestratorConfigBuilder,
+    generate_step_from_job,
 )
-from atlas.orchestrator.workflow.workflow import Workflow
-from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, OrchestratorConfigBuilder
 
 
 class TestTaskIterator:
@@ -348,6 +350,6 @@ class TestTestActionPlanJobRepresentation:
 
     def test_repr_after_execution(self, mc_params):
         job = ActionPlanJob("TestJob", MarketClearingModule, mc_params)
-        job._output_dataset = MagicMock()
+        job._result = MagicMock()
         result = repr(job)
         assert "executed=True" in result

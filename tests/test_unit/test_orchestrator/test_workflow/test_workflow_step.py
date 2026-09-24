@@ -70,6 +70,6 @@ class TestWorkflowJobRepresentation:
 
     def test_repr_after_execution(self, mc_params):
         job = WorkflowJob("TestJob", MarketClearingModule, mc_params)
-        job._output_dataset = MagicMock()
+        job._result = MagicMock()
         result = repr(job)
         assert "executed=True" in result

@@ -9,12 +9,12 @@ Test AbstractModule
 from unittest.mock import Mock
 
 from atlas import BusinessModel
-from atlas.abstract_class.dataset import ID, OD
+from atlas.abstract_class.dataset import ID, R
 from atlas.abstract_class.module import AbstractModule
 from atlas.abstract_class.parameters import P
 
 
-class ModuleTest(AbstractModule[P, ID, OD]):
+class ModuleTest(AbstractModule[P, ID, R]):
     def __init__(self):
         pass
 
@@ -29,14 +29,14 @@ class ModuleTest(AbstractModule[P, ID, OD]):
             return False
         return True
 
-    def execute(self, parameters: P, input_dataset: ID) -> OD:
+    def execute(self, parameters: P, input_dataset: ID) -> R:
         return Mock()
 
     def validates_results(
         self,
         parameters: P,
         input_dataset: ID,
-        output_dataset: OD,
+        result: R,
     ) -> bool:
         if parameters.valid_result:
             return True
@@ -46,7 +46,7 @@ class ModuleTest(AbstractModule[P, ID, OD]):
         self,
         parameters: P,
         input_dataset: ID,
-        output_dataset: OD,
+        result: R,
     ) -> None:
         print("Export of results")
 

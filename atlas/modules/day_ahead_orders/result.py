@@ -5,7 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas.abstract_class.dataset import AbstractModuleOutput
+from atlas.abstract_class.dataset import ModuleResult
 from atlas.enums import ThermalStrategy
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.input_objects.hydro import HydroDAO
@@ -27,7 +27,7 @@ from atlas.objects.equipment.wind import Wind
 from atlas.orchestrator.change_set import AddObject, UpdateObject
 
 
-class DayAheadOrdersOutput(AbstractModuleOutput[DayAheadOrdersParameters]):
+class DayAheadOrdersResult(ModuleResult[DayAheadOrdersParameters]):
     def __init__(self, input_dataset: DayAheadOrdersInputDataset):
         self.parameters: DayAheadOrdersParameters = input_dataset.parameters
 

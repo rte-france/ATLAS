@@ -13,7 +13,7 @@ atlas/modules/day_ahead_orders/
 ├── input_dataset.py                     # Input data structure
 ├── main.py                              # Execution entry point
 ├── module.py                            # The module DayAheadOrdersModule (AbstractModule)
-├── output_dataset.py                    # Output data structure
+├── result.py                    # Output data structure
 ├── orchestrator.py                      # Orchestrates the mains steps of the module execution
 ├── parameters.py                        # Module parameters
 └── input_objects/                       # Equipment-specific models

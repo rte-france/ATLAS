@@ -105,11 +105,10 @@ class TestWorkflowJobInit:
         mock_class.assert_called_once()
         assert ws.module is mock_instance
 
-    def test_output_dataset_is_none_before_run(self):
+    def test_result_is_none_before_run(self):
         mock_class, _ = _make_mock_module_class()
         ws = WorkflowJob("step", mock_class, {})
-        assert ws.output_dataset is None
-        assert ws.get_output_dataset() is None
+        assert ws.result is None
 
 
 class TestWorkflowJobRun:
@@ -122,21 +121,20 @@ class TestWorkflowJobRun:
 
         mock_instance.run.assert_called_once_with(atlas_dataset, ws.parameters)
 
-    def test_run_stores_output_dataset(self, atlas_dataset):
+    def test_run_stores_result(self, atlas_dataset):
         mock_output = MagicMock()
         mock_class, _ = _make_mock_module_class(output=mock_output)
 
         ws = WorkflowJob("step", mock_class, {})
         ws.run(atlas_dataset)
 
-        assert ws.output_dataset is mock_output
-        assert ws.get_output_dataset() is mock_output
+        assert ws.result is mock_output
 
     def test_run_with_none_output_stores_none(self, atlas_dataset):
         mock_class, _ = _make_mock_module_class(output=None)
         ws = WorkflowJob("step", mock_class, {})
         ws.run(atlas_dataset)
-        assert ws.output_dataset is None
+        assert ws.result is None
 
     def test_run_overwrites_previous_output(self, atlas_dataset):
         first_output = MagicMock(name="first")
@@ -147,10 +145,10 @@ class TestWorkflowJobRun:
 
         ws = WorkflowJob("step", mock_class, {})
         ws.run(atlas_dataset)
-        assert ws.output_dataset is first_output
+        assert ws.result is first_output
 
         ws.run(atlas_dataset)
-        assert ws.output_dataset is second_output
+        assert ws.result is second_output
 
     def test_run_propagates_module_exception(self, atlas_dataset):
         mock_class, mock_instance = _make_mock_module_class()
@@ -159,15 +157,6 @@ class TestWorkflowJobRun:
         ws = WorkflowJob("step", mock_class, {})
         with pytest.raises(RuntimeError, match="module crashed"):
             ws.run(atlas_dataset)
-
-    def test_output_dataset_property_and_get_method_are_consistent(self, atlas_dataset):
-        mock_output = MagicMock()
-        mock_class, _ = _make_mock_module_class(output=mock_output)
-
-        ws = WorkflowJob("step", mock_class, {})
-        ws.run(atlas_dataset)
-
-        assert ws.output_dataset is ws.get_output_dataset()
 
 
 class TestWorkflowJobRepresentation:
@@ -189,6 +178,6 @@ class TestWorkflowJobRepresentation:
 
     def test_repr_after_execution(self):
         step = WorkflowJob("TestStep", MarketClearingModule, self._make_mc_params())
-        step._output_dataset = MagicMock()
+        step._result = MagicMock()
         result = repr(step)
         assert "executed=True" in result

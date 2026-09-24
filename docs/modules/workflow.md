@@ -138,7 +138,7 @@ After execution, access the final output dataset:
 workflow.execute()
 
 # Final dataset after all steps
-result = workflow.get_output_dataset()
+result = workflow.final_result
 
 # Access results from the final dataset
 for order in result.order.all():
@@ -150,7 +150,7 @@ To access the output of a specific step:
 ```python
 # Access individual step results
 for job in workflow.jobs:
-    step_result = job.get_output_dataset()
+    step_result = job.result
     print(f"Step '{job.name}': {len(step_result.order.all())} orders")
 ```
 

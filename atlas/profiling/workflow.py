@@ -125,12 +125,12 @@ def _patch_execute_job(orchestrator_cls, state: _State) -> None:
             finally:
                 state.active_job_name = None
 
-            output_dataset = job.output_dataset
-            if not output_dataset:
-                raise RuntimeError(f"{job} did not produce output_dataset")
+            result = job.result
+            if not result:
+                raise RuntimeError(f"{job} did not produce a result")
 
             t0 = time.perf_counter()
-            CISHandler.apply(output_dataset.change_sets, cis, rollback_on_error=self.parameters.rollback_on_job_failure)
+            CISHandler.apply(result.change_sets, cis, rollback_on_error=self.parameters.rollback_on_job_failure)
             apply_s = time.perf_counter() - t0
 
             if job.parameters.export.export_dataset:

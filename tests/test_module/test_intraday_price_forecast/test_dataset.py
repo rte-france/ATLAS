@@ -11,8 +11,8 @@ import pytest
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.intraday_price_forecast.input_dataset import IntradayPriceForecastInputDataset
 from atlas.modules.intraday_price_forecast.module import IntradayPriceForecastModule
-from atlas.modules.intraday_price_forecast.output_dataset import IntradayPriceForecastOutputDataset
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
+from atlas.modules.intraday_price_forecast.result import IntradayPriceForecastResult
 from atlas.timing import generate_datetimes
 
 IDPF_INPUT_DIR = Path("tests/dataset/intraday/intraday_price_forecast_input")
@@ -38,7 +38,7 @@ def idpf_parameters() -> IntradayPriceForecastParameters:
 
 
 @pytest.fixture(scope="module")
-def idpf_output_dataset(idpf_parameters) -> IntradayPriceForecastOutputDataset:
+def idpf_result(idpf_parameters) -> IntradayPriceForecastResult:
     if not IDPF_INPUT_DIR.exists():
         pytest.skip(f"IDPF input dataset not found: {IDPF_INPUT_DIR}")
     input_data = AtlasDataset.from_directory(IDPF_INPUT_DIR)
@@ -53,7 +53,7 @@ def idpf_reference_dataset() -> AtlasDataset:
     return AtlasDataset.from_directory(IDPF_OUTPUT_REFERENCE_DIR)
 
 
-def test_id_price_forecast_matches_reference(idpf_parameters, idpf_output_dataset, idpf_reference_dataset):
+def test_id_price_forecast_matches_reference(idpf_parameters, idpf_result, idpf_reference_dataset):
     """Check that id_price_forecast by market_area matches the output dataset."""
     time_window = generate_datetimes(
         idpf_parameters.temporal.start_date,
@@ -61,7 +61,7 @@ def test_id_price_forecast_matches_reference(idpf_parameters, idpf_output_datase
         idpf_parameters.temporal.timestep,
     )
 
-    for market_area in idpf_output_dataset.market_area:
+    for market_area in idpf_result.market_area:
         assert market_area.id_price_forecast is not None, (
             f"id_price_forecast missing for market area '{market_area.name}'"
         )

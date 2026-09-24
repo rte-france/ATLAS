@@ -26,7 +26,7 @@ class _Orchestrator:
 def _job(export_dataset: bool, run_dir: Path) -> MagicMock:
     job = MagicMock()
     job.name = "my_job"
-    job.output_dataset = MagicMock(change_sets=[])
+    job.result = MagicMock(change_sets=[])
     job.parameters.export.export_dataset = export_dataset
     job.parameters.export.run_dir = run_dir
     return job
@@ -69,7 +69,7 @@ class TestPatchExecuteJob:
         _patch_execute_job(_Orchestrator, state)
 
         job = _job(export_dataset=False, run_dir=Path("run"))
-        job.output_dataset = None
+        job.result = None
 
         with pytest.raises(RuntimeError, match="did not produce"):
             _orchestrator(tmp_path)._execute_job(job, MagicMock())

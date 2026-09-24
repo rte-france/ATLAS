@@ -13,7 +13,7 @@ import pytest
 from atlas.enums import MarketType, SolverStatus
 from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.utils.orchestration import (
-    PortfolioOptimisationResult,
+    SinglePortfolioResult,
     optimise_portfolio_manual_activated,
     optimise_single_portfolio,
     run_parallel,
@@ -23,14 +23,14 @@ from atlas.solver.models import SolutionInfo
 
 
 class TestPortfolioOptimisationResult:
-    """Test suite for PortfolioOptimisationResult dataclass."""
+    """Test suite for SinglePortfolioResult dataclass."""
 
     def test_get_variable_value_existing(self):
         """Test getting value of an existing variable."""
         portfolio = Mock(spec=PortfolioPO)
         portfolio.name = "test_portfolio"
 
-        result = PortfolioOptimisationResult(
+        result = SinglePortfolioResult(
             portfolio=portfolio,
             variable_values={"var1": 10.5, "var2": 20.0},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
@@ -44,7 +44,7 @@ class TestPortfolioOptimisationResult:
         portfolio = Mock(spec=PortfolioPO)
         portfolio.name = "test_portfolio"
 
-        result = PortfolioOptimisationResult(
+        result = SinglePortfolioResult(
             portfolio=portfolio,
             variable_values={"var1": 10.5},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
@@ -57,7 +57,7 @@ class TestPortfolioOptimisationResult:
         portfolio = Mock(spec=PortfolioPO)
         portfolio.name = "test_portfolio"
 
-        result = PortfolioOptimisationResult(
+        result = SinglePortfolioResult(
             portfolio=portfolio,
             variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
@@ -103,7 +103,7 @@ class TestOptimiseSinglePortfolio:
         result = optimise_single_portfolio(mock_portfolio, mock_parameters)
 
         assert result.name == "test_portfolio"
-        assert isinstance(result, PortfolioOptimisationResult)
+        assert isinstance(result, SinglePortfolioResult)
         assert result.portfolio == mock_portfolio
         assert result.variable_values["var1"] == 10.0
         assert result.variable_values["var2"] == 20.0
@@ -130,7 +130,7 @@ class TestOptimiseSinglePortfolio:
         result = optimise_single_portfolio(mock_portfolio, mock_parameters)
 
         assert result.name == "test_portfolio"
-        assert isinstance(result, PortfolioOptimisationResult)
+        assert isinstance(result, SinglePortfolioResult)
         assert result.portfolio == mock_portfolio
         assert result.variable_values == {}
         assert result.solution_info.status == SolverStatus.NOT_SOLVED
@@ -235,12 +235,12 @@ class TestRunSequential:
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.optimise_single_portfolio")
     def test_run_sequential_success(self, mock_optimise, portfolios, mock_parameters):
         """Test run_sequential processes all portfolios successfully."""
-        result1 = PortfolioOptimisationResult(
+        result1 = SinglePortfolioResult(
             portfolio=portfolios[0],
             variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
         )
-        result2 = PortfolioOptimisationResult(
+        result2 = SinglePortfolioResult(
             portfolio=portfolios[1],
             variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
@@ -258,7 +258,7 @@ class TestRunSequential:
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.optimise_single_portfolio")
     def test_run_sequential_propagates_errors(self, mock_optimise, portfolios, mock_parameters):
         """A failing portfolio raises instead of silently shrinking the result list."""
-        result1 = PortfolioOptimisationResult(
+        result1 = SinglePortfolioResult(
             portfolio=portfolios[0],
             variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
@@ -297,12 +297,12 @@ class TestRunParallel:
         mock_executor = MagicMock()
         mock_executor_class.return_value.__enter__.return_value = mock_executor
 
-        result1 = PortfolioOptimisationResult(
+        result1 = SinglePortfolioResult(
             portfolio=portfolios[0],
             variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
         )
-        result2 = PortfolioOptimisationResult(
+        result2 = SinglePortfolioResult(
             portfolio=portfolios[1],
             variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
@@ -331,7 +331,7 @@ class TestRunParallel:
         mock_executor = MagicMock()
         mock_executor_class.return_value.__enter__.return_value = mock_executor
 
-        result1 = PortfolioOptimisationResult(
+        result1 = SinglePortfolioResult(
             portfolio=portfolios[0],
             variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
@@ -372,7 +372,7 @@ class TestOptimisePortfolioManualActivated:
         result = optimise_portfolio_manual_activated(portfolio, mock_parameters)
 
         # Assertions
-        assert isinstance(result, PortfolioOptimisationResult)
+        assert isinstance(result, SinglePortfolioResult)
         assert result.portfolio == portfolio
         assert result.variable_values == {}
         assert result.solution_info is None

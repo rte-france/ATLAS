@@ -44,7 +44,7 @@ DA_PARAMETERS_FILE = Path("tests/dataset/parameters/day_ahead/portfolio_optimisa
 
 
 def _run_po(input_dir: Path, params_file: Path, tmp_output: str):
-    """Run the PO module and return (output_dataset, parameters)."""
+    """Run the PO module and return (result, parameters)."""
     if not input_dir.exists():
         pytest.skip(f"Input dataset not found: {input_dir}")
 
@@ -56,17 +56,17 @@ def _run_po(input_dir: Path, params_file: Path, tmp_output: str):
     input_data = AtlasDataset.from_directory(input_dir)
 
     try:
-        output_dataset = PortfolioOptimisationModule().run(input_data, params_dict)
+        result = PortfolioOptimisationModule().run(input_data, params_dict)
     except Exception as e:
         pytest.fail(f"Portfolio optimisation failed: {e}")
 
-    return output_dataset, params
+    return result, params
 
 
-def _collect_thermal_base(output_dataset, params):
+def _collect_thermal_base(result, params):
     """Return list of (thermal, params) for manually activated thermal Base units."""
     results = []
-    for result in output_dataset.optimisation_results:
+    for result in result.optimisation_results:
         if result.is_manual_activation:
             for thermal in result.portfolio.equipments.thermal:
                 if thermal.strategy == ThermalStrategy.BASE:

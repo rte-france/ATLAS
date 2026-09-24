@@ -8,18 +8,16 @@ from atlas.abstract_class.module import AbstractModule
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.market_clearing.data_classes import ClearingOutputs
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases.clearing import Clearing
 from atlas.modules.market_clearing.phases.exchanges_fixing import ExchangesFixing
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
 from atlas.modules.market_clearing.phases.market_clearing_results import MarketClearingResults
 from atlas.modules.market_clearing.phases.pricing import Pricing
+from atlas.modules.market_clearing.result import MarketClearingResult
 
 
-class MarketClearingModule(
-    AbstractModule[MarketClearingParameters, MarketClearingInputDataset, MarketClearingOutputDataset]
-):
+class MarketClearingModule(AbstractModule[MarketClearingParameters, MarketClearingInputDataset, MarketClearingResult]):
     """The Market Clearing prototype, resulting from a merge of TERRE and Optimate's Market Coupling module, deals with
     the clearing of short-term markets of electricity at the European scale.
     """
@@ -37,7 +35,7 @@ class MarketClearingModule(
 
     def execute(
         self, parameters: MarketClearingParameters, input_dataset: MarketClearingInputDataset
-    ) -> MarketClearingOutputDataset:
+    ) -> MarketClearingResult:
         clearing = Clearing(input_dataset, parameters)
         clearing.compute()
         saturated_critical_branches = clearing.get_saturated_critical_branch()
@@ -65,15 +63,15 @@ class MarketClearingModule(
         marginal_fixing = MarginalFixing(input_dataset, parameters)
         marginal_fixing.compute(accepted_powers, market_prices)
 
-        market_clearing_output_dataset = MarketClearingOutputDataset(input_dataset, clearing_outputs, market_prices)
+        result = MarketClearingResult(input_dataset, clearing_outputs, market_prices)
 
-        return market_clearing_output_dataset
+        return result
 
     def validates_results(
         self,
         parameters: MarketClearingParameters,
         input_dataset: MarketClearingInputDataset,
-        output_dataset: MarketClearingOutputDataset,
+        result: MarketClearingResult,
     ) -> bool:
         return True
 
@@ -81,9 +79,9 @@ class MarketClearingModule(
         self,
         parameters: MarketClearingParameters,
         input_dataset: MarketClearingInputDataset,
-        output_dataset: MarketClearingOutputDataset,
+        result: MarketClearingResult,
     ) -> None:
         if parameters.export.export_results:
-            market_clearing_result = MarketClearingResults(input_dataset, parameters, output_dataset.accepted_powers)
+            market_clearing_result = MarketClearingResults(input_dataset, parameters, result.accepted_powers)
             market_clearing_result.compute()
         return

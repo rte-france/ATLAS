@@ -9,7 +9,7 @@ linked-bids and parent-child sets the pricing phase needs.
 Extracted from Pricing per ATLAS-296 (PR-5, step 1). The algorithms are unchanged; only the
 bookkeeping changed. Previously, resolving these couplings wrote full_link_id, full_pc_id,
 child_id and circular_pc_id directly onto the shared OrderMC instances (read by Clearing,
-ExchangesFixing, output_dataset.py, ...), coupling every phase to Pricing's internal resolution
+ExchangesFixing, result.py, ...), coupling every phase to Pricing's internal resolution
 order through those side effects. This module keeps that bookkeeping local to one
 OrderLinkResolver instance and returns it as part of an immutable OrderLinks result instead.
 """

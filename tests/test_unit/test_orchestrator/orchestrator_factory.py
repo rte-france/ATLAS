@@ -5,16 +5,16 @@ from typing import Self
 from unittest.mock import MagicMock
 
 import yaml
-from pendulum import Duration, DateTime
+from pendulum import DateTime, Duration
 
 from atlas.abstract_class.job import AbstractJob
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.actionplan.job import (
+    ModuleTaskJobsGenerator,
     Task,
     TaskJobsGenerator,
-    ModuleTaskJobsGenerator,
     WorkflowTaskJobsGenerator,
 )
 from atlas.orchestrator.workflow.parameters import Step
