@@ -41,7 +41,7 @@ Possible options for these two types are detailed in the following sections.
 | `path_from_workflow` | No | `true` | Resolve relative paths from the workflow file location |
 | `rollback_on_job_failure` | No | `true` | Roll back to the previous step's state if a step fails |
 | `create_job_snapshots` | No | `false` | Save a dataset snapshot before each step |
-| `export_output` | No | `true` | Export the output dataset after each step |
+| `export_final_state` | No | `true` | Serialize the final Current Input State once every step has run |
 
 ### Step Parameters
 

@@ -140,9 +140,9 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
         if last_executed_job is not None:
             self.final_dataset = last_executed_job.output_dataset
 
-        if self.parameters.export_output:
+        if self.parameters.export_final_state:
             logger.info(
-                f"Exporting final {self.__class__.__name__.lower()} output to {self.parameters.resolve_path(self.parameters.output_dir)}"
+                f"Exporting final {self.__class__.__name__.lower()} state to {self.parameters.resolve_path(self.parameters.output_dir)}"
             )
             cis.to_directory(
                 self.parameters.resolve_path(self.parameters.output_dir) / f"{self.__class__.__name__.lower()}_output"
