@@ -38,20 +38,25 @@ class TemporalVariable:
     Solver variables are named ``{name}_{t}``. The object holds references to the solver and
     therefore cannot be pickled: use :meth:`solution` to get a picklable result.
 
+    Do not instantiate directly: use :meth:`~atlas.solver.solver_interface.OptimisationModel.add_temporal_variable`,
+    which registers the family in the model.
+
     **Example**
 
-        power = TemporalVariable(model, "unit_power", lower_bound=0, upper_bound=max_power.get_value)
+        power = model.add_temporal_variable("unit_power", time_window, lower_bound=0, upper_bound=max_power.get_value)
         power.fix(start - timestep, 50.0)          # initial condition
-        power.add_all(time_window)                 # one solver variable per timestamp
+        power.add(end)                             # one more solver variable
         for t in time_window:
             model.add_constraint(power[t] - power[t - timestep] <= ramp, f"ramp_{t}")
         model.solve()
-        power.solution()                           # Timeseries over time_window
+        power.solution()                           # Timeseries over the solver variables
 
     :param model: Optimisation model in which variables are created
     :type model: OptimisationModel
     :param name: Name of the family, used as prefix of each solver variable name
     :type name: str
+    :param times: Timestamps for which solver variables are created immediately
+    :type times: Iterable[DateTime] | None
     :param variable_type: Type of the solver variables, defaults to continuous
     :type variable_type: VariableType
     :param lower_bound: Lower bound, either a constant or a function of time. Defaults to the
@@ -60,8 +65,6 @@ class TemporalVariable:
     :param upper_bound: Upper bound, either a constant or a function of time. Defaults to the
         model default for the variable type. Not allowed for boolean variables.
     :type upper_bound: float | Callable[[DateTime], float] | None
-    :param times: Timestamps for which solver variables are created immediately
-    :type times: Iterable[DateTime] | None
     :raises ValueError: If bounds are given for a boolean variable
     """
 
@@ -69,10 +72,10 @@ class TemporalVariable:
         self,
         model: OptimisationModel,
         name: str,
+        times: Iterable[DateTime] | None = None,
         variable_type: VariableType = VariableType.CONTINUOUS,
         lower_bound: Bound | None = None,
         upper_bound: Bound | None = None,
-        times: Iterable[DateTime] | None = None,
     ) -> None:
         if variable_type == VariableType.BOOLEAN and (lower_bound is not None or upper_bound is not None):
             raise ValueError(f"Boolean temporal variable '{name}' does not accept bounds")

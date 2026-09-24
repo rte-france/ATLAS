@@ -28,7 +28,7 @@ def model() -> OptimisationModel:
 
 class TestDeclaration:
     def test_starts_empty(self, model):
-        var = TemporalVariable(model, "power")
+        var = model.add_temporal_variable("power")
 
         assert var.name == "power"
         assert var.variable_type == VariableType.CONTINUOUS
@@ -37,7 +37,7 @@ class TestDeclaration:
         assert model.variables == set()
 
     def test_times_creates_variables_at_declaration(self, model):
-        var = TemporalVariable(model, "power", times=TIMES)
+        var = model.add_temporal_variable("power", times=TIMES)
 
         assert var.model_times == TIMES
         assert model.variables == {f"power_{t}" for t in TIMES}
@@ -45,12 +45,12 @@ class TestDeclaration:
     @pytest.mark.parametrize("bounds", [{"lower_bound": 0}, {"upper_bound": 1}])
     def test_boolean_rejects_bounds(self, model, bounds):
         with pytest.raises(ValueError, match="does not accept bounds"):
-            TemporalVariable(model, "on", VariableType.BOOLEAN, **bounds)
+            model.add_temporal_variable("on", variable_type=VariableType.BOOLEAN, **bounds)
 
 
 class TestAdd:
     def test_add_returns_named_solver_variable(self, model):
-        var = TemporalVariable(model, "power")
+        var = model.add_temporal_variable("power")
 
         created = var.add(START)
 
@@ -59,7 +59,7 @@ class TestAdd:
         assert model.get_variable(f"power_{START}").index() == created.index()
 
     def test_constant_bounds(self, model):
-        var = TemporalVariable(model, "power", lower_bound=-5, upper_bound=10)
+        var = model.add_temporal_variable("power", lower_bound=-5, upper_bound=10)
 
         created = var.add(START)
 
@@ -67,15 +67,15 @@ class TestAdd:
 
     def test_time_dependent_bounds_are_evaluated_at_t(self, model):
         max_power = {t: 10.0 * (k + 1) for k, t in enumerate(TIMES)}
-        var = TemporalVariable(model, "power", lower_bound=0, upper_bound=max_power.__getitem__)
+        var = model.add_temporal_variable("power", lower_bound=0, upper_bound=max_power.__getitem__)
 
         var.add_all(TIMES)
 
         assert [var[t].ub() for t in TIMES] == [10.0, 20.0, 30.0]
 
     def test_default_bounds_follow_model_defaults(self, model):
-        continuous = TemporalVariable(model, "power").add(START)
-        integer = TemporalVariable(model, "units", VariableType.INTEGER).add(START)
+        continuous = model.add_temporal_variable("power").add(START)
+        integer = model.add_temporal_variable("units", variable_type=VariableType.INTEGER).add(START)
 
         assert (continuous.lb(), continuous.ub()) == (float("-inf"), float("inf"))
         assert (integer.lb(), integer.ub()) == (0, float("inf"))
@@ -85,24 +85,24 @@ class TestAdd:
         [(VariableType.CONTINUOUS, False), (VariableType.INTEGER, True), (VariableType.BOOLEAN, True)],
     )
     def test_variable_type(self, model, variable_type, is_integer):
-        created = TemporalVariable(model, "x", variable_type).add(START)
+        created = model.add_temporal_variable("x", variable_type=variable_type).add(START)
 
         assert created.integer() is is_integer
 
     def test_boolean_is_binary(self, model):
-        created = TemporalVariable(model, "on", VariableType.BOOLEAN).add(START)
+        created = model.add_temporal_variable("on", variable_type=VariableType.BOOLEAN).add(START)
 
         assert (created.lb(), created.ub()) == (0, 1)
 
     def test_add_twice_raises(self, model):
-        var = TemporalVariable(model, "power")
+        var = model.add_temporal_variable("power")
         var.add(START)
 
         with pytest.raises(ValueError, match="already holds a solver variable"):
             var.add(START)
 
     def test_add_on_fixed_raises(self, model):
-        var = TemporalVariable(model, "power")
+        var = model.add_temporal_variable("power")
         var.fix(START, 1.0)
 
         with pytest.raises(ValueError, match="already holds a fixed value"):
@@ -111,7 +111,7 @@ class TestAdd:
 
 class TestFix:
     def test_fix_returns_value_without_creating_variable(self, model):
-        var = TemporalVariable(model, "power")
+        var = model.add_temporal_variable("power")
 
         var.fix(START, 42.0)
 
@@ -120,14 +120,14 @@ class TestFix:
         assert model.variables == set()
 
     def test_fix_on_variable_raises(self, model):
-        var = TemporalVariable(model, "power")
+        var = model.add_temporal_variable("power")
         var.add(START)
 
         with pytest.raises(ValueError, match="already holds a solver variable"):
             var.fix(START, 1.0)
 
     def test_fix_twice_raises(self, model):
-        var = TemporalVariable(model, "power")
+        var = model.add_temporal_variable("power")
         var.fix(START, 1.0)
 
         with pytest.raises(ValueError, match="already holds a fixed value"):
@@ -136,13 +136,13 @@ class TestFix:
 
 class TestAccess:
     def test_missing_timestamp_raises_key_error(self, model):
-        var = TemporalVariable(model, "power")
+        var = model.add_temporal_variable("power")
 
         with pytest.raises(KeyError, match=re.escape(f"'power' is not defined at {START}")):
             var[START]
 
     def test_contains_and_len(self, model):
-        var = TemporalVariable(model, "power")
+        var = model.add_temporal_variable("power")
         before = START - TIMESTEP
         var.fix(before, 0.0)
         var.add(START)
@@ -153,7 +153,7 @@ class TestAccess:
         assert len(var) == 2
 
     def test_times_are_sorted_and_split(self, model):
-        var = TemporalVariable(model, "power")
+        var = model.add_temporal_variable("power")
         before = START - TIMESTEP
         var.add_all(reversed(TIMES))
         var.fix(before, 0.0)
@@ -164,7 +164,7 @@ class TestAccess:
 
     def test_previous_timestamp_mixes_fixed_and_variable(self, model):
         """A ramp constraint reads the fixed value before the horizon and variables inside it."""
-        var = TemporalVariable(model, "power", lower_bound=0, upper_bound=100)
+        var = model.add_temporal_variable("power", lower_bound=0, upper_bound=100)
         var.fix(START - TIMESTEP, 50.0)
         var.add_all(TIMES)
         for t in TIMES:
@@ -179,7 +179,7 @@ class TestAccess:
 class TestSolution:
     @pytest.fixture
     def solved(self, model) -> TemporalVariable:
-        var = TemporalVariable(model, "power", lower_bound=0, upper_bound=lambda t: 10.0 * t.hour)
+        var = model.add_temporal_variable("power", lower_bound=0, upper_bound=lambda t: 10.0 * t.hour)
         var.fix(START - TIMESTEP, 5.0)
         var.add_all(TIMES)
         model.set_direction("maximize")
@@ -188,20 +188,20 @@ class TestSolution:
         return var
 
     def test_solution_value_before_solve_raises(self, model):
-        var = TemporalVariable(model, "power")
+        var = model.add_temporal_variable("power")
         var.add(START)
 
         with pytest.raises(RuntimeError, match="not been solved"):
             var.solution_value(START)
 
     def test_solution_value_of_fixed_does_not_need_solve(self, model):
-        var = TemporalVariable(model, "power")
+        var = model.add_temporal_variable("power")
         var.fix(START, 3.0)
 
         assert var.solution_value(START) == 3.0
 
     def test_solution_before_solve_raises(self, model):
-        var = TemporalVariable(model, "power", times=TIMES)
+        var = model.add_temporal_variable("power", times=TIMES)
 
         with pytest.raises(RuntimeError, match="not been solved"):
             var.solution()
@@ -220,7 +220,7 @@ class TestSolution:
         assert solution.values == pytest.approx([5.0, 0.0, 10.0, 20.0])
 
     def test_solution_without_variables_raises(self, model):
-        var = TemporalVariable(model, "power")
+        var = model.add_temporal_variable("power")
         model.set_direction("minimize")
         model.solve()
 
@@ -235,14 +235,14 @@ class TestSolution:
 
 class TestPickling:
     def test_pickling_is_forbidden(self, model):
-        var = TemporalVariable(model, "power", times=TIMES)
+        var = model.add_temporal_variable("power", times=TIMES)
 
         with pytest.raises(TypeError, match="cannot be pickled, use solution"):
             pickle.dumps(var)
 
 
 def test_repr(model):
-    var = TemporalVariable(model, "on", VariableType.BOOLEAN, times=TIMES)
+    var = model.add_temporal_variable("on", variable_type=VariableType.BOOLEAN, times=TIMES)
     var.fix(START - TIMESTEP, 0)
 
     assert repr(var) == "TemporalVariable(name=on, type=boolean, variables=3, fixed=1)"
