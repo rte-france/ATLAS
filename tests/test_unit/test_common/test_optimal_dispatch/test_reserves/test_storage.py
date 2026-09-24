@@ -134,7 +134,7 @@ class TestStorageReserveHandlerCapacitySolved:
         assert model.solve().status == SolverStatus.OPTIMAL
 
         # floor = min_soc * max_energy + up * 2 h + automated_up * 0.5 h = 50 + 8 + 3
-        assert stored_energy.solution_value() == pytest.approx(61.0)
+        assert model.get_variable_value("stored_energy") == pytest.approx(61.0)
 
     def test_max_storage_level_accounts_for_down_reserves(self, handler, model, time):
         self._pin_reserves(handler, model, time, up=0.0, automated_up=0.0, down=4.0, automated_down=6.0)
@@ -149,4 +149,4 @@ class TestStorageReserveHandlerCapacitySolved:
         assert model.solve().status == SolverStatus.OPTIMAL
 
         # ceiling = max_energy - (down * 2 h + automated_down * 0.5 h) = 500 - 11
-        assert stored_energy.solution_value() == pytest.approx(489.0)
+        assert model.get_variable_value("stored_energy") == pytest.approx(489.0)
