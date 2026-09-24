@@ -109,8 +109,8 @@ def get_maximum_power(
         capacity_mod = thermal.get_prepro_modulation_matrix()[2].reset_index(drop=True)  # 8760 hourly
         prepro = thermal.get_prepro_data_matrix()
         # FO/PO rates are daily (365 rows) — expand to hourly by repeating each day 24 times
-        fo_rate = prepro[parameters.output.FORate].repeat(24).reset_index(drop=True)
-        po_rate = prepro[parameters.output.PORate].repeat(24).reset_index(drop=True)
+        fo_rate = prepro[parameters.columns.FORate].repeat(24).reset_index(drop=True)
+        po_rate = prepro[parameters.columns.PORate].repeat(24).reset_index(drop=True)
         # Align lengths to modulation series length
         n = len(capacity_mod)
         fo_rate = fo_rate.iloc[:n]
