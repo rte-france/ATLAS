@@ -65,8 +65,8 @@ def run_module_cmd(
             params = cast(AbstractModuleParameters, module_class().get_parameters_class()).from_file(parameters_path)
             result = ModuleRun(module_class, dataset_path, params).run()
 
-            if params.output.export_output_dataset:
-                CurrentInputState(result).to_directory(params.get_output_dataset_dir())
+            if params.export.export_dataset:
+                CurrentInputState(result).to_directory(params.dataset_dir)
 
         logger.info(f"Module '{module_name}' completed in {t()} seconds")
         rprint(f"[bold green]✓[/bold green] Module '{module_name}' completed successfully.")

@@ -10,7 +10,7 @@ from atlas.abstract_class.job import AbstractJob
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.config import logger
 from atlas.custom_errors import WorkflowJobError
-from atlas.io_utils.parameters import ContextParameters
+from atlas.io_utils.parameters import ContextParameters, RunPaths
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.timing import timer
@@ -186,5 +186,5 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
         # CISHandler will use transaction internally based on rollback_on_job_failure parameter
         CISHandler.apply(output_dataset.change_sets, cis, rollback_on_error=self.parameters.rollback_on_job_failure)
 
-        if job.parameters.output.export_output_dataset:
-            cis.to_directory(self.parameters.resolve_path(job.parameters.output.output_dir) / "output_dataset")
+        if job.parameters.export.export_dataset:
+            cis.to_directory(RunPaths(self.parameters.resolve_path(job.parameters.export.run_dir)).dataset)

@@ -22,7 +22,7 @@ class TestStep:
     @pytest.fixture
     def params_file(self, tmp_path):
         params_file = tmp_path / "params.yaml"
-        params_file.write_text("export_result: false\n")
+        params_file.write_text("export_results: false\n")
         return params_file
 
     def test_step_coerces_string_module(self, tmp_path, params_file):

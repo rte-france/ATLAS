@@ -83,7 +83,7 @@ class MarketClearingModule(
         input_dataset: MarketClearingInputDataset,
         output_dataset: MarketClearingOutputDataset,
     ) -> None:
-        if parameters.output.export_result:
+        if parameters.export.export_results:
             market_clearing_result = MarketClearingResults(input_dataset, parameters, output_dataset.accepted_powers)
             market_clearing_result.compute()
         return

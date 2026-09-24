@@ -51,7 +51,7 @@ def _run_po(input_dir: Path, params_file: Path, tmp_output: str):
     with open(params_file) as f:
         params_dict = yaml.safe_load(f)
 
-    params_dict["output"] = {"output_dir": tmp_output}
+    params_dict["export"] = {"run_dir": tmp_output}
     params = PortfolioOptimisationParameters(**params_dict)
     input_data = AtlasDataset.from_directory(input_dir)
 

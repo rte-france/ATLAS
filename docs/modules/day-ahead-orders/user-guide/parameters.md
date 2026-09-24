@@ -62,9 +62,9 @@ solver:
   solver_name: "SCIP"
   use_presolve: true
   export_lp: true
-output:
-  export_result: true
-  export_output_dataset: true
+export:
+  export_results: true
+  export_dataset: true
 multiprocessing:
   enable: true
   max_workers: 4

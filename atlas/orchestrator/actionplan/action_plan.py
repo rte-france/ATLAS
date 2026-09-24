@@ -60,7 +60,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
                 f"Trying to add task {task} which is concurrent to existing tasks in Action plan {self.parameters.name}."
             )
 
-        root_output_dir = self.parameters.resolve_path(self.parameters.output_dir) / task.name
+        root_run_dir = self.parameters.resolve_path(self.parameters.output_dir) / task.name
 
         _TASK_ADDER = {
             TaskModule: self._add_task_module,
@@ -71,14 +71,14 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         if task_adder is None:
             raise ValueError(f"Unknown type {type(task)} when adding {task} to Action Plan {self}")
 
-        task_adder(task, root_output_dir)
+        task_adder(task, root_run_dir)
 
-    def _add_task_module(self, task: TaskModule, root_output_dir: Path):
+    def _add_task_module(self, task: TaskModule, root_run_dir: Path):
         """Add a task, that run a module, and the iteration progress on it to the action plan
         :param task: task that run a module
         :type task: TaskModule
-        :param root_output_dir: path to the root output directory used for the task
-        :type root_output_dir: Path
+        :param root_run_dir: path to the root output directory used for the task
+        :type root_run_dir: Path
         """
         if isinstance(task.parameters, (str, Path)):
             path = task.parameters if isinstance(task.parameters, Path) else Path(task.parameters)
@@ -94,15 +94,15 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         else:
             task_parameters = self.parameters.context.apply_on_parameters(task.parameters)
 
-        task_generator = ModuleTaskJobsGenerator(task, task_parameters, root_output_dir)
+        task_generator = ModuleTaskJobsGenerator(task, task_parameters, root_run_dir)
         self._task_job_generators.append(task_generator)
 
-    def _add_task_workflow(self, task: TaskWorkflow, root_output_dir: Path):
+    def _add_task_workflow(self, task: TaskWorkflow, root_run_dir: Path):
         """Add a task, that run a workflow, to the action plan
         :param task: task that run a workflow
         :type task: TaskWorkflow
-        :param root_output_dir: path to the root output directory used for the task
-        :type root_output_dir: Path
+        :param root_run_dir: path to the root output directory used for the task
+        :type root_run_dir: Path
         """
         if isinstance(task.workflow, (str, Path)):
             task_parameters = WorkflowParameters.from_file(
@@ -113,7 +113,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         else:
             task_parameters = self.parameters.context.apply_on_parameters(task.workflow.parameters)
 
-        workflow_iterator = WorkflowTaskJobsGenerator(task, task_parameters, root_output_dir)
+        workflow_iterator = WorkflowTaskJobsGenerator(task, task_parameters, root_run_dir)
         self._task_job_generators.append(workflow_iterator)
 
     @property

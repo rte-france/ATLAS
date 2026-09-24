@@ -166,7 +166,7 @@ class TestOptimiseSinglePortfolio:
     def test_lp_export_when_enabled(self, mock_model_class, mock_parameters):
         """Test that LP files are exported when export_lp is True."""
         mock_parameters.solver.export_lp = True
-        mock_parameters.get_lp_dir.return_value = Path("tmp/lp_export")
+        mock_parameters.lp_dir = Path("tmp/lp_export")
 
         test_portfolio = Mock(spec=PortfolioPO)
         test_portfolio.name = "test_portfolio"
@@ -187,7 +187,7 @@ class TestOptimiseSinglePortfolio:
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.PortfolioOptimisationModel")
     def test_lp_export_when_disabled(self, mock_model_class, mock_portfolio, mock_parameters):
         """Test that LP files are not exported when export_lp is False."""
-        mock_parameters.output.output_dir = Path("tmp")
+        mock_parameters.lp_dir = Path("tmp/lp_export")
         mock_parameters.solver.export_lp = False
 
         mock_portfolio.equipments = Mock()

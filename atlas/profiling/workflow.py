@@ -15,6 +15,7 @@ from pathlib import Path
 
 from atlas import OptimisationModel, Workflow
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
+from atlas.io_utils.parameters import RunPaths
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 
@@ -132,9 +133,9 @@ def _patch_execute_job(orchestrator_cls, state: _State) -> None:
             CISHandler.apply(output_dataset.change_sets, cis, rollback_on_error=self.parameters.rollback_on_job_failure)
             apply_s = time.perf_counter() - t0
 
-            if job.parameters.output.export_output_dataset:
+            if job.parameters.export.export_dataset:
                 t0 = time.perf_counter()
-                cis.to_directory(self.parameters.resolve_path(job.parameters.output.output_dir) / "output_dataset")
+                cis.to_directory(RunPaths(self.parameters.resolve_path(job.parameters.export.run_dir)).dataset)
                 export_s = time.perf_counter() - t0
 
         except Exception as e:

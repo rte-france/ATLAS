@@ -90,10 +90,8 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
             contextualized_parameters = self.context.apply_on_parameters(step.parameters)
         else:
             contextualized_parameters = step.parameters
-        step_output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
-        return contextualized_parameters.evolve(
-            output=contextualized_parameters.output.evolve(output_dir=step_output_dir)
-        )
+        step_run_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
+        return contextualized_parameters.evolve(export=contextualized_parameters.export.evolve(run_dir=step_run_dir))
 
     @property
     def context(self):

@@ -109,6 +109,7 @@ def test_deep_update():
     assert x == {"t": {"a": -1, "b": 2, "c": -3}}
     assert y == {"t": {"a": 1, "c": 3}}
 
+
 class TestDeduplicateNames:
     def test_empty_list_returns_empty_list(self):
         assert deduplicate_names([]) == []
@@ -153,7 +154,6 @@ class TestDeduplicateNames:
 
     def test_accepts_any_sequence_not_just_list(self):
         assert deduplicate_names(("job_test", "job_test")) == ["job_test_1", "job_test_2"]
-
 
     def test_two_duplicates_get_suffixed_in_order(self):
         names = ["job_test", "job_test"]

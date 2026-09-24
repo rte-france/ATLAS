@@ -56,8 +56,8 @@ def generated_lp_files():
             "electric_vehicle_nb_fragments": 3,
             "pumped_hydraulic_nb_fragments": 3,
             "price_forecasts_types": ["Medium", "High", "Low"],
-            "output": {
-                "output_dir": tmpdir,
+            "export": {
+                "run_dir": tmpdir,
             },
         }
 

@@ -15,7 +15,14 @@ from pendulum import DateTime, Duration
 
 from atlas import Workflow
 from atlas.orchestrator.module_registry import ModuleRegistry
-from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, MockTaskBuilder, ConcreteTaskGenerator, MockModuleBuilder, OrchestratorConfigBuilder, ModuleConfigBuilder
+from tests.test_unit.test_orchestrator.orchestrator_factory import (
+    MockJobBuilder,
+    MockTaskBuilder,
+    ConcreteTaskGenerator,
+    MockModuleBuilder,
+    OrchestratorConfigBuilder,
+    ModuleConfigBuilder,
+)
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import ContextParameters
@@ -77,14 +84,14 @@ class TestActionPlanAddTask:
     def test_add_task_module(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
         task = TaskModule(
-                module="PortfolioOptimisation",
-                parameters=ModuleConfigBuilder().build(tmp_path),
-                priority=1,
-                from_=DateTime(2000, 1, 1),
-                until=DateTime(2000, 1, 1),
-                frequency=Duration(days=1),
-                offset_start_date=Duration(days=1),
-                offset_end_date=Duration(days=2),
+            module="PortfolioOptimisation",
+            parameters=ModuleConfigBuilder().build(tmp_path),
+            priority=1,
+            from_=DateTime(2000, 1, 1),
+            until=DateTime(2000, 1, 1),
+            frequency=Duration(days=1),
+            offset_start_date=Duration(days=1),
+            offset_end_date=Duration(days=2),
         )
         ap.add_task(task)
         assert len(ap._task_job_generators) == 1
@@ -95,13 +102,13 @@ class TestActionPlanAddTask:
         workflow_config = OrchestratorConfigBuilder().build_workflow_config(tmp_path)
         workflow = Workflow.from_file(workflow_config)
         task = TaskWorkflow(
-                workflow=workflow,
-                priority=1,
-                from_=DateTime(2000, 1, 1),
-                until=DateTime(2000, 1, 1),
-                frequency=Duration(days=1),
-                offset_start_date=Duration(days=1),
-                offset_end_date=Duration(days=2),
+            workflow=workflow,
+            priority=1,
+            from_=DateTime(2000, 1, 1),
+            until=DateTime(2000, 1, 1),
+            frequency=Duration(days=1),
+            offset_start_date=Duration(days=1),
+            offset_end_date=Duration(days=2),
         )
         ap.add_task(task)
         assert len(ap._task_job_generators) == 1
@@ -112,13 +119,13 @@ class TestActionPlanAddTask:
         workflow_config = OrchestratorConfigBuilder().build_workflow_config(tmp_path)
         workflow = Workflow.from_file(workflow_config)
         task = TaskWorkflow(
-                workflow=workflow,
-                priority=1,
-                from_=DateTime(2000, 1, 1),
-                until=DateTime(2000, 1, 1),
-                frequency=Duration(days=1),
-                offset_start_date=Duration(days=1),
-                offset_end_date=Duration(days=2),
+            workflow=workflow,
+            priority=1,
+            from_=DateTime(2000, 1, 1),
+            until=DateTime(2000, 1, 1),
+            frequency=Duration(days=1),
+            offset_start_date=Duration(days=1),
+            offset_end_date=Duration(days=2),
         )
         ap.add_task(task)
         assert len(ap._task_job_generators) == 1
@@ -126,7 +133,8 @@ class TestActionPlanAddTask:
 
     def test_add_various_task(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        ap.add_task(TaskModule(
+        ap.add_task(
+            TaskModule(
                 name="1",
                 module="PortfolioOptimisation",
                 parameters=ModuleConfigBuilder().build(tmp_path),
@@ -136,8 +144,10 @@ class TestActionPlanAddTask:
                 frequency=Duration(days=1),
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
-        ))
-        ap.add_task(TaskModule(
+            )
+        )
+        ap.add_task(
+            TaskModule(
                 name="2",
                 module="PortfolioOptimisation",
                 parameters=ModuleConfigBuilder().build(tmp_path),
@@ -147,8 +157,10 @@ class TestActionPlanAddTask:
                 frequency=Duration(days=1),
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
-        ))
-        ap.add_task(TaskModule(
+            )
+        )
+        ap.add_task(
+            TaskModule(
                 name="3",
                 module="PortfolioOptimisation",
                 parameters=ModuleConfigBuilder().build(tmp_path),
@@ -158,17 +170,17 @@ class TestActionPlanAddTask:
                 frequency=Duration(days=1),
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
-        ))
+            )
+        )
         assert ap.jobs_count == 3
-        expected_job_order = ["task '1' iteration 1",
-                              "task '2' iteration 1",
-                              "task '3' iteration 1"]
+        expected_job_order = ["task '1' iteration 1", "task '2' iteration 1", "task '3' iteration 1"]
         for idx, job in enumerate(ap.jobs):
             assert job.name == expected_job_order[idx]
 
     def test_add_various_task_with_multiple_date(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        ap.add_task(TaskModule(
+        ap.add_task(
+            TaskModule(
                 name="1",
                 module="PortfolioOptimisation",
                 parameters=ModuleConfigBuilder().build(tmp_path),
@@ -178,8 +190,10 @@ class TestActionPlanAddTask:
                 frequency=Duration(days=3),
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
-        ))
-        ap.add_task(TaskModule(
+            )
+        )
+        ap.add_task(
+            TaskModule(
                 name="2",
                 module="PortfolioOptimisation",
                 parameters=ModuleConfigBuilder().build(tmp_path),
@@ -189,15 +203,18 @@ class TestActionPlanAddTask:
                 frequency=Duration(days=5),
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
-        ))
+            )
+        )
         assert ap.jobs_count == 7
-        expected_job_order = ["task '1' iteration 1",
-                              "task '2' iteration 1",
-                              "task '1' iteration 2",
-                              "task '2' iteration 2",
-                              "task '1' iteration 3",
-                              "task '1' iteration 4",
-                              "task '2' iteration 3"]
+        expected_job_order = [
+            "task '1' iteration 1",
+            "task '2' iteration 1",
+            "task '1' iteration 2",
+            "task '2' iteration 2",
+            "task '1' iteration 3",
+            "task '1' iteration 4",
+            "task '2' iteration 3",
+        ]
         for idx, job in enumerate(ap.jobs):
             assert job.name == expected_job_order[idx]
 
@@ -334,13 +351,15 @@ class TestActionPlanContextParameters:
         )
 
         overriding_context = ContextParameters(
-            default = {
-            "foo": "default_value_overriding",
-            "override_exclusive": "default_value_override_exclusive",
-        }, forced = {
-            "foo": "forced_value_overriding",
-            "override_exclusive": "forced_value_override_exclusive",
-        })
+            default={
+                "foo": "default_value_overriding",
+                "override_exclusive": "default_value_override_exclusive",
+            },
+            forced={
+                "foo": "forced_value_overriding",
+                "override_exclusive": "forced_value_override_exclusive",
+            },
+        )
 
         action_plan = ActionPlan.from_file(
             TestActionPlanContextParameters.create_config(tmp_path, context_file), overriding_context
@@ -397,7 +416,9 @@ class TestActionPlanContextParameters:
             "      execution_date: '2028-09-26 12:00:00'\n"
         )
         module_parameters = "temporal:\n  start_date: '2028-09-27 00:00:00'\n  end_date: '2028-09-28 00:00:00'\n"
-        action_plan = ActionPlan.from_file(TestActionPlanContextParameters.create_config(tmp_path, context, module_parameters))
+        action_plan = ActionPlan.from_file(
+            TestActionPlanContextParameters.create_config(tmp_path, context, module_parameters)
+        )
 
         job = next(action_plan.jobs)
         assert job.parameters.temporal.start_date == build_datetime("2028-09-27 00:00:00")
@@ -413,7 +434,9 @@ class TestActionPlanContextParameters:
             "      execution_date: '2028-09-26 12:00:00'\n"
         )
         module_parameters = "temporal:\n  start_date: 'wrong-date'\n  end_date: '2028-09-28 00:00:00'\n"
-        action_plan = ActionPlan.from_file(TestActionPlanContextParameters.create_config(tmp_path, context, module_parameters))
+        action_plan = ActionPlan.from_file(
+            TestActionPlanContextParameters.create_config(tmp_path, context, module_parameters)
+        )
 
         job = next(action_plan.jobs)
         assert job.parameters.temporal.start_date == build_datetime("2028-09-27 00:00:00")
@@ -433,7 +456,9 @@ class TestActionPlanContextParameters:
             "      end_date: '2028-09-28 00:00:00'\n"
         )
         module_parameters = "temporal:\n  start_date: 'wrong-date'\n  end_date: 'wrong-date'\n"
-        action_plan = ActionPlan.from_file(TestActionPlanContextParameters.create_config(tmp_path, context, module_parameters))
+        action_plan = ActionPlan.from_file(
+            TestActionPlanContextParameters.create_config(tmp_path, context, module_parameters)
+        )
 
         job = next(action_plan.jobs)
         assert job.parameters.temporal.start_date == build_datetime("2028-09-27 00:00:00")
@@ -512,7 +537,7 @@ class TestActionPlanPathFromActionPlan:
             action_plan.execute()
             mock_from_dir.assert_called_once_with(dataset_dir)
 
-    def test_step_output_dir_resolved_relative_to_action_plan(self, tmp_path):
+    def test_step_run_dir_resolved_relative_to_action_plan(self, tmp_path):
         dataset_dir = tmp_path / "dataset"
         dataset_dir.mkdir()
         output_dir = tmp_path / "output"
@@ -546,4 +571,6 @@ class TestActionPlanPathFromActionPlan:
         action_plan = ActionPlan.from_file(config)
         step = next(action_plan.jobs)
 
-        assert step.parameters.output.output_dir == Path(tmp_path / 'results' / 'MarketClearing' / '2028-01-01T00:00:00+00:00')
+        assert step.parameters.export.run_dir == Path(
+            tmp_path / "results" / "MarketClearing" / "2028-01-01T00:00:00+00:00"
+        )

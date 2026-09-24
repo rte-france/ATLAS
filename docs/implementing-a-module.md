@@ -67,7 +67,7 @@ class MyModule(
         input_dataset: MyModuleInputDataset,
         output_dataset: MyModuleOutputDataset,
     ) -> None:
-        # Write results back to the original business objects when export_result=True.
+        # Write results back to the original business objects when export_results=True.
         # Leave empty if the module only populates ChangeSets.
         pass
 ```
@@ -88,7 +88,7 @@ class MyModule(
 ## Step 1 — Parameters
 
 Extend `AbstractModuleParameters` and declare module-specific fields as Pydantic attributes.
-`temporal`, `solver`, `output`, and `multiprocessing` are inherited automatically.
+`temporal`, `solver`, `export`, and `multiprocessing` are inherited automatically.
 
 ```python
 # parameters.py

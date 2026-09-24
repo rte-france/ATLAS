@@ -23,12 +23,12 @@ class _Orchestrator:
         raise AssertionError("should have been replaced")
 
 
-def _job(export_output_dataset: bool, output_dir: Path) -> MagicMock:
+def _job(export_dataset: bool, run_dir: Path) -> MagicMock:
     job = MagicMock()
     job.name = "my_job"
     job.output_dataset = MagicMock(change_sets=[])
-    job.parameters.output.export_output_dataset = export_output_dataset
-    job.parameters.output.output_dir = output_dir
+    job.parameters.export.export_dataset = export_dataset
+    job.parameters.export.run_dir = run_dir
     return job
 
 
@@ -43,7 +43,7 @@ class TestPatchExecuteJob:
         state = _State()
         _patch_execute_job(_Orchestrator, state)
 
-        job = _job(export_output_dataset=True, output_dir=Path("run"))
+        job = _job(export_dataset=True, run_dir=Path("run"))
         cis = MagicMock()
 
         with patch("atlas.profiling.workflow.CISHandler.apply"):
@@ -56,7 +56,7 @@ class TestPatchExecuteJob:
         state = _State()
         _patch_execute_job(_Orchestrator, state)
 
-        job = _job(export_output_dataset=False, output_dir=Path("run"))
+        job = _job(export_dataset=False, run_dir=Path("run"))
         cis = MagicMock()
 
         with patch("atlas.profiling.workflow.CISHandler.apply"):
@@ -68,7 +68,7 @@ class TestPatchExecuteJob:
         state = _State()
         _patch_execute_job(_Orchestrator, state)
 
-        job = _job(export_output_dataset=False, output_dir=Path("run"))
+        job = _job(export_dataset=False, run_dir=Path("run"))
         job.output_dataset = None
 
         with pytest.raises(RuntimeError, match="did not produce"):

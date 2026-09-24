@@ -28,10 +28,11 @@ from tests.test_unit.test_orchestrator.orchestrator_factory import (
     MockJobBuilder,
     MockTaskBuilder,
     OrchestratorConfigBuilder,
-    generate_step_from_job
+    generate_step_from_job,
 )
 
-class _OrchestratorBuilder():
+
+class _OrchestratorBuilder:
     @staticmethod
     def make_mock_orchestrator(
         tmp_path, jobs: list, yaml_context: str = "", overall_context: ContextParameters | None = None
@@ -45,7 +46,6 @@ class _OrchestratorBuilder():
         orchestrator._jobs = jobs
         return orchestrator
 
-
     @staticmethod
     def make_mock_workflow(
         tmp_path, jobs: list, yaml_context: str = "", overall_context: ContextParameters | None = None
@@ -57,7 +57,6 @@ class _OrchestratorBuilder():
         workflow._steps = [generate_step_from_job(job) for job in jobs]
         workflow._resolved_parameters = [step.parameters.model_copy() for step in jobs]
         return workflow
-
 
     @staticmethod
     def make_mock_action_plan(
