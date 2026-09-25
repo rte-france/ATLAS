@@ -476,11 +476,14 @@ class AtlasDataset(BaseModel):
         if not isinstance(other, AtlasDataset):
             return NotImplemented
         DATASET_MODEL_NAMES = [k for k, v in cfg.MODEL_MAPPING_NAME.items() if k != BusinessModelName.EQUIPMENT]
-        for object_type in DATASET_MODEL_NAMES:
-            container_self = getattr(self, object_type)
-            container_other = getattr(other, object_type)
-            if container_self != container_other:
-                return False
+        try:
+            for object_type in DATASET_MODEL_NAMES:
+                container_self = getattr(self, object_type)
+                container_other = getattr(other, object_type)
+                if container_self != container_other:
+                    return False
+        except Exception:
+            return False
         return True
 
     def diff(self, other: AtlasDataset) -> dict[str, dict[str, Any]]:
@@ -540,6 +543,61 @@ class AtlasDataset(BaseModel):
             equipments = copy_dataset.get_container_by_type(equipment_type)
             for equipment in copy_dataset.get_items_by_type(equipment_type):
                 if equipment.name not in equipment_names:
+                    equipments.remove(equipment.name)
+        return copy_dataset
+
+    def exclude_equipments(self, equipment_names: list[str] | None) -> AtlasDataset:
+        """
+        Filter the dataset to exclude specified equipment by name.
+
+        :param equipment_names: List of equipment names to exclude. If None or empty, returns a copy of the full dataset.
+        :type equipment_names: list[str] | None
+
+        :return: A new AtlasDataset without the specified equipment (deep copy)
+        :rtype: AtlasDataset
+
+        Example:
+            >>> dataset = AtlasDataset(thermal=[plant1, plant2, plant3])
+            >>> filtered = dataset.exclude_equipments(["plant2"])
+            >>> len(filtered.thermal)
+            2
+        """
+        copy_dataset = copy.deepcopy(self)
+        if not equipment_names:
+            return copy_dataset
+        excluded_names = set(equipment_names)
+        for equipment_type in cfg.EQUIPMENT_MODELS:
+            equipments = copy_dataset.get_container_by_type(equipment_type)
+            for equipment in copy_dataset.get_items_by_type(equipment_type):
+                if equipment.name in excluded_names:
+                    equipments.remove(equipment.name)
+        return copy_dataset
+
+    def exclude_technologies(self, technology_names: list[str] | None) -> AtlasDataset:
+        """
+        Filter the dataset to exclude equipment of specified technology (class) names.
+
+        :param technology_names: List of technology class names to exclude (e.g. "Thermal", "Wind").
+            If None or empty, returns a copy of the full dataset.
+        :type technology_names: list[str] | None
+
+        :return: A new AtlasDataset without equipment of the specified technologies (deep copy)
+        :rtype: AtlasDataset
+
+        Example:
+            >>> dataset = AtlasDataset(thermal=[plant1], wind=[turbine1])
+            >>> filtered = dataset.exclude_technologies(["Thermal"])
+            >>> len(filtered.thermal)
+            0
+        """
+        copy_dataset = copy.deepcopy(self)
+        if not technology_names:
+            return copy_dataset
+        excluded_types = set(technology_names)
+        for equipment_type in cfg.EQUIPMENT_MODELS:
+            equipments = copy_dataset.get_container_by_type(equipment_type)
+            for equipment in copy_dataset.get_items_by_type(equipment_type):
+                if type(equipment).__name__ in excluded_types:
                     equipments.remove(equipment.name)
         return copy_dataset
 
