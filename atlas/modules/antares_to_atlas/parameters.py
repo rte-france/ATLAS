@@ -10,13 +10,13 @@ from pathlib import Path
 from typing import Literal, Self
 
 import yaml
-from pendulum import Duration, duration
+from pendulum import duration
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.enums import ThermalStrategy
 from atlas.io_utils.parameters import Parameters
-from atlas.validators import convert_to_duration
+from atlas.validators import DurationField
 
 
 class HypothesisEnum(Enum):
@@ -39,32 +39,15 @@ class ConvertersTags(Enum):
 class ThermalTechnologyConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    minimum_stable_power_duration: Duration = duration(hours=0)
+    minimum_stable_power_duration: DurationField = duration(hours=0)
     startup_delay_probability: float = 0.0
-    startup_duration: Duration = duration(hours=0)
-    shutdown_duration: Duration = duration(hours=0)
+    startup_duration: DurationField = duration(hours=0)
+    shutdown_duration: DurationField = duration(hours=0)
     maximum_gradient: float = 0.0
     strategy: ThermalStrategy = ThermalStrategy.BASE
     setup_delay: float = 0.0
-    minimum_time_on: Duration | None = None
-    minimum_time_off: Duration | None = None
-
-    @field_validator(
-        "minimum_stable_power_duration",
-        "startup_duration",
-        "shutdown_duration",
-        mode="before",
-    )
-    @classmethod
-    def parse_duration(cls, v):
-        return convert_to_duration(v)
-
-    @field_validator("minimum_time_on", "minimum_time_off", mode="before")
-    @classmethod
-    def parse_optional_duration(cls, v):
-        if v is None:
-            return None
-        return convert_to_duration(v)
+    minimum_time_on: DurationField | None = None
+    minimum_time_off: DurationField | None = None
 
 
 class ThermalParameters(BaseModel):
@@ -371,10 +354,10 @@ class HydroParameters(BaseModel):
     water_value_nb_years: int = Field(default=2, ge=2, description="Number of years for water value")
     storage_subdivision: int = Field(default=1, ge=1, description="Storage subdivision for water value")
     beta: float = Field(default=0.0, description="Beta parameter for Bellman computation")
-    water_value_timestep: Duration = Field(default=duration(hours=1), description="Water value time step (hours)")
+    water_value_timestep: DurationField = Field(default=duration(hours=1), description="Water value time step (hours)")
     use_bellman_interpolation: bool = Field(default=False, description="Use Bellman interpolation")
     nb_storage_levels: int = Field(default=100, ge=1, description="Number of storage levels")
-    inflows_timestep: Duration = Field(default=duration(hours=168), description="Inflows time step (hours)")
+    inflows_timestep: DurationField = Field(default=duration(hours=168), description="Inflows time step (hours)")
 
     # File paths
     initialization_curve: Path | None = Field(default=None, description="Hydro initialization curve file")
@@ -393,11 +376,6 @@ class HydroParameters(BaseModel):
 
     def get_fragment(self, area: str) -> HydroFragmentConfig:
         return self.fragments.get(area) or self.fragments["Generic"]
-
-    @field_validator("inflows_timestep", "water_value_timestep", mode="before")
-    @classmethod
-    def parse_duration(cls, v):
-        return convert_to_duration(v)
 
     @model_validator(mode="after")
     def validate_paths(self) -> Self:

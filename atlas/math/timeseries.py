@@ -267,6 +267,10 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
     def __add__(self, other: float | Timeseries) -> Timeseries:
         """Add all numeric columns by a scalar or timeseries.
 
+        Addition requires the index of `other` to be contained in self's, so that the join
+        and the frequency involved are never implicit. To add two timeseries whose windows
+        only partially overlap, use :meth:`add_on_union`.
+
         :param other: Other timeseries or scalar to add to value of the current Timeseries
         :type other: float | Timeseries
         :raises TypeError: If the object is not a timeseries or a float
@@ -282,7 +286,10 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
             elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
                 raise ValueError(
                     "Could not perform addition on Timeseries because indexes of Timeseries to add are "
-                    "not in current Timeseries"
+                    "not in current Timeseries. Addition is deliberately restrictive: use 'add_on_union' "
+                    "to sum over the union of both indexes (timestamps missing on one side count as 0), "
+                    "'add_indexes' to append the missing indexes without adding values, or 'reindex' to "
+                    "align on an explicit index before adding."
                 )
             else:
                 my_ts = Timeseries(self)
@@ -568,15 +575,11 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
 
         if dt not in self.dataframe["time"]:
-            raise ValueError(f"Could not add value at {dt} because timestamp is not in the Timeseries")
+            raise ValueError(f"Could not set value at {dt} because timestamp is not in the Timeseries")
 
-        old_value = self.get_value(dt)
-        df = self.timeseries.filter(pl.col("time") != dt)
-        new_row = pl.DataFrame({"time": [dt], "value": [old_value + value]}).with_columns(
-            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
-            pl.col("value").cast(pl.Float64()),
+        df = self.timeseries.with_columns(
+            pl.when(pl.col("time") == dt).then(pl.col("value") + value).otherwise(pl.col("value")).alias("value")
         )
-        df = pl.concat([df, new_row])
 
         return self._return(df, inplace)
 
@@ -605,15 +608,11 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
 
         if dt not in self.dataframe["time"]:
-            raise ValueError(f"Could not add value at {dt} because timestamp is not in the Timeseries")
+            raise ValueError(f"Could not set value at {dt} because timestamp is not in the Timeseries")
 
-        old_value = self.get_value(dt)
-        df = self.timeseries.filter(pl.col("time") != dt)
-        new_row = pl.DataFrame({"time": [dt], "value": [old_value * value]}).with_columns(
-            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
-            pl.col("value").cast(pl.Float64()),
+        df = self.timeseries.with_columns(
+            pl.when(pl.col("time") == dt).then(pl.col("value") * value).otherwise(pl.col("value")).alias("value")
         )
-        df = pl.concat([df, new_row])
 
         return self._return(df, inplace)
 
@@ -634,15 +633,14 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :return: Timeseries with the added indexes
         :rtype: Timeseries
         """
-        other = Timeseries(other)
+        other_ts = Timeseries(other)
         if len(self.timeseries) == 0:
-            other_df = other.dataframe
+            other_df = other_ts.dataframe
             return self._return(other_df, inplace)
 
-        other_ts = Timeseries(other)
         if self.frequency != other_ts.frequency:
             raise ValueError("Could not perform add indexes on Timeseries because frequency does not match")
-        if other_ts.dataframe["time"].is_in(self.dataframe["time"]).any():
+        if other_ts.dataframe["time"].is_in(self.dataframe["time"].implode()).any():
             raise ValueError(
                 "Could not add indexes on Timeseries because some indexes to add are not present in Timeseries"
             )

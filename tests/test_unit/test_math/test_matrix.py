@@ -393,6 +393,19 @@ def test_to_file_with_attribute_concatenate(tmp_path, sample_polars_df):
     assert len(df_concat) == len(matrix1.dataframe) + len(matrix2.dataframe)
 
 
+def test_to_file_with_attribute_concatenate_unreadable_file(tmp_path, sample_polars_df):
+    """An unreadable existing file must raise, not be overwritten with the new data only."""
+    path = tmp_path / "corrupted.parquet"
+    path.write_bytes(b"not a parquet file")
+
+    matrix = ScenarioMatrix(sample_polars_df)
+
+    with pytest.raises(ValueError, match="Could not read existing file for concatenation"):
+        matrix.to_file_with_attribute(path, attribute="power", file_format="parquet")
+
+    assert path.read_bytes() == b"not a parquet file"
+
+
 def test_to_lazy(sample_polars_df):
     matrix = ScenarioMatrix(sample_polars_df)
     lazy = matrix.to_lazy()

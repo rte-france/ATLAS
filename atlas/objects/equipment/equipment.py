@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import Field, field_serializer
+from pydantic import Field
 
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
@@ -12,7 +12,7 @@ from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatr
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
-from atlas.validators import serializer_business_model
+from atlas.validators import BusinessModelRef, DurationField
 
 
 class Equipment(BusinessModel):
@@ -113,8 +113,8 @@ class Equipment(BusinessModel):
     :type antares_dispatch: Timeseries
     """
 
-    node: Node
-    portfolio: Portfolio
+    node: BusinessModelRef[Node]
+    portfolio: BusinessModelRef[Portfolio]
     co2_emission_factor: float | None = Field(None, description="COE2 emission factor")
     has_daily_energy_constraint: bool | None = None
     maximum_afrr: float | None = None
@@ -154,15 +154,4 @@ class Equipment(BusinessModel):
     total_id_cleared_quantity: AbstractTimeseries | None = None
     total_id_sell_submitted_volume: AbstractTimeseries | None = None
     variable_cost: AbstractTimeseries | None = None
-    long_term_markets_commitment: AbstractTimeseries | None = None
-    antares_min_gen: AbstractTimeseries | None = None
-    antares_dispatch: AbstractTimeseries | None = None
-
-    # FC: question, what is best for optimization additional hours?
-    # Probably some sort of dict instead of a scenario matrix
-    optimization_additional_hours: AbstractScenarioMatrix | None = None
-
-    @field_serializer("node", "portfolio", mode="plain")
-    def serializer_bmo(self, value: BusinessModel | None) -> str | None:
-        """Serialize BusinessModel attributes to string."""
-        return serializer_business_model(value)
+    additional_hours: DurationField | None = None

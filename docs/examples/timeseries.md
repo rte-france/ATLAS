@@ -62,6 +62,10 @@ timestamps = ts.index  # List of datetime objects
 # Get value at specific time
 value = ts.get_value("2024-01-01 12:00:00")
 
+# Get values at many times in one lookup (much faster than calling get_value in a loop,
+# especially on a LazyTimeseries which is collected only once)
+values_at = ts.get_values(["2024-01-01 12:00:00", "2024-01-01 13:00:00"])
+
 # Check if timestamp exists
 if "2024-01-01 12:00:00" in ts:
     print("Timestamp exists")

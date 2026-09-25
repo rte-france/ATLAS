@@ -6,21 +6,22 @@ Module that implements Parameters
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
-from typing import Self
+from typing import Self, TypeVar
 
 import yaml
-from pendulum import Duration
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pendulum import duration
+from pydantic import ConfigDict, Field, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.enums import SolverEnum
-from atlas.io_utils.utils import deep_update
-from atlas.validators import convert_to_duration
+from atlas.io_utils.utils import FrozenBaseModel, deep_update
+from atlas.validators import DurationField
 
 
-class Parameters(BaseModel):
+class Parameters(FrozenBaseModel):
     """A class to parse parameters from a YAML or JSON file."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
@@ -45,14 +46,27 @@ class Parameters(BaseModel):
         else:
             raise ValueError(f"Unsupported file extension: {file_extension}")
 
+        return cls.from_dict(parameters, context)
+
+    @classmethod
+    def from_dict(cls, parameters: dict | None, context: ContextParameters | None = None) -> Self:
+        """Build parameters from an in-memory dict, applying an optional context.
+
+        :param parameters: Raw parameter values.
+        :type parameters: dict or None
+        :param context: Context parameters to use.
+        :type context: ContextParameters or None
+        :return: A Parameters object containing the parsed and validated parameters.
+        :rtype: Parameters
+        """
         if context is None:
-            return cls(**parameters)
+            return cls(**(parameters or {}))
 
         if parameters is None:
             parameters = {}
 
-        context.update(parameters)
-        return cls(**parameters)
+        contextualized_parameters = context.apply_on_dict(parameters)
+        return cls(**contextualized_parameters)
 
     @staticmethod
     def _parse_yaml(file_path: str | Path) -> dict:
@@ -77,14 +91,15 @@ class Parameters(BaseModel):
             return json.load(file)
 
 
-class DateParameters(BaseModel):
+class DateParameters(FrozenBaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     start_date: DateTime
     end_date: DateTime
     execution_date: DateTime
-    timestep: Duration = Field(
-        default_factory=lambda: Duration(minutes=60), description="Discretization step of the simulated time interval"
+    timestep: DurationField = Field(
+        default_factory=lambda: duration(minutes=60),
+        description="Discretization step of the simulated time interval",
     )
 
     @model_validator(mode="after")
@@ -102,53 +117,79 @@ class DateParameters(BaseModel):
             )
         return self
 
-    @field_validator(
-        "timestep",
-        mode="before",
-    )
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
 
-
-class SolverParameters(BaseModel):
+class SolverParameters(FrozenBaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     solver_name: SolverEnum = SolverEnum.XPRESS
     export_lp: bool = False
     use_presolve: bool = False
     duality_gap: float = Field(0.0001, description="duality gap used for the optimization.")
-    timeout: Duration = Field(default_factory=lambda: Duration(minutes=4), description="Timeout of the optimization.")
-
-    @field_validator("timeout", mode="before")
-    @classmethod
-    def parse_timeout(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
+    timeout: DurationField = Field(
+        default_factory=lambda: duration(minutes=4), description="Timeout of the optimization."
+    )
 
 
-class MultiProcessingParameters(BaseModel):
+class MultiProcessingParameters(FrozenBaseModel):
     enable: bool = False
     max_workers: int | None = None
 
 
-class OutputParameters(BaseModel):
+class OutputParameters(FrozenBaseModel):
     export_result: bool = False
     export_output_dataset: bool = False
     output_dir: Path = Path("output")
 
 
-class ContextParameters(BaseModel):
+PT = TypeVar("PT", bound=Parameters)
+
+
+class ContextParameters(FrozenBaseModel):
     """A context contains values to use as default or to forced on corresponding parameters."""
 
-    default: dict = {}
-    forced: dict = {}
+    default: dict = Field(default_factory=lambda: {})
+    forced: dict = Field(default_factory=lambda: {})
 
-    def use(self, context: ContextParameters):
-        deep_update(self.default, context.default, True)
-        deep_update(self.forced, context.forced, True)
+    def apply(self, context: ContextParameters) -> ContextParameters:
+        """
+        Return a validated copy with the given fields replaced.
+        :param context: context to use for this parameter
+        :type context: ContextParameters
+        """
+        updated_default = deep_update(self.default, context.default, override=True, inplace=False)
+        updated_forced = deep_update(self.forced, context.forced, override=True, inplace=False)
+        return ContextParameters(default=updated_default, forced=updated_forced)
 
-    def update(self, base: dict) -> None:
-        deep_update(base, self.default, False)
-        deep_update(base, self.forced, True)
+    def apply_on_dict(self, base: dict) -> dict:
+        """
+        Return the resulting dictionary obtained by applying this context to the given dictionary.
+        Any default value in this context will be added if not present in the dictionary.
+        Override any forced value from this context that are also present in given dict.
+        :param base: dictionary to use as base result
+        :type base: dict
+        """
+        updated_dict = copy.deepcopy(base)
+        deep_update(updated_dict, self.default, False)
+        deep_update(updated_dict, self.forced, True)
+        return updated_dict
+
+    def apply_on_parameters(self, parameter: PT) -> PT:
+        """
+        Validate and return the resulting parameters obtained by applying this context to the given parameters.
+        Any default value in this context will be added if value is None in the parameter.
+        Override any forced value from this context that are also present in given parameter.
+        :param parameter: parameter to copy and update using this context
+        :type parameter: Parameters
+        """
+        # prune self.default to field that exist and value is None
+        applicable_defaults = {
+            k: v for k, v in self.default.items() if hasattr(parameter, k) and getattr(parameter, k) is None
+        }
+
+        # create a copy of dict applicable_defaults, then append self.forced and override existing field
+        fields_to_update = {**applicable_defaults, **self.forced}
+
+        # prune fields_to_update to field that exist
+        applicable_update = {k: v for k, v in fields_to_update.items() if hasattr(parameter, k)}
+
+        return parameter.evolve(**applicable_update)

@@ -33,26 +33,30 @@ class StorageStep(AbstractOrderStep):
     def _process_unit_result(
         self, result: StepResult, unit_result: StorageOptimizationResult, storage: StorageDAO
     ) -> None:
-        if unit_result.success:
+        if unit_result.skipped:
+            cfg.logger.info(f"Storage {storage.name} skipped: no available capacity over the time window")
+        else:
             result.orders.extend(unit_result.orders)
             result.order_couplings.extend(unit_result.order_couplings)
 
             if storage.da_buy_submitted_volume is None:
-                storage.da_buy_submitted_volume = unit_result.buy_submitted_volumes
+                storage.da_buy_submitted_volume = unit_result.buy_submitted_volume
             else:
-                storage.da_buy_submitted_volume += unit_result.buy_submitted_volumes
+                storage.da_buy_submitted_volume = storage.da_buy_submitted_volume.add_on_union(
+                    unit_result.buy_submitted_volume, inplace=False
+                )
 
             if storage.da_sell_submitted_volume is None:
-                storage.da_sell_submitted_volume = unit_result.sell_submitted_volumes
+                storage.da_sell_submitted_volume = unit_result.sell_submitted_volume
             else:
-                storage.da_sell_submitted_volume += unit_result.sell_submitted_volumes
+                storage.da_sell_submitted_volume = storage.da_sell_submitted_volume.add_on_union(
+                    unit_result.sell_submitted_volume, inplace=False
+                )
 
             if unit_result.variable_cost is not None:
                 storage.variable_cost = unit_result.variable_cost
 
             cfg.logger.info(f"Completed optimization for storage: {storage.name}")
-        else:
-            cfg.logger.warning(f"Optimization skipped or failed for storage: {storage.name}")
 
     def _formulate_parallel(self, local_timewindow: list[DateTime]) -> StepResult:
         cfg.logger.info(f"Starting parallel storage optimization for {len(self.dataset.storage)} units")
@@ -67,11 +71,13 @@ class StorageStep(AbstractOrderStep):
 
             for future in as_completed(future_to_storage):
                 storage_name = future_to_storage[future]
+                # A failing unit is propagated: dropping it here would leave the step result
+                # silently short of orders for that unit.
                 try:
                     unit_result = future.result()
-                    self._process_unit_result(result, unit_result, storage_by_name[unit_result.storage_name])
                 except Exception as e:
-                    cfg.logger.error(f"Error processing storage {storage_name}: {e}")
+                    raise RuntimeError(f"Storage optimisation failed for {storage_name}") from e
+                self._process_unit_result(result, unit_result, storage_by_name[unit_result.storage_name])
 
         return result
 
@@ -80,7 +86,10 @@ class StorageStep(AbstractOrderStep):
         result = StepResult()
 
         for storage in self.dataset.storage:
-            unit_result = optimize_single_storage(storage, self.parameters, local_timewindow)
+            try:
+                unit_result = optimize_single_storage(storage, self.parameters, local_timewindow)
+            except Exception as e:
+                raise RuntimeError(f"Storage optimisation failed for {storage.name}") from e
             self._process_unit_result(result, unit_result, storage)
 
         return result

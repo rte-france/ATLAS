@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import atlas.config as cfg
+from atlas.common.optimal_dispatch.marginal_pricing import bid_volumes
 from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.steps import create_po_step
 from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
@@ -119,7 +120,7 @@ class PortfolioStep:
         portfolio = self.portfolio
         residual_energy = portfolio._compute_residual_energy(time, parameters)
         max_overall_imbal = max(residual_energy, parameters.maximum_imbalance)
-        sum_power_variables = self._get_sum_power_level_variables(model, time)
+        sum_power_variables = self._get_sum_power_level_variables(model, time, parameters)
         small_imbalance_up_var = model.get_variable(f"{portfolio.name}_small_imbalance_up_{time}")
         large_imbalance_up_var = model.get_variable(f"{portfolio.name}_large_imbalance_up_{time}")
         small_imbalance_down_var = model.get_variable(f"{portfolio.name}_small_imbalance_down_{time}")
@@ -176,7 +177,9 @@ class PortfolioStep:
         ]:
             model.add_continuous_variable(name=f"{v}_{portfolio.name}_{time}", lower_bound=0, upper_bound=maximum_power)
 
-    def _get_sum_power_level_variables(self, model: OptimisationModel, time: DateTime) -> float:
+    def _get_sum_power_level_variables(
+        self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters
+    ) -> float:
         portfolio = self.portfolio
         total_power = 0
 
@@ -187,7 +190,8 @@ class PortfolioStep:
 
         for hydro in portfolio.equipments.hydro:
             if time in hydro.optimisation_time_window:
-                for category in hydro.fragment_data.keys():
+                capacity = hydro.maximum_power.get_value(time)
+                for category in bid_volumes(hydro.fragment_data, capacity, parameters.hydraulic_minimal_fragment_size):
                     total_power += model.get_variable(f"{hydro.name}_power_level_frag_{category}_{time}")
 
         for obj in (

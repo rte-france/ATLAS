@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from enum import Enum, StrEnum
+from enum import Enum, IntEnum, StrEnum
 
 
 class BusinessModelName(StrEnum):
@@ -54,6 +54,28 @@ class StorageType(StrEnum):
     BATTERY = "Battery"
     PUMPED_HYDRAULIC_STORAGE = "PumpedHydraulicStorage"
     ELECTRIC_VEHICLE = "ElectricVehicle"
+
+
+class ThermalDispatchState(IntEnum):
+    """
+    State encoding stored in the :class:`~atlas.math.matrix.ScenarioMatrix` after LP solving.
+
+    :cvar UNKNOWN: State undetermined (default fill value).
+    :cvar ON_UP: Unit online, upward headroom available.
+    :cvar ON_DOWN: Unit online, downward headroom available.
+    :cvar OFF: Unit offline.
+    :cvar START: Unit in startup ramp.
+    :cvar STOP: Unit in shutdown ramp.
+    :cvar ON_FLAT: Unit online in flat stable state.
+    """
+
+    UNKNOWN = 0
+    ON_UP = 1
+    ON_DOWN = 2
+    OFF = 3
+    START = 4
+    STOP = 5
+    ON_FLAT = 6
 
 
 class ThermalStrategy(StrEnum):

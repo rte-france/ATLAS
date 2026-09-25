@@ -164,6 +164,30 @@ class AbstractScenarioMatrix[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         """Replace a Timeseries in the matrix."""
         ...
 
+    def upsert(self, index: str, timeseries: Any, inplace: bool = True) -> Self:
+        """
+        Add a timeseries at ``index``, replacing any timeseries already stored there.
+
+        Convenience wrapper over :meth:`add` and :meth:`replace` for the common case where
+        the caller recomputes a timeseries and does not care whether the index already exists.
+
+        :param index: Index key to write to.
+        :type index: str
+        :param timeseries: Timeseries data to store.
+        :type timeseries: Any
+        :param inplace: If True (default), modify the matrix in place. If False, return a new matrix.
+        :type inplace: bool
+        :return: The updated matrix.
+        :rtype: Self
+
+        :Example:
+
+        >>> matrix.upsert("2025-01-01 00:00", timeseries)  # doctest: +SKIP
+        """
+        if index in self:
+            return self.replace(index, timeseries, inplace=inplace)
+        return self.add(timeseries, index, inplace=inplace)
+
     @abstractmethod
     def get_matrix(self) -> TBackend:
         """Get the matrix data."""

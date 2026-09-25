@@ -34,7 +34,10 @@ class Container[T: BusinessModel]:
             raise KeyError(f"'{name}' not found") from None
 
     def remove(self, name: str) -> None:
-        self._items.pop(name, None)
+        try:
+            del self._items[name]
+        except KeyError:
+            raise KeyError(f"'{name}' not found") from None
 
     def all(self) -> list[T]:
         return list(self._items.values())

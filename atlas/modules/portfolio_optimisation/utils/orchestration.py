@@ -92,21 +92,27 @@ def optimise_single_portfolio(
             output_path.mkdir(parents=True, exist_ok=True)
             model.export_model(output_path / f"po_{portfolio.name}.lp")
 
-        model.solve()
+        solution_info = model.solve()
+
+        if solution_info.status not in (SolverStatus.OPTIMAL, SolverStatus.FEASIBLE):
+            raise RuntimeError(f"Solver returned status {solution_info.status.name}")
 
         variable_values = {var_name: model.get_variable_value(var_name) for var_name in model._variables_name}
 
         result = PortfolioOptimisationResult(
             portfolio=model.portfolio,
             variable_values=variable_values,
-            solution_info=model.solution_info,
+            solution_info=solution_info,
             is_manual_activation=False,
         )
 
         return result
 
     except Exception as e:
-        cfg.logger.error(f"Optimisation failed for portfolio {portfolio.name}. Falling back to manual activation: {e}")
+        cfg.logger.warning(
+            f"Optimisation failed for portfolio {portfolio.name}, falling back to heuristic computation "
+            f"(degraded result, workflow continues):{e}"
+        )
 
         set_manual_activation(portfolio.equipments.get_all_equipment(), parameters)
 
@@ -131,8 +137,10 @@ def run_parallel(
     :type portfolios: list[PortfolioPO]
     :param parameters: Optimization parameters
     :type parameters: PortfolioOptimisationParameters
-    :return: List of optimization results
+    :return: List of optimization results, one per portfolio
     :rtype: list[PortfolioOptimisationResult]
+    :raises RuntimeError: any worker failure is propagated, named after the failing portfolio,
+        so a partial result never flows on
     """
     optimisation_results: list[PortfolioOptimisationResult] = []
 
@@ -144,12 +152,14 @@ def run_parallel(
 
         for future in as_completed(future_to_portfolio):
             portfolio_name = future_to_portfolio[future]
+            # Solver failures are already handled in optimise_single_portfolio (degraded result);
+            # anything reaching here is a worker crash and must not silently shrink the result list.
             try:
                 result = future.result()
-                optimisation_results.append(result)
-                cfg.logger.info(f"Completed optimization for: {portfolio_name}")
             except Exception as e:
-                cfg.logger.error(f"Error processing {portfolio_name}: {e}")
+                raise RuntimeError(f"Optimisation failed for portfolio {portfolio_name}") from e
+            optimisation_results.append(result)
+            cfg.logger.info(f"Completed optimization for: {portfolio_name}")
 
     return optimisation_results
 
@@ -165,18 +175,20 @@ def run_sequential(
     :type portfolios: list[PortfolioPO]
     :param parameters: Optimization parameters
     :type parameters: PortfolioOptimisationParameters
-    :return: List of optimization results
+    :return: List of optimization results, one per portfolio
     :rtype: list[PortfolioOptimisationResult]
+    :raises RuntimeError: any failure is propagated, named after the failing portfolio,
+        so a partial result never flows on
     """
     optimisation_results: list[PortfolioOptimisationResult] = []
 
     for portfolio in portfolios:
         try:
             result = optimise_single_portfolio(portfolio, parameters)
-            optimisation_results.append(result)
-            cfg.logger.info(f"Completed optimization for: {result.name}")
         except Exception as e:
-            cfg.logger.error(f"Error processing {portfolio.name}: {e}")
+            raise RuntimeError(f"Optimisation failed for portfolio {portfolio.name}") from e
+        optimisation_results.append(result)
+        cfg.logger.info(f"Completed optimization for: {result.name}")
 
     return optimisation_results
 

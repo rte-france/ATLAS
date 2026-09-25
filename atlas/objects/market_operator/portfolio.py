@@ -4,15 +4,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import field_serializer
-
-from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.market.market_area import MarketArea
 from atlas.objects.network_operator.control_block import ControlBlock
-from atlas.validators import serializer_business_model
+from atlas.validators import BusinessModelRef
 
 
 class Portfolio(BusinessModel):
@@ -61,8 +58,8 @@ class Portfolio(BusinessModel):
     :type optimal_dispatch_volume: ScenarioMatrix
     """
 
-    control_block: ControlBlock
-    market_area: MarketArea
+    control_block: BusinessModelRef[ControlBlock]
+    market_area: BusinessModelRef[MarketArea]
     id_cleared_quantity: ForecastingMatrix | LazyForecastingMatrix | None = None
     imbalance: ForecastingMatrix | LazyForecastingMatrix | None = None
     power: ForecastingMatrix | LazyForecastingMatrix | None = None
@@ -79,11 +76,3 @@ class Portfolio(BusinessModel):
     rr_down_procured: AbstractTimeseries | None = None
     rr_up_procured: AbstractTimeseries | None = None
     total_id_cleared_quantity: AbstractTimeseries | None = None
-    baseline_generation: AbstractScenarioMatrix | None = None
-    ceiling_generation: AbstractScenarioMatrix | None = None
-    optimal_dispatch_volume: AbstractScenarioMatrix | None = None
-
-    @field_serializer("control_block", "market_area", mode="plain")
-    def serializer_bmo(self, value: BusinessModel | None) -> str | None:
-        """Serialize BusinessModel attributes to string."""
-        return serializer_business_model(value)

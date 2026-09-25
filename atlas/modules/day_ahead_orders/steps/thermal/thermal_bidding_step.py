@@ -49,20 +49,18 @@ class ThermalBiddingStep(AbstractOrderStep):
 
             for future in as_completed(future_to_thermal):
                 thermal_name = future_to_thermal[future]
+                # A failing unit is propagated: dropping it here would leave the step result
+                # silently short of orders for that unit.
                 try:
                     unit_result = future.result()
-
-                    if unit_result.success:
-                        result.orders.extend(unit_result.orders)
-                        result.order_couplings.extend(unit_result.order_couplings)
-                        cfg.logger.info(
-                            f"Completed order formulation for thermal unit: {thermal_name} ({unit_result.strategy.value})"
-                        )
-                    else:
-                        cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal_name}")
-
                 except Exception as e:
-                    cfg.logger.error(f"Error processing thermal unit {thermal_name}: {e}")
+                    raise RuntimeError(f"Order formulation failed for thermal unit {thermal_name}") from e
+
+                result.orders.extend(unit_result.orders)
+                result.order_couplings.extend(unit_result.order_couplings)
+                cfg.logger.info(
+                    f"Completed order formulation for thermal unit: {thermal_name} ({unit_result.strategy.value})"
+                )
 
         return result
 
@@ -71,21 +69,21 @@ class ThermalBiddingStep(AbstractOrderStep):
         result = StepResult()
 
         for thermal in self.dataset.thermal:
-            unit_result = optimize_single_thermal_unit(thermal, self.orders_time, self.parameters)
+            try:
+                unit_result = optimize_single_thermal_unit(thermal, self.orders_time, self.parameters)
+            except Exception as e:
+                raise RuntimeError(f"Order formulation failed for thermal unit {thermal.name}") from e
 
-            if unit_result.success:
-                result.orders.extend(unit_result.orders)
-                result.order_couplings.extend(unit_result.order_couplings)
-                cfg.logger.info(
-                    f"Completed order formulation for thermal unit: {thermal.name} ({unit_result.strategy.value})"
-                )
-            else:
-                cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal.name}")
+            result.orders.extend(unit_result.orders)
+            result.order_couplings.extend(unit_result.order_couplings)
+            cfg.logger.info(
+                f"Completed order formulation for thermal unit: {thermal.name} ({unit_result.strategy.value})"
+            )
 
         return result
 
     def _compute_da_sell_submitted_volume(self, result: StepResult) -> None:
-        da_sell_submitted_volumes: dict[str, Timeseries] = {
+        sell_submitted_volumes: dict[str, Timeseries] = {
             equipment.name: Timeseries.from_index(
                 self.parameters.temporal.start_date,
                 self.parameters.temporal.timestep,
@@ -105,12 +103,12 @@ class ThermalBiddingStep(AbstractOrderStep):
                 and order.start_date in self.orders_time
             ):
                 if order.equipment.strategy == ThermalStrategy.PEAK or order.equipment.strategy == ThermalStrategy.BASE:
-                    if order.start_date in da_sell_submitted_volumes[order.equipment.name]:
-                        da_sell_submitted_volumes[order.equipment.name].set_value(
+                    if order.start_date in sell_submitted_volumes[order.equipment.name]:
+                        sell_submitted_volumes[order.equipment.name].set_value(
                             order.start_date, order.qmax if order.qmax is not None else 0
                         )
                     else:
-                        da_sell_submitted_volumes[order.equipment.name].add_index(
+                        sell_submitted_volumes[order.equipment.name].add_index(
                             order.start_date, order.qmax if order.qmax is not None else 0
                         )
                 else:
@@ -181,35 +179,46 @@ class ThermalBiddingStep(AbstractOrderStep):
 
         for order in relevent_orders_intermediate:
             if not already_considered_orders[order.name]:
-                if order.start_date in da_sell_submitted_volumes[order.equipment.name]:
-                    da_sell_submitted_volumes[order.equipment.name].set_value(
+                if order.start_date in sell_submitted_volumes[order.equipment.name]:
+                    sell_submitted_volumes[order.equipment.name].set_value(
                         order.start_date, order.qmax if order.qmax is not None else 0
                     )
                 else:
-                    da_sell_submitted_volumes[order.equipment.name].add_index(
+                    sell_submitted_volumes[order.equipment.name].add_index(
                         order.start_date, order.qmax if order.qmax is not None else 0
                     )
 
         for equipment in self.dataset.thermal:
             if equipment.strategy == ThermalStrategy.INTERMEDIATE:
                 cfg.logger.warning(
-                    "Warning : da_sell_submitted_volumes might not yield the correct result if several internal EXCLUSION are formulated"
+                    "Warning : sell_submitted_volumes might not yield the correct result if several internal EXCLUSION are formulated"
                 )
 
-                da_sell_submitted_volume: Timeseries = da_sell_submitted_volumes[equipment.name]
+                sell_submitted_volume: Timeseries = sell_submitted_volumes[equipment.name]
                 programms: list[Timeseries] = list_of_mutually_exclusive_programms[equipment.name]
 
                 if programms:
                     for t in self.orders_time:
                         max_val = max((programm.get_value(t) for programm in programms), default=0)
-                        if t in da_sell_submitted_volume:
-                            da_sell_submitted_volume.set_value(t, max_val)
+                        if t in sell_submitted_volume:
+                            sell_submitted_volume.set_value(t, max_val)
                         else:
-                            da_sell_submitted_volume.add_index(t, max_val)
-                equipment.da_sell_submitted_volume = da_sell_submitted_volume
+                            sell_submitted_volume.add_index(t, max_val)
+
+                if equipment.da_sell_submitted_volume is None:
+                    equipment.da_sell_submitted_volume = sell_submitted_volume
+                else:
+                    equipment.da_sell_submitted_volume = equipment.da_sell_submitted_volume.add_on_union(
+                        sell_submitted_volume, inplace=False
+                    )
 
             else:
-                equipment.da_sell_submitted_volume = da_sell_submitted_volumes[equipment.name]
+                if equipment.da_sell_submitted_volume is None:
+                    equipment.da_sell_submitted_volume = sell_submitted_volumes[equipment.name]
+                else:
+                    equipment.da_sell_submitted_volume = equipment.da_sell_submitted_volume.add_on_union(
+                        sell_submitted_volumes[equipment.name], inplace=False
+                    )
 
     def graph_search_of_connected_orders(
         self,

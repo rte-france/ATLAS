@@ -220,15 +220,25 @@ class StoragePOStep(AbstractOptimStep[StoragePO]):
                 f"max_storage_level_{time}_{eq.name}",
             )
 
-        self._add_cycle_balance_constraint(model)
+        self._add_cycle_balance_constraint(model, parameters)
 
-    def _add_cycle_balance_constraint(self, model: OptimisationModel):
+    def _add_cycle_balance_constraint(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
+
+        displacement_delta = 0
+        if eq.displacement_energy:
+            first_prev_time = eq.optimisation_time_window[0] - parameters.temporal.timestep
+            last_time = eq.optimisation_time_window[-1]
+            displacement_delta = int(eq.displacement_energy.get_value(last_time)) - int(
+                eq.displacement_energy.get_value(first_prev_time)
+            )
+
         model.add_constraint(
             sum(-model.get_variable(f"{eq.name}_power_level_buy_{time}") for time in eq.optimisation_time_window)
             * eq.charge_efficiency
             == sum(model.get_variable(f"{eq.name}_power_level_sell_{time}") for time in eq.optimisation_time_window)
-            / eq.discharge_efficiency,
+            / eq.discharge_efficiency
+            - displacement_delta,
             f"cycle_balance_{eq.name}",
         )
 

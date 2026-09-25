@@ -51,7 +51,7 @@ def test_custom_parameters():
         price_modifier_lambda_1=0.05,
         exchange_constraints_type=ExchangeConstraintsType.FB,
         market=Product.Intraday,
-        paradoxically_rejected_penalty_N=2000,
+        paradoxically_rejected_penalty=2000,
     )
     assert params.temporal.timestep == Duration(minutes=15)
     assert params.price_modifier_lambda_1 == 0.05
@@ -60,7 +60,7 @@ def test_custom_parameters():
     assert params.exchange_constraints_type == ExchangeConstraintsType.FB
     assert params.market == Product.Intraday
     assert not params.solver.use_presolve
-    assert params.paradoxically_rejected_penalty_N == 2000
+    assert params.paradoxically_rejected_penalty == 2000
 
 
 def test_invalid_enum_for_exchange_constraints_type_raises():

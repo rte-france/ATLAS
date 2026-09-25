@@ -76,3 +76,9 @@ class WorkflowJobError(RuntimeError):
         self.job_name = job_name
         self.cis = cis
         self.input_dataset = input_dataset
+
+
+class DataQualityWarning(UserWarning):
+    """Warning for potential input data quality issues."""
+
+    pass

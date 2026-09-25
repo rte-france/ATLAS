@@ -729,6 +729,91 @@ def test_replace_nonexistent_index(hourly_df):
         matrix.replace("2025-01-01 05:00:00", replacement_ts)
 
 
+def test_replace_the_only_index(hourly_df):
+    """Replacing the sole forecast of a matrix must not trip over the transiently empty index list."""
+    matrix = ForecastingMatrix(hourly_df)
+    matrix.delete("2025-01-01 01:00:00")
+    assert matrix.indexes == ["2025-01-01 00:00:00"]
+
+    replacement_ts = Timeseries(
+        pl.DataFrame(
+            {
+                "time": pl.datetime_range(
+                    datetime(2025, 1, 1, 0, 0, 0),
+                    datetime(2025, 1, 1, 1, 0, 0),
+                    "1h",
+                    time_unit="us",
+                    eager=True,
+                ),
+                "values": [42.0, 43.0],
+            }
+        )
+    )
+
+    matrix.replace("2025-01-01 00:00:00", replacement_ts)
+
+    assert matrix.indexes == ["2025-01-01 00:00:00"]
+    assert matrix.select("2025-01-01 00:00:00").get_value(datetime(2025, 1, 1, 0, 0, 0)) == 42.0
+
+
+class TestUpsert:
+    """Upsert writes at an index whether or not it already exists."""
+
+    def test_adds_a_missing_index(self, hourly_df):
+        matrix = ForecastingMatrix(hourly_df)
+        new_ts = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        datetime(2025, 1, 1, 0, 0, 0), datetime(2025, 1, 1, 1, 0, 0), "1h", time_unit="us", eager=True
+                    ),
+                    "values": [7.0, 8.0],
+                }
+            )
+        )
+
+        matrix.upsert("2025-01-02 00:00:00", new_ts)
+
+        assert "2025-01-02 00:00:00" in matrix.indexes
+        assert matrix.select("2025-01-02 00:00:00").get_value(datetime(2025, 1, 1, 0, 0, 0)) == 7.0
+
+    def test_overwrites_an_existing_index(self, hourly_df):
+        matrix = ForecastingMatrix(hourly_df)
+        index_count = len(matrix.indexes)
+        new_ts = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        datetime(2025, 1, 1, 0, 0, 0), datetime(2025, 1, 1, 1, 0, 0), "1h", time_unit="us", eager=True
+                    ),
+                    "values": [7.0, 8.0],
+                }
+            )
+        )
+
+        matrix.upsert("2025-01-01 00:00:00", new_ts)
+
+        assert len(matrix.indexes) == index_count
+        assert matrix.select("2025-01-01 00:00:00").get_value(datetime(2025, 1, 1, 0, 0, 0)) == 7.0
+
+    def test_accepts_a_datetime_index(self, hourly_df):
+        matrix = ForecastingMatrix(hourly_df)
+        new_ts = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        datetime(2025, 1, 1, 0, 0, 0), datetime(2025, 1, 1, 1, 0, 0), "1h", time_unit="us", eager=True
+                    ),
+                    "values": [7.0, 8.0],
+                }
+            )
+        )
+
+        matrix.upsert(datetime(2025, 1, 1, 0, 0, 0), new_ts)
+
+        assert matrix.select("2025-01-01 00:00:00").get_value(datetime(2025, 1, 1, 0, 0, 0)) == 7.0
+
+
 def test_set_date_format(hourly_df):
     """Test setting a custom date format."""
     matrix = ForecastingMatrix(hourly_df)

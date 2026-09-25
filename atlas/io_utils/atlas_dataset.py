@@ -476,14 +476,11 @@ class AtlasDataset(BaseModel):
         if not isinstance(other, AtlasDataset):
             return NotImplemented
         DATASET_MODEL_NAMES = [k for k, v in cfg.MODEL_MAPPING_NAME.items() if k != BusinessModelName.EQUIPMENT]
-        try:
-            for object_type in DATASET_MODEL_NAMES:
-                container_self = getattr(self, object_type)
-                container_other = getattr(other, object_type)
-                if container_self != container_other:
-                    return False
-        except Exception:
-            return False
+        for object_type in DATASET_MODEL_NAMES:
+            container_self = getattr(self, object_type)
+            container_other = getattr(other, object_type)
+            if container_self != container_other:
+                return False
         return True
 
     def diff(self, other: AtlasDataset) -> dict[str, dict[str, Any]]:

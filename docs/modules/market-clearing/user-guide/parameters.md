@@ -44,9 +44,9 @@ For common parameters (`temporal`, `solver`, `output`), see [Common Parameters](
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `fb_branch_load_slack_penalty` | `float` | `200` | Penalty on slack variables for flow-based branch constraints during pricing. |
-| `paradoxically_accepted_penalty_M` | `float` | `10 000` | Large penalty to minimise paradoxically accepted bids during price fixing. |
-| `paradoxically_rejected_penalty_N` | `float` | `1 000` | Large penalty to minimise paradoxically rejected bids during price fixing. |
+| `fb_branch_load_slack_penalty` | `float` | `1` | Penalty on slack variables for flow-based branch constraints during pricing. |
+| `paradoxically_accepted_penalty` | `float` | `10 000` | Large penalty to minimise paradoxically accepted bids during price fixing. |
+| `paradoxically_rejected_penalty` | `float` | `1 000` | Large penalty to minimise paradoxically rejected bids during price fixing. |
 
 ## Numerical Stability
 
@@ -85,9 +85,9 @@ flow_penalty_lambda_3: 0
 flow_penalty_lambda_4: 0
 market_price_penalty_alpha: 10
 market_price_penalty_beta: 20
-fb_branch_load_slack_penalty: 200
-paradoxically_accepted_penalty_M: 10000
-paradoxically_rejected_penalty_N: 1000
+fb_branch_load_slack_penalty: 1
+paradoxically_accepted_penalty: 10000
+paradoxically_rejected_penalty: 1000
 allowed_round_off_error: 1e-3
 ```
 

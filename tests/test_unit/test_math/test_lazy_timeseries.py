@@ -1358,6 +1358,29 @@ class TestAddIndex:
         assert lt.get_value(new_time) == 30.0
 
 
+class TestAddOnUnion:
+    """Tests for add_on_union on the lazy backend."""
+
+    def test_add_on_union_with_partial_overlap(self):
+        """add_on_union extends the index and sums the overlapping timestamps."""
+        base_df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1, h, 0) for h in range(4)],
+                "value": [10.0, 20.0, 30.0, 40.0],
+            }
+        )
+        extra_df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1, h, 0) for h in range(2, 6)],
+                "value": [1.0, 2.0, 3.0, 4.0],
+            }
+        )
+        base = LazyTimeseries(base_df.lazy())
+        result = base.add_on_union(LazyTimeseries(extra_df.lazy()), inplace=False)
+        assert result.values == [10.0, 20.0, 31.0, 42.0, 3.0, 4.0]
+        assert base.values == [10.0, 20.0, 30.0, 40.0]
+
+
 class TestAddIndexes:
     """Tests for LazyTimeseries.add_indexes method."""
 

@@ -48,11 +48,35 @@ Possible options for these two types are detailed in the following sections.
 | Parameter | Required | Default | Description |
 |---|---|---|---|
 | `module` | Yes | — | Module to run (`DayAheadOrders`, `MarketClearing`, `PortfolioOptimisation`, `IntradayPriceForecast`) |
-| `parameters_path` | Yes | — | Path to the module parameters file |
+| `parameters_path` | See below | — | Path to the module parameters file. Mutually exclusive with `parameters` |
+| `parameters` | See below | — | Inline module parameters. Mutually exclusive with `parameters_path` |
 | `name` | No | module name | Custom name for the step |
+
+Exactly one of `parameters_path` or `parameters` must be set for each step.
 
 !!! note "Duplicate step names"
     If two steps share the same name, Atlas automatically appends `_1`, `_2`, etc. to keep them unique.
+
+#### Inline Parameters
+
+Instead of pointing to a separate parameters file, a step's parameters can be written directly in the workflow YAML with `parameters`:
+
+```yaml
+name: day-ahead
+dataset_path: ./data/input/
+output_dataset_path: ./data/output/
+output_dir: ./results/
+steps:
+  - module: DayAheadOrders
+    parameters:
+      order_type: block
+  - module: MarketClearing
+    parameters_path: ./parameters/market_clearing.yml
+  - module: PortfolioOptimisation
+    parameters_path: ./parameters/portfolio_optimisation.yml
+```
+
+This is convenient for short parameter sets or dynamically generated workflows, avoiding the need for a separate file per step.
 
 ---
 
@@ -92,7 +116,7 @@ parameters = WorkflowParameters(
     dataset_path="./data/input/",
     output_dir="./results/",
     steps=[
-        Step(module="DayAheadOrders", parameters_path="./parameters/day_ahead_orders.yml"),
+        Step(module="DayAheadOrders", parameters={"order_type": "block"}),
         Step(module="MarketClearing", parameters_path="./parameters/market_clearing.yml"),
         Step(module="PortfolioOptimisation", parameters_path="./parameters/portfolio_optimisation.yml"),
     ],

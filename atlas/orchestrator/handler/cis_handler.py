@@ -51,24 +51,16 @@ class CISHandler:
         :type cis: CurrentInputState
         :raises ChangeSetApplicationError: If any change set fails to apply
         """
-        try:
-            for idx, change_set in enumerate(change_sets):
-                try:
-                    logger.debug(f"Applying change set {idx + 1}/{len(change_sets)}: {change_set}")
-                    ChangeSetHandler.apply(change_set, cis)
-                except Exception as e:
-                    error_msg = f"Failed to apply change set {idx + 1}/{len(change_sets)} ({change_set}): {e}"
-                    logger.error(error_msg)
-                    raise ChangeSetApplicationError(error_msg, change_set, e) from e
+        for idx, change_set in enumerate(change_sets):
+            try:
+                logger.debug(f"Applying change set {idx + 1}/{len(change_sets)}: {change_set}")
+                ChangeSetHandler.apply(change_set, cis)
+            except Exception as e:
+                error_msg = f"Failed to apply change set {idx + 1}/{len(change_sets)} ({change_set}): {e}"
+                logger.error(error_msg)
+                raise ChangeSetApplicationError(error_msg, change_set, e) from e
 
-            logger.info(f"Successfully applied {len(change_sets)} change sets to Current Input State")
-
-        except Exception as e:
-            # Catch any unexpected errors and re-raise
-            # Transaction will handle rollback if enabled
-            error_msg = f"Unexpected error while applying change sets: {type(e).__name__}: {e}"
-            logger.error(error_msg)
-            raise
+        logger.info(f"Successfully applied {len(change_sets)} change sets to Current Input State")
 
     @staticmethod
     def _validate_no_duplicates(change_sets: list[ChangeSet]) -> None:

@@ -7,13 +7,13 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 
-from atlas.abstract_class.dataset import AbstractDataset
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
-from atlas.io_utils.parameters import ContextParameters
-from atlas.orchestrator.workflow.job import Step, WorkflowJob
-from atlas.orchestrator.workflow.parameters import WorkflowParameters
+from atlas.abstract_class.parameters import AbstractModuleParameters
+from atlas.orchestrator.workflow.job import WorkflowJob
+from atlas.orchestrator.workflow.parameters import Step, WorkflowParameters
 
 
 class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
@@ -21,63 +21,85 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
     Each job processes the output of the previous one, starting from the input dataset."""
 
-    def __init__(self, parameters: WorkflowParameters):
+    @classmethod
+    def get_param_class(cls):
+        return WorkflowParameters
+
+    def __init__(self, parameters: WorkflowParameters, prefix_job_name: str | None = None):
         """Initialize a Workflow instance.
 
         :param parameters: Name of the workflow.
         :type parameters: WorkflowParameters
         """
-        self.parameters = parameters
-        self._jobs: list[WorkflowJob] = []
-        self.build_jobs()
-
-    @classmethod
-    def from_file(cls, file_path: str | Path, context: ContextParameters | None = None) -> Workflow:
-        file_path = Path(file_path)
-        parameters = WorkflowParameters.from_file(file_path=file_path)
-        if context is not None:
-            parameters.context.use(context)
-        parameters._orchestrator_path = file_path.parent
-        return cls(parameters=parameters)
-
-    def build_jobs(self):
-        Step.add_index_in_step_name(self.parameters.steps)
-
+        super().__init__(parameters)
+        self._steps: list[Step] = []
+        self._resolved_parameters: list[AbstractModuleParameters] = []
         for step in self.parameters.steps:
-            parameters = (
-                step.module.value()
-                .get_parameters_class()
-                .from_file(self.parameters.resolve_path(step.parameters_path), self.parameters.context)
-            )
-            parameters.output.output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
-            workflow_job = WorkflowJob(step.name, step.module.value, parameters)
-            self.add_job(workflow_job)
+            self.add_step(step, prefix_job_name)
 
     @property
-    def jobs(self) -> list[WorkflowJob]:
+    def jobs(self) -> Iterator[WorkflowJob]:
         """
-        Access the workflow jobs.
+        Generate and return the workflow jobs.
 
         :return: The list of WorkflowJob instances.
         """
-        return self._jobs
+        for step, resolved_parameter in zip(self._steps, self._resolved_parameters, strict=True):
+            parameters = resolved_parameter.model_copy(deep=True)
+            yield WorkflowJob(f"{step.name!r}", step.module.value, parameters)
 
-    def add_job(self, job: WorkflowJob | list[WorkflowJob]) -> None:
-        """Add one or multiple jobs to the end of the workflow."""
-        if isinstance(job, list):
-            if not all(isinstance(s, WorkflowJob) for s in job):
-                raise TypeError("All items in the list must be WorkflowJob instances.")
-            self._jobs.extend(job)
+    @property
+    def jobs_count(self) -> int:
+        return len(self._steps)
+
+    def add_step(self, step: Step | list[Step], prefix_job_name: str | None = None) -> None:
+        """Add one or multiple step to the end of the workflow."""
+        if isinstance(step, list):
+            if not all(isinstance(s, Step) for s in step):
+                raise TypeError("All items in the list must be Step instances.")
+            for s in step:
+                self._add_one_step(s, prefix_job_name)
         else:
-            if not isinstance(job, WorkflowJob):
-                raise TypeError(f"Expected a WorkflowJob instance, got {type(job).__name__}.")
-            self._jobs.append(job)
+            if not isinstance(step, Step):
+                raise TypeError(f"Expected a Step instance, got {type(step).__name__}.")
+            self._add_one_step(step, prefix_job_name)
 
-    def get_output_dataset(self) -> AbstractDataset | None:
-        """Returns the final dataset of the workflow"""
-        return self.jobs[-1].get_output_dataset()
+    def _add_one_step(self, step: Step, prefix_job_name: str | None = None) -> None:
+        """Add a single step to the end of the workflow, add the prefix given and build parameters."""
+        # Rename before resolving: the step output directory is derived from step.name, and iterations of a same
+        # action plan task only differ by this prefix.
+        if prefix_job_name:
+            step = step.model_copy(update={"name": f"{prefix_job_name} {step.name}"})
+        try:
+            resolved_parameters = self._build_step_parameters(step)
+        except Exception as exc:
+            raise ValueError(f"Step {step.name!r}: unable to resolve parameters ({exc})") from exc
+        self._steps.append(step.model_copy(update={"parameters": resolved_parameters}))
+        self._resolved_parameters.append(resolved_parameters)
+
+    def _build_step_parameters(self, step: Step) -> AbstractModuleParameters:
+        """Build a step's parameters against the workflow's context."""
+        parameters_class = step.module.value().get_parameters_class()
+        if isinstance(step.parameters, (str, Path)):
+            contextualized_parameters = parameters_class.from_file(
+                self.parameters.resolve_path(Path(step.parameters)), self.context
+            )
+        elif isinstance(step.parameters, dict):
+            contextualized_parameters = parameters_class.from_dict(step.parameters, self.context)
+        elif isinstance(step.parameters, AbstractModuleParameters):
+            contextualized_parameters = self.context.apply_on_parameters(step.parameters)
+        else:
+            contextualized_parameters = step.parameters
+        step_output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
+        return contextualized_parameters.evolve(
+            output=contextualized_parameters.output.evolve(output_dir=step_output_dir)
+        )
+
+    @property
+    def context(self):
+        return self.parameters.context
 
     def __repr__(self) -> str:
         """Return a human-readable string representation of the workflow."""
-        step_count = len(self._jobs)
+        step_count = len(self._steps)
         return f"Workflow '{self.parameters.name}' ({step_count} step{'s' if step_count != 1 else ''})"
