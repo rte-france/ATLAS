@@ -37,7 +37,6 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
     timezone: str
     frequency: pendulum.Duration
     timeseries: TBackend
-    _lookup_cache: dict | None
     _epoch_lookup_cache: dict[int, float] | None
 
     @abstractmethod
@@ -783,23 +782,13 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         """
         ...
 
-    def to_lookup_dict(self) -> dict:
-        """Build a {time: value} dict for O(1) lookups."""
-        return self._get_lookup()
-
-    def _get_lookup(self) -> dict:
-        """Return cached {time: value} dict, building it on first call."""
-        if not hasattr(self, "_lookup_cache") or self._lookup_cache is None:
-            self._lookup_cache = dict(self.iter_rows())
-        return self._lookup_cache
-
     def _get_epoch_lookup(self) -> dict[int, float]:
         """
         Return cached {epoch microseconds: value} dict, building it on first call.
 
         Keys are the instants of the time column in microseconds since the Unix epoch (UTC),
         see :func:`atlas.timing.epoch_key`. Building it does not create any datetime object,
-        which makes it much cheaper than :meth:`_get_lookup` on long series.
+        which keeps it cheap on long series.
         """
         lookup = getattr(self, "_epoch_lookup_cache", None)
         if lookup is None:
@@ -810,8 +799,7 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         return lookup
 
     def _invalidate_cache(self) -> None:
-        """Invalidate the lookup caches. Must be called whenever the underlying data changes."""
-        self._lookup_cache = None
+        """Invalidate the lookup cache. Must be called whenever the underlying data changes."""
         self._epoch_lookup_cache = None
 
     @abstractmethod
