@@ -303,90 +303,89 @@ class TestReindex:
         assert result.collect().values == [10.0, -1.0, 20.0]
 
 
-class TestLookupDictCache:
-    """Unit tests for the _lookup_cache mechanism on Timeseries."""
+class TestEpochLookupCache:
+    """Unit tests for the _epoch_lookup_cache mechanism on Timeseries and LazyTimeseries."""
+
+    JAN_1_2025_UTC_US = 1_735_689_600_000_000
+    HOUR_US = 3_600_000_000
 
     @pytest.fixture
-    def ts(self):
-        df = pd.DataFrame(
+    def df(self):
+        return pl.DataFrame(
             {
-                "time": pd.date_range(start="2025-01-01", periods=4, freq="h", tz="UTC"),
+                "time": pl.datetime_range(
+                    pl.datetime(2025, 1, 1, time_zone="UTC"),
+                    pl.datetime(2025, 1, 1, 3, time_zone="UTC"),
+                    "1h",
+                    eager=True,
+                ),
                 "value": [10.0, 20.0, 30.0, 40.0],
             }
         )
-        return Timeseries(pl.from_pandas(df))
+
+    @pytest.fixture(params=["eager", "lazy"])
+    def ts(self, request, df):
+        return Timeseries(df) if request.param == "eager" else LazyTimeseries(df.lazy())
+
+    def expected(self, values):
+        return {self.JAN_1_2025_UTC_US + i * self.HOUR_US: v for i, v in enumerate(values)}
+
+    def test_cache_contains_epoch_microsecond_keys(self, ts):
+        assert ts._get_epoch_lookup() == self.expected([10.0, 20.0, 30.0, 40.0])
 
     def test_cache_is_none_before_first_access(self, ts):
-        assert ts._lookup_cache is None
-
-    def test_cache_is_built_on_first_get_lookup(self, ts):
-        ts._get_lookup()
-        assert ts._lookup_cache is not None
-
-    def test_cache_contains_correct_mapping(self, ts):
-        lookup = ts._get_lookup()
-        assert len(lookup) == 4
-        assert list(lookup.values()) == [10.0, 20.0, 30.0, 40.0]
-
-    def test_to_lookup_dict_returns_same_object_as_cache(self, ts):
-        d = ts.to_lookup_dict()
-        assert d is ts._lookup_cache
+        assert getattr(ts, "_epoch_lookup_cache", None) is None
 
     def test_cache_is_reused_on_repeated_calls(self, ts):
-        first = ts._get_lookup()
-        second = ts._get_lookup()
-        assert first is second
-
-    def test_cache_allows_o1_lookup_via_get_value(self, ts):
-        dt = pendulum.datetime(2025, 1, 1, 1, 0, 0, tz="UTC")
-        assert ts.get_value(dt) == 20.0
-
-    def test_invalidate_cache_sets_none(self, ts):
-        ts._get_lookup()
-        ts._invalidate_cache()
-        assert ts._lookup_cache is None
+        assert ts._get_epoch_lookup() is ts._get_epoch_lookup()
 
     def test_cache_rebuilt_after_invalidation(self, ts):
-        first = ts._get_lookup()
+        first = ts._get_epoch_lookup()
         ts._invalidate_cache()
-        second = ts._get_lookup()
+        assert ts._epoch_lookup_cache is None
+        second = ts._get_epoch_lookup()
         assert second is not first
-        assert list(second.values()) == [10.0, 20.0, 30.0, 40.0]
+        assert second == first
 
     def test_cache_invalidated_after_set_value(self, ts):
-        ts._get_lookup()
-        dt = pendulum.datetime(2025, 1, 1, 0, 0, 0, tz="UTC")
-        ts.set_value(dt, 99.0, inplace=True)
-        assert ts._lookup_cache is None
-        assert ts.get_value(dt) == 99.0
-
-    def test_cache_reflects_new_value_after_set_value(self, ts):
-        dt = pendulum.datetime(2025, 1, 1, 2, 0, 0, tz="UTC")
-        ts.set_value(dt, 99.0, inplace=True)
-        assert ts.to_lookup_dict()[dt] == 99.0
+        ts._get_epoch_lookup()
+        ts.set_value(pendulum.datetime(2025, 1, 1, 1, tz="UTC"), 99.0, inplace=True)
+        assert ts._epoch_lookup_cache is None
+        assert ts._get_epoch_lookup() == self.expected([10.0, 99.0, 30.0, 40.0])
 
     def test_cache_invalidated_after_add_index(self, ts):
-        ts._get_lookup()
-        new_dt = pendulum.datetime(2025, 1, 1, 4, 0, 0, tz="UTC")
+        ts._get_epoch_lookup()
+        ts.add_index(pendulum.datetime(2025, 1, 1, 4, tz="UTC"), 50.0, inplace=True)
+        assert ts._epoch_lookup_cache is None
+        assert ts._get_epoch_lookup() == self.expected([10.0, 20.0, 30.0, 40.0, 50.0])
+
+    def test_get_value_reflects_in_place_mutations(self, ts):
+        dt = pendulum.datetime(2025, 1, 1, 1, tz="UTC")
+        new_dt = pendulum.datetime(2025, 1, 1, 4, tz="UTC")
+        assert ts.get_value(dt) == 20.0
+        ts.set_value(dt, 99.0, inplace=True)
         ts.add_index(new_dt, 50.0, inplace=True)
-        assert ts._lookup_cache is None
+        assert ts.get_value(dt) == 99.0
         assert ts.get_value(new_dt) == 50.0
 
-    def test_cache_invalidated_after_set_timezone(self, ts):
-        ts._get_lookup()
+    def test_keys_unchanged_after_set_timezone(self, ts):
+        before = dict(ts._get_epoch_lookup())
         ts.set_timezone("Europe/Paris")
-        assert ts._lookup_cache is None
-
-    def test_cache_rebuilt_with_correct_tz_after_set_timezone(self, ts):
-        ts.set_timezone("Europe/Paris")
-        lookup = ts.to_lookup_dict()
-        keys = list(lookup.keys())
-        assert all(str(k.tzinfo) == "Europe/Paris" for k in keys)
+        assert ts._epoch_lookup_cache is None
+        assert ts._get_epoch_lookup() == before
 
     def test_non_inplace_mutation_does_not_invalidate_original_cache(self, ts):
-        ts._get_lookup()
-        cache_before = ts._lookup_cache
-        dt = pendulum.datetime(2025, 1, 1, 0, 0, 0, tz="UTC")
-        new_ts = ts.set_value(dt, 99.0, inplace=False)
-        assert ts._lookup_cache is cache_before
-        assert new_ts._lookup_cache is None
+        cache_before = ts._get_epoch_lookup()
+        ts.set_value(pendulum.datetime(2025, 1, 1, tz="UTC"), 99.0, inplace=False)
+        assert ts._epoch_lookup_cache is cache_before
+
+    @pytest.mark.parametrize("time_unit", ["ms", "ns"])
+    def test_keys_are_microseconds_whatever_the_time_unit(self, df, time_unit):
+        ts = Timeseries(df)
+        ts._return(df.with_columns(pl.col("time").cast(pl.Datetime(time_unit, "UTC"))), inplace=True)
+        assert ts.timeseries.schema["time"] == pl.Datetime(time_unit, "UTC")
+        assert ts._get_epoch_lookup() == self.expected([10.0, 20.0, 30.0, 40.0])
+
+    def test_null_value_is_kept(self, df):
+        ts = Timeseries(df.with_columns(pl.when(pl.col("value") == 20.0).then(None).otherwise("value").alias("value")))
+        assert ts._get_epoch_lookup() == self.expected([10.0, None, 30.0, 40.0])
