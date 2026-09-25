@@ -390,3 +390,43 @@ class TestLookupDictCache:
         new_ts = ts.set_value(dt, 99.0, inplace=False)
         assert ts._lookup_cache is cache_before
         assert new_ts._lookup_cache is None
+
+
+class TestLazyLookupDictCache:
+    """Unit tests for the _lookup_cache invalidation on LazyTimeseries."""
+
+    @pytest.fixture
+    def lazy_ts(self):
+        df = pd.DataFrame(
+            {
+                "time": pd.date_range(start="2025-01-01", periods=4, freq="h", tz="UTC"),
+                "value": [10.0, 20.0, 30.0, 40.0],
+            }
+        )
+        return LazyTimeseries(pl.from_pandas(df).lazy())
+
+    def test_cache_invalidated_after_set_value(self, lazy_ts):
+        dt = pendulum.datetime(2025, 1, 1, 0, 0, 0, tz="UTC")
+        assert lazy_ts.to_lookup_dict()[dt] == 10.0
+        lazy_ts.set_value(dt, 99.0, inplace=True)
+        assert lazy_ts._lookup_cache is None
+        assert lazy_ts.to_lookup_dict()[dt] == 99.0
+
+    def test_cache_invalidated_after_add_index(self, lazy_ts):
+        lazy_ts.to_lookup_dict()
+        new_dt = pendulum.datetime(2025, 1, 1, 4, 0, 0, tz="UTC")
+        lazy_ts.add_index(new_dt, 50.0, inplace=True)
+        assert lazy_ts._lookup_cache is None
+        assert lazy_ts.to_lookup_dict()[new_dt] == 50.0
+
+    def test_cache_invalidated_after_set_timezone(self, lazy_ts):
+        lazy_ts.to_lookup_dict()
+        lazy_ts.set_timezone("Europe/Paris")
+        assert lazy_ts._lookup_cache is None
+        assert all(str(k.tzinfo) == "Europe/Paris" for k in lazy_ts.to_lookup_dict())
+
+    def test_non_inplace_mutation_does_not_invalidate_original_cache(self, lazy_ts):
+        cache_before = lazy_ts.to_lookup_dict()
+        dt = pendulum.datetime(2025, 1, 1, 0, 0, 0, tz="UTC")
+        lazy_ts.set_value(dt, 99.0, inplace=False)
+        assert lazy_ts._lookup_cache is cache_before
