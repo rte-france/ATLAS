@@ -9,12 +9,13 @@ Family of optimisation variables indexed by time.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from typing import TYPE_CHECKING, NoReturn
 
 from pendulum import DateTime
 
 from atlas.enums import VariableType
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
 
 if TYPE_CHECKING:
@@ -23,7 +24,13 @@ if TYPE_CHECKING:
 
     from atlas.solver.solver_interface import OptimisationModel
 
-type Bound = float | Callable[[DateTime], float]
+type Bound = float | AbstractTimeseries | Callable[[DateTime], float]
+
+# Same defaults as OptimisationModel.add_continuous_variable / add_integer_variable
+_DEFAULT_BOUNDS: dict[VariableType, tuple[float, float]] = {
+    VariableType.CONTINUOUS: (float("-inf"), float("inf")),
+    VariableType.INTEGER: (0.0, float("inf")),
+}
 
 
 class TemporalVariable:
@@ -38,30 +45,33 @@ class TemporalVariable:
     Solver variables are named ``{name}_{t}``. The object holds references to the solver and
     therefore cannot be pickled: use :meth:`solution` to get a picklable result.
 
+    Do not instantiate directly: use :meth:`~atlas.solver.solver_interface.OptimisationModel.add_temporal_variable`,
+    which registers the family in the model.
+
     **Example**
 
-        power = TemporalVariable(model, "unit_power", lower_bound=0, upper_bound=max_power.get_value)
+        power = model.add_temporal_variable("unit_power", time_window, lower_bound=0, upper_bound=max_power)
         power.fix(start - timestep, 50.0)          # initial condition
-        power.add_all(time_window)                 # one solver variable per timestamp
+        power.add(end)                             # one more solver variable
         for t in time_window:
             model.add_constraint(power[t] - power[t - timestep] <= ramp, f"ramp_{t}")
         model.solve()
-        power.solution()                           # Timeseries over time_window
+        power.solution()                           # Timeseries over the solver variables
 
     :param model: Optimisation model in which variables are created
     :type model: OptimisationModel
     :param name: Name of the family, used as prefix of each solver variable name
     :type name: str
-    :param variable_type: Type of the solver variables, defaults to continuous
-    :type variable_type: VariableType
-    :param lower_bound: Lower bound, either a constant or a function of time. Defaults to the
-        model default for the variable type. Not allowed for boolean variables.
-    :type lower_bound: float | Callable[[DateTime], float] | None
-    :param upper_bound: Upper bound, either a constant or a function of time. Defaults to the
-        model default for the variable type. Not allowed for boolean variables.
-    :type upper_bound: float | Callable[[DateTime], float] | None
     :param times: Timestamps for which solver variables are created immediately
     :type times: Iterable[DateTime] | None
+    :param variable_type: Type of the solver variables, defaults to continuous
+    :type variable_type: VariableType
+    :param lower_bound: Lower bound: a constant, a timeseries or a function of time. Defaults to the
+        model default for the variable type. Not allowed for boolean variables. A timeseries is read
+        for all timestamps at once when variables are created in bulk, which is much faster.
+    :type lower_bound: float | AbstractTimeseries | Callable[[DateTime], float] | None
+    :param upper_bound: Upper bound, same forms and default as *lower_bound*
+    :type upper_bound: float | AbstractTimeseries | Callable[[DateTime], float] | None
     :raises ValueError: If bounds are given for a boolean variable
     """
 
@@ -69,10 +79,10 @@ class TemporalVariable:
         self,
         model: OptimisationModel,
         name: str,
+        times: Iterable[DateTime] | None = None,
         variable_type: VariableType = VariableType.CONTINUOUS,
         lower_bound: Bound | None = None,
         upper_bound: Bound | None = None,
-        times: Iterable[DateTime] | None = None,
     ) -> None:
         if variable_type == VariableType.BOOLEAN and (lower_bound is not None or upper_bound is not None):
             raise ValueError(f"Boolean temporal variable '{name}' does not accept bounds")
@@ -80,8 +90,9 @@ class TemporalVariable:
         self._model = model
         self._name = name
         self._variable_type = variable_type
-        self._lower_bound = lower_bound
-        self._upper_bound = upper_bound
+        default_lower, default_upper = _DEFAULT_BOUNDS.get(variable_type, (0.0, 1.0))
+        self._lower_bound: Bound = default_lower if lower_bound is None else lower_bound
+        self._upper_bound: Bound = default_upper if upper_bound is None else upper_bound
         self._variables: dict[DateTime, pywraplp.Variable] = {}
         self._fixed: dict[DateTime, float] = {}
 
@@ -112,28 +123,23 @@ class TemporalVariable:
         """
         Create the solver variable at *t*, evaluating time-dependent bounds at *t*.
 
+        Prefer :meth:`add_all` (or the ``times`` argument at declaration) for several timestamps:
+        it reads timeseries bounds in one lookup.
+
         :param t: Timestamp of the variable
         :type t: DateTime
         :return: The created solver variable
         :rtype: pywraplp.Variable
         :raises ValueError: If *t* already holds a solver variable or a fixed value
+        :raises KeyError: If a timeseries bound has no value at *t*
         """
         self._check_undefined(t)
-        variable_name = self._variable_name(t)
-
+        name = f"{self._name}_{t}"
         if self._variable_type == VariableType.BOOLEAN:
-            variable = self._model.add_boolean_variable(variable_name)
+            variable = self._model.add_boolean_variable(name)
         else:
-            bounds: dict[str, float] = {}
-            if self._lower_bound is not None:
-                bounds["lower_bound"] = _resolve(self._lower_bound, t)
-            if self._upper_bound is not None:
-                bounds["upper_bound"] = _resolve(self._upper_bound, t)
-            if self._variable_type == VariableType.INTEGER:
-                variable = self._model.add_integer_variable(variable_name, **bounds)
-            else:
-                variable = self._model.add_continuous_variable(variable_name, **bounds)
-
+            lower, upper = _resolve(self._lower_bound, t), _resolve(self._upper_bound, t)
+            variable = self._create_bounded()(name, lower, upper)
         self._variables[t] = variable
         return variable
 
@@ -141,12 +147,28 @@ class TemporalVariable:
         """
         Create one solver variable per timestamp in *times*.
 
+        All timestamps are checked before any variable is created, and timeseries bounds are
+        read for all timestamps in one lookup.
+
         :param times: Timestamps of the variables
         :type times: Iterable[DateTime]
-        :raises ValueError: If a timestamp already holds a solver variable or a fixed value
+        :raises ValueError: If *times* contains duplicates, or if a timestamp already holds a solver
+            variable or a fixed value
+        :raises KeyError: If a timeseries bound has no value at one of the timestamps
         """
-        for t in times:
-            self.add(t)
+        times = list(times)
+        self._check_all_undefined(times)
+
+        if self._variable_type == VariableType.BOOLEAN:
+            for t in times:
+                self._variables[t] = self._model.add_boolean_variable(f"{self._name}_{t}")
+            return
+
+        lowers = _resolve_all(self._lower_bound, times)
+        uppers = _resolve_all(self._upper_bound, times)
+        create = self._create_bounded()
+        for t, lower, upper in zip(times, lowers, uppers, strict=True):
+            self._variables[t] = create(f"{self._name}_{t}", lower, upper)
 
     def fix(self, t: DateTime, value: float) -> None:
         """
@@ -249,8 +271,10 @@ class TemporalVariable:
             f"variables={len(self._variables)}, fixed={len(self._fixed)})"
         )
 
-    def _variable_name(self, t: DateTime) -> str:
-        return f"{self._name}_{t}"
+    def _create_bounded(self) -> Callable[[str, float, float], pywraplp.Variable]:
+        if self._variable_type == VariableType.INTEGER:
+            return self._model.add_integer_variable
+        return self._model.add_continuous_variable
 
     def _get_variable(self, t: DateTime) -> pywraplp.Variable:
         try:
@@ -264,10 +288,31 @@ class TemporalVariable:
         if t in self._fixed:
             raise ValueError(f"Temporal variable '{self._name}' already holds a fixed value at {t}")
 
+    def _check_all_undefined(self, times: list[DateTime]) -> None:
+        unique = set(times)
+        if len(unique) != len(times):
+            raise ValueError(f"Temporal variable '{self._name}' cannot add duplicate timestamps at once")
+        if clash := unique & self._variables.keys():
+            raise ValueError(f"Temporal variable '{self._name}' already holds a solver variable at {min(clash)}")
+        if clash := unique & self._fixed.keys():
+            raise ValueError(f"Temporal variable '{self._name}' already holds a fixed value at {min(clash)}")
+
     def _check_solved(self) -> None:
         if self._model.solution_info is None:
             raise RuntimeError(f"Optimisation model has not been solved yet, cannot read '{self._name}'")
 
 
 def _resolve(bound: Bound, t: DateTime) -> float:
-    return bound(t) if callable(bound) else bound
+    if isinstance(bound, AbstractTimeseries):
+        return bound.get_value(t)
+    if callable(bound):
+        return bound(t)
+    return bound
+
+
+def _resolve_all(bound: Bound, times: Sequence[DateTime]) -> Sequence[float]:
+    if isinstance(bound, AbstractTimeseries):
+        return bound.get_values(times)
+    if callable(bound):
+        return [bound(t) for t in times]
+    return [bound] * len(times)
