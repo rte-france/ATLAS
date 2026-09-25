@@ -935,6 +935,62 @@ class TestTimeseriesBasicOperations:
         with pytest.raises(ValueError):
             value = ts.get_value(datetime(2023, 1, 1))
 
+    def test_get_value_with_string(self, sample_ts):
+        """Strings are parsed with date_format, as UTC."""
+        assert sample_ts.get_value("2023-01-01 01:00:00") == 20.0
+        assert sample_ts.get_value("01/01/2023 02h", date_format="DD/MM/YYYY HH[h]") == 30.0
+
+    def test_get_value_with_invalid_string(self, sample_ts):
+        with pytest.raises(ValueError):
+            sample_ts.get_value("not a date")
+
+    def test_get_value_matches_instant_in_other_timezone(self, sample_ts):
+        """An aware datetime matches on its instant, whatever its timezone."""
+        assert sample_ts.get_value(pendulum.datetime(2023, 1, 1, 2, tz="Europe/Paris")) == 20.0
+
+    def test_get_value_naive_datetime_is_utc_on_non_utc_series(self):
+        ts = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": [datetime(2023, 1, 1, 0), datetime(2023, 1, 1, 1)],
+                    "value": [1.0, 2.0],
+                }
+            ).with_columns(pl.col("time").dt.replace_time_zone("UTC")),
+            timezone="Europe/Paris",
+        )
+        assert ts.get_value(datetime(2023, 1, 1, 1)) == 2.0
+        assert ts.get_value("2023-01-01 00:00:00") == 1.0
+        assert ts.get_value(pendulum.datetime(2023, 1, 1, 2, tz="Europe/Paris")) == 2.0
+
+    def test_get_value_around_dst_change(self):
+        """Both occurrences of the repeated hour on the autumn DST change are distinct."""
+        times = pl.datetime_range(
+            pl.datetime(2025, 10, 25, 23, time_zone="UTC"),
+            pl.datetime(2025, 10, 26, 2, time_zone="UTC"),
+            "1h",
+            eager=True,
+        )
+        ts = Timeseries(pl.DataFrame({"time": times, "value": [1.0, 2.0, 3.0, 4.0]}), timezone="Europe/Paris")
+        first = pendulum.datetime(2025, 10, 26, 0, tz="UTC").in_tz("Europe/Paris")
+        second = pendulum.datetime(2025, 10, 26, 1, tz="UTC").in_tz("Europe/Paris")
+        assert first.hour == second.hour == 2
+        assert ts.get_value(first) == 2.0
+        assert ts.get_value(second) == 3.0
+        assert ts.get_value(pendulum.datetime(2025, 10, 26, 1, tz="UTC")) == 3.0
+
+    def test_get_value_missing_error_message(self, sample_ts):
+        with pytest.raises(KeyError, match="2023-01-01 05:00:00"):
+            sample_ts.get_value(datetime(2023, 1, 1, 5))
+
+    def test_get_value_after_set_timezone(self, sample_ts):
+        sample_ts.get_value(datetime(2023, 1, 1, 1))
+        sample_ts.set_timezone("Europe/Paris")
+        assert sample_ts.get_value(pendulum.datetime(2023, 1, 1, 2, tz="Europe/Paris")) == 20.0
+
+    def test_get_value_returns_null_value(self, sample_ts):
+        sample_ts.set_value(datetime(2023, 1, 1, 1), None, inplace=True)
+        assert sample_ts.get_value(datetime(2023, 1, 1, 1)) is None
+
     def test_properties_shape(self, sample_ts: Timeseries):
         """Test the shape and index properties of Timeseries."""
         # Test shape
