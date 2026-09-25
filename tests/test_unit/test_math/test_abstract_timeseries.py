@@ -3,6 +3,8 @@ Tests for AbstractScenarioMatrix and AbstractTimeseries base classes.
 These tests ensure that the abstract class properties and methods are properly covered.
 """
 
+from datetime import datetime
+
 import pandas as pd
 import pendulum
 import polars as pl
@@ -301,6 +303,64 @@ class TestReindex:
         ]
         result = lazy_ts.reindex(target, default=-1.0, inplace=False)
         assert result.collect().values == [10.0, -1.0, 20.0]
+
+
+class TestGetValues:
+    """Unit tests for get_values, on both eager and lazy timeseries."""
+
+    START = pendulum.datetime(2025, 1, 1, tz="UTC")
+    TIMES = [pendulum.datetime(2025, 1, 1, k, tz="UTC") for k in range(4)]
+
+    @pytest.fixture(params=["eager", "lazy"])
+    def ts(self, request):
+        eager = Timeseries({"time": self.TIMES, "value": [10.0, 20.0, 30.0, 40.0]})
+        return eager if request.param == "eager" else LazyTimeseries(eager.timeseries.lazy())
+
+    def test_matches_get_value(self, ts):
+        assert ts.get_values(self.TIMES) == [ts.get_value(t) for t in self.TIMES]
+
+    def test_keeps_requested_order_and_duplicates(self, ts):
+        requested = [self.TIMES[3], self.TIMES[0], self.TIMES[3]]
+        assert ts.get_values(requested) == [40.0, 10.0, 40.0]
+
+    def test_aware_datetimes_match_on_instant(self, ts):
+        requested = [self.TIMES[1].in_tz("Europe/Paris"), self.TIMES[2].in_tz("America/New_York")]
+        assert ts.get_values(requested) == [20.0, 30.0]
+
+    def test_naive_datetimes_and_strings_follow_get_value(self, ts):
+        requested = [datetime(2025, 1, 1, 1), "2025-01-01 02:00:00"]
+        assert ts.get_values(requested) == [ts.get_value(requested[0]), ts.get_value(requested[1])] == [20.0, 30.0]
+
+    def test_custom_date_format(self, ts):
+        assert ts.get_values(["01/01/2025 03h"], date_format="DD/MM/YYYY HH[h]") == [40.0]
+
+    def test_non_utc_timeseries(self):
+        paris = [t.in_tz("Europe/Paris") for t in self.TIMES]
+        ts = Timeseries({"time": paris, "value": [1.0, 2.0, 3.0, 4.0]}, timezone="Europe/Paris")
+        assert ts.get_values(self.TIMES[1:3]) == [2.0, 3.0]
+
+    def test_null_value_is_returned_not_missing(self):
+        ts = Timeseries(
+            pl.DataFrame(
+                {"time": self.TIMES[:2], "value": [1.0, None]},
+                schema={"time": pl.Datetime("us", time_zone="UTC"), "value": pl.Float64()},
+            )
+        )
+        assert ts.get_values(self.TIMES[:2]) == [1.0, None]
+
+    def test_missing_datetime_raises(self, ts):
+        missing = [self.START.subtract(hours=1), self.START.add(hours=10)]
+        with pytest.raises(
+            KeyError, match="2 datetime\\(s\\) not found in the Timeseries, first one: 2024-12-31 23:00:00"
+        ):
+            ts.get_values([self.TIMES[0], *missing])
+
+    def test_empty_request_returns_empty_list(self, ts):
+        assert ts.get_values([]) == []
+
+    def test_empty_timeseries_raises(self):
+        with pytest.raises(ValueError, match="empty timeseries"):
+            Timeseries().get_values(self.TIMES)
 
 
 class TestLookupDictCache:
