@@ -1112,6 +1112,98 @@ def test_filter_does_not_modify_original_dataset():
     assert len(filtered.thermal) == 1
 
 
+def test_exclude_equipments_removes_selected():
+    cb = ControlBlock(name="cb1")
+    ma = MarketArea(name="ma1", control_block=cb)
+    node = Node(name="node1", control_block=cb, market_area=ma)
+    portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+    t1 = Thermal(name="plant_1", node=node, portfolio=portfolio)
+    t2 = Thermal(name="plant_2", node=node, portfolio=portfolio)
+    t3 = Thermal(name="plant_3", node=node, portfolio=portfolio)
+
+    dataset = AtlasDataset(thermal=[t1, t2, t3])
+
+    filtered = dataset.exclude_equipments(["plant_2"])
+
+    remaining_names = [e.name for e in filtered.thermal]
+
+    assert set(remaining_names) == {"plant_1", "plant_3"}
+    assert "plant_2" not in remaining_names
+
+
+def test_exclude_equipments_does_not_modify_original_dataset():
+    cb = ControlBlock(name="cb1")
+    ma = MarketArea(name="ma1", control_block=cb)
+    node = Node(name="node1", control_block=cb, market_area=ma)
+    portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+    t1 = Thermal(name="plant_1", node=node, portfolio=portfolio)
+    t2 = Thermal(name="plant_2", node=node, portfolio=portfolio)
+
+    dataset = AtlasDataset(thermal=[t1, t2])
+
+    filtered = dataset.exclude_equipments(["plant_1"])
+
+    assert len(dataset.thermal) == 2  # original unchanged
+    assert len(filtered.thermal) == 1
+
+
+def test_exclude_equipments_empty_or_none_returns_unchanged():
+    cb = ControlBlock(name="cb1")
+    ma = MarketArea(name="ma1", control_block=cb)
+    node = Node(name="node1", control_block=cb, market_area=ma)
+    portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+    t1 = Thermal(name="plant_1", node=node, portfolio=portfolio)
+
+    dataset = AtlasDataset(thermal=[t1])
+
+    assert len(dataset.exclude_equipments(None).thermal) == 1
+    assert len(dataset.exclude_equipments([]).thermal) == 1
+
+
+def test_exclude_technologies_removes_matching_class():
+    cb = ControlBlock(name="cb1")
+    ma = MarketArea(name="ma1", control_block=cb)
+    node = Node(name="node1", control_block=cb, market_area=ma)
+    portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+    thermal = Thermal(name="thermal1", node=node, portfolio=portfolio)
+    wind = Wind(name="wind1", node=node, portfolio=portfolio)
+
+    dataset = AtlasDataset(thermal=[thermal], wind=[wind])
+
+    filtered = dataset.exclude_technologies(["Thermal"])
+
+    assert len(filtered.thermal) == 0
+    assert len(filtered.wind) == 1
+
+
+def test_exclude_technologies_does_not_modify_original_dataset():
+    cb = ControlBlock(name="cb1")
+    ma = MarketArea(name="ma1", control_block=cb)
+    node = Node(name="node1", control_block=cb, market_area=ma)
+    portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+    thermal = Thermal(name="thermal1", node=node, portfolio=portfolio)
+
+    dataset = AtlasDataset(thermal=[thermal])
+
+    filtered = dataset.exclude_technologies(["Thermal"])
+
+    assert len(dataset.thermal) == 1  # original unchanged
+    assert len(filtered.thermal) == 0
+
+
+def test_exclude_technologies_empty_or_none_returns_unchanged():
+    cb = ControlBlock(name="cb1")
+    ma = MarketArea(name="ma1", control_block=cb)
+    node = Node(name="node1", control_block=cb, market_area=ma)
+    portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+    thermal = Thermal(name="thermal1", node=node, portfolio=portfolio)
+
+    dataset = AtlasDataset(thermal=[thermal])
+
+    assert len(dataset.exclude_technologies(None).thermal) == 1
+    assert len(dataset.exclude_technologies([]).thermal) == 1
+
+
 class TestFilterZones:
     """Test suite for the filter_zones method covering bug fixes and new features."""
 
@@ -1484,6 +1576,115 @@ class TestFilterZones:
         assert len(filtered.node_ptdf) == 1
         assert "node_ptdf1" in filtered.node_ptdf
         assert "node_ptdf2" not in filtered.node_ptdf
+
+
+class TestFilterInplace:
+    """Test suite for the inplace option shared by filter_equipments, exclude_equipments,
+    exclude_technologies, and filter_zones."""
+
+    def test_filter_equipments_inplace_mutates_self(self):
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        t1 = Thermal(name="plant_1", node=node, portfolio=portfolio)
+        t2 = Thermal(name="plant_2", node=node, portfolio=portfolio)
+        dataset = AtlasDataset(thermal=[t1, t2])
+
+        result = dataset.filter_equipments(["plant_1"], inplace=True)
+
+        assert result is dataset
+        assert len(dataset.thermal) == 1
+        assert "plant_1" in dataset.thermal
+
+    def test_exclude_equipments_inplace_mutates_self(self):
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        t1 = Thermal(name="plant_1", node=node, portfolio=portfolio)
+        t2 = Thermal(name="plant_2", node=node, portfolio=portfolio)
+        dataset = AtlasDataset(thermal=[t1, t2])
+
+        result = dataset.exclude_equipments(["plant_1"], inplace=True)
+
+        assert result is dataset
+        assert len(dataset.thermal) == 1
+        assert "plant_2" in dataset.thermal
+
+    def test_exclude_technologies_inplace_mutates_self(self):
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        thermal = Thermal(name="thermal1", node=node, portfolio=portfolio)
+        dataset = AtlasDataset(thermal=[thermal])
+
+        result = dataset.exclude_technologies(["Thermal"], inplace=True)
+
+        assert result is dataset
+        assert len(dataset.thermal) == 0
+
+    def test_filter_zones_inplace_mutates_self(self):
+        cb_fr = ControlBlock(name="FR")
+        cb_de = ControlBlock(name="DE")
+        ma_fr = MarketArea(name="ma_FR", control_block=cb_fr)
+        ma_de = MarketArea(name="ma_DE", control_block=cb_de)
+        node_fr = Node(name="node_FR", control_block=cb_fr, market_area=ma_fr)
+        node_de = Node(name="node_DE", control_block=cb_de, market_area=ma_de)
+        dataset = AtlasDataset(control_block=[cb_fr, cb_de], market_area=[ma_fr, ma_de], node=[node_fr, node_de])
+
+        result = dataset.filter_zones(["FR"], inplace=True)
+
+        assert result is dataset
+        assert len(dataset.control_block) == 1
+        assert "FR" in dataset.control_block
+        assert "node_DE" not in dataset.node
+
+    def test_filter_zones_inplace_keeps_same_object_references(self):
+        """Unlike filter_equipments/exclude_*, filter_zones used to build a fresh
+        dataset even with inplace semantics; now that it's copy-then-remove like
+        the others, inplace=True means no copy happens at all - the surviving
+        objects are the exact same instances as before the call.
+        """
+        cb_fr = ControlBlock(name="FR")
+        ma_fr = MarketArea(name="ma_FR", control_block=cb_fr)
+        node_fr = Node(name="node_FR", control_block=cb_fr, market_area=ma_fr)
+        dataset = AtlasDataset(control_block=[cb_fr], market_area=[ma_fr], node=[node_fr])
+
+        dataset.filter_zones(["FR"], inplace=True)
+
+        assert dataset.node.get("node_FR") is node_fr
+
+    def test_chaining_filter_zones_then_exclude_equipments_inplace(self):
+        """The motivating use case: chain filter_zones -> exclude_equipments with
+        inplace=True throughout - only the caller's own dataset is mutated, no
+        intermediate deep copies.
+        """
+        cb_fr = ControlBlock(name="FR")
+        cb_de = ControlBlock(name="DE")
+        ma_fr = MarketArea(name="ma_FR", control_block=cb_fr)
+        ma_de = MarketArea(name="ma_DE", control_block=cb_de)
+        node_fr = Node(name="node_FR", control_block=cb_fr, market_area=ma_fr)
+        node_de = Node(name="node_DE", control_block=cb_de, market_area=ma_de)
+        portfolio_fr = Portfolio(name="portfolio_FR", control_block=cb_fr, market_area=ma_fr)
+        thermal_1 = Thermal(name="thermal_1", node=node_fr, portfolio=portfolio_fr)
+        thermal_2 = Thermal(name="thermal_2", node=node_fr, portfolio=portfolio_fr)
+
+        dataset = AtlasDataset(
+            control_block=[cb_fr, cb_de],
+            market_area=[ma_fr, ma_de],
+            node=[node_fr, node_de],
+            portfolio=[portfolio_fr],
+            thermal=[thermal_1, thermal_2],
+        )
+
+        result = dataset.filter_zones(["FR"], inplace=True).exclude_equipments(["thermal_2"], inplace=True)
+
+        assert result is dataset
+        assert "node_DE" not in dataset.node
+        assert len(dataset.thermal) == 1
+        assert "thermal_1" in dataset.thermal
 
 
 class TestSetFrequencyAll:
