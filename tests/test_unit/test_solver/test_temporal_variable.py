@@ -7,11 +7,13 @@ This file is part of the ATLAS project.
 
 import pickle
 import re
+from unittest.mock import patch
 
 import pendulum
 import pytest
 
 from atlas.enums import SolverStatus, VariableType
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.solver.temporal_variable import TemporalVariable
@@ -73,6 +75,13 @@ class TestAdd:
 
         assert [var[t].ub() for t in TIMES] == [10.0, 20.0, 30.0]
 
+    def test_single_add_evaluates_time_dependent_bounds_at_t(self, model):
+        var = model.add_temporal_variable("power", lower_bound=lambda t: -t.hour, upper_bound=lambda t: 10.0 * t.hour)
+
+        created = var.add(TIMES[2])
+
+        assert (created.lb(), created.ub()) == (-2, 20.0)
+
     def test_default_bounds_follow_model_defaults(self, model):
         continuous = model.add_temporal_variable("power").add(START)
         integer = model.add_temporal_variable("units", variable_type=VariableType.INTEGER).add(START)
@@ -107,6 +116,92 @@ class TestAdd:
 
         with pytest.raises(ValueError, match="already holds a fixed value"):
             var.add(START)
+
+
+class TestTimeseriesBounds:
+    @pytest.fixture(params=["eager", "lazy"])
+    def max_power(self, request):
+        eager = Timeseries({"time": TIMES, "value": [10.0, 20.0, 30.0]})
+        return eager if request.param == "eager" else LazyTimeseries(eager.timeseries.lazy())
+
+    def test_bulk_creation_reads_timeseries_bounds(self, model, max_power):
+        var = model.add_temporal_variable("power", TIMES, lower_bound=-max_power, upper_bound=max_power)
+
+        assert [(var[t].lb(), var[t].ub()) for t in TIMES] == [(-10.0, 10.0), (-20.0, 20.0), (-30.0, 30.0)]
+
+    def test_single_add_reads_timeseries_bound(self, model, max_power):
+        var = model.add_temporal_variable("power", lower_bound=0, upper_bound=max_power)
+
+        assert var.add(TIMES[1]).ub() == 20.0
+
+    def test_bulk_creation_reads_each_bound_in_one_lookup(self, model):
+        max_power = Timeseries({"time": TIMES, "value": [10.0, 20.0, 30.0]})
+
+        with (
+            patch.object(Timeseries, "get_values", autospec=True, side_effect=Timeseries.get_values) as get_values,
+            patch.object(Timeseries, "get_value", autospec=True) as get_value,
+        ):
+            model.add_temporal_variable("power", TIMES, lower_bound=max_power, upper_bound=max_power)
+
+        assert get_values.call_count == 2
+        get_value.assert_not_called()
+
+    def test_missing_bound_value_raises_before_creating_variables(self, model, max_power):
+        with pytest.raises(KeyError, match="not found in the Timeseries"):
+            model.add_temporal_variable("power", [*TIMES, TIMES[-1] + TIMESTEP], upper_bound=max_power)
+
+        assert model.variables == set()
+
+    def test_integer_with_timeseries_bound(self, model, max_power):
+        var = model.add_temporal_variable("units", TIMES, VariableType.INTEGER, upper_bound=max_power)
+
+        assert [(var[t].lb(), var[t].ub(), var[t].integer()) for t in TIMES] == [
+            (0, 10.0, True),
+            (0, 20.0, True),
+            (0, 30.0, True),
+        ]
+
+
+class TestAddAllChecks:
+    def test_duplicates_in_request_raise_before_creating_variables(self, model):
+        var = model.add_temporal_variable("power")
+
+        with pytest.raises(ValueError, match="cannot add duplicate timestamps at once"):
+            var.add_all([TIMES[0], TIMES[1], TIMES[0]])
+
+        assert len(var) == 0
+        assert model.variables == set()
+
+    def test_clash_with_variable_raises_before_creating_variables(self, model):
+        var = model.add_temporal_variable("power", [TIMES[1]])
+
+        with pytest.raises(ValueError, match=re.escape(f"already holds a solver variable at {TIMES[1]}")):
+            var.add_all(TIMES)
+
+        assert var.model_times == [TIMES[1]]
+
+    def test_clash_with_fixed_value_raises_before_creating_variables(self, model):
+        var = model.add_temporal_variable("on", variable_type=VariableType.BOOLEAN)
+        var.fix(TIMES[2], 1)
+
+        with pytest.raises(ValueError, match=re.escape(f"already holds a fixed value at {TIMES[2]}")):
+            var.add_all(TIMES)
+
+        assert var.model_times == []
+
+    def test_accepts_any_iterable(self, model):
+        var = model.add_temporal_variable("power", iter(TIMES))
+
+        assert var.model_times == TIMES
+
+    def test_default_bounds_match_model_defaults(self, model):
+        continuous = model.add_temporal_variable("power", TIMES)[TIMES[0]]
+        integer = model.add_temporal_variable("units", TIMES, VariableType.INTEGER)[TIMES[0]]
+        plain_continuous = model.add_continuous_variable("plain_power")
+        plain_integer = model.add_integer_variable("plain_units")
+
+        assert (continuous.lb(), continuous.ub()) == (plain_continuous.lb(), plain_continuous.ub())
+        assert (integer.lb(), integer.ub()) == (plain_integer.lb(), plain_integer.ub())
 
 
 class TestFix:

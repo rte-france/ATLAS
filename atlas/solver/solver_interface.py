@@ -206,7 +206,7 @@ class OptimisationModel:
 
         **Example**
 
-            power = model.add_temporal_variable("unit_power", time_window, lower_bound=0, upper_bound=max_power.get_value)
+            power = model.add_temporal_variable("unit_power", time_window, lower_bound=0, upper_bound=max_power)
             power.fix(start - timestep, 50.0)
             model.solve()
             model.solution()["unit_power"]
@@ -217,10 +217,11 @@ class OptimisationModel:
         :type times: Iterable[DateTime] | None
         :param variable_type: Type of the solver variables, defaults to continuous
         :type variable_type: VariableType
-        :param lower_bound: Lower bound, either a constant or a function of time
-        :type lower_bound: float | Callable[[DateTime], float] | None
-        :param upper_bound: Upper bound, either a constant or a function of time
-        :type upper_bound: float | Callable[[DateTime], float] | None
+        :param lower_bound: Lower bound: a constant, a timeseries or a function of time. A timeseries
+            is read for all *times* in one lookup, prefer it over a function such as ``ts.get_value``.
+        :type lower_bound: float | AbstractTimeseries | Callable[[DateTime], float] | None
+        :param upper_bound: Upper bound, same forms as *lower_bound*
+        :type upper_bound: float | AbstractTimeseries | Callable[[DateTime], float] | None
         :return: The registered temporal variable
         :rtype: TemporalVariable
         :raises ValueError: If a temporal variable with the same name already exists, or if bounds
