@@ -316,6 +316,49 @@ model.set_objective(sum(production))
 solution = model.solve()
 ```
 
+## Working with Temporal Variables
+
+Most variables are indexed by time. A `TemporalVariable` groups them under a single name: each timestamp holds either a solver variable (named `{name}_{t}`) or a fixed value, such as an initial condition before the horizon.
+
+```python
+import pendulum
+
+from atlas.enums import VariableType
+from atlas.solver.temporal_variable import TemporalVariable
+
+start = pendulum.datetime(2025, 1, 1)
+timestep = pendulum.duration(hours=1)
+time_window = [start + k * timestep for k in range(24)]
+
+model = OptimisationModel(solver_name=SolverEnum.SCIP, name="unit_dispatch")
+
+# Declare the family once; bounds can be constants or functions of time
+power = TemporalVariable(model, "unit_power", lower_bound=0, upper_bound=max_power.get_value)
+on = TemporalVariable(model, "unit_on", VariableType.BOOLEAN)
+
+# Initial condition before the horizon: a fixed value, not a solver variable
+power.fix(start - timestep, 50.0)
+
+# Add timestamps one by one inside the time loop, or all at once
+on.add_all(time_window)
+for t in time_window:
+    power.add(t)
+    # power[t - timestep] is the fixed value at start, a solver variable afterwards
+    model.add_constraint(power[t] - power[t - timestep] <= 10, f"ramp_up_{t}")
+    model.add_constraint(power[t] <= max_power.get_value(t) * on[t], f"power_on_{t}")
+
+model.set_direction("maximize")
+model.set_objective(sum(power[t] for t in time_window))
+model.solve()
+
+# Picklable results, safe to return from a worker process
+power.solution()                     # Timeseries over time_window
+power.solution(include_fixed=True)   # also includes the initial condition
+power.solution_value(start)          # single value
+```
+
+A timestamp can only be defined once: `add` and `fix` raise a `ValueError` if it already holds a variable or a fixed value, and `power[t]` raises a `KeyError` if it was never defined. A `TemporalVariable` holds solver objects and refuses to be pickled; return `solution()` from worker processes instead.
+
 ## Error Handling
 
 ```python
