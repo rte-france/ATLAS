@@ -1544,3 +1544,47 @@ class TestLazyForecastingMatrixInplace:
         result = lm.replace(datetime(2025, 1, 1, 0, 0, 0), new_ts, inplace=True)
         assert result is lm
         assert "2025-01-01 00:00:00" in lm.indexes
+
+
+# ============================================================
+# derived caches — ForecastingMatrix
+# ============================================================
+
+
+class TestForecastingMatrixCacheInvalidation:
+    """Cached parsed indexes and column frequencies must follow every change of the matrix frame."""
+
+    EXECUTION_DATE = pendulum.datetime(2025, 1, 1)
+    START = pendulum.datetime(2025, 1, 1)
+    END = pendulum.datetime(2025, 1, 1, 3)
+
+    @pytest.fixture
+    def matrix(self):
+        matrix = ForecastingMatrix()
+        matrix.add(Timeseries.from_values(self.START, "30m", [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]), self.START)
+        return matrix
+
+    def test_get_forecast_after_set_frequency(self, matrix):
+        matrix.get_forecast(self.EXECUTION_DATE, self.START, self.END, "15m")
+        matrix.set_frequency("1h")
+        expected = [1.5, 1.5, 1.5, 1.5, 3.5, 3.5, 3.5, 3.5, 5.5, 5.5, 5.5, 5.5, 7.5]
+        assert matrix.get_forecast(self.EXECUTION_DATE, self.START, self.END, "15m").values == expected
+
+    def test_get_forecast_after_set_date_format(self, matrix):
+        before = matrix.get_forecast(self.EXECUTION_DATE, self.START, self.END).values
+        matrix.set_date_format("DD/MM/YYYY HH:mm")
+        assert matrix.get_forecast(self.EXECUTION_DATE, self.START, self.END).values == before
+
+    def test_get_forecast_after_abs(self):
+        matrix = ForecastingMatrix()
+        matrix.add(Timeseries.from_values(self.START, "1h", [-1.0, -2.0, -3.0, -4.0]), self.START)
+        matrix.get_forecast(self.EXECUTION_DATE, self.START, self.END)
+        matrix.abs(inplace=True)
+        assert matrix.get_forecast(self.EXECUTION_DATE, self.START, self.END).values == [1.0, 2.0, 3.0, 4.0]
+
+    def test_get_forecast_after_add(self, matrix):
+        matrix.get_forecast(self.EXECUTION_DATE, self.START, self.END)
+        newer = pendulum.datetime(2025, 1, 1, 0, 30)
+        matrix.add(Timeseries.from_values(newer, "1h", [10.0, 20.0, 30.0]), newer)
+        forecast = matrix.get_forecast(newer, self.START, self.END, "30m")
+        assert forecast.values == [1.0, 10.0, 10.0, 20.0, 20.0, 30.0, 30.0]

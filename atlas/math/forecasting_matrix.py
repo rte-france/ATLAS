@@ -66,6 +66,7 @@ class ForecastingMatrix(ScenarioMatrix):
         self._sort_indexes()
         self._parsed_indexes_cache: pl.DataFrame | None = None
         self._frequency_cache: dict[str, pendulum.Duration] = {}
+        self._cached_matrix: pl.DataFrame | None = self.matrix
 
     @classmethod
     def __get_pydantic_core_schema__(cls, source_type, handler):
@@ -141,8 +142,6 @@ class ForecastingMatrix(ScenarioMatrix):
 
         self.matrix = self.matrix.select("time", *indexes_sorted).sort("time")
         self.indexes = indexes_sorted
-        self._parsed_indexes_cache = None
-        self._frequency_cache = {}
 
     def add(
         self,
@@ -266,11 +265,24 @@ class ForecastingMatrix(ScenarioMatrix):
             return self.replace(index, timeseries, inplace=inplace)
         return self.add(timeseries, index, inplace=inplace)
 
+    def _sync_caches(self) -> None:
+        """
+        Drop the cached parsed indexes and column frequencies if the matrix frame has been replaced.
+
+        Every mutation (``add``, ``delete``, ``set_frequency``, ``abs``, ``set_date_format``, ...)
+        assigns a new frame to ``self.matrix``, so comparing identities catches all of them.
+        """
+        if self._cached_matrix is not self.matrix:
+            self._parsed_indexes_cache = None
+            self._frequency_cache = {}
+            self._cached_matrix = self.matrix
+
     def _get_parsed_indexes(self) -> pl.DataFrame:
         """
         Get cached parsed indexes DataFrame.
-        Cache is invalidated when indexes are modified.
+        Cache is invalidated when the matrix frame is replaced.
         """
+        self._sync_caches()
         if self._parsed_indexes_cache is None:
             self._parsed_indexes_cache = pl.DataFrame({"indexes_str": self.indexes}).with_columns(
                 pl.col("indexes_str")
@@ -287,6 +299,7 @@ class ForecastingMatrix(ScenarioMatrix):
         """
         Get cached frequency for a column or compute and cache it.
         """
+        self._sync_caches()
         if col not in self._frequency_cache:
             col_df = df.select("time", col).drop_nulls()
             if col_df.height > 1:
