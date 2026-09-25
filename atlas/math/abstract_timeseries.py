@@ -308,6 +308,64 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         """Return value at the given datetime."""
         ...
 
+    def get_values(
+        self,
+        datetimes: Sequence[str | datetime | pendulum.DateTime],
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+    ) -> list[float]:
+        """
+        Return the values at the given datetimes, in the same order, with a single lookup.
+
+        Equivalent to ``[ts.get_value(dt) for dt in datetimes]``, but resolved by one join on the
+        backend instead of one lookup per datetime, and collected only once for lazy timeseries.
+        Timezone-aware datetimes are matched on the instant they represent, whatever their timezone.
+
+        **Example**
+
+            max_power.get_values(time_window)  # one value per timestamp of the window
+
+        :param datetimes: Datetimes to get values for; duplicates are allowed
+        :type datetimes: Sequence[str | datetime | pendulum.DateTime]
+        :param date_format: Date format string for string datetimes, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :return: The values at the requested datetimes
+        :rtype: list[float]
+        :raises ValueError: If the timeseries is empty
+        :raises KeyError: If a datetime is not found in the timeseries
+        """
+        if len(datetimes) == 0:
+            return []
+        if len(self) == 0:
+            raise ValueError("Can't get values on empty timeseries.")
+
+        backend = self._get_data()
+        time_dtype = backend.collect_schema()["time"]
+        # aware datetimes keep their instant when cast to the timeseries timezone, the others follow get_value
+        requested = [
+            dt
+            if isinstance(dt, datetime) and dt.tzinfo is not None
+            else build_datetime(dt, date_format).in_tz(self.timezone)
+            for dt in datetimes
+        ]
+        query = pl.DataFrame({"time": requested}).select(
+            pl.col("time").dt.convert_time_zone(self.timezone).cast(time_dtype)
+        )
+        query = query.with_row_index("_position")
+        found = backend.select("time", "value").with_columns(pl.lit(True).alias("_found"))
+
+        if isinstance(backend, pl.LazyFrame):
+            joined = query.lazy().join(found, on="time", how="left").sort("_position").collect()
+        else:
+            joined = query.join(found, on="time", how="left").sort("_position")
+
+        missing = joined.filter(pl.col("_found").is_null())
+        if missing.height > 0:
+            first_missing = pendulum.instance(missing["time"][0])
+            raise KeyError(
+                f"{missing.height} datetime(s) not found in the Timeseries, first one: {first_missing.to_datetime_string()}."
+            )
+        return joined["value"].to_list()
+
     def filter(
         self,
         item: list[datetime] | list[pendulum.DateTime] | list[str] | datetime | pendulum.DateTime | str,
