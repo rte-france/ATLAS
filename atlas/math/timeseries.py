@@ -24,7 +24,7 @@ import polars as pl
 
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.timing import build_datetime, check_timezone, get_duration, infer_frequency
+from atlas.timing import build_datetime, check_timezone, epoch_key, get_duration, infer_frequency
 from atlas.type import TimeseriesDict
 
 
@@ -985,11 +985,12 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         """
         if len(self.timeseries) == 0:
             raise ValueError("Can't get value on empty timeseries.")
-        dt = build_datetime(datetime, date_format).in_tz(self.timezone)
-        lookup = self._get_lookup()
-        if dt not in lookup:
+        key = epoch_key(datetime, date_format, self.timezone)
+        lookup = self._get_epoch_lookup()
+        if key not in lookup:
+            dt = build_datetime(datetime, date_format).in_tz(self.timezone)
             raise KeyError(f"Value for {dt.to_datetime_string()} not found in the Timeseries.")
-        return lookup[dt]
+        return lookup[key]
 
     def plot(
         self,
