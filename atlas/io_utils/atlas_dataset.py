@@ -520,14 +520,18 @@ class AtlasDataset(BaseModel):
 
         return result
 
-    def filter_equipments(self, equipment_names: list[str] | None) -> AtlasDataset:
+    def filter_equipments(self, equipment_names: list[str] | None, inplace: bool = False) -> AtlasDataset:
         """
         Filter the dataset to include only specified equipment by name.
 
-        :param equipment_names: List of equipment names to include. If None or empty, returns a copy of the full dataset.
+        :param equipment_names: List of equipment names to include. If None or empty, returns the dataset unchanged.
         :type equipment_names: list[str] | None
+        :param inplace: If True, filter this dataset directly instead of a deep copy —
+            avoids a redundant deep copy when chaining several filter/exclude calls
+            together (only the first call in a chain typically needs to copy).
+        :type inplace: bool
 
-        :return: A new AtlasDataset containing only the specified equipment (deep copy)
+        :return: The filtered dataset (a deep copy unless inplace=True)
         :rtype: AtlasDataset
 
         Example:
@@ -536,24 +540,28 @@ class AtlasDataset(BaseModel):
             >>> len(filtered.thermal)
             2
         """
-        copy_dataset = copy.deepcopy(self)
+        dataset = self if inplace else copy.deepcopy(self)
         if not equipment_names:
-            return copy_dataset
+            return dataset
         for equipment_type in cfg.EQUIPMENT_MODELS:
-            equipments = copy_dataset.get_container_by_type(equipment_type)
-            for equipment in copy_dataset.get_items_by_type(equipment_type):
+            equipments = dataset.get_container_by_type(equipment_type)
+            for equipment in dataset.get_items_by_type(equipment_type):
                 if equipment.name not in equipment_names:
                     equipments.remove(equipment.name)
-        return copy_dataset
+        return dataset
 
-    def exclude_equipments(self, equipment_names: list[str] | None) -> AtlasDataset:
+    def exclude_equipments(self, equipment_names: list[str] | None, inplace: bool = False) -> AtlasDataset:
         """
         Filter the dataset to exclude specified equipment by name.
 
-        :param equipment_names: List of equipment names to exclude. If None or empty, returns a copy of the full dataset.
+        :param equipment_names: List of equipment names to exclude. If None or empty, returns the dataset unchanged.
         :type equipment_names: list[str] | None
+        :param inplace: If True, filter this dataset directly instead of a deep copy —
+            avoids a redundant deep copy when chaining several filter/exclude calls
+            together (only the first call in a chain typically needs to copy).
+        :type inplace: bool
 
-        :return: A new AtlasDataset without the specified equipment (deep copy)
+        :return: The filtered dataset (a deep copy unless inplace=True)
         :rtype: AtlasDataset
 
         Example:
@@ -562,26 +570,30 @@ class AtlasDataset(BaseModel):
             >>> len(filtered.thermal)
             2
         """
-        copy_dataset = copy.deepcopy(self)
+        dataset = self if inplace else copy.deepcopy(self)
         if not equipment_names:
-            return copy_dataset
+            return dataset
         excluded_names = set(equipment_names)
         for equipment_type in cfg.EQUIPMENT_MODELS:
-            equipments = copy_dataset.get_container_by_type(equipment_type)
-            for equipment in copy_dataset.get_items_by_type(equipment_type):
+            equipments = dataset.get_container_by_type(equipment_type)
+            for equipment in dataset.get_items_by_type(equipment_type):
                 if equipment.name in excluded_names:
                     equipments.remove(equipment.name)
-        return copy_dataset
+        return dataset
 
-    def exclude_technologies(self, technology_names: list[str] | None) -> AtlasDataset:
+    def exclude_technologies(self, technology_names: list[str] | None, inplace: bool = False) -> AtlasDataset:
         """
         Filter the dataset to exclude equipment of specified technology (class) names.
 
         :param technology_names: List of technology class names to exclude (e.g. "Thermal", "Wind").
-            If None or empty, returns a copy of the full dataset.
+            If None or empty, returns the dataset unchanged.
         :type technology_names: list[str] | None
+        :param inplace: If True, filter this dataset directly instead of a deep copy —
+            avoids a redundant deep copy when chaining several filter/exclude calls
+            together (only the first call in a chain typically needs to copy).
+        :type inplace: bool
 
-        :return: A new AtlasDataset without equipment of the specified technologies (deep copy)
+        :return: The filtered dataset (a deep copy unless inplace=True)
         :rtype: AtlasDataset
 
         Example:
@@ -590,16 +602,16 @@ class AtlasDataset(BaseModel):
             >>> len(filtered.thermal)
             0
         """
-        copy_dataset = copy.deepcopy(self)
+        dataset = self if inplace else copy.deepcopy(self)
         if not technology_names:
-            return copy_dataset
+            return dataset
         excluded_types = set(technology_names)
         for equipment_type in cfg.EQUIPMENT_MODELS:
-            equipments = copy_dataset.get_container_by_type(equipment_type)
-            for equipment in copy_dataset.get_items_by_type(equipment_type):
+            equipments = dataset.get_container_by_type(equipment_type)
+            for equipment in dataset.get_items_by_type(equipment_type):
                 if type(equipment).__name__ in excluded_types:
                     equipments.remove(equipment.name)
-        return copy_dataset
+        return dataset
 
     def filter_zones(self, control_block_names: list[str], include_external_borders: bool = False) -> AtlasDataset:
         """
