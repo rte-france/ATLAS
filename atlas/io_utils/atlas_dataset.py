@@ -613,7 +613,9 @@ class AtlasDataset(BaseModel):
                     equipments.remove(equipment.name)
         return dataset
 
-    def filter_zones(self, control_block_names: list[str], include_external_borders: bool = False) -> AtlasDataset:
+    def filter_zones(
+        self, control_block_names: list[str], include_external_borders: bool = False, inplace: bool = False
+    ) -> AtlasDataset:
         """
         Filter the dataset to include only objects associated with specified control blocks (zones).
 
@@ -627,8 +629,12 @@ class AtlasDataset(BaseModel):
         :type control_block_names: list[str]
         :param include_external_borders: Whether to include borders/branches with at least one endpoint in filtered zones
         :type include_external_borders: bool
+        :param inplace: If True, filter this dataset directly instead of a deep copy —
+            avoids a redundant deep copy when chaining several filter/exclude calls
+            together (only the first call in a chain typically needs to copy).
+        :type inplace: bool
 
-        :return: A new AtlasDataset containing only the filtered objects (deep copy)
+        :return: The filtered dataset (a deep copy unless inplace=True)
         :rtype: AtlasDataset
 
         :raises ValueError: If any control block name in control_block_names does not exist in the dataset
@@ -644,88 +650,81 @@ class AtlasDataset(BaseModel):
         # Convert to set for O(1) lookups
         zone_set = set(control_block_names)
 
-        dataset = AtlasDataset()
+        dataset = self if inplace else copy.deepcopy(self)
 
-        for cb in self.control_block:
-            if cb.name in zone_set:
-                dataset.control_block.add(cb)
+        for cb in dataset.get_items_by_type("control_block"):
+            if cb.name not in zone_set:
+                dataset.control_block.remove(cb.name)
 
         # Filter market areas
-        for ma in self.market_area:
-            if ma.control_block.name in zone_set:
-                dataset.market_area.add(ma)
+        for market_area in dataset.get_items_by_type("market_area"):
+            if market_area.control_block.name not in zone_set:
+                dataset.market_area.remove(market_area.name)
 
         # Filter nodes
-        for node in self.node:
-            if node.control_block.name in zone_set:
-                dataset.node.add(node)
+        for node in dataset.get_items_by_type("node"):
+            if node.control_block.name not in zone_set:
+                dataset.node.remove(node.name)
 
         # Filter market borders (with configurable logic)
-        for border in self.market_border:
+        for border in dataset.get_items_by_type("market_border"):
             downhill_in_zone = border.downhill_control_block.name in zone_set
             uphill_in_zone = border.uphill_control_block.name in zone_set
+            keep = (downhill_in_zone and uphill_in_zone) or (
+                include_external_borders and (downhill_in_zone or uphill_in_zone)
+            )
+            if not keep:
+                dataset.market_border.remove(border.name)
 
-            if downhill_in_zone and uphill_in_zone:
-                dataset.market_border.add(border)
-            elif include_external_borders:
-                # Include if ANY endpoint is in filtered zones
-                if downhill_in_zone or uphill_in_zone:
-                    dataset.market_border.add(border)
-
-        for ma_ptdf in self.market_area_ptdf:
-            if ma_ptdf.market_area.control_block.name in zone_set:
-                dataset.market_area_ptdf.add(ma_ptdf)
+        for ma_ptdf in dataset.get_items_by_type("market_area_ptdf"):
+            if ma_ptdf.market_area.control_block.name not in zone_set:
+                dataset.market_area_ptdf.remove(ma_ptdf.name)
 
         # Filter node PTDFs
-        for node_ptdf in self.node_ptdf:
-            if node_ptdf.node.control_block.name in zone_set:
-                dataset.node_ptdf.add(node_ptdf)
+        for node_ptdf in dataset.get_items_by_type("node_ptdf"):
+            if node_ptdf.node.control_block.name not in zone_set:
+                dataset.node_ptdf.remove(node_ptdf.name)
 
         # Filter critical branches (with configurable logic)
-        for critical_branch in self.critical_branch:
+        for critical_branch in dataset.get_items_by_type("critical_branch"):
             uphill_in_zone = critical_branch.uphill_node.control_block.name in zone_set
             downhill_in_zone = critical_branch.downhill_node.control_block.name in zone_set
-
-            if downhill_in_zone and uphill_in_zone:
-                dataset.critical_branch.add(critical_branch)
-            elif include_external_borders:
-                # Include if ANY endpoint is in filtered zones
-                if downhill_in_zone or uphill_in_zone:
-                    dataset.critical_branch.add(critical_branch)
+            keep = (downhill_in_zone and uphill_in_zone) or (
+                include_external_borders and (downhill_in_zone or uphill_in_zone)
+            )
+            if not keep:
+                dataset.critical_branch.remove(critical_branch.name)
 
         # Filter orders
-        for order in self.order:
-            if order.market_area.control_block.name in zone_set:
-                dataset.order.add(order)
+        for order in dataset.get_items_by_type("order"):
+            if order.market_area.control_block.name not in zone_set:
+                dataset.order.remove(order.name)
 
         # Filter order couplings
-        # Note: Includes coupling if ANY order in the coupling belongs to filtered zones
-        for order_coupling in self.order_coupling:
-            if order_coupling.orders is None:
-                continue
-
-            if any(
+        # Note: Keeps a coupling if ANY order in the coupling belongs to filtered zones
+        for order_coupling in dataset.get_items_by_type("order_coupling"):
+            keep = order_coupling.orders is not None and any(
                 coupled_order.market_area is not None
                 and coupled_order.market_area.control_block is not None
                 and coupled_order.market_area.control_block.name in zone_set
                 for coupled_order in order_coupling.orders
-            ):
-                dataset.order_coupling.add(order_coupling)
+            )
+            if not keep:
+                dataset.order_coupling.remove(order_coupling.name)
 
         # Filter portfolios
-        for portfolio in self.portfolio:
-            if portfolio.control_block.name in zone_set:
-                dataset.portfolio.add(portfolio)
+        for portfolio in dataset.get_items_by_type("portfolio"):
+            if portfolio.control_block.name not in zone_set:
+                dataset.portfolio.remove(portfolio.name)
 
         # Filter equipment (all types)
         for equipment_type in cfg.EQUIPMENT_MODELS:
             equipments = dataset.get_container_by_type(equipment_type)
-            for equipment in self.get_items_by_type(equipment_type):
-                equipment_node = cast(Equipment, equipment).node
-                if equipment_node.control_block.name in zone_set:
-                    equipments.add(equipment)
+            for equipment in dataset.get_items_by_type(equipment_type):
+                if cast(Equipment, equipment).node.control_block.name not in zone_set:
+                    equipments.remove(equipment.name)
 
-        return copy.deepcopy(dataset)
+        return dataset
 
     def set_frequency_all(
         self,
