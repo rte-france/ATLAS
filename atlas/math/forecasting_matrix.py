@@ -10,6 +10,10 @@ Module that implements ForecastingMatrix
 from __future__ import annotations
 
 import copy
+from bisect import bisect_left, bisect_right
+from collections import OrderedDict
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Self, cast
@@ -26,6 +30,7 @@ from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.timing import (
     build_datetime,
+    epoch_key,
     generate_datetimes,
     get_duration,
     get_lowest_frequency,
@@ -36,6 +41,202 @@ from atlas.type import TimeseriesDict
 
 if TYPE_CHECKING:
     import pandas as pd
+
+_FORECAST_CACHE_SIZE = 4
+"""Resolved forecasts kept per matrix. Workflows move from one execution date to the next, so
+only the most recent resolutions are worth keeping."""
+
+_ForecastKey = tuple[str, pendulum.Duration | None]
+"""Most recent available forecast column, and the requested timestep (None: lowest frequency)."""
+
+
+def _infer_column_frequency(df: pl.DataFrame, col: str) -> pendulum.Duration:
+    """Infer the step of one forecast column, ignoring its nulls. Defaults to 1 hour."""
+    col_df = df.select("time", col).drop_nulls()
+    if col_df.height > 1:
+        return infer_frequency(col_df)
+    return pendulum.duration(hours=1)
+
+
+@dataclass(frozen=True)
+class _ResolvedForecast:
+    """
+    Most recent forecast per row, resolved over the whole span of a matrix.
+
+    :param frame: ``time`` and ``forecast`` columns on the ``frequency`` grid.
+    :param epochs: Instants of ``frame["time"]`` in epoch microseconds, to slice windows by bisection.
+    :param frequency: Step of the grid.
+    """
+
+    frame: pl.DataFrame
+    epochs: list[int]
+    frequency: pendulum.Duration
+
+    def window(
+        self,
+        start_date: pendulum.DateTime,
+        end_date: pendulum.DateTime,
+        default_value: float | None,
+        timezone: str,
+    ) -> Timeseries:
+        """
+        Return the rows between ``start_date`` and ``end_date`` (both included).
+
+        :param default_value: If set, every step of the window is returned, using this value
+            where no forecast is found.
+        """
+        lower = bisect_left(self.epochs, epoch_key(start_date))
+        upper = bisect_right(self.epochs, epoch_key(end_date))
+        df = self.frame.slice(lower, upper - lower)
+
+        if default_value is not None:
+            # we must set a value for each index between start and end date
+            # using default value if none is found
+            full_index = pl.DataFrame(
+                {"time": generate_datetimes(start=start_date, end=end_date, freq=self.frequency, timezone=timezone)}
+            )
+            df = full_index.join(df, on="time", how="left").with_columns(pl.col("forecast").fill_null(default_value))
+
+        return Timeseries(df, timezone=timezone)
+
+
+def _resolve_forecast(
+    df: pl.DataFrame,
+    forecast_cols: list[str],
+    timestep: pendulum.Duration | None,
+    timezone: str,
+    column_frequency: Callable[[pl.DataFrame, str], pendulum.Duration],
+) -> _ResolvedForecast:
+    """
+    Resolve the most recent forecast per row over the whole span of ``df``.
+
+    Newer forecasts are prioritized and gaps are filled from older ones. A window is only
+    filtered after the forward fill and the row-wise coalesce, so slicing this result gives the
+    same rows as resolving the window directly. The padding after the last timestamp, which
+    only matters to windows ending after the data, is always added.
+
+    :param df: ``time`` column and the available forecast columns.
+    :param forecast_cols: Available forecast columns, most recent first.
+    :param timestep: Target step. If None, the lowest frequency found in ``df`` is used.
+    :param timezone: Timezone of the matrix.
+    :param column_frequency: Returns the step of a forecast column of ``df``.
+    """
+    frequency_target = timestep if timestep is not None else get_lowest_frequency(df)
+
+    limits = {col: column_frequency(df, col) / frequency_target for col in forecast_cols}
+
+    max_time = df["time"].max()
+    if max_time is not None:
+        dt = cast("pendulum.DateTime", max_time)
+        last_row = df.filter(pl.col("time").eq(dt))
+        column_wth_last_timestamp = None
+        for col in forecast_cols:
+            if last_row[col][0] is not None:
+                column_wth_last_timestamp = col
+                break
+
+        if column_wth_last_timestamp:
+            frequency_columns_last_timestamp = column_frequency(df, column_wth_last_timestamp)
+            if frequency_target < frequency_columns_last_timestamp:
+                datetimes_to_add = generate_datetimes(
+                    start=dt,
+                    end=dt + frequency_columns_last_timestamp - frequency_target,
+                    freq=frequency_target,
+                    timezone=timezone,
+                )
+                if len(datetimes_to_add) > 1:
+                    new_df = pl.DataFrame(
+                        {
+                            "time": datetimes_to_add[1:],
+                            column_wth_last_timestamp: [None] * len(datetimes_to_add[1:]),
+                        },
+                        schema={
+                            "time": pl.Datetime("us", timezone),
+                            column_wth_last_timestamp: pl.Float64(),
+                        },
+                    )
+                    df = pl.concat([df, new_df], how="diagonal")
+
+    interpolate_expr = [pl.col(col).forward_fill(limit=int(limits[col])) for col in forecast_cols if limits[col] > 1]
+    forecast_expr = pl.coalesce([pl.col(col) for col in forecast_cols])
+
+    frame = (
+        df.upsample("time", every=frequency_target)
+        .with_columns(interpolate_expr)
+        .select(pl.col("time"), forecast_expr.alias("forecast"))
+    )
+    return _ResolvedForecast(frame, frame["time"].dt.epoch("us").to_list(), frequency_target)
+
+
+class _ForecastCache:
+    """
+    Data derived from the frame of a forecasting matrix: parsed indexes, column frequencies and
+    the most recently resolved forecasts.
+
+    Everything is dropped as soon as the frame is replaced, which every mutation of the matrix
+    does (``add``, ``delete``, ``set_frequency``, ``abs``, ``set_date_format``, ...), so callers
+    must call :meth:`sync` with the current frame before reading.
+    """
+
+    def __init__(self) -> None:
+        self._frame: pl.DataFrame | pl.LazyFrame | None = None
+        self._indexes: tuple[list[datetime], list[str]] | None = None
+        self._frequencies: dict[str, pendulum.Duration] = {}
+        self._resolved: OrderedDict[_ForecastKey, _ResolvedForecast] = OrderedDict()
+
+    def sync(self, frame: pl.DataFrame | pl.LazyFrame) -> None:
+        """Drop everything if ``frame`` is not the frame the cache was built from."""
+        if frame is not self._frame:
+            self._frame = frame
+            self._indexes = None
+            self._frequencies = {}
+            self._resolved.clear()
+
+    def available_forecasts(
+        self,
+        indexes: list[str],
+        execution_date: pendulum.DateTime,
+        timezone: str,
+        date_format: str,
+    ) -> list[str]:
+        """Return the forecast columns issued on or before ``execution_date``, most recent first."""
+        if self._indexes is None:
+            parsed = (
+                pl.DataFrame({"indexes_str": indexes}, schema={"indexes_str": pl.String})
+                .with_columns(
+                    pl.col("indexes_str")
+                    .str.strptime(
+                        pl.Datetime(time_unit="us", time_zone=timezone),
+                        pendulum_to_datetime(date_format),
+                        strict=False,
+                    )
+                    .alias("indexes_dt")
+                )
+                .drop_nulls("indexes_dt")
+                .sort("indexes_dt")
+            )
+            self._indexes = (parsed["indexes_dt"].to_list(), parsed["indexes_str"].to_list())
+
+        issued, names = self._indexes
+        return names[: bisect_right(issued, execution_date)][::-1]
+
+    def column_frequency(self, df: pl.DataFrame, col: str) -> pendulum.Duration:
+        """Return the step of a forecast column, inferred once."""
+        if col not in self._frequencies:
+            self._frequencies[col] = _infer_column_frequency(df, col)
+        return self._frequencies[col]
+
+    def resolved(self, key: _ForecastKey, resolve: Callable[[], _ResolvedForecast]) -> _ResolvedForecast:
+        """Return the forecast resolved for ``key``, calling ``resolve`` on a miss."""
+        resolved = self._resolved.get(key)
+        if resolved is None:
+            resolved = resolve()
+            self._resolved[key] = resolved
+            if len(self._resolved) > _FORECAST_CACHE_SIZE:
+                self._resolved.popitem(last=False)
+        else:
+            self._resolved.move_to_end(key)
+        return resolved
 
 
 class ForecastingMatrix(ScenarioMatrix):
@@ -64,9 +265,7 @@ class ForecastingMatrix(ScenarioMatrix):
 
         self._date_format: str = date_format
         self._sort_indexes()
-        self._parsed_indexes_cache: pl.DataFrame | None = None
-        self._frequency_cache: dict[str, pendulum.Duration] = {}
-        self._cached_matrix: pl.DataFrame | None = self.matrix
+        self._forecast_cache = _ForecastCache()
 
     @classmethod
     def __get_pydantic_core_schema__(cls, source_type, handler):
@@ -265,50 +464,6 @@ class ForecastingMatrix(ScenarioMatrix):
             return self.replace(index, timeseries, inplace=inplace)
         return self.add(timeseries, index, inplace=inplace)
 
-    def _sync_caches(self) -> None:
-        """
-        Drop the cached parsed indexes and column frequencies if the matrix frame has been replaced.
-
-        Every mutation (``add``, ``delete``, ``set_frequency``, ``abs``, ``set_date_format``, ...)
-        assigns a new frame to ``self.matrix``, so comparing identities catches all of them.
-        """
-        if self._cached_matrix is not self.matrix:
-            self._parsed_indexes_cache = None
-            self._frequency_cache = {}
-            self._cached_matrix = self.matrix
-
-    def _get_parsed_indexes(self) -> pl.DataFrame:
-        """
-        Get cached parsed indexes DataFrame.
-        Cache is invalidated when the matrix frame is replaced.
-        """
-        self._sync_caches()
-        if self._parsed_indexes_cache is None:
-            self._parsed_indexes_cache = pl.DataFrame({"indexes_str": self.indexes}).with_columns(
-                pl.col("indexes_str")
-                .str.strptime(
-                    pl.Datetime(time_unit="us", time_zone=self.timezone),
-                    pendulum_to_datetime(self.date_format),
-                    strict=False,
-                )
-                .alias("indexes_dt")
-            )
-        return self._parsed_indexes_cache
-
-    def _get_column_frequency(self, col: str, df: pl.DataFrame) -> pendulum.Duration:
-        """
-        Get cached frequency for a column or compute and cache it.
-        """
-        self._sync_caches()
-        if col not in self._frequency_cache:
-            col_df = df.select("time", col).drop_nulls()
-            if col_df.height > 1:
-                self._frequency_cache[col] = infer_frequency(col_df)
-            else:
-                # Default to 1 hour if not enough data
-                self._frequency_cache[col] = pendulum.duration(hours=1)
-        return self._frequency_cache[col]
-
     def get_forecast(
         self,
         execution_date: datetime | str | pendulum.DateTime,
@@ -320,6 +475,11 @@ class ForecastingMatrix(ScenarioMatrix):
         """
         Returns the most up-to-date forecast available per time row in the given window.
         Newer forecasts are prioritized. Gaps are filled from older forecasts.
+
+        The forecast is resolved once over the whole span of the matrix for the forecasts
+        available at ``execution_date`` and the requested ``timestep``, then every window,
+        including point queries (``start_date == end_date``), is sliced from it. The last
+        resolutions are kept until the matrix is modified.
 
         :param execution_date: The reference date for determining which forecasts are available.
                               Only forecasts made on or before this date will be considered.
@@ -339,7 +499,6 @@ class ForecastingMatrix(ScenarioMatrix):
                 in the specified window, with gaps filled using older forecasts.
         :rtype: Timeseries
         """
-
         execution_date = build_datetime(execution_date, self.date_format)
         start_date = build_datetime(start_date, self.date_format)
         end_date = build_datetime(end_date, self.date_format)
@@ -347,100 +506,24 @@ class ForecastingMatrix(ScenarioMatrix):
         if start_date > end_date:
             raise ValueError("Start date must be before end date")
 
-        forecast_cols = (
-            self._get_parsed_indexes()
-            .filter(pl.col("indexes_dt") <= execution_date)
-            .sort("indexes_dt", descending=True)
-            .select("indexes_str")
-            .to_series()
-            .to_list()
-        )
-
+        cache = self._forecast_cache
+        cache.sync(self.matrix)
+        forecast_cols = cache.available_forecasts(self.indexes, execution_date, self.timezone, self.date_format)
         if not forecast_cols:
             raise ValueError("No forecasting dates available before execution date")
 
-        df = self.matrix.select("time", *forecast_cols)
-
-        # OPTIMIZATION 3: Determine target frequency early
-        if timestep:
-            frequency_target = get_duration(timestep)
-        else:
-            frequency_target = get_lowest_frequency(df)
-
-        limits = {}
-        for col in forecast_cols:
-            freq = self._get_column_frequency(col, df)
-            limits[col] = freq / frequency_target
-
-        max_time = df["time"].max()  # type: ignore[operator]
-        if end_date > max_time:
-            dt = cast("pendulum.DateTime", max_time)
-            last_row = df.filter(pl.col("time").eq(dt))
-            column_wth_last_timestamp = None
-            for col in forecast_cols:
-                if last_row[col][0] is not None:
-                    column_wth_last_timestamp = col
-                    break
-
-            if column_wth_last_timestamp:
-                frequency_columns_last_timestamp = self._get_column_frequency(column_wth_last_timestamp, df)
-                if frequency_target < frequency_columns_last_timestamp:
-                    datetimes_to_add = generate_datetimes(
-                        start=dt,
-                        end=dt + frequency_columns_last_timestamp - frequency_target,
-                        freq=frequency_target,
-                        timezone=self.timezone,
-                    )
-                    if len(datetimes_to_add) > 1:
-                        new_df = pl.DataFrame(
-                            {
-                                "time": datetimes_to_add[1:],
-                                column_wth_last_timestamp: [None] * len(datetimes_to_add[1:]),
-                            },
-                            schema={
-                                "time": pl.Datetime("us", self.timezone),
-                                column_wth_last_timestamp: pl.Float64(),
-                            },
-                        )
-                        df = pl.concat([df, new_df], how="diagonal")
-
-        interpolate_expr = [
-            pl.col(col).forward_fill(limit=int(limits[col])) for col in forecast_cols if limits[col] > 1
-        ]
-
-        forecast_expr = pl.coalesce([pl.col(col) for col in forecast_cols])
-
-        df = (
-            df.upsample("time", every=frequency_target)
-            .with_columns(interpolate_expr)
-            .filter(pl.col("time").is_between(start_date, end_date))
-            .select(
-                [
-                    pl.col("time"),
-                    forecast_expr.alias("forecast"),
-                ]
-            )
+        target = get_duration(timestep) if timestep else None
+        resolved = cache.resolved(
+            (forecast_cols[0], target),
+            lambda: _resolve_forecast(
+                self.matrix.select("time", *forecast_cols),
+                forecast_cols,
+                target,
+                self.timezone,
+                cache.column_frequency,
+            ),
         )
-
-        if default_value is not None:
-            # we must set a value for each index between start and end date
-            # using default value if none is found
-            full_index = pl.DataFrame(
-                {
-                    "time": generate_datetimes(
-                        start=start_date,
-                        end=end_date,
-                        freq=frequency_target,
-                        timezone=self.timezone,
-                    )
-                }
-            )
-            df_complete = full_index.join(df, on="time", how="left").with_columns(
-                pl.col("forecast").fill_null(default_value)
-            )
-            return Timeseries(df_complete, timezone=self.timezone)
-
-        return Timeseries(df, timezone=self.timezone)
+        return resolved.window(start_date, end_date, default_value, self.timezone)
 
     def set_date_format(self, date_format: str) -> None:
         new_indexes = (
