@@ -558,6 +558,7 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
     ) -> None:
         super().__init__(matrix, timezone)
         self.date_format: str = date_format
+        self._forecast_cache = _ForecastCache()
 
     def __repr__(self):
         """String representation of the matrix"""
@@ -703,6 +704,10 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
         Returns the most up-to-date forecast available per time row in the given window.
         Newer forecasts are prioritized. Gaps are filled from older forecasts.
 
+        Same resolution and caching as :meth:`ForecastingMatrix.get_forecast`. Only the time
+        column and the forecasts available at ``execution_date`` are collected, once per
+        resolution.
+
         :param execution_date: The reference date for determining which forecasts are available.
                               Only forecasts made on or before this date will be considered.
         :type execution_date: datetime | str | pendulum.DateTime
@@ -721,12 +726,39 @@ class LazyForecastingMatrix(LazyScenarioMatrix):
                 in the specified window, with gaps filled using older forecasts.
         :rtype: Timeseries
         """
-        return self.collect().get_forecast(
-            execution_date=execution_date,
-            start_date=start_date,
-            end_date=end_date,
-            timestep=timestep,
-            default_value=default_value,
+        execution_date = build_datetime(execution_date, self.date_format)
+        start_date = build_datetime(start_date, self.date_format)
+        end_date = build_datetime(end_date, self.date_format)
+
+        if start_date > end_date:
+            raise ValueError("Start date must be before end date")
+
+        cache = self._forecast_cache
+        cache.sync(self.matrix)
+        forecast_cols = cache.available_forecasts(self.indexes, execution_date, self.timezone, self.date_format)
+        if not forecast_cols:
+            raise ValueError("No forecasting dates available before execution date")
+
+        target = get_duration(timestep) if timestep else None
+        resolved = cache.resolved(
+            (forecast_cols[0], target),
+            lambda: _resolve_forecast(
+                self._collect_forecasts(forecast_cols),
+                forecast_cols,
+                target,
+                self.timezone,
+                cache.column_frequency,
+            ),
+        )
+        return resolved.window(start_date, end_date, default_value, self.timezone)
+
+    def _collect_forecasts(self, forecast_cols: list[str]) -> pl.DataFrame:
+        """Collect the time column and the given forecast columns only, as ``collect`` would shape them."""
+        return (
+            self.matrix.select("time", *forecast_cols)
+            .with_columns(pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)))
+            .sort("time")
+            .collect()
         )
 
     @classmethod

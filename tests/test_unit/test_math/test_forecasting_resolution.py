@@ -202,7 +202,7 @@ def test_lazy_get_forecast_matches_reference(name):
     build, execution_dates = MATRICES[name]
     matrix = build()
     lazy = LazyForecastingMatrix(matrix.matrix.lazy(), timezone=matrix.timezone, date_format=matrix.date_format)
-    for case in itertools.islice(_cases(matrix, execution_dates), 0, None, 7):
+    for case in _cases(matrix, execution_dates):
         _assert_same(lazy, matrix, *case)
 
 

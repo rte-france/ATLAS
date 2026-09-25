@@ -1595,13 +1595,14 @@ class TestForecastCache:
     """get_forecast resolves once per available forecast set and timestep, then slices windows."""
 
     DAY = pendulum.datetime(2025, 1, 1)
+    TIMES = [pendulum.datetime(2025, 1, 1, h) for h in range(6)]
 
-    @pytest.fixture
-    def matrix(self):
+    @pytest.fixture(params=["eager", "lazy"])
+    def matrix(self, request):
         matrix = ForecastingMatrix()
         matrix.add(Timeseries.from_values(self.DAY, "1h", [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]), self.DAY)
         matrix.add(Timeseries.from_values(self.DAY.add(hours=2), "1h", [30.0, 40.0, 50.0]), self.DAY.add(hours=2))
-        return matrix
+        return matrix if request.param == "eager" else LazyForecastingMatrix(matrix.matrix.lazy())
 
     @pytest.fixture
     def resolutions(self, monkeypatch):
@@ -1616,7 +1617,7 @@ class TestForecastCache:
         return calls
 
     def test_point_queries_resolve_once(self, matrix, resolutions):
-        values = [matrix.get_forecast(self.DAY, t, t).get_value(t) for t in matrix.matrix["time"].to_list()]
+        values = [matrix.get_forecast(self.DAY, t, t).get_value(t) for t in self.TIMES]
         assert values == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
         assert len(resolutions) == 1
 
@@ -1653,6 +1654,12 @@ class TestForecastCache:
         assert matrix.get_forecast(t, t, t).get_value(t) == 40.0
         matrix.replace(self.DAY.add(hours=2), Timeseries.from_values(self.DAY.add(hours=2), "1h", [0.0, 0.0, 0.0]))
         assert matrix.get_forecast(t, t, t).get_value(t) == 0.0
+        assert len(resolutions) == 2
+
+    def test_cache_is_dropped_after_set_frequency(self, matrix, resolutions):
+        matrix.get_forecast(self.DAY, self.DAY, self.DAY.add(hours=1), "30m")
+        matrix.set_frequency("30m")
+        matrix.get_forecast(self.DAY, self.DAY, self.DAY.add(hours=1), "30m")
         assert len(resolutions) == 2
 
     def test_returned_timeseries_can_be_modified(self, matrix):
