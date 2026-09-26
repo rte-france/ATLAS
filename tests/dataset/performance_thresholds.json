@@ -1,10 +1,10 @@
 {
-  "day_ahead": {"workflow_execution_max_seconds": 30},
-  "intraday": {"workflow_execution_max_seconds": 60},
-  "DayAheadOrdersThermal": {"execution_max_seconds": 5},
-  "DayAheadOrdersTechno": {"execution_max_seconds": 7},
-  "PortfolioOptimisationThermal": {"execution_max_seconds": 5},
-  "PortfolioOptimisationTechno": {"execution_max_seconds": 5},
-  "MarketClearing": {"execution_max_seconds": 5},
-  "MarketClearingId": {"execution_max_seconds": 5}
+  "day_ahead": {"workflow_execution_max_seconds": 12.5},
+  "intraday": {"workflow_execution_max_seconds": 11},
+  "DayAheadOrdersThermal": {"execution_max_seconds": 2.2},
+  "DayAheadOrdersTechno": {"execution_max_seconds": 5},
+  "PortfolioOptimisationThermal": {"execution_max_seconds": 1.6},
+  "PortfolioOptimisationTechno": {"execution_max_seconds": 1.4},
+  "MarketClearing": {"execution_max_seconds": 2},
+  "MarketClearingId": {"execution_max_seconds": 1.3}
 }
