@@ -5,9 +5,6 @@ from pathlib import Path
 
 import pytest
 
-# Multiplier applied to all thresholds to absorb OS scheduling noise and system load variance.
-THRESHOLD_MARGIN = 1.05
-
 
 @dataclass(frozen=True)
 class Timing:
@@ -31,14 +28,14 @@ def _load_thresholds() -> dict:
 
 def get_threshold(key: str, field: str = "execution_max_seconds") -> float | None:
     """
-    Return the threshold of ``key`` in ``performance_thresholds.json``, margin included.
+    Return the threshold of ``key`` in ``performance_thresholds.json``.
 
     :param key: Module name, or workflow config directory name.
     :param field: ``execution_max_seconds`` for modules, ``workflow_execution_max_seconds`` for workflows.
     :return: The threshold in seconds, or None if it is not defined.
     """
     value = _load_thresholds().get(key, {}).get(field)
-    return value * THRESHOLD_MARGIN if value is not None else None
+    return float(value) if value is not None else None
 
 
 def check_execution_time(name: str, elapsed: float, key: str, field: str = "execution_max_seconds") -> None:
