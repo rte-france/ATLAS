@@ -5,8 +5,31 @@ This module provides shared fixtures and utilities for testing ATLAS,
 including handling of commercial solvers that require licenses.
 """
 
+import os
+from pathlib import Path
+
 import pytest
 from ortools.linear_solver import pywraplp
+
+from tests.utils import TIMINGS, format_timings
+
+
+def pytest_terminal_summary(terminalreporter: pytest.TerminalReporter) -> None:
+    """
+    Report the execution times measured by performance tests against their thresholds.
+
+    On GitHub Actions the table is also added to the job summary, so it shows on the run page.
+    """
+    if not TIMINGS:
+        return
+    terminalreporter.section("execution times")
+    for line in format_timings(TIMINGS):
+        terminalreporter.write_line(line)
+
+    step_summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if step_summary:
+        with Path(step_summary).open("a") as summary:
+            summary.write("\n".join(["### Execution times", "", *format_timings(TIMINGS, markdown=True), ""]) + "\n")
 
 
 def is_xpress_available() -> bool:

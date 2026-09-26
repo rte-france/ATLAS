@@ -60,3 +60,34 @@ def check_execution_time(name: str, elapsed: float, key: str, field: str = "exec
     if not os.environ.get("CI"):
         pytest.skip(f"Performance threshold of {key} is only enforced on CI")
     assert elapsed <= threshold, f"{name} took {elapsed:.2f}s, expected <= {threshold:.2f}s"
+
+
+def format_timings(timings: list[Timing], markdown: bool = False) -> list[str]:
+    """
+    Format timings as a table: name, measured time, threshold and share of the threshold used.
+
+    :param markdown: Return a GitHub-flavoured markdown table instead of aligned text.
+    """
+    rows = [
+        (
+            t.name,
+            f"{t.elapsed:.2f}s",
+            f"{t.threshold:.2f}s" if t.threshold is not None else "-",
+            f"{t.elapsed / t.threshold:.0%}" if t.threshold else "-",
+        )
+        for t in timings
+    ]
+    header = ("test", "elapsed", "threshold", "used")
+    if markdown:
+        return [
+            "| " + " | ".join(header) + " |",
+            "|---|---:|---:|---:|",
+            *("| " + " | ".join(row) + " |" for row in rows),
+        ]
+    widths = [max(len(row[i]) for row in [header, *rows]) for i in range(len(header))]
+    return [
+        "  ".join(
+            cell.ljust(w) if i == 0 else cell.rjust(w) for i, (cell, w) in enumerate(zip(row, widths, strict=True))
+        )
+        for row in [header, *rows]
+    ]
