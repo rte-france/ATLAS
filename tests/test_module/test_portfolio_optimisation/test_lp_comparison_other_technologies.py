@@ -129,6 +129,7 @@ class TestOtherTechnologiesLPComparison:
                     f"{category.capitalize()} only in generated LP for {lp_filename}"
                 )
 
+    @pytest.mark.perf
     def test_execution_time_within_threshold(self, generated_lp_files):
         """Test that module execution time is within the defined threshold."""
         _, elapsed = generated_lp_files

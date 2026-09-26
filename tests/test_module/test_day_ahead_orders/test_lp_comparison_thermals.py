@@ -145,6 +145,7 @@ class TestThermalCombinationLPComparison:
                     f"{category.capitalize()} only in generated LP for {combination_name}"
                 )
 
+    @pytest.mark.perf
     def test_execution_time_within_threshold(self, executed_dao_module):
         """Test that module execution time is within the defined threshold."""
         combination_name, _, _, elapsed, _ = executed_dao_module

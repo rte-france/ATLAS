@@ -109,4 +109,5 @@ follow_untyped_imports = true
 addopts = "-m 'not integration'"
 markers = [
     "integration: marks tests as integration tests (run only on pull requests)",
+    "perf: execution time checked against tests/dataset/performance_thresholds.json (run in the CI perf job)",
 ]

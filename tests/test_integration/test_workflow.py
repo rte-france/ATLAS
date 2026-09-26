@@ -56,6 +56,7 @@ class TestWorkflowIntegration:
             "CIS was not modified after workflow execution"
         )
 
+    @pytest.mark.perf
     def test_workflow_execution_time_within_threshold(self, executed_workflow):
         _, _, _, elapsed, workflow_config = executed_workflow
         key = workflow_config.parent.name

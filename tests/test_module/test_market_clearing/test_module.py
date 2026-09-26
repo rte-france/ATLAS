@@ -150,11 +150,13 @@ class TestChangeSets:
             )
 
 
+@pytest.mark.perf
 def test_execution_time_within_threshold(output_dataset):
     _, elapsed = output_dataset
     check_execution_time("MarketClearing", elapsed, "MarketClearing")
 
 
+@pytest.mark.perf
 def test_execution_time_within_threshold_id(output_dataset_id):
     _, elapsed = output_dataset_id
     check_execution_time("MarketClearingId", elapsed, "MarketClearingId")
