@@ -5,7 +5,9 @@ This module provides shared fixtures and utilities for testing ATLAS,
 including handling of commercial solvers that require licenses.
 """
 
+import json
 import os
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
@@ -19,6 +21,8 @@ def pytest_terminal_summary(terminalreporter: pytest.TerminalReporter) -> None:
     Report the execution times measured by performance tests against their thresholds.
 
     On GitHub Actions the table is also added to the job summary, so it shows on the run page.
+    If ``PERF_TIMINGS_JSON`` is set, the timings are also written to that file, e.g. to upload
+    them as a CI artifact.
     """
     if not TIMINGS:
         return
@@ -30,6 +34,10 @@ def pytest_terminal_summary(terminalreporter: pytest.TerminalReporter) -> None:
     if step_summary:
         with Path(step_summary).open("a") as summary:
             summary.write("\n".join(["### Execution times", "", *format_timings(TIMINGS, markdown=True), ""]) + "\n")
+
+    timings_json = os.environ.get("PERF_TIMINGS_JSON")
+    if timings_json:
+        Path(timings_json).write_text(json.dumps([asdict(t) for t in TIMINGS], indent=2) + "\n")
 
 
 def is_xpress_available() -> bool:
