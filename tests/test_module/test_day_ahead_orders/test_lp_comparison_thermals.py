@@ -17,7 +17,7 @@ import pytest
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.solver.solver_helper import SolverHelper
-from tests.utils import load_threshold_for_module
+from tests.utils import check_execution_time
 
 # Test data directories
 THERMAL_COMBINATIONS_DIR = Path("tests/dataset/thermals-dataset")
@@ -149,10 +149,4 @@ class TestThermalCombinationLPComparison:
         """Test that module execution time is within the defined threshold."""
         combination_name, _, _, elapsed, _ = executed_dao_module
 
-        threshold = load_threshold_for_module("DayAheadOrdersThermal")
-        if threshold is None:
-            pytest.skip("No performance threshold defined for DayAheadOrdersThermal")
-
-        assert elapsed <= threshold, (
-            f"DayAheadOrders took {elapsed:.2f}s for {combination_name}, expected <= {threshold}s"
-        )
+        check_execution_time(f"DayAheadOrdersThermal[{combination_name}]", elapsed, "DayAheadOrdersThermal")

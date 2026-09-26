@@ -17,7 +17,7 @@ import pytest
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.solver.solver_helper import SolverHelper
-from tests.utils import load_threshold_for_module
+from tests.utils import check_execution_time
 
 # Test data directories
 DAY_AHEAD_INPUT_DIR = Path("tests/dataset/day_ahead/day_ahead_input")
@@ -171,8 +171,4 @@ class TestOtherTechnologiesLPComparison:
         """Test that module execution time is within the defined threshold."""
         _, elapsed = generated_lp_files
 
-        threshold = load_threshold_for_module("DayAheadOrdersTechno")
-        if threshold is None:
-            pytest.skip("No performance threshold defined for DayAheadOrdersTechno")
-
-        assert elapsed <= threshold, f"DayAheadOrders took {elapsed:.2f}s, expected <= {threshold}s"
+        check_execution_time("DayAheadOrdersTechno", elapsed, "DayAheadOrdersTechno")

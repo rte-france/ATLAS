@@ -17,7 +17,7 @@ import pytest
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.solver.solver_helper import SolverHelper
-from tests.utils import load_threshold_for_module
+from tests.utils import check_execution_time
 
 # Test data directories
 THERMAL_COMBINATIONS_DIR = Path("tests/dataset/thermals-dataset")
@@ -145,10 +145,6 @@ class TestThermalCombinationLPComparison:
         """Test that module execution time is within the defined threshold."""
         combination_name, _, _, elapsed, _ = executed_po_module
 
-        threshold = load_threshold_for_module("PortfolioOptimisationThermal")
-        if threshold is None:
-            pytest.skip("No performance threshold defined for PortfolioOptimisationThermal")
-
-        assert elapsed <= threshold, (
-            f"PortfolioOptimisation took {elapsed:.2f}s for {combination_name}, expected <= {threshold}s"
+        check_execution_time(
+            f"PortfolioOptimisationThermal[{combination_name}]", elapsed, "PortfolioOptimisationThermal"
         )

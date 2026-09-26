@@ -17,7 +17,7 @@ import pytest
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.solver.solver_helper import SolverHelper
-from tests.utils import load_threshold_for_module
+from tests.utils import check_execution_time
 
 # Test data directories
 INPUT_DATASET_DIR = Path("tests/dataset/day_ahead/portfolio_optimisation_input")
@@ -133,8 +133,4 @@ class TestOtherTechnologiesLPComparison:
         """Test that module execution time is within the defined threshold."""
         _, elapsed = generated_lp_files
 
-        threshold = load_threshold_for_module("PortfolioOptimisationTechno")
-        if threshold is None:
-            pytest.skip("No performance threshold defined for PortfolioOptimisationTechno")
-
-        assert elapsed <= threshold, f"PortfolioOptimisation took {elapsed:.2f}s, expected <= {threshold}s"
+        check_execution_time("PortfolioOptimisationTechno", elapsed, "PortfolioOptimisationTechno")

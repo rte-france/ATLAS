@@ -17,7 +17,7 @@ from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
 from atlas.orchestrator.change_set import UpdateObject
-from tests.utils import load_threshold_for_module
+from tests.utils import check_execution_time
 
 
 def _is_finite(value: float) -> bool:
@@ -152,15 +152,9 @@ class TestChangeSets:
 
 def test_execution_time_within_threshold(output_dataset):
     _, elapsed = output_dataset
-    threshold = load_threshold_for_module("MarketClearing")
-    if threshold is None:
-        pytest.skip("No performance threshold defined for MarketClearing")
-    assert elapsed <= threshold, f"MarketClearing took {elapsed:.2f}s, expected <= {threshold}s"
+    check_execution_time("MarketClearing", elapsed, "MarketClearing")
 
 
 def test_execution_time_within_threshold_id(output_dataset_id):
     _, elapsed = output_dataset_id
-    threshold = load_threshold_for_module("MarketClearingId")
-    if threshold is None:
-        pytest.skip("No performance threshold defined for MarketClearingId")
-    assert elapsed <= threshold, f"MarketClearingId took {elapsed:.2f}s, expected <= {threshold}s"
+    check_execution_time("MarketClearingId", elapsed, "MarketClearingId")
