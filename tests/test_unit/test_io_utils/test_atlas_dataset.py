@@ -12,7 +12,7 @@ import polars as pl
 import pytest
 from pendulum import DateTime, Duration, Timezone
 
-from atlas.enums import ComplementDirection, CouplingType, OrderType, Product, ThermalStrategy
+from atlas.enums import BusinessModelName, ComplementDirection, CouplingType, OrderType, Product, ThermalStrategy
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.container import Container
 from atlas.io_utils.utils import diff_business_model, diff_lists, diff_on_other_than_business_model
@@ -1170,7 +1170,7 @@ def test_exclude_technologies_removes_matching_class():
 
     dataset = AtlasDataset(thermal=[thermal], wind=[wind])
 
-    filtered = dataset.exclude_technologies(["Thermal"])
+    filtered = dataset.exclude_technologies([BusinessModelName.THERMAL])
 
     assert len(filtered.thermal) == 0
     assert len(filtered.wind) == 1
@@ -1185,7 +1185,7 @@ def test_exclude_technologies_does_not_modify_original_dataset():
 
     dataset = AtlasDataset(thermal=[thermal])
 
-    filtered = dataset.exclude_technologies(["Thermal"])
+    filtered = dataset.exclude_technologies([BusinessModelName.THERMAL])
 
     assert len(dataset.thermal) == 1  # original unchanged
     assert len(filtered.thermal) == 0
@@ -1202,6 +1202,102 @@ def test_exclude_technologies_empty_or_none_returns_unchanged():
 
     assert len(dataset.exclude_technologies(None).thermal) == 1
     assert len(dataset.exclude_technologies([]).thermal) == 1
+
+
+class TestExcludeTechnologies:
+    """Test suite for exclude_technologies: whole containers are swapped for empty ones."""
+
+    @pytest.fixture
+    def mixed_dataset(self):
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        thermal = Thermal(name="thermal1", node=node, portfolio=portfolio)
+        wind = Wind(name="wind1", node=node, portfolio=portfolio)
+        solar = Solar(name="solar1", node=node, portfolio=portfolio)
+        dataset = AtlasDataset(
+            control_block=[cb],
+            market_area=[ma],
+            node=[node],
+            portfolio=[portfolio],
+            thermal=[thermal],
+            wind=[wind],
+            solar=[solar],
+        )
+        return dataset, wind
+
+    def test_accepts_business_model_names(self, mixed_dataset):
+        dataset, _ = mixed_dataset
+
+        filtered = dataset.exclude_technologies([BusinessModelName.WIND])
+
+        assert filtered.wind.is_empty()
+        assert len(filtered.thermal) == 1
+
+    def test_accepts_classes(self, mixed_dataset):
+        dataset, _ = mixed_dataset
+
+        filtered = dataset.exclude_technologies([Wind])
+
+        assert filtered.wind.is_empty()
+        assert len(filtered.thermal) == 1
+
+    def test_subclass_resolves_to_its_technology(self, mixed_dataset):
+        class OffshoreWind(Wind):
+            pass
+
+        dataset, _ = mixed_dataset
+
+        assert dataset.exclude_technologies([OffshoreWind]).wind.is_empty()
+
+    def test_excludes_several_technologies_at_once(self, mixed_dataset):
+        dataset, _ = mixed_dataset
+
+        filtered = dataset.exclude_technologies([BusinessModelName.WIND, Thermal])
+
+        assert filtered.wind.is_empty()
+        assert filtered.thermal.is_empty()
+        assert len(filtered.solar) == 1
+
+    def test_leaves_other_object_types_untouched(self, mixed_dataset):
+        dataset, _ = mixed_dataset
+
+        filtered = dataset.exclude_technologies([BusinessModelName.WIND])
+
+        assert list(filtered.node) == list(dataset.node)
+        assert list(filtered.portfolio) == list(dataset.portfolio)
+
+    def test_original_dataset_is_unchanged_and_objects_are_shared(self, mixed_dataset):
+        dataset, wind = mixed_dataset
+
+        filtered = dataset.exclude_technologies([BusinessModelName.THERMAL])
+
+        assert len(dataset.thermal) == 1
+        assert filtered.wind.get("wind1") is wind
+
+    def test_containers_are_not_shared_with_original(self, mixed_dataset):
+        dataset, _ = mixed_dataset
+
+        filtered = dataset.exclude_technologies([BusinessModelName.THERMAL])
+        filtered.wind.remove("wind1")
+
+        assert "wind1" in dataset.wind
+
+    @pytest.mark.parametrize("not_a_technology", [BusinessModelName.NODE, Node, BusinessModelName.EQUIPMENT])
+    def test_rejects_types_that_are_not_equipment(self, mixed_dataset, not_a_technology):
+        dataset, _ = mixed_dataset
+
+        with pytest.raises(ValueError, match="not equipment types"):
+            dataset.exclude_technologies([not_a_technology])
+
+        assert len(dataset.node) == 1
+
+    def test_rejects_unknown_technology_name(self, mixed_dataset):
+        dataset, _ = mixed_dataset
+
+        with pytest.raises(ValueError):
+            dataset.exclude_technologies(["Thermal"])
 
 
 class TestFilterZones:
@@ -1679,19 +1775,6 @@ class TestShallowFiltering:
 class TestFilterInplace:
     """Test suite for the inplace option shared by filter_equipments, exclude_equipments,
     exclude_technologies, and filter_zones."""
-
-    def test_exclude_technologies_inplace_mutates_self(self):
-        cb = ControlBlock(name="cb1")
-        ma = MarketArea(name="ma1", control_block=cb)
-        node = Node(name="node1", control_block=cb, market_area=ma)
-        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
-        thermal = Thermal(name="thermal1", node=node, portfolio=portfolio)
-        dataset = AtlasDataset(thermal=[thermal])
-
-        result = dataset.exclude_technologies(["Thermal"], inplace=True)
-
-        assert result is dataset
-        assert len(dataset.thermal) == 0
 
     def test_filter_zones_inplace_mutates_self(self):
         cb_fr = ControlBlock(name="FR")

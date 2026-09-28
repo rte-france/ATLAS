@@ -638,37 +638,35 @@ class AtlasDataset(BaseModel):
         """
         return self.include_equipments(equipment_names).model_copy(deep=True)
 
-    def exclude_technologies(self, technology_names: list[str] | None, inplace: bool = False) -> AtlasDataset:
+    def exclude_technologies(
+        self, technologies: Iterable[BusinessModelName | type[BusinessModel]] | None
+    ) -> AtlasDataset:
         """
-        Filter the dataset to exclude equipment of specified technology (class) names.
+        Remove every equipment of the specified technologies.
 
-        :param technology_names: List of technology class names to exclude (e.g. "Thermal", "Wind").
-            If None or empty, returns the dataset unchanged.
-        :type technology_names: list[str] | None
-        :param inplace: If True, filter this dataset directly instead of a deep copy —
-            avoids a redundant deep copy when chaining several filter/exclude calls
-            together (only the first call in a chain typically needs to copy).
-        :type inplace: bool
+        The containers of the excluded technologies are swapped for empty ones. The result is shallow:
+        it has its own containers but shares the business objects with this dataset.
 
-        :return: The filtered dataset (a deep copy unless inplace=True)
+        :param technologies: Technologies to remove, as BusinessModelName (e.g. BusinessModelName.WIND)
+            or as class (e.g. Wind). If None or empty, no equipment is removed.
+        :type technologies: Iterable[BusinessModelName | type[BusinessModel]] | None
+
+        :return: A new AtlasDataset without the equipment of the specified technologies
         :rtype: AtlasDataset
+
+        :raises ValueError: If a technology is not an equipment type
 
         Example:
             >>> dataset = AtlasDataset(thermal=[plant1], wind=[turbine1])
-            >>> filtered = dataset.exclude_technologies(["Thermal"])
+            >>> filtered = dataset.exclude_technologies([BusinessModelName.THERMAL])
             >>> len(filtered.thermal)
             0
         """
-        dataset = self if inplace else copy.deepcopy(self)
-        if not technology_names:
-            return dataset
-        excluded_types = set(technology_names)
-        for equipment_type in cfg.EQUIPMENT_MODELS:
-            equipments = dataset.get_container_by_type(equipment_type)
-            for equipment in dataset.get_items_by_type(equipment_type):
-                if type(equipment).__name__ in excluded_types:
-                    equipments.remove(equipment.name)
-        return dataset
+        excluded = {self._resolve_type_name(technology) for technology in technologies or ()}
+        not_equipment = excluded - set(cfg.EQUIPMENT_MODELS)
+        if not_equipment:
+            raise ValueError(f"Cannot exclude {sorted(name.value for name in not_equipment)}: not equipment types")
+        return self._rebuilt(**{name.value: Container() for name in excluded})
 
     def filter_zones(
         self, control_block_names: list[str], include_external_borders: bool = False, inplace: bool = False
