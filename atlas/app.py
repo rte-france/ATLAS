@@ -13,6 +13,7 @@ from atlas.config import logger
 from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
 from atlas.modules.antares_to_atlas.antares_to_atlas import AntaresToAtlas
 from atlas.modules.module_run import ModuleRun
+from atlas.orchestrator.actionplan.action_plan import ActionPlan
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.orchestrator.workflow.workflow import Workflow
@@ -29,6 +30,9 @@ app.add_typer(module_app, name="module")
 
 workflow_app = typer.Typer(help="Workflow operations.")
 app.add_typer(workflow_app, name="workflow")
+
+action_plan_app = typer.Typer(help="Action plan operations.")
+app.add_typer(action_plan_app, name="action-plan")
 
 
 @module_app.command("run")
@@ -145,6 +149,86 @@ def list_workflow(
             step.name or "",
             step.module.name,
             str(step.parameters) if isinstance(step.parameters, Path) else None,
+        )
+    rprint(table)
+
+
+@action_plan_app.command("run")
+def run_action_plan_cmd(
+    parameters_path: Path = typer.Argument(help="Path to the action plan configuration YAML"),
+) -> None:
+    """Run an Atlas action plan.
+
+    \b
+      atlas action-plan run action_plan.yaml
+    """
+    if not parameters_path.exists():
+        rprint(f"[bold red]Error[/bold red]: Action plan configuration file not found: {parameters_path}")
+        raise typer.Exit(code=1)
+
+    logger.info(f"Running action plan: {parameters_path}")
+    with timer() as t:
+        action_plan = ActionPlan.from_file(parameters_path)
+        action_plan.execute()
+    logger.info(f"Action plan completed in {t()} seconds")
+    logger.info("✓ Action plan completed successfully.")
+
+
+@action_plan_app.command("list")
+def list_action_plan(
+    parameters_path: Path = typer.Argument(help="Path to the action plan configuration YAML"),
+) -> None:
+    """List the tasks declared in an action plan file.
+
+    \b
+      atlas action-plan list action_plan.yaml
+    """
+    from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, TaskModule, TaskWorkflow
+
+    if not parameters_path.exists():
+        rprint(f"[bold red]Error[/bold red]: Action plan configuration file not found: {parameters_path}")
+        raise typer.Exit(code=1)
+
+    try:
+        params = ActionPlanParameters.from_file(parameters_path)
+    except Exception as e:
+        rprint(f"[bold red]Error[/bold red]: Failed to load action plan: {e}")
+        raise typer.Exit(code=1) from e
+
+    title = f"Action plan: {params.name or parameters_path.stem}  —  {len(params.tasks)} task(s)"
+    table = Table(title=title, show_lines=False)
+    table.add_column("#", style="dim", width=4)
+    table.add_column("Task name", style="bold")
+    table.add_column("Type")
+    table.add_column("Module / Workflow")
+    table.add_column("Priority", justify="right")
+    table.add_column("Schedule")
+
+    for i, task in enumerate(params.tasks, 1):
+        if isinstance(task, TaskModule):
+            task_type = "Module"
+            target = task.module.name
+        elif isinstance(task, TaskWorkflow):
+            task_type = "Workflow"
+            if isinstance(task.workflow, Workflow):
+                target = task.workflow.parameters.name or ""
+            elif isinstance(task.workflow, (str, Path)):
+                target = Path(task.workflow).name
+            else:
+                target = str(task.workflow)
+        else:
+            task_type = "Unknown"
+            target = ""
+
+        schedule = f"{task.from_} → {task.until} (every {task.frequency})"
+
+        table.add_row(
+            str(i),
+            task.name,
+            task_type,
+            target,
+            str(task.priority),
+            schedule,
         )
     rprint(table)
 
