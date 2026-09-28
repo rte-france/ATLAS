@@ -152,7 +152,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
     @property
     def jobs_count(self) -> int:
-        return sum(len(itr) for itr in self._task_job_generators)
+        return sum(itr.jobs_count() for itr in self._task_job_generators)
 
     def __repr__(self) -> str:
         """Return a human-readable string representation of the workflow."""

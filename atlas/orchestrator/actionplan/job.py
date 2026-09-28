@@ -101,6 +101,16 @@ class TaskJobsGenerator(ABC):
         step_seconds = self._task.frequency.total_seconds()
         return int(span_seconds // step_seconds) + 1
 
+    @property
+    @abstractmethod
+    def _jobs_by_iteration(self) -> int:
+        """Return the number of job by iteration."""
+        pass
+
+    def jobs_count(self):
+        """Return the total number of job generated through all iterations."""
+        return self._number_of_iteration * self._jobs_by_iteration
+
     def __len__(self):
         return self._number_of_iteration
 
@@ -124,6 +134,11 @@ class ModuleTaskJobsGenerator(TaskJobsGenerator):
                 self._build_parameters(iteration),
             )
         ]
+
+    @property
+    def _jobs_by_iteration(self) -> int:
+        """Return the number of job by iteration."""
+        return 1
 
     def _build_parameters(self, iteration) -> AbstractModuleParameters:
         """Build and return parameters to use for the module for the given iteration."""
@@ -154,6 +169,12 @@ class WorkflowTaskJobsGenerator(TaskJobsGenerator):
         """Build and return the list of ActionPlanJob for the given iteration."""
         workflow = Workflow(self._build_parameters(iteration), f"task {self._task.name!r} iteration {iteration}")
         return list(workflow.jobs)
+
+    @property
+    def _jobs_by_iteration(self) -> int:
+        """Return the number of job by iteration."""
+        return len(self.parameters.steps)
+
     def _build_parameters(self, iteration) -> WorkflowParameters:
         """Build and return parameters to use for the workflow for the given iteration."""
         parameters = self.parameters.model_copy(deep=True)
