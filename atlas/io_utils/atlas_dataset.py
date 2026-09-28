@@ -668,11 +668,98 @@ class AtlasDataset(BaseModel):
             raise ValueError(f"Cannot exclude {sorted(name.value for name in not_equipment)}: not equipment types")
         return self._rebuilt(**{name.value: Container() for name in excluded})
 
-    def filter_zones(
-        self, control_block_names: list[str], include_external_borders: bool = False, inplace: bool = False
-    ) -> AtlasDataset:
+    def include_zones(self, control_block_names: Iterable[str], include_external_borders: bool = False) -> AtlasDataset:
+        """
+        Keep only the objects associated with specified control blocks (zones).
+
+        For market borders and critical branches:
+        - If include_external_borders is False (default), only includes borders/branches where both endpoints
+          are in the filtered zones, creating an isolated network
+        - If include_external_borders is True, includes borders/branches where at least one endpoint is in
+          the filtered zones, allowing connections to external zones
+
+        The result is shallow: it has its own containers but shares the business objects with
+        this dataset. Chain the filters freely, and call ``model_copy(deep=True)`` at the end
+        when an independent dataset is needed.
+
+        :param control_block_names: Names of the control blocks to include in the filtered dataset
+        :type control_block_names: Iterable[str]
+        :param include_external_borders: Whether to include borders/branches with at least one endpoint in filtered zones
+        :type include_external_borders: bool
+
+        :return: A new AtlasDataset containing only the objects of the specified zones
+        :rtype: AtlasDataset
+
+        :raises ValueError: If any control block name in control_block_names does not exist in the dataset
+        """
+        zone_set = set(control_block_names)
+
+        # Validate that all control blocks exist
+        invalid_zones = zone_set - {cb.name for cb in self.control_block}
+        if invalid_zones:
+            msg = f"Control blocks not found in dataset: {sorted(invalid_zones)}"
+            raise ValueError(msg)
+
+        def keeps_link(one_end_in_zone: bool, other_end_in_zone: bool) -> bool:
+            # Both endpoints in the zones, or ANY endpoint when external borders are included
+            return (one_end_in_zone and other_end_in_zone) or (
+                include_external_borders and (one_end_in_zone or other_end_in_zone)
+            )
+
+        return self._rebuilt(
+            control_block=Container(cb for cb in self.control_block if cb.name in zone_set),
+            market_area=Container(ma for ma in self.market_area if ma.control_block.name in zone_set),
+            node=Container(node for node in self.node if node.control_block.name in zone_set),
+            market_border=Container(
+                border
+                for border in self.market_border
+                if keeps_link(
+                    border.downhill_control_block.name in zone_set, border.uphill_control_block.name in zone_set
+                )
+            ),
+            market_area_ptdf=Container(
+                ma_ptdf for ma_ptdf in self.market_area_ptdf if ma_ptdf.market_area.control_block.name in zone_set
+            ),
+            node_ptdf=Container(
+                node_ptdf for node_ptdf in self.node_ptdf if node_ptdf.node.control_block.name in zone_set
+            ),
+            critical_branch=Container(
+                branch
+                for branch in self.critical_branch
+                if keeps_link(
+                    branch.downhill_node.control_block.name in zone_set,
+                    branch.uphill_node.control_block.name in zone_set,
+                )
+            ),
+            order=Container(order for order in self.order if order.market_area.control_block.name in zone_set),
+            # A coupling is kept if ANY of its orders belongs to the filtered zones
+            order_coupling=Container(
+                coupling
+                for coupling in self.order_coupling
+                if coupling.orders is not None
+                and any(
+                    coupled_order.market_area is not None
+                    and coupled_order.market_area.control_block is not None
+                    and coupled_order.market_area.control_block.name in zone_set
+                    for coupled_order in coupling.orders
+                )
+            ),
+            portfolio=Container(portfolio for portfolio in self.portfolio if portfolio.control_block.name in zone_set),
+            **{
+                equipment_type.value: Container(
+                    equipment
+                    for equipment in self.get_items_by_type(equipment_type)
+                    if cast(Equipment, equipment).node.control_block.name in zone_set
+                )
+                for equipment_type in cfg.EQUIPMENT_MODELS
+            },
+        )
+
+    def filter_zones(self, control_block_names: list[str], include_external_borders: bool = False) -> AtlasDataset:
         """
         Filter the dataset to include only objects associated with specified control blocks (zones).
+
+        Unlike include_zones, the result is fully independent from this dataset.
 
         For market borders and critical branches:
         - If include_external_borders is False (default), only includes borders/branches where both endpoints
@@ -684,102 +771,13 @@ class AtlasDataset(BaseModel):
         :type control_block_names: list[str]
         :param include_external_borders: Whether to include borders/branches with at least one endpoint in filtered zones
         :type include_external_borders: bool
-        :param inplace: If True, filter this dataset directly instead of a deep copy —
-            avoids a redundant deep copy when chaining several filter/exclude calls
-            together (only the first call in a chain typically needs to copy).
-        :type inplace: bool
 
-        :return: The filtered dataset (a deep copy unless inplace=True)
+        :return: A new AtlasDataset containing only the filtered objects (deep copy)
         :rtype: AtlasDataset
 
         :raises ValueError: If any control block name in control_block_names does not exist in the dataset
         """
-
-        # Validate that all control blocks exist
-        existing_cb_names = {cb.name for cb in self.control_block}
-        invalid_zones = set(control_block_names) - existing_cb_names
-        if invalid_zones:
-            msg = f"Control blocks not found in dataset: {sorted(invalid_zones)}"
-            raise ValueError(msg)
-
-        # Convert to set for O(1) lookups
-        zone_set = set(control_block_names)
-
-        dataset = self if inplace else copy.deepcopy(self)
-
-        for cb in dataset.get_items_by_type("control_block"):
-            if cb.name not in zone_set:
-                dataset.control_block.remove(cb.name)
-
-        # Filter market areas
-        for market_area in dataset.get_items_by_type("market_area"):
-            if market_area.control_block.name not in zone_set:
-                dataset.market_area.remove(market_area.name)
-
-        # Filter nodes
-        for node in dataset.get_items_by_type("node"):
-            if node.control_block.name not in zone_set:
-                dataset.node.remove(node.name)
-
-        # Filter market borders (with configurable logic)
-        for border in dataset.get_items_by_type("market_border"):
-            downhill_in_zone = border.downhill_control_block.name in zone_set
-            uphill_in_zone = border.uphill_control_block.name in zone_set
-            keep = (downhill_in_zone and uphill_in_zone) or (
-                include_external_borders and (downhill_in_zone or uphill_in_zone)
-            )
-            if not keep:
-                dataset.market_border.remove(border.name)
-
-        for ma_ptdf in dataset.get_items_by_type("market_area_ptdf"):
-            if ma_ptdf.market_area.control_block.name not in zone_set:
-                dataset.market_area_ptdf.remove(ma_ptdf.name)
-
-        # Filter node PTDFs
-        for node_ptdf in dataset.get_items_by_type("node_ptdf"):
-            if node_ptdf.node.control_block.name not in zone_set:
-                dataset.node_ptdf.remove(node_ptdf.name)
-
-        # Filter critical branches (with configurable logic)
-        for critical_branch in dataset.get_items_by_type("critical_branch"):
-            uphill_in_zone = critical_branch.uphill_node.control_block.name in zone_set
-            downhill_in_zone = critical_branch.downhill_node.control_block.name in zone_set
-            keep = (downhill_in_zone and uphill_in_zone) or (
-                include_external_borders and (downhill_in_zone or uphill_in_zone)
-            )
-            if not keep:
-                dataset.critical_branch.remove(critical_branch.name)
-
-        # Filter orders
-        for order in dataset.get_items_by_type("order"):
-            if order.market_area.control_block.name not in zone_set:
-                dataset.order.remove(order.name)
-
-        # Filter order couplings
-        # Note: Keeps a coupling if ANY order in the coupling belongs to filtered zones
-        for order_coupling in dataset.get_items_by_type("order_coupling"):
-            keep = order_coupling.orders is not None and any(
-                coupled_order.market_area is not None
-                and coupled_order.market_area.control_block is not None
-                and coupled_order.market_area.control_block.name in zone_set
-                for coupled_order in order_coupling.orders
-            )
-            if not keep:
-                dataset.order_coupling.remove(order_coupling.name)
-
-        # Filter portfolios
-        for portfolio in dataset.get_items_by_type("portfolio"):
-            if portfolio.control_block.name not in zone_set:
-                dataset.portfolio.remove(portfolio.name)
-
-        # Filter equipment (all types)
-        for equipment_type in cfg.EQUIPMENT_MODELS:
-            equipments = dataset.get_container_by_type(equipment_type)
-            for equipment in dataset.get_items_by_type(equipment_type):
-                if cast(Equipment, equipment).node.control_block.name not in zone_set:
-                    equipments.remove(equipment.name)
-
-        return dataset
+        return self.include_zones(control_block_names, include_external_borders).model_copy(deep=True)
 
     def set_frequency_all(
         self,

@@ -1673,6 +1673,55 @@ class TestFilterZones:
         assert "node_ptdf1" in filtered.node_ptdf
         assert "node_ptdf2" not in filtered.node_ptdf
 
+    def test_include_zones_matches_filter_zones_selection(self, multi_zone_dataset):
+        """include_zones selects exactly what filter_zones documents, for every option."""
+        kept = multi_zone_dataset.include_zones(["FR", "DE"])
+        assert {b.name for b in kept.market_border} == {"border_FR_DE"}
+        assert {c.name for c in kept.critical_branch} == {"cb_FR_DE"}
+
+        kept_external = multi_zone_dataset.include_zones(["FR"], include_external_borders=True)
+        assert {b.name for b in kept_external.market_border} == {"border_FR_DE", "border_FR_BE"}
+        assert {c.name for c in kept_external.critical_branch} == {"cb_FR_DE"}
+
+    def test_include_zones_is_shallow(self, multi_zone_dataset):
+        """New containers, same business objects: no deep copy is paid."""
+        original_node = multi_zone_dataset.node.get("node_FR1")
+
+        filtered = multi_zone_dataset.include_zones(["FR"])
+        filtered.node.remove("node_FR2")
+
+        assert filtered.node.get("node_FR1") is original_node
+        assert "node_FR2" in multi_zone_dataset.node
+        assert len(multi_zone_dataset.control_block) == 3
+
+    def test_include_zones_accepts_any_iterable(self, multi_zone_dataset):
+        filtered = multi_zone_dataset.include_zones(name for name in ["FR"])
+
+        assert {cb.name for cb in filtered.control_block} == {"FR"}
+
+    def test_include_zones_validation_nonexistent_zone(self, multi_zone_dataset):
+        with pytest.raises(ValueError, match="Control blocks not found in dataset"):
+            multi_zone_dataset.include_zones(["FR", "INVALID_ZONE"])
+
+    def test_filter_zones_returns_independent_objects(self, multi_zone_dataset):
+        filtered = multi_zone_dataset.filter_zones(["FR"])
+
+        assert filtered.node.get("node_FR1") == multi_zone_dataset.node.get("node_FR1")
+        assert filtered.node.get("node_FR1") is not multi_zone_dataset.node.get("node_FR1")
+
+    def test_filters_chain_without_copying_until_asked(self, multi_zone_dataset):
+        """The chain suggested in the review: zones, then equipment, then technologies, then one copy."""
+        chained = multi_zone_dataset.include_zones(["FR"]).exclude_equipments(["thermal_FR"])
+        assert chained.hydro.get("hydro_FR") is multi_zone_dataset.hydro.get("hydro_FR")
+
+        result = chained.exclude_technologies([BusinessModelName.SOLAR]).model_copy(deep=True)
+
+        assert [e.name for e in result.hydro] == ["hydro_FR"]
+        assert result.thermal.is_empty()
+        assert {node.name for node in result.node} == {"node_FR1", "node_FR2"}
+        assert result.hydro.get("hydro_FR") is not multi_zone_dataset.hydro.get("hydro_FR")
+        assert "thermal_FR" in multi_zone_dataset.thermal
+
 
 class TestShallowFiltering:
     """Test suite for the shallow equipment filters: new containers, same business objects."""
@@ -1770,42 +1819,6 @@ class TestShallowFiltering:
         detached = dataset.exclude_equipments(["plant_2"]).model_copy(deep=True)
 
         assert detached.thermal.get("plant_1") is not plants[0]
-
-
-class TestFilterInplace:
-    """Test suite for the inplace option shared by filter_equipments, exclude_equipments,
-    exclude_technologies, and filter_zones."""
-
-    def test_filter_zones_inplace_mutates_self(self):
-        cb_fr = ControlBlock(name="FR")
-        cb_de = ControlBlock(name="DE")
-        ma_fr = MarketArea(name="ma_FR", control_block=cb_fr)
-        ma_de = MarketArea(name="ma_DE", control_block=cb_de)
-        node_fr = Node(name="node_FR", control_block=cb_fr, market_area=ma_fr)
-        node_de = Node(name="node_DE", control_block=cb_de, market_area=ma_de)
-        dataset = AtlasDataset(control_block=[cb_fr, cb_de], market_area=[ma_fr, ma_de], node=[node_fr, node_de])
-
-        result = dataset.filter_zones(["FR"], inplace=True)
-
-        assert result is dataset
-        assert len(dataset.control_block) == 1
-        assert "FR" in dataset.control_block
-        assert "node_DE" not in dataset.node
-
-    def test_filter_zones_inplace_keeps_same_object_references(self):
-        """Unlike filter_equipments/exclude_*, filter_zones used to build a fresh
-        dataset even with inplace semantics; now that it's copy-then-remove like
-        the others, inplace=True means no copy happens at all - the surviving
-        objects are the exact same instances as before the call.
-        """
-        cb_fr = ControlBlock(name="FR")
-        ma_fr = MarketArea(name="ma_FR", control_block=cb_fr)
-        node_fr = Node(name="node_FR", control_block=cb_fr, market_area=ma_fr)
-        dataset = AtlasDataset(control_block=[cb_fr], market_area=[ma_fr], node=[node_fr])
-
-        dataset.filter_zones(["FR"], inplace=True)
-
-        assert dataset.node.get("node_FR") is node_fr
 
 
 class TestSetFrequencyAll:
