@@ -47,7 +47,7 @@ def _make_action_plan(tmp_path: Path) -> ActionPlan:
     return ActionPlan(ActionPlanParameters.from_file(config))
 
 
-class TestActionPlanJobsCountContract:
+class TestActionPlanJobsCount:
     """`jobs_count` must always equal the number of jobs `execute()` runs, i.e. len(list(jobs))."""
 
     def test_jobs_count_matches_actual_jobs_for_module_task(self, tmp_path):
@@ -93,7 +93,6 @@ class TestActionPlanJobsCountContract:
                 frequency=Duration(days=1),
             )
         )
-
         actual_jobs_executed = sum(1 for _ in ap.jobs)
         assert actual_jobs_executed == 3 * n_steps # one job per day (from Jan 1st to Jan 3rd) by step
         assert ap.jobs_count == actual_jobs_executed
@@ -137,12 +136,8 @@ class TestActionPlanJobsCountContract:
 
         assert ap.jobs_count == actual_jobs_executed
 
-
-class TestWorkflowTaskJobsGeneratorLenVsJobsProduced:
-    """Isolates the root cause: TaskJobsGenerator.__len__ counts iterations, not jobs produced."""
-
     @pytest.mark.parametrize("n_steps", [1, 2, 4])
-    def test_len_should_reflect_total_jobs_produced_across_all_iterations(self, tmp_path, n_steps):
+    def test_jobs_count_task_jobs_generator(self, tmp_path, n_steps):
         dataset_dir = tmp_path / "dataset"
         dataset_dir.mkdir(exist_ok=True)
         workflow_config = _write_workflow_with_n_steps(tmp_path, dataset_dir, n_steps)
@@ -161,4 +156,4 @@ class TestWorkflowTaskJobsGeneratorLenVsJobsProduced:
             len(generator.build_jobs(iteration)) for iteration in range(1, len(generator) + 1)
         )
         assert total_jobs_actually_produced == 3 * n_steps
-        assert len(generator) == total_jobs_actually_produced
+        assert generator.jobs_count() == total_jobs_actually_produced
