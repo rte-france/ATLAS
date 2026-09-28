@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import copy
 import pickle
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, Literal, cast, get_origin
 
@@ -533,48 +533,80 @@ class AtlasDataset(BaseModel):
 
         return result
 
-    def filter_equipments(self, equipment_names: list[str] | None, inplace: bool = False) -> AtlasDataset:
+    def _rebuilt(self, **replacements: Container[Any]) -> AtlasDataset:
         """
-        Filter the dataset to include only specified equipment by name.
+        Build a new dataset with new containers referencing the same objects.
 
-        :param equipment_names: List of equipment names to include. If None or empty, returns the dataset unchanged.
-        :type equipment_names: list[str] | None
-        :param inplace: If True, filter this dataset directly instead of a deep copy —
-            avoids a redundant deep copy when chaining several filter/exclude calls
-            together (only the first call in a chain typically needs to copy).
-        :type inplace: bool
+        Containers named in ``replacements`` are used as given, every other container is
+        copied (a new Container holding the same object references), so that adding to or
+        removing from one dataset's container never affects the other.
 
-        :return: The filtered dataset (a deep copy unless inplace=True)
+        :param replacements: Containers to use instead of a copy of the current ones, by field name
+        :type replacements: Container
+        :return: A new AtlasDataset, sharing the business objects with this one
+        :rtype: AtlasDataset
+        """
+        containers = {
+            name: replacements[name] if name in replacements else Container(getattr(self, name))
+            for name in type(self).model_fields
+        }
+        return type(self)(**containers)
+
+    def _filtered(self, keep: Callable[[BusinessModel], bool], types: Iterable[BusinessModelName]) -> AtlasDataset:
+        """
+        Shallow filter: keep only the objects of the given types for which ``keep`` is True.
+
+        :param keep: Predicate telling whether an object is kept
+        :type keep: Callable[[BusinessModel], bool]
+        :param types: Types whose containers are filtered, the other containers are left as they are
+        :type types: Iterable[BusinessModelName]
+        :return: A new AtlasDataset, sharing the business objects with this one
+        :rtype: AtlasDataset
+        """
+        return self._rebuilt(
+            **{
+                type_name.value: Container(o for o in self.get_items_by_type(type_name) if keep(o))
+                for type_name in types
+            }
+        )
+
+    def include_equipments(self, equipment_names: Iterable[str] | None) -> AtlasDataset:
+        """
+        Keep only the specified equipment, by name.
+
+        The result is shallow: it has its own containers but shares the business objects with
+        this dataset. Chain the filters freely, and call ``model_copy(deep=True)`` at the end
+        when an independent dataset is needed.
+
+        :param equipment_names: Names of the equipment to keep. If None or empty, no equipment is removed.
+        :type equipment_names: Iterable[str] | None
+
+        :return: A new AtlasDataset containing only the specified equipment
         :rtype: AtlasDataset
 
         Example:
             >>> dataset = AtlasDataset(thermal=[plant1, plant2, plant3])
-            >>> filtered = dataset.filter_equipments(["plant1", "plant3"])
+            >>> filtered = dataset.include_equipments(["plant1", "plant3"])
             >>> len(filtered.thermal)
             2
         """
-        dataset = self if inplace else copy.deepcopy(self)
-        if not equipment_names:
-            return dataset
-        for equipment_type in cfg.EQUIPMENT_MODELS:
-            equipments = dataset.get_container_by_type(equipment_type)
-            for equipment in dataset.get_items_by_type(equipment_type):
-                if equipment.name not in equipment_names:
-                    equipments.remove(equipment.name)
-        return dataset
+        selected = set(equipment_names or ())
+        if not selected:
+            return self._rebuilt()
+        return self._filtered(lambda equipment: equipment.name in selected, cfg.EQUIPMENT_MODELS)
 
-    def exclude_equipments(self, equipment_names: list[str] | None, inplace: bool = False) -> AtlasDataset:
+    def exclude_equipments(self, equipment_names: Iterable[str] | None) -> AtlasDataset:
         """
-        Filter the dataset to exclude specified equipment by name.
+        Remove the specified equipment, by name.
 
-        :param equipment_names: List of equipment names to exclude. If None or empty, returns the dataset unchanged.
-        :type equipment_names: list[str] | None
-        :param inplace: If True, filter this dataset directly instead of a deep copy —
-            avoids a redundant deep copy when chaining several filter/exclude calls
-            together (only the first call in a chain typically needs to copy).
-        :type inplace: bool
+        The result is shallow: it has its own containers but shares the business objects with
+        this dataset. Chain the filters freely, and call ``model_copy(deep=True)`` at the end
+        when an independent dataset is needed.
 
-        :return: The filtered dataset (a deep copy unless inplace=True)
+        :param equipment_names: Names of the equipment to remove. If None or empty, no equipment is removed.
+        :type equipment_names: Iterable[str] | None
+
+        :return: A new AtlasDataset without the specified equipment
         :rtype: AtlasDataset
 
         Example:
@@ -583,16 +615,28 @@ class AtlasDataset(BaseModel):
             >>> len(filtered.thermal)
             2
         """
-        dataset = self if inplace else copy.deepcopy(self)
-        if not equipment_names:
-            return dataset
-        excluded_names = set(equipment_names)
-        for equipment_type in cfg.EQUIPMENT_MODELS:
-            equipments = dataset.get_container_by_type(equipment_type)
-            for equipment in dataset.get_items_by_type(equipment_type):
-                if equipment.name in excluded_names:
-                    equipments.remove(equipment.name)
-        return dataset
+        excluded = set(equipment_names or ())
+        return self._filtered(lambda equipment: equipment.name not in excluded, cfg.EQUIPMENT_MODELS)
+
+    def filter_equipments(self, equipment_names: list[str] | None) -> AtlasDataset:
+        """
+        Filter the dataset to include only specified equipment by name.
+
+        Unlike include_equipments, the result is fully independent from this dataset.
+
+        :param equipment_names: List of equipment names to include. If None or empty, returns a copy of the full dataset.
+        :type equipment_names: list[str] | None
+
+        :return: A new AtlasDataset containing only the specified equipment (deep copy)
+        :rtype: AtlasDataset
+
+        Example:
+            >>> dataset = AtlasDataset(thermal=[plant1, plant2, plant3])
+            >>> filtered = dataset.filter_equipments(["plant1", "plant3"])
+            >>> len(filtered.thermal)
+            2
+        """
+        return self.include_equipments(equipment_names).model_copy(deep=True)
 
     def exclude_technologies(self, technology_names: list[str] | None, inplace: bool = False) -> AtlasDataset:
         """

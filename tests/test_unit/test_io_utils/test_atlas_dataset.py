@@ -1578,39 +1578,107 @@ class TestFilterZones:
         assert "node_ptdf2" not in filtered.node_ptdf
 
 
+class TestShallowFiltering:
+    """Test suite for the shallow equipment filters: new containers, same business objects."""
+
+    @pytest.fixture
+    def thermals(self):
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        plants = [Thermal(name=f"plant_{i}", node=node, portfolio=portfolio) for i in (1, 2, 3)]
+        dataset = AtlasDataset(control_block=[cb], market_area=[ma], node=[node], portfolio=[portfolio], thermal=plants)
+        return dataset, plants
+
+    def test_include_equipments_keeps_only_selected(self, thermals):
+        dataset, _ = thermals
+
+        filtered = dataset.include_equipments(["plant_1", "plant_3"])
+
+        assert {e.name for e in filtered.thermal} == {"plant_1", "plant_3"}
+
+    def test_include_equipments_empty_or_none_keeps_everything(self, thermals):
+        dataset, _ = thermals
+
+        assert len(dataset.include_equipments(None).thermal) == 3
+        assert len(dataset.include_equipments([]).thermal) == 3
+
+    def test_include_equipments_accepts_any_iterable(self, thermals):
+        dataset, _ = thermals
+
+        filtered = dataset.include_equipments(name for name in ["plant_2"])
+
+        assert [e.name for e in filtered.thermal] == ["plant_2"]
+
+    def test_exclude_equipments_accepts_any_iterable(self, thermals):
+        dataset, _ = thermals
+
+        filtered = dataset.exclude_equipments(name for name in ["plant_2"])
+
+        assert {e.name for e in filtered.thermal} == {"plant_1", "plant_3"}
+
+    def test_excluding_every_equipment_leaves_an_empty_container(self, thermals):
+        dataset, _ = thermals
+
+        filtered = dataset.exclude_equipments(["plant_1", "plant_2", "plant_3"])
+
+        assert filtered.thermal.is_empty()
+        assert len(dataset.thermal) == 3
+
+    def test_filters_share_business_objects_with_original(self, thermals):
+        dataset, plants = thermals
+
+        filtered = dataset.exclude_equipments(["plant_2"])
+
+        assert filtered.thermal.get("plant_1") is plants[0]
+        assert filtered.thermal.get("plant_3") is plants[2]
+
+    def test_filters_do_not_share_containers_with_original(self, thermals):
+        """Even the containers a filter does not touch are new ones."""
+        dataset, _ = thermals
+
+        filtered = dataset.exclude_equipments(["plant_2"])
+        filtered.node.remove("node1")
+        filtered.thermal.remove("plant_1")
+
+        assert "node1" in dataset.node
+        assert "plant_1" in dataset.thermal
+
+    def test_filters_leave_other_object_types_untouched(self, thermals):
+        dataset, _ = thermals
+
+        filtered = dataset.include_equipments(["plant_1"])
+
+        assert list(filtered.node) == list(dataset.node)
+        assert list(filtered.portfolio) == list(dataset.portfolio)
+
+    def test_filters_can_be_chained(self, thermals):
+        dataset, _ = thermals
+
+        filtered = dataset.exclude_equipments(["plant_1"]).include_equipments(["plant_1", "plant_2"])
+
+        assert [e.name for e in filtered.thermal] == ["plant_2"]
+
+    def test_filter_equipments_returns_an_independent_deep_copy(self, thermals):
+        dataset, plants = thermals
+
+        filtered = dataset.filter_equipments(["plant_1"])
+
+        assert filtered.thermal.get("plant_1") == plants[0]
+        assert filtered.thermal.get("plant_1") is not plants[0]
+
+    def test_model_copy_deep_detaches_a_shallow_result(self, thermals):
+        dataset, plants = thermals
+
+        detached = dataset.exclude_equipments(["plant_2"]).model_copy(deep=True)
+
+        assert detached.thermal.get("plant_1") is not plants[0]
+
+
 class TestFilterInplace:
     """Test suite for the inplace option shared by filter_equipments, exclude_equipments,
     exclude_technologies, and filter_zones."""
-
-    def test_filter_equipments_inplace_mutates_self(self):
-        cb = ControlBlock(name="cb1")
-        ma = MarketArea(name="ma1", control_block=cb)
-        node = Node(name="node1", control_block=cb, market_area=ma)
-        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
-        t1 = Thermal(name="plant_1", node=node, portfolio=portfolio)
-        t2 = Thermal(name="plant_2", node=node, portfolio=portfolio)
-        dataset = AtlasDataset(thermal=[t1, t2])
-
-        result = dataset.filter_equipments(["plant_1"], inplace=True)
-
-        assert result is dataset
-        assert len(dataset.thermal) == 1
-        assert "plant_1" in dataset.thermal
-
-    def test_exclude_equipments_inplace_mutates_self(self):
-        cb = ControlBlock(name="cb1")
-        ma = MarketArea(name="ma1", control_block=cb)
-        node = Node(name="node1", control_block=cb, market_area=ma)
-        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
-        t1 = Thermal(name="plant_1", node=node, portfolio=portfolio)
-        t2 = Thermal(name="plant_2", node=node, portfolio=portfolio)
-        dataset = AtlasDataset(thermal=[t1, t2])
-
-        result = dataset.exclude_equipments(["plant_1"], inplace=True)
-
-        assert result is dataset
-        assert len(dataset.thermal) == 1
-        assert "plant_2" in dataset.thermal
 
     def test_exclude_technologies_inplace_mutates_self(self):
         cb = ControlBlock(name="cb1")
@@ -1655,36 +1723,6 @@ class TestFilterInplace:
         dataset.filter_zones(["FR"], inplace=True)
 
         assert dataset.node.get("node_FR") is node_fr
-
-    def test_chaining_filter_zones_then_exclude_equipments_inplace(self):
-        """The motivating use case: chain filter_zones -> exclude_equipments with
-        inplace=True throughout - only the caller's own dataset is mutated, no
-        intermediate deep copies.
-        """
-        cb_fr = ControlBlock(name="FR")
-        cb_de = ControlBlock(name="DE")
-        ma_fr = MarketArea(name="ma_FR", control_block=cb_fr)
-        ma_de = MarketArea(name="ma_DE", control_block=cb_de)
-        node_fr = Node(name="node_FR", control_block=cb_fr, market_area=ma_fr)
-        node_de = Node(name="node_DE", control_block=cb_de, market_area=ma_de)
-        portfolio_fr = Portfolio(name="portfolio_FR", control_block=cb_fr, market_area=ma_fr)
-        thermal_1 = Thermal(name="thermal_1", node=node_fr, portfolio=portfolio_fr)
-        thermal_2 = Thermal(name="thermal_2", node=node_fr, portfolio=portfolio_fr)
-
-        dataset = AtlasDataset(
-            control_block=[cb_fr, cb_de],
-            market_area=[ma_fr, ma_de],
-            node=[node_fr, node_de],
-            portfolio=[portfolio_fr],
-            thermal=[thermal_1, thermal_2],
-        )
-
-        result = dataset.filter_zones(["FR"], inplace=True).exclude_equipments(["thermal_2"], inplace=True)
-
-        assert result is dataset
-        assert "node_DE" not in dataset.node
-        assert len(dataset.thermal) == 1
-        assert "thermal_1" in dataset.thermal
 
 
 class TestSetFrequencyAll:
