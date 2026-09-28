@@ -32,8 +32,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         :type parameters: WorkflowParameters
         """
         super().__init__(parameters)
-        self._steps: list[Step] = []
-        self._resolved_parameters: list[AbstractModuleParameters] = []
+        self._resolved_steps: list[tuple[Step, AbstractModuleParameters]] = []
         for step in self.parameters.steps:
             self.add_step(step, prefix_job_name)
 
@@ -44,13 +43,13 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
         :return: The list of WorkflowJob instances.
         """
-        for step, resolved_parameter in zip(self._steps, self._resolved_parameters, strict=True):
+        for step, resolved_parameter in self._resolved_steps:
             parameters = resolved_parameter.model_copy(deep=True)
             yield WorkflowJob(f"{step.name!r}", step.module.value, parameters)
 
     @property
     def jobs_count(self) -> int:
-        return len(self._steps)
+        return len(self._resolved_steps)
 
     def add_step(self, step: Step | list[Step], prefix_job_name: str | None = None) -> None:
         """Add one or multiple step to the end of the workflow."""
@@ -66,16 +65,24 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
     def _add_one_step(self, step: Step, prefix_job_name: str | None = None) -> None:
         """Add a single step to the end of the workflow, add the prefix given and build parameters."""
+        resolved_step = self._resolve_step(step, prefix_job_name)
+        self._resolved_steps.append(resolved_step)
+
+    def _resolve_step(self, step: Step, prefix_job_name: str | None) -> tuple[Step, AbstractModuleParameters]:
+        """Rename `step` with `prefix_job_name` if given, and resolve its parameters against the
+        workflow's current context.
+
+        :raises ValueError: if the step's parameters cannot be resolved.
+        """
         # Rename before resolving: the step output directory is derived from step.name, and iterations of a same
         # action plan task only differ by this prefix.
-        if prefix_job_name:
-            step = step.model_copy(update={"name": f"{prefix_job_name} {step.name}"})
+        named_step = step.model_copy(update={"name": f"{prefix_job_name} {step.name}"}) if prefix_job_name else step
         try:
-            resolved_parameters = self._build_step_parameters(step)
+            resolved_parameters = self._build_step_parameters(named_step)
         except Exception as exc:
-            raise ValueError(f"Step {step.name!r}: unable to resolve parameters ({exc})") from exc
-        self._steps.append(step.model_copy(update={"parameters": resolved_parameters}))
-        self._resolved_parameters.append(resolved_parameters)
+            raise ValueError(f"Step {named_step.name!r}: unable to resolve parameters ({exc})") from exc
+
+        return named_step.model_copy(update={"parameters": resolved_parameters}), resolved_parameters  # FIXME smell!!
 
     def _build_step_parameters(self, step: Step) -> AbstractModuleParameters:
         """Build a step's parameters against the workflow's context."""
@@ -101,5 +108,5 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
     def __repr__(self) -> str:
         """Return a human-readable string representation of the workflow."""
-        step_count = len(self._steps)
+        step_count = len(self._resolved_steps)
         return f"Workflow '{self.parameters.name}' ({step_count} step{'s' if step_count != 1 else ''})"
