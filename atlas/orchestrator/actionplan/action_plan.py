@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import cast
 
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
+from atlas.io_utils.parameters import ContextParameters
+from atlas.io_utils.utils import deep_update
 from atlas.orchestrator.actionplan.job import (
     ActionPlanJob,
     ModuleTaskJobsGenerator,
@@ -85,11 +87,13 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
             task_parameters = (
                 task.module.value()
                 .get_parameters_class()
-                .from_file(self.parameters.resolve_path(path), self.parameters.context)
+                .from_file(self.parameters.resolve_path(path), self._context_with_disregarded_temporal_defaults())
             )
         elif isinstance(task.parameters, dict):
             task_parameters = (
-                task.module.value().get_parameters_class().from_dict(task.parameters, self.parameters.context)
+                task.module.value()
+                .get_parameters_class()
+                .from_dict(task.parameters, self._context_with_disregarded_temporal_defaults())
             )
         else:
             task_parameters = self.parameters.context.apply_on_parameters(task.parameters)
@@ -157,3 +161,23 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
     def __repr__(self) -> str:
         """Return a human-readable string representation of the workflow."""
         return f"ActionPlan '{self.parameters.name}' ({len(self.parameters.tasks)} task{'s' if len(self.parameters.tasks) > 1 else ''} with a total of {self.jobs_count} step{'s' if self.jobs_count > 1 else ''})"
+
+    def _context_with_disregarded_temporal_defaults(self) -> ContextParameters:
+        """Return this action plan's context with a placeholder temporal block (start_date,
+        end_date, execution_date) added as a low-priority default.
+
+        Note: These three fields are always overwritten per-iteration before a Module actually runs,
+        so this lets its parameters file omit the `temporal` block, or any of these three fields, entirely.
+        Any value already set in the file, or in this action plan's own context, still takes priority over the placeholder.
+        """
+        _TEMPORAL_DEFAULTS_PLACEHOLDER = {
+            "temporal": {
+                "start_date": "1970-01-01 00:00:00",
+                "end_date": "1970-01-01 00:00:00",
+                "execution_date": "1970-01-01 00:00:00",
+            }
+        }
+        default = deep_update(
+            _TEMPORAL_DEFAULTS_PLACEHOLDER, self.parameters.context.default, override=True, inplace=False
+        )
+        return ContextParameters(default=default, forced=self.parameters.context.forced)
