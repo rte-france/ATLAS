@@ -39,6 +39,9 @@ from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
 from atlas.orchestrator.workflow.workflow import Workflow
+from atlas.orchestrator.actionplan.action_plan import ActionPlan
+from atlas.orchestrator.actionplan.parameters import ActionPlanParameters
+from atlas.orchestrator.actionplan.job import TaskModule, TaskWorkflow, Task
 from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions, SolverStatus
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
@@ -53,6 +56,11 @@ __all__ = [
     "Workflow",
     "WorkflowParameters",
     "WorkflowJob",
+    "ActionPlan",
+    "ActionPlanParameters",
+    "TaskModule",
+    "TaskWorkflow",
+    "Task",
     "BusinessModel",
     "ControlBlock",
     "ConstraintBounds",
