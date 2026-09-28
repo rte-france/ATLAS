@@ -13,7 +13,7 @@ from pathlib import Path
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.orchestrator.workflow.job import WorkflowJob
-from atlas.orchestrator.workflow.parameters import Step, WorkflowParameters
+from atlas.orchestrator.workflow.parameters import ResolvedStep, Step, WorkflowParameters
 
 
 class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
@@ -32,7 +32,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         :type parameters: WorkflowParameters
         """
         super().__init__(parameters)
-        self._resolved_steps: list[tuple[Step, AbstractModuleParameters]] = []
+        self._resolved_steps: list[ResolvedStep] = []
         for step in self.parameters.steps:
             self.add_step(step, prefix_job_name)
 
@@ -43,9 +43,9 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
         :return: The list of WorkflowJob instances.
         """
-        for step, resolved_parameter in self._resolved_steps:
-            parameters = resolved_parameter.model_copy(deep=True)
-            yield WorkflowJob(f"{step.name!r}", step.module.value, parameters)
+        for resolved_step in self._resolved_steps:
+            parameters = resolved_step.parameters.model_copy(deep=True)
+            yield WorkflowJob(f"{resolved_step.name!r}", resolved_step.module.value, parameters)
 
     @property
     def jobs_count(self) -> int:
@@ -68,7 +68,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         resolved_step = self._resolve_step(step, prefix_job_name)
         self._resolved_steps.append(resolved_step)
 
-    def _resolve_step(self, step: Step, prefix_job_name: str | None) -> tuple[Step, AbstractModuleParameters]:
+    def _resolve_step(self, step: Step, prefix_job_name: str | None) -> ResolvedStep:
         """Rename `step` with `prefix_job_name` if given, and resolve its parameters against the
         workflow's current context.
 
@@ -82,7 +82,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         except Exception as exc:
             raise ValueError(f"Step {named_step.name!r}: unable to resolve parameters ({exc})") from exc
 
-        return named_step.model_copy(update={"parameters": resolved_parameters}), resolved_parameters  # FIXME smell!!
+        return ResolvedStep(name=named_step.name, module=named_step.module, parameters=resolved_parameters)
 
     def _build_step_parameters(self, step: Step) -> AbstractModuleParameters:
         """Build a step's parameters against the workflow's context."""

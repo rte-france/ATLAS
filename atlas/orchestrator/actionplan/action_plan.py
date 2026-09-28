@@ -78,7 +78,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
         resolver = _TASK_RESOLVER.get(type(task))
         if resolver is None:
-            raise ValueError(f"Unknown type {type(task)} when resolving {task} to Action Plan {self}")
+            raise ValueError(f"Unknown type {type(task)} when resolving {task} for Action Plan {self}")
 
         return resolver(task, root_output_dir)
 
