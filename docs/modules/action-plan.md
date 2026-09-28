@@ -106,19 +106,11 @@ On top of the common parameters, exactly one of two task types must be chosen an
 |  `TaskModule` | `module` + `parameters` | Runs a single module (`DayAheadOrders`, `IntradayOrders`, `IntradayPriceForecast`, `MarketClearing`, `PortfolioOptimisation`) on each iteration. `parameters` is a path to a parameters file or an inline mapping. |
 | `TaskWorkflow` | `workflow` | Runs a [`Workflow`](workflow.md) on each iteration. `workflow` is a path to a workflow YAML file or an inline mapping with the same shape as a workflow config. |
 
-
-<!--
-FIXME - we don't want that behaviour, it's not user friendly.
-When fix is done, keep it a simple note : only timepstep is keept, any `start_date`/`end_date`/`execution_date` field is disregarded.
-
-when fix is done, change example below and remove temporal data outside timestep
--->
-
 !!! note "Placeholder dates in module parameters"
-    A `TaskModule` parameters file still needs a `temporal` block with *some*
-    `start_date`/`end_date`/`execution_date` to pass initial validation — Atlas overwrites all three with the
-    task's real per-iteration dates before each run. Only `timestep` is kept from what you provide. The same
-    applies to the module parameters of a `TaskWorkflow`'s steps.
+    A `TaskModule` parameters file do not need to define any `temporal` block,
+    Atlas overwrites `start_date`/`end_date`/`execution_date` fields with the task's real per-iteration
+    dates before each run. Only `timestep` is kept from what you provide.
+    The same applies to the module parameters of a `TaskWorkflow`'s steps.
 
 #### Inline Parameters
 
@@ -133,10 +125,7 @@ tasks:
   - module: PortfolioOptimisation
     parameters:
       temporal:
-        start_date: '2000-01-01 00:00:00'
-        end_date: '2000-01-02 00:00:00'
-        execution_date: '2000-01-01 00:00:00'
-        timestep: 1d
+        timestep: 3d
     from: '2028-01-01 00:00:00'
     until: '2028-01-31 00:00:00'
     frequency: 1d
@@ -163,17 +152,11 @@ FIXME - missing CLI section
 ### Python
 
 ```python
-from atlas.orchestrator.actionplan.action_plan import ActionPlan
+from atlas import ActionPlan
 
 action_plan = ActionPlan.from_file("action_plan.yaml")
 cis = action_plan.execute()
 ```
-
-<!--
-FIXME - fix that, should not be an issue, and remove that part of the doc
--->
-Unlike `Workflow`, `ActionPlan` is not re-exported at the top level of the package — import it from
-`atlas.orchestrator.actionplan.action_plan`.
 
 `from_file` also accepts a [context](context.md) that takes priority over the one declared in the file:
 
@@ -199,8 +182,8 @@ You can also build an action plan directly in Python, without a YAML file:
 
 ```python
 from atlas import Workflow, WorkflowParameters
-from atlas.orchestrator.actionplan.action_plan import ActionPlan
-from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, TaskModule, TaskWorkflow
+from atlas import ActionPlan, ActionPlanParameters
+from atlas.orchestrator.actionplan.parameters import TaskModule, TaskWorkflow
 from atlas.orchestrator.workflow.parameters import Step
 
 workflow = Workflow(WorkflowParameters(
