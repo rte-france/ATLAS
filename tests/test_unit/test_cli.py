@@ -205,6 +205,117 @@ class TestRunWorkflowListCommand:
         assert "params.yaml" in result.stdout
 
 
+class TestRunCommandActionPlanMode:
+    """Tests for the 'atlas action-plan run' subcommand."""
+
+    def test_run_action_plan_nonexistent_config(self, tmp_path):
+        """Test that action-plan run fails when config doesn't exist."""
+        nonexistent_config = tmp_path / "nonexistent_action_plan.yaml"
+
+        result = runner.invoke(app, ["action-plan", "run", str(nonexistent_config)])
+        assert result.exit_code == 1
+        assert "Action plan configuration file not found" in result.stdout
+
+    @patch("atlas.app.ActionPlan")
+    def test_run_action_plan_with_valid_config(self, mock_action_plan, tmp_path):
+        """Test that action-plan run succeeds with valid config (mocked execution)."""
+        mock_action_plan_instance = MagicMock()
+        mock_action_plan.from_file.return_value = mock_action_plan_instance
+
+        action_plan_config = tmp_path / "action_plan.yaml"
+        action_plan_config.write_text(
+            """
+            dataset_path: ./dataset
+            tasks: []
+            """
+        )
+
+        result = runner.invoke(app, ["action-plan", "run", str(action_plan_config)])
+
+        assert result.exit_code == 0
+        mock_action_plan.from_file.assert_called_once()
+        mock_action_plan_instance.execute.assert_called_once()
+
+
+class TestActionPlanListCommand:
+    """Tests for the 'atlas action-plan list' subcommand."""
+
+    def test_action_plan_list_nonexistent_config(self, tmp_path):
+        """Test that action-plan list fails when config doesn't exist."""
+        nonexistent_config = tmp_path / "nonexistent.yaml"
+        result = runner.invoke(app, ["action-plan", "list", str(nonexistent_config)])
+        assert result.exit_code == 1
+        assert "Action plan configuration file not found" in result.stdout
+
+    def test_action_plan_list_invalid_yaml(self, tmp_path):
+        """Test that action-plan list fails gracefully on invalid YAML."""
+        bad_file = tmp_path / "bad.yaml"
+        bad_file.write_text("not: valid: yaml: [")
+        result = runner.invoke(app, ["action-plan", "list", str(bad_file)])
+        assert result.exit_code == 1
+
+    def test_action_plan_list_shows_module_tasks(self, tmp_path):
+        """Test that action-plan list displays module tasks from a valid action plan file."""
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text(
+            "temporal:\n"
+            "  start_date: '2028-09-27 00:00:00'\n"
+            "  end_date: '2028-09-28 00:00:00'\n"
+            "  execution_date: '2028-09-26 12:00:00'\n"
+        )
+        action_plan_config = tmp_path / "action_plan.yaml"
+        action_plan_config.write_text(
+            "name: my_action_plan\n"
+            "dataset_path: ./dataset\n"
+            "output_dataset_path: ./output\n"
+            "tasks:\n"
+            "  - name: my_task\n"
+            f"    module: MarketClearing\n"
+            f"    parameters: {params_file}\n"
+            "    from_: '2028-01-01 00:00:00'\n"
+            "    until: '2028-01-03 00:00:00'\n"
+            "    frequency: '1d'\n"
+        )
+        result = runner.invoke(app, ["action-plan", "list", str(action_plan_config)])
+        assert result.exit_code == 0
+        assert "my_task" in result.stdout
+        assert "MarketClearing" in result.stdout
+        assert "Module" in result.stdout
+
+    def test_action_plan_list_shows_workflow_tasks(self, tmp_path):
+        """Test that action-plan list displays workflow tasks from a valid action plan file."""
+        workflow_config = tmp_path / "sub_workflow.yaml"
+        workflow_config.write_text(
+            "name: sub_workflow\n"
+            "dataset_path: ./dataset\n"
+            "steps:\n"
+            "  - module: MarketClearing\n"
+            "    parameters:\n"
+            "      temporal:\n"
+            "        start_date: '2028-09-27 00:00:00'\n"
+            "        end_date: '2028-09-28 00:00:00'\n"
+            "        execution_date: '2028-09-26 12:00:00'\n"
+        )
+        action_plan_config = tmp_path / "action_plan.yaml"
+        action_plan_config.write_text(
+            "name: my_action_plan\n"
+            "dataset_path: ./dataset\n"
+            "output_dataset_path: ./output\n"
+            "tasks:\n"
+            "  - name: my_workflow_task\n"
+            f"    workflow: {workflow_config}\n"
+            "    from_: '2028-01-01 00:00:00'\n"
+            "    until: '2028-01-01 00:00:00'\n"
+            "    frequency: '1d'\n"
+        )
+        # Wide COLUMNS to avoid rich truncating/wrapping cells (e.g. long tmp_path-derived
+        # file names) under the default 80-column test terminal.
+        result = runner.invoke(app, ["action-plan", "list", str(action_plan_config)], env={"COLUMNS": "200"})
+        assert result.exit_code == 0
+        assert "my_workflow_task" in result.stdout
+        assert "Workflow" in result.stdout
+
+
 class TestPrometheusToAtlasCommand:
     """Tests for the 'atlas prometheus-to-atlas' command."""
 
@@ -724,6 +835,7 @@ class TestCLIHelp:
         assert result.exit_code == 0
         assert "module" in result.stdout
         assert "workflow" in result.stdout
+        assert "action-plan" in result.stdout
         assert "version" in result.stdout
 
     def test_run_module_help_shows_subcommands(self):
@@ -736,6 +848,13 @@ class TestCLIHelp:
     def test_run_workflow_help_shows_subcommands(self):
         """Test that run workflow help lists run and list subcommands."""
         result = runner.invoke(app, ["workflow", "--help"])
+        assert result.exit_code == 0
+        assert "run" in result.stdout
+        assert "list" in result.stdout
+
+    def test_run_action_plan_help_shows_subcommands(self):
+        """Test that run action-plan help lists run and list subcommands."""
+        result = runner.invoke(app, ["action-plan", "--help"])
         assert result.exit_code == 0
         assert "run" in result.stdout
         assert "list" in result.stdout
