@@ -291,14 +291,15 @@ class AtlasDataset(BaseModel):
         container = self.get_container_by_type(object_type)
         return container.all()
 
-    def get_container_by_type(self, object_type: BusinessModelName | str | type[BusinessModel]) -> Container:
+    @staticmethod
+    def _resolve_type_name(object_type: BusinessModelName | str | type[BusinessModel]) -> BusinessModelName:
         """
-        Get a Container object by type with O(1) lookup.
+        Resolve a type given as a name or as a class to its BusinessModelName.
 
-        :param object_type: The type of object (e.g., "hydro", "node")
+        :param object_type: The type of object (e.g., "hydro", Node, BusinessModelName.NODE)
         :type object_type: str | type[BusinessModel] | BusinessModelName
-        :return: The Container object if found, raise an error otherwise
-        :rtype: Container
+        :return: The matching BusinessModelName
+        :rtype: BusinessModelName
         """
         if isinstance(object_type, type) and issubclass(object_type, BusinessModel):
             # For subclasses, we need to find the base type that's registered in INVERSE_MODEL_MAPPING_NAME
@@ -319,6 +320,18 @@ class AtlasDataset(BaseModel):
             object_type_str = object_type
         else:
             raise TypeError(f"Invalid type for object_type: {object_type!r}")
+        return object_type_str
+
+    def get_container_by_type(self, object_type: BusinessModelName | str | type[BusinessModel]) -> Container:
+        """
+        Get a Container object by type with O(1) lookup.
+
+        :param object_type: The type of object (e.g., "hydro", "node")
+        :type object_type: str | type[BusinessModel] | BusinessModelName
+        :return: The Container object if found, raise an error otherwise
+        :rtype: Container
+        """
+        object_type_str = self._resolve_type_name(object_type)
         container = getattr(self, object_type_str, None)
         if container is None:
             raise ValueError(f"No container found for type {object_type_str}")
