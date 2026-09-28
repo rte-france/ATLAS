@@ -19,6 +19,7 @@ from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilde
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import ContextParameters
+from atlas.custom_errors import UseContextError
 from atlas.orchestrator.actionplan.action_plan import ActionPlan
 from atlas.orchestrator.actionplan.job import ActionPlanJob
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, TaskModule, TaskWorkflow
@@ -547,3 +548,89 @@ class TestActionPlanPathFromActionPlan:
         step = next(action_plan.jobs)
 
         assert step.parameters.output.output_dir == Path(tmp_path / 'results' / 'MarketClearing' / '2028-01-01T00:00:00+00:00')
+
+
+class TestActionPlanUseContext:
+    """Note: Any task parameters is resolved with the context when the ActionPlan is built.
+    We want to ensure that use_context() re-resolve tasks already built, not just update
+    parameters.context while leaving previously-resolved task parameters stale."""
+
+    @staticmethod
+    def _build_action_plan(tmp_path) -> ActionPlan:
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("solver:\n  solver_name: GLOP\n")
+
+        config = tmp_path / "action_plan.yaml"
+        config.write_text(
+            f"name: test_action_plan\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"output_dataset_path: {output_dir}\n"
+            f"tasks:\n"
+            f"  - module: MarketClearing\n"
+            f"    parameters: {params_file}\n"
+            f"    from_: '2028-01-01 00:00:00'\n"
+            f"    until: '2028-01-01 00:00:00'\n"
+            f"    frequency: '1d'\n"
+        )
+        return ActionPlan.from_file(config)
+
+    def test_use_context_re_resolves_already_built_tasks(self, tmp_path):
+        action_plan = self._build_action_plan(tmp_path)
+        assert next(action_plan.jobs).parameters.solver.solver_name == "GLOP"
+
+        action_plan.use_context(ContextParameters(forced={"solver": {"solver_name": "CBC"}}))
+
+        assert next(action_plan.jobs).parameters.solver.solver_name == "CBC"
+
+    def test_use_context_re_resolves_tasks_added_after_construction(self, tmp_path):
+        """A task added via add_task() must also be re-resolved."""
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        params = ActionPlanMockFactory.make_minimal_parameters(tmp_path, dataset_path=dataset_dir, output_path=output_dir)
+        action_plan = ActionPlan(params)
+        action_plan.add_task(
+            TaskModule(
+                module="MarketClearing",
+                parameters={"solver": {"solver_name": "GLOP"}},
+                from_=DateTime(2028, 1, 1),
+                until=DateTime(2028, 1, 1),
+                frequency=Duration(days=1),
+            )
+        )
+        assert next(action_plan.jobs).parameters.solver.solver_name == "GLOP"
+
+        action_plan.use_context(ContextParameters(forced={"solver": {"solver_name": "CBC"}}))
+
+        assert next(action_plan.jobs).parameters.solver.solver_name == "CBC"
+
+    def test_use_context_raises_and_leaves_action_plan_unchanged_if_resolution_breaks(self, tmp_path):
+        action_plan = self._build_action_plan(tmp_path)
+        context_before = action_plan.parameters.context
+        job_before = next(action_plan.jobs)
+        attempted_context = ContextParameters(forced={"solver": {"solver_name": "NOT_A_REAL_SOLVER"}})
+
+        with pytest.raises(UseContextError) as exc_info:
+            action_plan.use_context(attempted_context)
+
+        error = exc_info.value
+        assert error.job_name == "MarketClearing"
+        assert error.previous_context == context_before
+        assert error.attempted_context == attempted_context
+        assert isinstance(error.original_error, Exception)
+
+        assert action_plan.parameters.context == context_before
+        job_after = next(action_plan.jobs)
+        assert job_after.parameters.solver.solver_name == job_before.parameters.solver.solver_name
+
+    def test_use_context_merges_context_on_success(self, tmp_path):
+        action_plan = self._build_action_plan(tmp_path)
+
+        action_plan.use_context(ContextParameters(default={"added": 1}))
+
+        assert action_plan.parameters.context.default["added"] == 1

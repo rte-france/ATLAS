@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from atlas import WorkflowJob
+from atlas.custom_errors import UseContextError
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.workflow.workflow import Workflow, WorkflowParameters
@@ -430,3 +431,80 @@ class TestWorkflowPathFromWorkflow:
         step = next(workflow.jobs)
 
         assert step.parameters.output.output_dir == tmp_path / "results" / f"{prefix} MarketClearing"
+
+
+class TestWorkflowUseContext:
+    """Note: Any step parameters is resolved with the context when the Workflow is built.
+    We want to ensure that use_context() re-resolve tasks already built, not just update
+    parameters.context while leaving previously-resolved task parameters stale."""
+
+    @staticmethod
+    def _build_workflow(tmp_path) -> Workflow:
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text(
+            "temporal:\n"
+            "  start_date: '2028-09-27 00:00:00'\n"
+            "  end_date: '2028-09-28 00:00:00'\n"
+            "  execution_date: '2028-09-26 12:00:00'\n"
+            "solver:\n"
+            "  solver_name: GLOP\n"
+        )
+        config = tmp_path / "workflow.yaml"
+        config.write_text(
+            f"name: test_workflow\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"steps:\n"
+            f"  - module: MarketClearing\n"
+            f"    parameters: {params_file}\n"
+        )
+        return Workflow.from_file(config)
+
+    def test_use_context_re_resolves_already_built_steps(self, tmp_path):
+        workflow = self._build_workflow(tmp_path)
+        assert next(workflow.jobs).parameters.solver.solver_name == "GLOP"
+
+        workflow.use_context(ContextParameters(forced={"solver": {"solver_name": "CBC"}}))
+
+        assert next(workflow.jobs).parameters.solver.solver_name == "CBC"
+
+    def test_use_context_re_resolves_steps_added_after_construction(self, tmp_path):
+        """A step added via add_step() must also be re-resolved."""
+        workflow = self._build_workflow(tmp_path)
+        job_builder = MockJobBuilder().with_job_class(WorkflowJob).with_name("extra")
+        extra_job = job_builder.build()
+        workflow.add_step(generate_step_from_job(extra_job))
+        assert workflow.jobs_count == 2
+
+        workflow.use_context(ContextParameters(forced={"solver": {"solver_name": "CBC"}}))
+
+        jobs = list(workflow.jobs)
+        assert len(jobs) == 2
+        assert jobs[0].parameters.solver.solver_name == "CBC"
+
+    def test_use_context_raises_and_leaves_workflow_unchanged_if_resolution_breaks(self, tmp_path):
+        workflow = self._build_workflow(tmp_path)
+        context_before = workflow.parameters.context
+        job_before = next(workflow.jobs)
+        attempted_context = ContextParameters(forced={"solver": {"solver_name": "NOT_A_REAL_SOLVER"}})
+
+        with pytest.raises(UseContextError) as exc_info:
+            workflow.use_context(attempted_context)
+
+        error = exc_info.value
+        assert error.job_name == "MarketClearing"
+        assert error.previous_context == context_before
+        assert error.attempted_context == attempted_context
+        assert isinstance(error.original_error, Exception)
+
+        assert workflow.parameters.context == context_before
+        job_after = next(workflow.jobs)
+        assert job_after.parameters.solver.solver_name == job_before.parameters.solver.solver_name
+
+    def test_use_context_still_merges_context_on_success(self, tmp_path):
+        workflow = self._build_workflow(tmp_path)
+
+        workflow.use_context(ContextParameters(default={"added": 1}))
+
+        assert workflow.parameters.context.default["added"] == 1
