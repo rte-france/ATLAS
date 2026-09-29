@@ -62,8 +62,8 @@ class AbstractOrderStep(ABC):
         copies rather than the dataset's own objects. The *unit* yielded is always the
         caller's instance, so it can be mutated in place.
 
-        A unit whose worker raises is logged and skipped: one failing unit must not abort
-        the whole session.
+        A unit whose worker raises is propagated, named: dropping it would leave the step
+        result silently short of orders for that unit.
 
         :param units: Units to process
         :type units: Sequence[U]
@@ -74,11 +74,16 @@ class AbstractOrderStep(ABC):
         :type label: str
         :return: ``(unit, result)`` pairs, in completion order when parallel
         :rtype: Iterator[tuple[U, R]]
+        :raises RuntimeError: If the worker fails for a unit, naming that unit
         """
         if not self.parameters.multiprocessing.enable:
             cfg.logger.info(f"Starting sequential {label} optimization for {len(units)} units")
             for unit in units:
-                yield unit, worker(unit, *worker_args)
+                try:
+                    result = worker(unit, *worker_args)
+                except Exception as e:
+                    raise RuntimeError(f"Optimisation failed for {label} unit {unit.name}") from e
+                yield unit, result
             return
 
         cfg.logger.info(f"Starting parallel {label} optimization for {len(units)} units")
@@ -90,6 +95,5 @@ class AbstractOrderStep(ABC):
                 try:
                     result = future.result()
                 except Exception as e:
-                    cfg.logger.error(f"Error processing {label} {unit.name}: {e}")
-                    continue
+                    raise RuntimeError(f"Optimisation failed for {label} unit {unit.name}") from e
                 yield unit, result

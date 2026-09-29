@@ -15,7 +15,6 @@ import pytest
 
 from atlas.modules.day_ahead_orders.steps.storage.storage_step import StorageStep
 from atlas.modules.day_ahead_orders.steps.thermal.step import ThermalBiddingStep
-from atlas.modules.day_ahead_orders.steps.thermal.worker import optimize_single_thermal_unit
 
 
 def _step(step_class, dataset_attribute: str, unit_name: str):
@@ -62,37 +61,42 @@ def test_storage_step_parallel_names_the_failing_unit():
     assert str(error.value.__cause__) == "solver crashed"
 
 
-def test_thermal_step_propagates_unit_failure():
+def _thermal_step(multiprocessing: bool) -> ThermalBiddingStep:
     step = _step(ThermalBiddingStep, "thermal", "a_thermal")
+    step.parameters.multiprocessing.enable = multiprocessing
+    return step
+
+
+def test_thermal_step_propagates_unit_failure():
+    step = _thermal_step(multiprocessing=False)
 
     with patch(
         "atlas.modules.day_ahead_orders.steps.thermal.step.optimize_single_thermal_unit",
         side_effect=RuntimeError("solver crashed"),
     ):
         with pytest.raises(RuntimeError, match="a_thermal") as error:
-            step._formulate_sequential()
+            step.formulate()
 
     assert str(error.value.__cause__) == "solver crashed"
 
 
 def test_thermal_step_parallel_names_the_failing_unit():
-    step = _step(ThermalBiddingStep, "thermal", "a_thermal")
+    step = _thermal_step(multiprocessing=True)
 
-    with patch(
-        "atlas.modules.day_ahead_orders.steps.thermal.step.ProcessPoolExecutor"
-    ) as executor_class:
+    with patch("atlas.modules.day_ahead_orders.steps.abstract_step.ProcessPoolExecutor") as executor_class:
         _crashed_executor(executor_class)
 
         with pytest.raises(RuntimeError, match="a_thermal") as error:
-            step._formulate_parallel()
+            step.formulate()
 
     assert str(error.value.__cause__) == "solver crashed"
 
 
-def test_thermal_worker_rejects_unknown_strategy():
+def test_thermal_step_rejects_unknown_strategy():
+    step = _thermal_step(multiprocessing=False)
     thermal = Mock()
     thermal.name = "a_thermal"
     thermal.strategy = None
 
     with pytest.raises(ValueError, match="Unknown thermal strategy"):
-        optimize_single_thermal_unit(thermal, orders_time=[], parameters=Mock())
+        step._formulate_strategy(thermal, None)
