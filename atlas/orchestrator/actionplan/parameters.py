@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 import warnings
-from abc import ABC
+from abc import ABC, abstractmethod
 from math import gcd
 from pathlib import Path
 from typing import Any
@@ -23,7 +23,7 @@ from atlas.custom_errors import DataQualityWarning
 from atlas.orchestrator.hook.hook import Hook
 from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.orchestrator.workflow.workflow import Workflow
-from atlas.validators import DurationField
+from atlas.validators import DurationField, UniqueNamedList
 
 
 class ActionPlanParameters(AbstractOrchestratorParameters):
@@ -34,7 +34,7 @@ class ActionPlanParameters(AbstractOrchestratorParameters):
     :type hooks: list[Hook]
     """
 
-    tasks: list[TaskModule | TaskWorkflow]
+    tasks: UniqueNamedList[TaskModule | TaskWorkflow]
     hooks: list[Hook] = []
 
     @model_validator(mode="after")
@@ -63,7 +63,7 @@ class Task(BaseModel, ABC):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    name: str | None = None
+    name: str
     priority: int = 0
     from_: DateTime = Field(validation_alias=AliasChoices("from", "from_"))
     until: DateTime
@@ -128,6 +128,18 @@ class Task(BaseModel, ABC):
             )
         return self
 
+    @model_validator(mode="before")
+    @classmethod
+    def default_name(cls, data: Any) -> Any:
+        if isinstance(data, dict) and not data.get("name"):
+            data = {**data, "name": cls._compute_default_name(data)}
+        return data
+
+    @staticmethod
+    @abstractmethod
+    def _compute_default_name(data: dict) -> str:
+        pass
+
 
 class TaskModule(Task):
     """Definition of a single task that run a module
@@ -159,11 +171,9 @@ class TaskModule(Task):
                 raise ValueError(f"Module parameters file not found at {v}")
         return v
 
-    @model_validator(mode="after")
-    def default_name(self) -> TaskModule:
-        if self.name is None and self.module is not None:
-            self.name = self.module.name
-        return self
+    @staticmethod
+    def _compute_default_name(data: dict) -> str:
+        return str(data.get("module", "unnamed"))
 
 
 class TaskWorkflow(Task):
@@ -191,13 +201,14 @@ class TaskWorkflow(Task):
                 raise ValueError(f"Workflow parameters file not found at {Path(v)}")
         return v
 
-    @model_validator(mode="after")
-    def default_name(self) -> TaskWorkflow:
-        if self.name is None:
-            if isinstance(self.workflow, Workflow):
-                self.name = self.workflow.parameters.name
-            elif isinstance(self.workflow, dict) and "name" in self.workflow:
-                self.name = self.workflow["name"]
-            elif isinstance(self.workflow, Path):
-                self.name = Path(self.workflow).stem
-        return self
+    @staticmethod
+    def _compute_default_name(data: dict) -> str:
+        workflow = data.get("workflow", None)
+        if isinstance(workflow, Workflow):
+            return str(workflow.parameters.name)
+        elif isinstance(workflow, dict):
+            return str(workflow.get("name", "unnamed"))
+        elif isinstance(workflow, Path):
+            return Path(workflow).stem
+        else:
+            return "unnamed"

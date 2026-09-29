@@ -6,13 +6,14 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, get_args, get_origin
+from typing import Annotated, Any, Literal, Protocol, get_args, get_origin
 
 import pendulum
 from pydantic import AfterValidator, BeforeValidator, GetCoreSchemaHandler, PlainSerializer, ValidationInfo
 from pydantic_core import core_schema
 
 from atlas.enums import ThermalStrategy
+from atlas.io_utils.utils import deduplicate_names
 from atlas.objects.business_model import BusinessModel
 from atlas.timing import parse_frequency
 
@@ -263,3 +264,17 @@ def convert_to_duration(
 
 
 DurationField = Annotated[pendulum.Duration, BeforeValidator(convert_to_duration)]
+
+
+class _Named(Protocol):
+    name: str
+
+
+def _assign_deduplicated_names[N: _Named](items: list[N]) -> list[N]:
+    """Mutate `items` in place so duplicate `.name` values get a numeric suffix, `None` value becomes `unnamed`."""
+    for item, name in zip(items, deduplicate_names([i.name or "unnamed" for i in items]), strict=True):
+        item.name = name
+    return items
+
+
+type UniqueNamedList[N: _Named] = Annotated[list[N], AfterValidator(_assign_deduplicated_names)]

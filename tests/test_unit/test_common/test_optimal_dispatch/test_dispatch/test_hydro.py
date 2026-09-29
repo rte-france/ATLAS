@@ -165,6 +165,18 @@ class TestHydroDispatchVariables:
             assert var.lb() == 0
             assert var.ub() == pytest.approx(50.0)
 
+    def test_minimal_fragment_size_drops_small_fragments(self, hydro_equipment, model, parameters, time_window):
+        hydro_equipment.fragment_volumes = [0.05, 0.95]
+        d = HydroDispatch(hydro_equipment)
+        d.setup(model, parameters, minimal_fragment_size=10.0)
+        t = time_window[0]
+        d.add_variables(t)
+        n = hydro_equipment.name
+        # max_power = 100 → the 5 MW fragment is dropped, its volume goes to the other one.
+        assert f"{n}_power_level_frag_0_{t}" not in model.variables
+        assert model.get_variable(f"{n}_power_level_frag_1_{t}").ub() == pytest.approx(100.0)
+        assert d.fragment_volumes(t) == {1: pytest.approx(100.0)}
+
 
 class TestHydroDispatchEnergyBalance:
     def _setup(self, hydro_equipment, model, parameters, time_window):
@@ -174,25 +186,19 @@ class TestHydroDispatchEnergyBalance:
             d.add_variables(t)
         return d
 
-    def test_balance_constraint_at_start_uses_initial_level(
-        self, hydro_equipment, model, parameters, time_window
-    ):
+    def test_balance_constraint_at_start_uses_initial_level(self, hydro_equipment, model, parameters, time_window):
         d = self._setup(hydro_equipment, model, parameters, time_window)
         t = time_window[0]
         d.add_energy_balance(model, t, parameters)
         assert f"storage_level_evol_{t}_{hydro_equipment.name}" in model.constraints
 
-    def test_balance_constraint_after_start_uses_previous_var(
-        self, hydro_equipment, model, parameters, time_window
-    ):
+    def test_balance_constraint_after_start_uses_previous_var(self, hydro_equipment, model, parameters, time_window):
         d = self._setup(hydro_equipment, model, parameters, time_window)
         t = time_window[1]
         d.add_energy_balance(model, t, parameters)
         assert f"storage_level_evol_{t}_{hydro_equipment.name}" in model.constraints
 
-    def test_power_fragments_sum_aggregates_all_fragments(
-        self, hydro_equipment, model, parameters, time_window
-    ):
+    def test_power_fragments_sum_aggregates_all_fragments(self, hydro_equipment, model, parameters, time_window):
         d = self._setup(hydro_equipment, model, parameters, time_window)
         t = time_window[0]
         # Should not raise — exercises the sum expression construction.

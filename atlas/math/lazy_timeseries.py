@@ -417,6 +417,7 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         """
         if inplace:
             self.timeseries = lf.sort("time")
+            self._invalidate_cache()
             return self
         return LazyTimeseries(lf.sort("time"), timezone=self.timezone)
 
@@ -819,6 +820,7 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         self.timeseries = self.timeseries.with_columns(
             pl.col("time").dt.convert_time_zone(timezone),
         )
+        self._invalidate_cache()
 
     def plot(
         self,

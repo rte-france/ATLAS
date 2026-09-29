@@ -37,7 +37,9 @@ class HydroStep(AbstractOptimStep[HydroPO, "PortfolioOptimisationParameters"]):
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
-        self._dispatch.setup(model, parameters)
+        # Only the fragments large enough to be bid get a variable, so the plan is made of
+        # the fragments the order modules will actually submit.
+        self._dispatch.setup(model, parameters, parameters.hydraulic_minimal_fragment_size)
         self._reserves.setup(model)
         for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding variables for hydro unit {eq.name} at time {time}")
@@ -68,14 +70,18 @@ class HydroStep(AbstractOptimStep[HydroPO, "PortfolioOptimisationParameters"]):
             price_forecasts = {}
         eq = self.equipment
         dt_h = parameters.temporal.timestep.total_hours()
-        energy_level = self._get_current_energy_level(eq, parameters)
-        marginal_value = InterpolatedMarginalValue.at_level(eq.storage_marginal_value, energy_level)
+        marginal_value = InterpolatedMarginalValue.for_unit(
+            eq,
+            parameters.temporal.execution_date,
+            parameters.temporal.start_date - parameters.temporal.timestep,
+            eq._cached_energy_forecast,
+        )
 
         for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding objective for hydro unit {eq.name} at time {time}")
             price_forecast = price_forecasts.get(time, 0.0)
 
-            for k in range(len(eq.fragment_data.keys())):
+            for k in self._dispatch.fragment_volumes(time):
                 fragment_price = eq.fragment_data[k].price + marginal_value.value_at(time)
                 power_level_frag_var = self._dispatch.get_fragment_var(time, k)
 
@@ -83,11 +89,3 @@ class HydroStep(AbstractOptimStep[HydroPO, "PortfolioOptimisationParameters"]):
                     model.add_objective(fragment_price * power_level_frag_var * dt_h)
                 else:
                     model.add_objective(-(price_forecast - fragment_price) * power_level_frag_var * dt_h)
-
-    @staticmethod
-    def _get_current_energy_level(equipment: HydroPO, parameters: PortfolioOptimisationParameters) -> float:
-        """Resolve the reservoir's energy level at the time just before optimisation starts."""
-        prev = parameters.temporal.start_date - parameters.temporal.timestep
-        if equipment._cached_energy_forecast and prev in equipment._cached_energy_forecast:
-            return equipment._cached_energy_forecast.get_value(prev)
-        return equipment.initial_level.get_value(prev)

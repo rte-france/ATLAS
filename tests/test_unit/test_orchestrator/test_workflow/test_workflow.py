@@ -13,69 +13,79 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from atlas import WorkflowJob
+from atlas.custom_errors import UseContextError
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.io_utils.parameters import ContextParameters
-from atlas.orchestrator.workflow.workflow import Workflow
+from atlas.io_utils.parameters import ContextParameters, DateParameters
+from atlas.modules.market_clearing.parameters import MarketClearingParameters
+from atlas.orchestrator.workflow.workflow import Workflow, WorkflowParameters, Step
 from atlas.timing import build_datetime
-from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, OrchestratorConfigBuilder
+from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, OrchestratorConfigBuilder, \
+    generate_step_from_job
 
 
 class TestWorkflowAddStep:
     @pytest.fixture
     def empty_workflow(self, tmp_path):
         conf = OrchestratorConfigBuilder().build_workflow_config(tmp_path)
-        params = Workflow.from_file(conf)
+        params = WorkflowParameters.from_file(conf)
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
-        wf._jobs = []
+        wf._resolved_steps = []
+        wf._raw_steps = []
         return wf
 
-    @pytest.fixture(autouse=True)
-    def job_builder(self):
-        self.job_builder = MockJobBuilder().with_job_class(WorkflowJob)
+    @staticmethod
+    def step_builder(name: str) -> Step:
+        return Step(name=name, module="MarketClearing", parameters=MarketClearingParameters(
+            temporal=DateParameters(
+                execution_date=build_datetime("2028-09-27 00:00:00"),
+                start_date=build_datetime("2028-09-27 00:00:00"),
+                end_date=build_datetime("2028-09-27 00:00:00")
+            )))
 
     def test_add_single_step(self, tmp_path, empty_workflow):
-        step = self.job_builder.with_name("s1").build()
-        empty_workflow.add_job(step)
+        step = TestWorkflowAddStep.step_builder("s1")
+        empty_workflow.add_step(step)
 
         assert empty_workflow.jobs_count == 1
-        assert next(empty_workflow.jobs) is step
+        assert next(empty_workflow.jobs).name == repr("s1")
 
     def test_add_list_of_steps(self, tmp_path, empty_workflow):
-        steps = [self.job_builder.with_name(f"s{i}").build() for i in range(3)]
-        empty_workflow.add_job(steps)
+        steps = [TestWorkflowAddStep.step_builder(f"s{i}") for i in range(3)]
+        empty_workflow.add_step(steps)
 
         assert empty_workflow.jobs_count == 3
         for original, stored in zip(steps, empty_workflow.jobs):
-            assert stored is original
+            assert stored.name == repr(str(original.name))
 
     def test_add_invalid_type_raises_type_error(self, tmp_path, empty_workflow):
         with pytest.raises(TypeError):
-            empty_workflow.add_job("not_a_step")
+            empty_workflow.add_step("not_a_step")
 
     def test_add_list_with_invalid_item_raises_type_error(self, tmp_path, empty_workflow):
-        valid_step = self.job_builder.with_name("s1").build()
+        valid_step = TestWorkflowAddStep.step_builder("s1")
+
         with pytest.raises(TypeError):
-            empty_workflow.add_job([valid_step, "not_a_step"])
+            empty_workflow.add_step([valid_step, "not_a_step"])
 
     def test_steps_appended_in_order(self, tmp_path, empty_workflow):
-        s1 = self.job_builder.with_name("first").build()
-        s2 = self.job_builder.with_name("second").build()
-        empty_workflow.add_job(s1)
-        empty_workflow.add_job(s2)
+        s1 = TestWorkflowAddStep.step_builder("first")
+        s2 = TestWorkflowAddStep.step_builder("second")
+        empty_workflow.add_step(s1)
+        empty_workflow.add_step(s2)
 
         jobs = empty_workflow.jobs
-        assert next(jobs) is s1
-        assert next(jobs) is s2
+        assert next(jobs).name == repr("first")
+        assert next(jobs).name == repr("second")
 
 
 class TestWorkflowFromFile:
     def test_from_file_raises_if_steps_reference_nonexistent_params(self, tmp_path):
-        config = OrchestratorConfigBuilder().with_any(
-            f"steps:\n"
-            f"  - module: PortfolioOptimisation\n"
-            f"    parameters: /nonexistent/path/params.yaml\n"
-        ).build(tmp_path)
+        config = (
+            OrchestratorConfigBuilder()
+            .with_any(f"steps:\n  - module: PortfolioOptimisation\n    parameters: /nonexistent/path/params.yaml\n")
+            .build(tmp_path)
+        )
 
         # build_steps will try to open the parameters file -- should raise
         with pytest.raises(Exception):
@@ -115,11 +125,12 @@ class TestWorkflowRepresentation:
             "solver:\n"
             "  solver_name: GLOP\n"
         )
-        config = OrchestratorConfigBuilder().with_name("test_workflow").with_any(
-            f"steps:\n"
-            f"  - module: MarketClearing\n"
-            f"    parameters: {params_file}\n"
-        ).build(tmp_path)
+        config = (
+            OrchestratorConfigBuilder()
+            .with_name("test_workflow")
+            .with_any(f"steps:\n  - module: MarketClearing\n    parameters: {params_file}\n")
+            .build(tmp_path)
+        )
 
         workflow = Workflow.from_file(config)
         result = repr(workflow)
@@ -187,15 +198,16 @@ class TestWorkflowContextParameters:
             "    file_exclusive: 'forced_value_file_exclusive'\n"
         )
 
-        overriding_context = ContextParameters()
-        overriding_context.default = {
-            "foo": "default_value_overriding",
-            "override_exclusive": "default_value_override_exclusive",
-        }
-        overriding_context.forced = {
-            "foo": "forced_value_overriding",
-            "override_exclusive": "forced_value_override_exclusive",
-        }
+        overriding_context = ContextParameters(
+            default={
+                "foo": "default_value_overriding",
+                "override_exclusive": "default_value_override_exclusive",
+            },
+            forced={
+                "foo": "forced_value_overriding",
+                "override_exclusive": "forced_value_override_exclusive",
+            },
+        )
 
         workflow = Workflow.from_file(
             TestWorkflowContextParameters.create_config(tmp_path, context_file), overriding_context
@@ -362,7 +374,7 @@ class TestWorkflowPathFromWorkflow:
             workflow.execute()
             mock_from_dir.assert_called_once_with(dataset_dir)
 
-    def test_step_output_dir_resolved_relative_to_workflow(self, tmp_path):
+    def test_step_run_dir_resolved_relative_to_workflow(self, tmp_path):
         dataset_dir = tmp_path / "dataset"
         dataset_dir.mkdir()
         output_dir = tmp_path / "output"
@@ -391,4 +403,120 @@ class TestWorkflowPathFromWorkflow:
         workflow = Workflow.from_file(config)
         step = next(workflow.jobs)
 
-        assert step.parameters.output.output_dir == tmp_path / "results" / "MarketClearing"
+        assert step.parameters.export.run_dir == tmp_path / "results" / "MarketClearing"
+
+    def test_step_run_dir_includes_job_name_prefix(self, tmp_path):
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text(
+            "temporal:\n"
+            "  start_date: '2028-09-27 00:00:00'\n"
+            "  end_date: '2028-09-28 00:00:00'\n"
+            "  execution_date: '2028-09-26 12:00:00'\n"
+        )
+
+        config = tmp_path / "workflow.yaml"
+        config.write_text(
+            f"name: test_workflow\n"
+            f"dataset_path: dataset\n"
+            f"output_dataset_path: output\n"
+            f"path_from_workflow: true\n"
+            f"workflow_path: {tmp_path}\n"
+            f"output_dir: results\n"
+            f"steps:\n"
+            f"  - module: MarketClearing\n"
+            f"    parameters: {params_file}\n"
+        )
+
+        prefix = "task 'my_task' iteration 3"
+        workflow = Workflow(WorkflowParameters.from_file(config), prefix)
+        step = next(workflow.jobs)
+
+        assert step.parameters.export.run_dir == tmp_path / "results" / f"{prefix} MarketClearing"
+
+
+class TestWorkflowUseContext:
+    """Note: Any step parameters is resolved with the context when the Workflow is built.
+    We want to ensure that use_context() re-resolve tasks already built, not just update
+    parameters.context while leaving previously-resolved task parameters stale."""
+
+    @staticmethod
+    def _build_workflow(tmp_path) -> Workflow:
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text(
+            "temporal:\n"
+            "  start_date: '2028-09-27 00:00:00'\n"
+            "  end_date: '2028-09-28 00:00:00'\n"
+            "  execution_date: '2028-09-26 12:00:00'\n"
+            "solver:\n"
+            "  solver_name: GLOP\n"
+        )
+        config = tmp_path / "workflow.yaml"
+        config.write_text(
+            f"name: test_workflow\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"steps:\n"
+            f"  - module: MarketClearing\n"
+            f"    parameters: {params_file}\n"
+        )
+        return Workflow.from_file(config)
+
+    def test_use_context_re_resolves_already_built_steps(self, tmp_path):
+        workflow = self._build_workflow(tmp_path)
+        assert next(workflow.jobs).parameters.solver.solver_name == "GLOP"
+
+        workflow.use_context(ContextParameters(forced={"solver": {"solver_name": "CBC"}}))
+
+        assert next(workflow.jobs).parameters.solver.solver_name == "CBC"
+
+    def test_use_context_re_resolves_steps_added_after_construction(self, tmp_path):
+        """A step added via add_step() must also be re-resolved."""
+
+        workflow = self._build_workflow(tmp_path)
+
+        extra_step = Step(name="extra", module="MarketClearing", parameters=MarketClearingParameters(
+            temporal=DateParameters(
+                execution_date=build_datetime("2028-09-27 00:00:00"),
+                start_date=build_datetime("2028-09-27 00:00:00"),
+                end_date=build_datetime("2028-09-27 00:00:00")
+            )))
+        workflow.add_step(extra_step)
+
+        assert workflow.jobs_count == 2
+
+        workflow.use_context(ContextParameters(forced={"solver": {"solver_name": "CBC"}}))
+
+        jobs = list(workflow.jobs)
+        assert len(jobs) == 2
+        assert jobs[0].parameters.solver.solver_name == "CBC"
+
+    def test_use_context_raises_and_leaves_workflow_unchanged_if_resolution_breaks(self, tmp_path):
+        workflow = self._build_workflow(tmp_path)
+        context_before = workflow.parameters.context
+        job_before = next(workflow.jobs)
+        attempted_context = ContextParameters(forced={"solver": {"solver_name": "NOT_A_REAL_SOLVER"}})
+
+        with pytest.raises(UseContextError) as exc_info:
+            workflow.use_context(attempted_context)
+
+        error = exc_info.value
+        assert error.job_name == "MarketClearing"
+        assert error.previous_context == context_before
+        assert error.attempted_context == attempted_context
+        assert isinstance(error.original_error, Exception)
+
+        assert workflow.parameters.context == context_before
+        job_after = next(workflow.jobs)
+        assert job_after.parameters.solver.solver_name == job_before.parameters.solver.solver_name
+
+    def test_use_context_still_merges_context_on_success(self, tmp_path):
+        workflow = self._build_workflow(tmp_path)
+
+        workflow.use_context(ContextParameters(default={"added": 1}))
+
+        assert workflow.parameters.context.default["added"] == 1

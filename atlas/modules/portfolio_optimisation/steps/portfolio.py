@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import atlas.config as cfg
+from atlas.common.optimal_dispatch.marginal_pricing import bid_volumes
 from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.steps import create_po_step
 from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
@@ -189,7 +190,8 @@ class PortfolioStep:
 
         for hydro in portfolio.equipments.hydro:
             if time in parameters.equipment_time_window(hydro):
-                for category in hydro.fragment_data.keys():
+                capacity = hydro.maximum_power.get_value(time)
+                for category in bid_volumes(hydro.fragment_data, capacity, parameters.hydraulic_minimal_fragment_size):
                     total_power += model.get_variable(f"{hydro.name}_power_level_frag_{category}_{time}")
 
         for obj in (

@@ -13,7 +13,7 @@ atlas/modules/portfolio_optimisation/
 ├── module.py                            # PortfolioOptimisationModule (AbstractModule)
 ├── parameters.py                        # PortfolioOptimisationParameters
 ├── input_dataset.py                     # PortfolioOptimisationInputDataset
-├── output_dataset.py                    # PortfolioOptimisationOutputDataset
+├── result.py                            # PortfolioOptimisationResult (builds change sets)
 ├── optim.py                             # OptimisationModel for single portfolio
 ├── input_objects/                       # Equipment-specific models
 │   ├── portfolio.py                     # PortfolioPO
@@ -63,7 +63,7 @@ Extends `OptimisationModel` (solver interface):
 - Calls solver
 - Returns solution
 
-### **`PortfolioOptimisationOutputDataset`**
+### **`PortfolioOptimisationResult`**
 
 Processes optimization results:
 
