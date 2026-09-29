@@ -52,7 +52,7 @@ class ThermalDispatch:
         self._T_stop: int = 0
         self._T_stable: int = 0
         self._Delta_Q: float = 0.0
-        self._Delta_Q_unconstrained: float = 0.0
+        self._maximum_power_swing: float = 0.0
         self._combination: int = 1
 
         # Booleans derived from T params — set after _compute_time_parameters
@@ -259,9 +259,8 @@ class ThermalDispatch:
 
         max_grad = getattr(eq, "maximum_gradient", 0.0) or 0.0
         self._Delta_Q = max_grad * ts.total_minutes()
-        self._Delta_Q_unconstrained = eq.maximum_power.slice(
-            temporal.start_date, temporal.end_date, inplace=False
-        ).max()
+
+        self._maximum_power_swing = eq.maximum_power.max()
 
         self._has_stop = self._T_stop >= 1
         self._has_start = self._T_start >= 1
@@ -295,7 +294,8 @@ class ThermalDispatch:
             return model.add_temporal_variable(name, variable_type=VariableType.BOOLEAN)
 
         def gradient(name: str) -> TemporalVariable:
-            return model.add_temporal_variable(name, lower_bound=-eq.maximum_power, upper_bound=eq.maximum_power)
+            swing = self._maximum_power_swing
+            return model.add_temporal_variable(name, lower_bound=-swing, upper_bound=swing)
 
         self.off = boolean(f"off_{n}")
         self.on_flat = boolean(f"on_flat_{n}")
@@ -744,9 +744,17 @@ class ThermalDispatch:
         model.add_constraint(ed >= on_down - on_down_prev, f"entered_down_evol_3_{time}_{n}")
 
     def _add_gradient_auxiliaries(self, model: OptimisationModel, time: DateTime, prev_time: DateTime) -> None:
+        """
+        Define the up/down gradient auxiliaries at *time*.
+
+        Each one holds the power step ``dq`` when the unit is in the matching ON state and
+        zero otherwise. A product of a variable by a state cannot be written directly, so
+        it is expressed as four inequalities that are slack when the state is off and tight
+        when it is on. ``swing`` is what makes them slack, so it has to be at least as
+        large as any power step the unit can take, or the rows would forbid real dispatches.
+        """
         n = self._eq.name
-        max_p = self._eq.maximum_power.get_value(time)
-        min_p = -max_p
+        swing = self._maximum_power_swing
         power = self.power_level[time]
         power_prev = self.power_level[prev_time]
         dq = power - power_prev
@@ -760,22 +768,22 @@ class ThermalDispatch:
         u = self.up_grad[time]
         d = self.down_grad[time]
 
-        model.add_constraint(aux_u <= max_p * on_up_prev, f"tilde_U_evol_1_{time}_{n}")
-        model.add_constraint(aux_u >= min_p * on_up_prev, f"tilde_U_evol_2_{time}_{n}")
-        model.add_constraint(aux_u <= dq - min_p * (1 - on_up_prev), f"tilde_U_evol_3_{time}_{n}")
-        model.add_constraint(aux_u >= dq - max_p * (1 - on_up_prev), f"tilde_U_evol_4_{time}_{n}")
-        model.add_constraint(aux_d <= max_p * on_down_prev, f"tilde_D_evol_1_{time}_{n}")
-        model.add_constraint(aux_d >= min_p * on_down_prev, f"tilde_D_evol_2_{time}_{n}")
-        model.add_constraint(aux_d <= dq - min_p * (1 - on_down_prev), f"tilde_D_evol_3_{time}_{n}")
-        model.add_constraint(aux_d >= dq - max_p * (1 - on_down_prev), f"tilde_D_evol_4_{time}_{n}")
-        model.add_constraint(u <= max_p * on_up, f"U_evol_1_{time}_{n}")
-        model.add_constraint(u >= min_p * on_up, f"U_evol_2_{time}_{n}")
-        model.add_constraint(u <= aux_u - min_p * (1 - on_up), f"U_evol_3_{time}_{n}")
-        model.add_constraint(u >= aux_u - max_p * (1 - on_up), f"U_evol_4_{time}_{n}")
-        model.add_constraint(d <= max_p * on_down, f"D_evol_1_{time}_{n}")
-        model.add_constraint(d >= min_p * on_down, f"D_evol_2_{time}_{n}")
-        model.add_constraint(d <= aux_d - min_p * (1 - on_down), f"D_evol_3_{time}_{n}")
-        model.add_constraint(d >= aux_d - max_p * (1 - on_down), f"D_evol_4_{time}_{n}")
+        model.add_constraint(aux_u <= swing * on_up_prev, f"tilde_U_evol_1_{time}_{n}")
+        model.add_constraint(aux_u >= -swing * on_up_prev, f"tilde_U_evol_2_{time}_{n}")
+        model.add_constraint(aux_u <= dq + swing * (1 - on_up_prev), f"tilde_U_evol_3_{time}_{n}")
+        model.add_constraint(aux_u >= dq - swing * (1 - on_up_prev), f"tilde_U_evol_4_{time}_{n}")
+        model.add_constraint(aux_d <= swing * on_down_prev, f"tilde_D_evol_1_{time}_{n}")
+        model.add_constraint(aux_d >= -swing * on_down_prev, f"tilde_D_evol_2_{time}_{n}")
+        model.add_constraint(aux_d <= dq + swing * (1 - on_down_prev), f"tilde_D_evol_3_{time}_{n}")
+        model.add_constraint(aux_d >= dq - swing * (1 - on_down_prev), f"tilde_D_evol_4_{time}_{n}")
+        model.add_constraint(u <= swing * on_up, f"U_evol_1_{time}_{n}")
+        model.add_constraint(u >= -swing * on_up, f"U_evol_2_{time}_{n}")
+        model.add_constraint(u <= aux_u + swing * (1 - on_up), f"U_evol_3_{time}_{n}")
+        model.add_constraint(u >= aux_u - swing * (1 - on_up), f"U_evol_4_{time}_{n}")
+        model.add_constraint(d <= swing * on_down, f"D_evol_1_{time}_{n}")
+        model.add_constraint(d >= -swing * on_down, f"D_evol_2_{time}_{n}")
+        model.add_constraint(d <= aux_d + swing * (1 - on_down), f"D_evol_3_{time}_{n}")
+        model.add_constraint(d >= aux_d - swing * (1 - on_down), f"D_evol_4_{time}_{n}")
 
     def _add_down_to_stop_evol(self, model: OptimisationModel, time: DateTime, prev_time: DateTime) -> None:
         """
@@ -1067,21 +1075,20 @@ class ThermalDispatch:
 
     def _add_dd_constraints(self, model: OptimisationModel, time: DateTime, prev_time: DateTime) -> None:
         n = self._eq.name
-        max_p = self._eq.maximum_power.get_value(time)
-        min_p = -max_p
+        swing = self._maximum_power_swing
         stop = self.stop[time]
         dd_prev = self.dd_grad[prev_time]
         d_prev = self.down_grad[prev_time]
-        model.add_constraint(dd_prev <= max_p * stop, f"DD_evol_1_{time}_{n}")
-        model.add_constraint(dd_prev >= min_p * stop, f"DD_evol_2_{time}_{n}")
-        model.add_constraint(dd_prev <= d_prev - min_p * (1 - stop), f"DD_evol_3_{time}_{n}")
-        model.add_constraint(dd_prev >= d_prev - max_p * (1 - stop), f"DD_evol_4_{time}_{n}")
+        model.add_constraint(dd_prev <= swing * stop, f"DD_evol_1_{time}_{n}")
+        model.add_constraint(dd_prev >= -swing * stop, f"DD_evol_2_{time}_{n}")
+        model.add_constraint(dd_prev <= d_prev + swing * (1 - stop), f"DD_evol_3_{time}_{n}")
+        model.add_constraint(dd_prev >= d_prev - swing * (1 - stop), f"DD_evol_4_{time}_{n}")
 
     def _add_gradient_constraints(self, model: OptimisationModel, time: DateTime, prev_time: DateTime) -> None:
         n = self._eq.name
         delta_q = self._Delta_Q
-        delta_q_unc = self._Delta_Q_unconstrained
-        dq = delta_q if delta_q > 0 else delta_q_unc
+        swing = self._maximum_power_swing
+        dq = delta_q if delta_q > 0 else swing
 
         p = self.power_level[time]
         p_prev = self.power_level[prev_time]
@@ -1112,7 +1119,7 @@ class ThermalDispatch:
             up_base = up_base + startup_contrib
             down_base = down_base + startup_contrib
         else:
-            up_base = up_base + delta_q_unc * ton
+            up_base = up_base + swing * ton
 
         if self._has_stop:
             q_step_down = q_min / self._T_stop
@@ -1129,7 +1136,7 @@ class ThermalDispatch:
                 down_to_stop = self.down_to_stop_grad[time]
                 down_base = down_base + down_to_stop * dq
         else:
-            down_base = down_base - delta_q_unc * toff
+            down_base = down_base - swing * toff
 
         prefix = "upward_gradient" if delta_q > 0 else "unconstrained_upward_gradient"
         suffix = "downward_gradient" if delta_q > 0 else "unconstrained_downward_gradient"
