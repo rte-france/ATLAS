@@ -12,9 +12,12 @@ from typing import TYPE_CHECKING
 from atlas.common.optimal_dispatch.reserves.renewable import RenewableReserveHandler
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from pendulum import DateTime
 
     from atlas.common.optimal_dispatch.dispatch.hydro import HydroDispatch
+    from atlas.solver.temporal_variable import Bound, TemporalVariable
 
 
 class HydroReserveHandler(RenewableReserveHandler):
@@ -38,17 +41,17 @@ class HydroReserveHandler(RenewableReserveHandler):
     def __init__(self, name: str, dispatch: HydroDispatch, maximum_automated: float) -> None:
         super().__init__(name, maximum_automated)
         self._dispatch = dispatch
+        self.relaxed_reserves: TemporalVariable = None  # type: ignore[assignment]
 
-    def add_variables(self, time: DateTime, max_power: float, min_power: float) -> None:
-        super().add_variables(time, max_power, min_power)
-        self._require_model().add_continuous_variable(self.var("relaxed_reserves", time), min_power, 0)
+    def add_variables(self, times: Iterable[DateTime], max_power: Bound, min_power: Bound) -> None:
+        times = list(times)
+        super().add_variables(times, max_power, min_power)
+        self.relaxed_reserves = self._declare("relaxed_reserves", times, min_power, 0)
 
     def add_relaxed_reserve_constraint(self, time: DateTime, min_power: float) -> None:
         """``relaxed_reserves ≤ min_power``."""
         m = self._require_model()
-        m.add_constraint(
-            m.get_variable(self.var("relaxed_reserves", time)) <= min_power, f"relaxed_reserves_{time}_{self._name}"
-        )
+        m.add_constraint(self.relaxed_reserves[time] <= min_power, f"relaxed_reserves_{time}_{self._name}")
 
     def add_storage_level_constraints(self, time: DateTime, min_energy: float, max_energy: float) -> None:
         """
@@ -61,10 +64,10 @@ class HydroReserveHandler(RenewableReserveHandler):
         m = self._require_model()
         n = self._name
         stored = self._dispatch.stored_energy[time]
-        ru = m.get_variable(self.var("reserves_up", time))
-        aru = m.get_variable(self.var("automated_reserves_up", time))
-        rd = m.get_variable(self.var("reserves_down", time))
-        ard = m.get_variable(self.var("automated_reserves_down", time))
+        ru = self.reserves_up[time]
+        aru = self.automated_reserves_up[time]
+        rd = self.reserves_down[time]
+        ard = self.automated_reserves_down[time]
 
         m.add_constraint(stored >= min_energy + ru + aru, f"min_storage_level_{time}_{n}")
         m.add_constraint(stored <= max_energy - rd - ard, f"max_storage_level_{time}_{n}")

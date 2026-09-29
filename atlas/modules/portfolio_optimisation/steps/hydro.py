@@ -39,10 +39,10 @@ class HydroStep(AbstractOptimStep[HydroPO, "PortfolioOptimisationParameters"]):
         eq = self.equipment
         self._dispatch.setup(model, parameters)
         self._reserves.setup(model)
-        self._dispatch.add_variables(parameters.equipment_time_window(eq))
-        for time in parameters.equipment_time_window(eq):
-            cfg.logger.debug(f"Adding variables for hydro unit {eq.name} at time {time}")
-            self._reserves.add_variables(time, eq.maximum_power.get_value(time), eq.minimum_power.get_value(time))
+        cfg.logger.debug(f"Adding variables for hydro unit {eq.name}")
+        window = parameters.equipment_time_window(eq)
+        self._dispatch.add_variables(window)
+        self._reserves.add_variables(window, eq.maximum_power, eq.minimum_power)
 
     def add_constraints(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment

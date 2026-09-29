@@ -40,10 +40,10 @@ class RenewableStep(AbstractOptimStep[WindPO | SolarPO, "PortfolioOptimisationPa
         eq = self.equipment
         self._dispatch.setup(model, parameters)
         self._reserves.setup(model)
-        self._dispatch.add_variables(parameters.equipment_time_window(eq))
-        for time in parameters.equipment_time_window(eq):
-            cfg.logger.debug(f"Adding variables for renewable unit {eq.name} at time {time}")
-            self._reserves.add_variables(time, self._dispatch.max_power(time), self._dispatch.min_power(time))
+        cfg.logger.debug(f"Adding variables for renewable unit {eq.name}")
+        window = parameters.equipment_time_window(eq)
+        self._dispatch.add_variables(window)
+        self._reserves.add_variables(window, self._dispatch.max_power, self._dispatch.min_power)
 
     def add_constraints(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment

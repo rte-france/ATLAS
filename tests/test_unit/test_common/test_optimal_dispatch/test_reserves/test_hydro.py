@@ -153,7 +153,7 @@ class TestHydroReserveHandlerVariables:
     def test_add_variables_creates_all_reserve_vars_including_relaxed(self, handler, model, time_window):
         handler.setup(model)
         t = time_window[0]
-        handler.add_variables(t, max_power=100.0, min_power=0.0)
+        handler.add_variables([t], max_power=100.0, min_power=0.0)
 
         assert f"reserves_up_hydro_1_{t}" in model.variables
         assert f"reserves_down_hydro_1_{t}" in model.variables
@@ -167,7 +167,7 @@ class TestHydroReserveHandlerVariables:
         """relaxed_reserves for hydro is bounded ``[min_power, 0]`` (mirroring the legacy formulation)."""
         handler.setup(model)
         t = time_window[0]
-        handler.add_variables(t, max_power=100.0, min_power=0.0)
+        handler.add_variables([t], max_power=100.0, min_power=0.0)
         var = model.get_variable(f"relaxed_reserves_hydro_1_{t}")
         assert var.lb() == 0
         assert var.ub() == 0
@@ -177,7 +177,7 @@ class TestHydroReserveHandlerConstraints:
     def test_capacity_constraints_names(self, handler, model, time_window):
         handler.setup(model)
         t = time_window[0]
-        handler.add_variables(t, max_power=100.0, min_power=0.0)
+        handler.add_variables([t], max_power=100.0, min_power=0.0)
         handler.add_capacity_constraints(t, max_power=100.0)
         assert f"reserves_up_max_{t}_hydro_1" in model.constraints
         assert f"reserves_down_max_{t}_hydro_1" in model.constraints
@@ -185,7 +185,7 @@ class TestHydroReserveHandlerConstraints:
     def test_automated_capacity_constraints_names(self, handler, model, time_window):
         handler.setup(model)
         t = time_window[0]
-        handler.add_variables(t, max_power=100.0, min_power=0.0)
+        handler.add_variables([t], max_power=100.0, min_power=0.0)
         handler.add_automated_capacity_constraints(t)
         assert f"automated_reserves_up_max_{t}_hydro_1" in model.constraints
         assert f"automated_reserves_down_max_{t}_hydro_1" in model.constraints
@@ -193,14 +193,14 @@ class TestHydroReserveHandlerConstraints:
     def test_relaxed_constraint_name(self, handler, model, time_window):
         handler.setup(model)
         t = time_window[0]
-        handler.add_variables(t, max_power=100.0, min_power=0.0)
+        handler.add_variables([t], max_power=100.0, min_power=0.0)
         handler.add_relaxed_reserve_constraint(t, min_power=0.0)
         assert f"relaxed_reserves_{t}_hydro_1" in model.constraints
 
     def test_storage_level_constraints_couple_reserves(self, handler, model, time_window):
         handler.setup(model)
         t = time_window[0]
-        handler.add_variables(t, max_power=100.0, min_power=0.0)
+        handler.add_variables([t], max_power=100.0, min_power=0.0)
         handler.add_storage_level_constraints(t, min_energy=10.0, max_energy=500.0)
         assert f"min_storage_level_{t}_hydro_1" in model.constraints
         assert f"max_storage_level_{t}_hydro_1" in model.constraints

@@ -12,7 +12,11 @@ from typing import TYPE_CHECKING
 from atlas.common.optimal_dispatch.reserves.handler import ReserveHandler
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from pendulum import DateTime
+
+    from atlas.solver.temporal_variable import Bound
 
 
 class RenewableReserveHandler(ReserveHandler):
@@ -27,14 +31,14 @@ class RenewableReserveHandler(ReserveHandler):
     Instantiate via :meth:`ReserveFactory.for_renewable`, not directly.
     """
 
-    def add_variables(self, time: DateTime, max_power: float, min_power: float) -> None:
-        m = self._require_model()
-        m.add_continuous_variable(self.var("reserves_up", time), 0, max_power)
-        m.add_continuous_variable(self.var("reserves_down", time), min_power, max_power)
-        m.add_continuous_variable(self.var("unprovided_reserves_up", time), 0, max_power)
-        m.add_continuous_variable(self.var("unprovided_reserves_down", time), min_power, max_power)
-        m.add_continuous_variable(self.var("automated_reserves_up", time), 0, self._maximum_automated)
-        m.add_continuous_variable(self.var("automated_reserves_down", time), 0, self._maximum_automated)
+    def add_variables(self, times: Iterable[DateTime], max_power: Bound, min_power: Bound) -> None:
+        times = list(times)
+        self.reserves_up = self._declare("reserves_up", times, 0, max_power)
+        self.reserves_down = self._declare("reserves_down", times, min_power, max_power)
+        self.unprovided_reserves_up = self._declare("unprovided_reserves_up", times, 0, max_power)
+        self.unprovided_reserves_down = self._declare("unprovided_reserves_down", times, min_power, max_power)
+        self.automated_reserves_up = self._declare("automated_reserves_up", times, 0, self._maximum_automated)
+        self.automated_reserves_down = self._declare("automated_reserves_down", times, 0, self._maximum_automated)
 
     def add_capacity_constraints(self, time: DateTime, max_power: float) -> None:
         """
@@ -45,8 +49,8 @@ class RenewableReserveHandler(ReserveHandler):
         """
         m = self._require_model()
         n = self._name
-        m.add_constraint(m.get_variable(self.var("reserves_up", time)) <= max_power, f"reserves_up_max_{time}_{n}")
-        m.add_constraint(m.get_variable(self.var("reserves_down", time)) <= max_power, f"reserves_down_max_{time}_{n}")
+        m.add_constraint(self.reserves_up[time] <= max_power, f"reserves_up_max_{time}_{n}")
+        m.add_constraint(self.reserves_down[time] <= max_power, f"reserves_down_max_{time}_{n}")
 
     def add_automated_capacity_constraints(self, time: DateTime) -> None:
         """
@@ -58,10 +62,10 @@ class RenewableReserveHandler(ReserveHandler):
         m = self._require_model()
         n = self._name
         m.add_constraint(
-            m.get_variable(self.var("automated_reserves_up", time)) <= self._maximum_automated,
+            self.automated_reserves_up[time] <= self._maximum_automated,
             f"automated_reserves_up_max_{time}_{n}",
         )
         m.add_constraint(
-            m.get_variable(self.var("automated_reserves_down", time)) <= self._maximum_automated,
+            self.automated_reserves_down[time] <= self._maximum_automated,
             f"automated_reserves_down_max_{time}_{n}",
         )

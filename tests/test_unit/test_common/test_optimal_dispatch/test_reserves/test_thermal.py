@@ -137,7 +137,7 @@ def handler(comb1_dispatch):
 class TestThermalReserveHandlerVariables:
     def test_add_variables_creates_all_seven_vars(self, handler, model, time):
         handler.setup(model)
-        handler.add_variables(time, max_power=200.0, min_power=50.0)
+        handler.add_variables([time], max_power=200.0, min_power=50.0)
 
         assert f"reserves_up_th_unit_{time}" in model.variables
         assert f"reserves_down_th_unit_{time}" in model.variables
@@ -149,7 +149,7 @@ class TestThermalReserveHandlerVariables:
 
     def test_reserves_up_bounds(self, handler, model, time):
         handler.setup(model)
-        handler.add_variables(time, max_power=200.0, min_power=50.0)
+        handler.add_variables([time], max_power=200.0, min_power=50.0)
 
         var = model.get_variable(f"reserves_up_th_unit_{time}")
         assert var.lb() == 0
@@ -157,7 +157,7 @@ class TestThermalReserveHandlerVariables:
 
     def test_reserves_down_bounds(self, handler, model, time):
         handler.setup(model)
-        handler.add_variables(time, max_power=200.0, min_power=50.0)
+        handler.add_variables([time], max_power=200.0, min_power=50.0)
 
         var = model.get_variable(f"reserves_down_th_unit_{time}")
         assert var.lb() == 0
@@ -165,7 +165,7 @@ class TestThermalReserveHandlerVariables:
 
     def test_relaxed_reserves_upper_bound_is_min_power(self, handler, model, time):
         handler.setup(model)
-        handler.add_variables(time, max_power=200.0, min_power=50.0)
+        handler.add_variables([time], max_power=200.0, min_power=50.0)
 
         var = model.get_variable(f"relaxed_reserves_th_unit_{time}")
         assert var.lb() == 0
@@ -173,7 +173,7 @@ class TestThermalReserveHandlerVariables:
 
     def test_automated_reserves_bounds(self, handler, model, time):
         handler.setup(model)
-        handler.add_variables(time, max_power=200.0, min_power=50.0)
+        handler.add_variables([time], max_power=200.0, min_power=50.0)
 
         for prefix in ("automated_reserves_up", "automated_reserves_down"):
             var = model.get_variable(f"{prefix}_th_unit_{time}")
@@ -182,13 +182,13 @@ class TestThermalReserveHandlerVariables:
 
     def test_requires_setup_before_add_variables(self, handler, time):
         with pytest.raises(RuntimeError):
-            handler.add_variables(time, max_power=200.0, min_power=50.0)
+            handler.add_variables([time], max_power=200.0, min_power=50.0)
 
 
 class TestThermalReserveHandlerFillUpConstraints:
     def _setup_all(self, handler, model, time, max_power=200.0, min_power=50.0):
         handler.setup(model)
-        handler.add_variables(time, max_power=max_power, min_power=min_power)
+        handler.add_variables([time], max_power=max_power, min_power=min_power)
         power_var = model.add_continuous_variable("power_level", 0, max_power)
         return power_var
 
@@ -214,7 +214,7 @@ class TestThermalReserveHandlerFillUpConstraints:
 class TestThermalReserveHandlerRelaxedReserveConstraint:
     def test_relaxed_reserve_constraint_name(self, handler, model, time):
         handler.setup(model)
-        handler.add_variables(time, max_power=200.0, min_power=50.0)
+        handler.add_variables([time], max_power=200.0, min_power=50.0)
 
         handler.add_relaxed_reserve_constraint(time, min_power=50.0)
 
@@ -222,7 +222,7 @@ class TestThermalReserveHandlerRelaxedReserveConstraint:
 
     def test_one_constraint_added(self, handler, model, time):
         handler.setup(model)
-        handler.add_variables(time, max_power=200.0, min_power=50.0)
+        handler.add_variables([time], max_power=200.0, min_power=50.0)
         before = len(model.constraints)
 
         handler.add_relaxed_reserve_constraint(time, min_power=50.0)
@@ -233,7 +233,7 @@ class TestThermalReserveHandlerRelaxedReserveConstraint:
 class TestThermalReserveHandlerCapacityConstraints:
     def _full_setup(self, handler, model, time):
         handler.setup(model)
-        handler.add_variables(time, max_power=200.0, min_power=50.0)
+        handler.add_variables([time], max_power=200.0, min_power=50.0)
 
     def test_capacity_constraint_names_combination_1(self, handler, model, time):
         """Combination 1: unavailable = off only → 4 capacity constraints."""
@@ -267,7 +267,7 @@ class TestThermalReserveHandlerCapacityConstraints:
         d = _setup_dispatch(eq, model, parameters, [time])
         h = ThermalReserveHandler(name=eq.name, dispatch=d, maximum_automated=15.0)
         h.setup(model)
-        h.add_variables(time, max_power=200.0, min_power=50.0)
+        h.add_variables([time], max_power=200.0, min_power=50.0)
 
         h.add_capacity_constraints(time, max_power=200.0)
 
@@ -286,7 +286,7 @@ class TestThermalReserveHandlerCapacityConstraints:
         d = _setup_dispatch(eq, model, parameters, [time])
         h = ThermalReserveHandler(name=eq.name, dispatch=d, maximum_automated=15.0)
         h.setup(model)
-        h.add_variables(time, max_power=200.0, min_power=50.0)
+        h.add_variables([time], max_power=200.0, min_power=50.0)
 
         h.add_capacity_constraints(time, max_power=200.0)
 
@@ -305,7 +305,7 @@ class TestThermalReserveHandlerCapacityConstraints:
         d = _setup_dispatch(eq, model, parameters, [time])
         h = ThermalReserveHandler(name=eq.name, dispatch=d, maximum_automated=15.0)
         h.setup(model)
-        h.add_variables(time, max_power=200.0, min_power=50.0)
+        h.add_variables([time], max_power=200.0, min_power=50.0)
 
         h.add_capacity_constraints(time, max_power=200.0)
 
