@@ -270,7 +270,7 @@ class TestOutputRoutingIntraday:
     def _update(parameters, equipment: WindPO | ThermalPO, power: float = 7.0) -> None:
         """Write the schedules of the portfolio holding ``equipment``, every solver value being ``power``."""
         result = Mock(spec=SinglePortfolioResult)
-        result.get_variable_value.return_value = power
+        result.get_timeseries.side_effect = lambda _, window: Timeseries.from_timeseries(window, default_value=power)
         result.portfolio = equipment.portfolio
         result.is_manual_activation = False
         PortfolioOptimisationResult(parameters=parameters, optimisation_results=[result]).update_equipments()

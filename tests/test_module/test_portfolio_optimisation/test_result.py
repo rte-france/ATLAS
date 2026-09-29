@@ -23,6 +23,7 @@ from atlas.modules.portfolio_optimisation.input_objects.solar import SolarPO
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
 from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.result import PortfolioOptimisationResult
+from atlas.modules.portfolio_optimisation.utils.orchestration import SinglePortfolioResult
 from atlas.objects.network.node import Node
 from atlas.objects.network_operator.control_block import ControlBlock
 
@@ -48,12 +49,12 @@ def _parameters(*, is_portfolio_bidding: bool = True, use_forecast: bool = False
     return parameters
 
 
-def _result(portfolio: PortfolioPO, variable_values: dict[str, float], is_manual_activation: bool = False) -> Mock:
-    result = Mock()
-    result.portfolio = portfolio
-    result.is_manual_activation = is_manual_activation
-    result.get_variable_value.side_effect = lambda name: variable_values.get(name, 0.0)
-    return result
+def _result(
+    portfolio: PortfolioPO, solution: dict[str, Timeseries], is_manual_activation: bool = False
+) -> SinglePortfolioResult:
+    return SinglePortfolioResult(
+        portfolio=portfolio, solution_info=None, solution=solution, is_manual_activation=is_manual_activation
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -139,8 +140,8 @@ def _forecast_values(matrix: ForecastingMatrix) -> list[float]:
 
 class TestEquipmentSchedules:
     def test_writes_thermal_power_and_state_sequence(self, portfolio):
-        values = {f"th_power_level_{time}": 50.0 for time in TARGET_TIMES}
-        values |= {f"on_flat_th_{time}": 1 for time in TARGET_TIMES}
+        values = {"th_power_level": _timeseries([50.0] * len(TARGET_TIMES))}
+        values |= {"on_flat_th": _timeseries([1] * len(TARGET_TIMES))}
         dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values)])
 
         dataset.update_equipments()
@@ -153,8 +154,8 @@ class TestEquipmentSchedules:
         )
 
     def test_writes_storage_power_and_stored_energy(self, portfolio):
-        values = {f"st_power_level_sell_{time}": 20.0 for time in TARGET_TIMES}
-        values |= {f"st_stored_energy_{time}": 80.0 for time in TARGET_TIMES}
+        values = {"st_power_level_sell": _timeseries([20.0] * len(TARGET_TIMES))}
+        values |= {"st_stored_energy": _timeseries([80.0] * len(TARGET_TIMES))}
         dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values)])
 
         dataset.update_equipments()
@@ -166,7 +167,7 @@ class TestEquipmentSchedules:
     def test_overwrites_an_execution_date_already_present(self, portfolio):
         solar = _equipment_by_name(portfolio, "so")
         solar.power = ForecastingMatrix().add(_timeseries([1.0, 1.0, 1.0]), EXECUTION_DATE)
-        values = {f"so_power_level_{time}": 9.0 for time in TARGET_TIMES}
+        values = {"so_power_level": _timeseries([9.0] * len(TARGET_TIMES))}
         dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values)])
 
         dataset.update_equipments()
@@ -177,9 +178,9 @@ class TestEquipmentSchedules:
 
 class TestForecastMode:
     def test_routes_power_to_id_po_for_orders_and_spares_the_committed_schedules(self, portfolio):
-        values = {f"so_power_level_{time}": 7.0 for time in TARGET_TIMES}
-        values |= {f"st_stored_energy_{time}": 80.0 for time in TARGET_TIMES}
-        values |= {f"on_up_th_{time}": 1 for time in TARGET_TIMES}
+        values = {"so_power_level": _timeseries([7.0] * len(TARGET_TIMES))}
+        values |= {"st_stored_energy": _timeseries([80.0] * len(TARGET_TIMES))}
+        values |= {"on_up_th": _timeseries([1] * len(TARGET_TIMES))}
         dataset = PortfolioOptimisationResult(_parameters(use_forecast=True), [_result(portfolio, values)])
 
         dataset.update_equipments()
@@ -193,8 +194,8 @@ class TestForecastMode:
 
 class TestPortfolioLevel:
     def test_imbalance_is_positive_when_short(self, portfolio):
-        values = {f"pf_large_imbalance_down_{time}": 10.0 for time in TARGET_TIMES}
-        values |= {f"pf_small_imbalance_up_{time}": 4.0 for time in TARGET_TIMES}
+        values = {"pf_large_imbalance_down": _timeseries([10.0] * len(TARGET_TIMES))}
+        values |= {"pf_small_imbalance_up": _timeseries([4.0] * len(TARGET_TIMES))}
         dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values)])
 
         dataset.update_portfolios()
@@ -202,9 +203,9 @@ class TestPortfolioLevel:
         assert _forecast_values(portfolio.imbalance) == [6.0, 6.0, 6.0]
 
     def test_power_sums_the_equipment_schedules(self, portfolio):
-        values = {f"th_power_level_{time}": 50.0 for time in TARGET_TIMES}
-        values |= {f"so_power_level_{time}": 5.0 for time in TARGET_TIMES}
-        values |= {f"st_power_level_sell_{time}": 20.0 for time in TARGET_TIMES}
+        values = {"th_power_level": _timeseries([50.0] * len(TARGET_TIMES))}
+        values |= {"so_power_level": _timeseries([5.0] * len(TARGET_TIMES))}
+        values |= {"st_power_level_sell": _timeseries([20.0] * len(TARGET_TIMES))}
         dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values)])
 
         dataset.update_equipments()
@@ -216,7 +217,7 @@ class TestPortfolioLevel:
 class TestIndividualEquipmentMode:
     def test_writes_equipment_schedules_but_nothing_at_portfolio_level(self, portfolio):
         """Individual mode optimises one equipment per synthetic portfolio; results must land."""
-        values = {f"so_power_level_{time}": 12.0 for time in TARGET_TIMES}
+        values = {"so_power_level": _timeseries([12.0] * len(TARGET_TIMES))}
         dataset = PortfolioOptimisationResult(_parameters(is_portfolio_bidding=False), [_result(portfolio, values)])
 
         dataset.build_change_sets()
@@ -231,7 +232,7 @@ class TestIndividualEquipmentMode:
 
 class TestManualActivation:
     def test_leaves_schedules_alone_and_emits_no_portfolio_changeset(self, portfolio):
-        values = {f"so_power_level_{time}": 12.0 for time in TARGET_TIMES}
+        values = {"so_power_level": _timeseries([12.0] * len(TARGET_TIMES))}
         dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values, is_manual_activation=True)])
 
         dataset.build_change_sets()
@@ -251,7 +252,7 @@ class TestChangeSets:
         assert len(dataset.change_sets) == 4  # one portfolio + three equipments
 
     def test_payload_carries_the_optimised_attributes(self, portfolio):
-        values = {f"st_power_level_sell_{time}": 20.0 for time in TARGET_TIMES}
+        values = {"st_power_level_sell": _timeseries([20.0] * len(TARGET_TIMES))}
         dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values)])
 
         dataset.build_change_sets()

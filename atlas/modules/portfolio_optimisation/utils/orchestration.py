@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 import atlas.config as cfg
 from atlas.enums import SolverStatus
+from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.optim import PortfolioOptimisationModel
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
@@ -28,28 +29,36 @@ class SinglePortfolioResult:
     :type portfolio: PortfolioPO
     :param solution_info: Dictionary containing solver status, objective value, and solve time
     :type solution_info: SolutionInfo | None
-    :param variable_values: Dictionary mapping variable names to their optimized values
-    :type variable_values: dict[str, float]
+    :param solution: Solved values of each temporal variable, keyed by its name, as returned by
+        :meth:`~atlas.solver.solver_interface.OptimisationModel.solution`
+    :type solution: dict[str, Timeseries]
     """
 
     portfolio: PortfolioPO
     solution_info: SolutionInfo | None
-    variable_values: dict[str, float] = field(default_factory=dict)
+    solution: dict[str, Timeseries] = field(default_factory=dict)
     is_manual_activation: bool = False
 
-    def get_variable_value(self, var_name: str) -> float:
+    def get_timeseries(self, variable: str, window: Timeseries) -> Timeseries:
         """
-        Get the value of an optimization variable by name.
+        Get the solved values of a temporal variable, aligned on a target window.
 
-        This method provides the same interface as PortfolioOptimisationModel.get_variable_value(),
-        allowing transparent usage in the output dataset.
+        **Example**
 
-        :param var_name: Name of the variable
-        :type var_name: str
-        :return: The variable's optimized value, or 0.0 if the variable doesn't exist
-        :rtype: float
+            result.get_timeseries("unit_power_level", window)
+
+        :param variable: Name of the temporal variable
+        :type variable: str
+        :param window: Timeseries whose index the result is aligned on
+        :type window: Timeseries
+        :return: The solved values on the index of *window*, 0.0 where the variable has no solver
+            variable, and everywhere if it does not exist
+        :rtype: Timeseries
         """
-        return self.variable_values.get(var_name, 0.0)
+        values = self.solution.get(variable)
+        if values is None:
+            return Timeseries.from_timeseries(window, default_value=0.0)
+        return values.reindex(window, default=0.0, inplace=False)
 
     @property
     def name(self) -> str:
@@ -97,11 +106,9 @@ def optimise_single_portfolio(
         solution_info = model.solve()
         model.require_solution()
 
-        variable_values = {var_name: model.get_variable_value(var_name) for var_name in model._variables_name}
-
         result = SinglePortfolioResult(
             portfolio=model.portfolio,
-            variable_values=variable_values,
+            solution=model.solution(),
             solution_info=solution_info,
             is_manual_activation=False,
         )
@@ -118,7 +125,6 @@ def optimise_single_portfolio(
 
         result = SinglePortfolioResult(
             portfolio=portfolio,
-            variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.NOT_SOLVED),
             is_manual_activation=True,
         )
@@ -209,4 +215,4 @@ def optimise_portfolio_manual_activated(
 
     set_manual_activation(portfolio.equipments.get_all_equipment(), parameters)
 
-    return SinglePortfolioResult(portfolio=portfolio, variable_values={}, solution_info=None, is_manual_activation=True)
+    return SinglePortfolioResult(portfolio=portfolio, solution_info=None, is_manual_activation=True)
