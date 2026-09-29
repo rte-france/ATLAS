@@ -68,8 +68,8 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
     def _add_one_step(self, step: Step, prefix_job_name: str | None = None) -> None:
         """Add a single step to the end of the workflow, add the prefix given and build parameters."""
-        self._raw_steps.append((step, prefix_job_name))
         resolved_step = self._resolve_step(step, prefix_job_name)
+        self._raw_steps.append((step, prefix_job_name))
         self._resolved_steps.append(resolved_step)
 
     def _resolve_step(self, step: Step, prefix_job_name: str | None) -> ResolvedStep:
