@@ -83,23 +83,23 @@ def model():
 
 
 class TestRenewableDispatchVariables:
-    def test_setup_creates_power_level_var(self, equipment, model, parameters):
+    def test_setup_declares_power_level(self, equipment, model, parameters):
         d = RenewableDispatch(equipment)
         d.setup(model, parameters)
-        assert d.power_level_var is not None
+        assert d.power_level is not None
 
     def test_add_variables_creates_expected_name(self, equipment, model, parameters, time_window):
         d = RenewableDispatch(equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
         assert f"{equipment.name}_power_level_{t}" in model.variables
 
     def test_power_level_bounds_match_forecast(self, equipment, model, parameters, time_window):
         d = RenewableDispatch(equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
         var = model.get_variable(f"{equipment.name}_power_level_{t}")
         assert var.lb() == 0
         assert var.ub() == pytest.approx(100.0)
@@ -108,7 +108,7 @@ class TestRenewableDispatchVariables:
         d = RenewableDispatch(equipment)
         d.setup(model, parameters)
         outside = time_window[-1].add(hours=5)
-        d.add_variables(outside)
+        d.add_variables([outside])
         var = model.get_variable(f"{equipment.name}_power_level_{outside}")
         assert var.lb() == 0
         assert var.ub() == 0
@@ -137,7 +137,7 @@ class TestRenewableDispatchConstraints:
         d = RenewableDispatch(equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
         d.add_constraints(model, t)
         n = equipment.name
         assert f"power_max_{t}_{n}" in model.constraints

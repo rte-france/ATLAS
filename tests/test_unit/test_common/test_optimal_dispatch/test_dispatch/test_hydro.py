@@ -135,16 +135,16 @@ def time_window(start_date):
 
 
 class TestHydroDispatchVariables:
-    def test_setup_creates_stored_energy_var(self, hydro_equipment, model, parameters):
+    def test_setup_declares_stored_energy(self, hydro_equipment, model, parameters):
         d = HydroDispatch(hydro_equipment)
         d.setup(model, parameters)
-        assert d.stored_energy_var is not None
+        assert d.stored_energy is not None
 
     def test_add_variables_creates_stored_energy_and_fragments(self, hydro_equipment, model, parameters, time_window):
         d = HydroDispatch(hydro_equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
         n = hydro_equipment.name
         assert f"{n}_stored_energy_{t}" in model.variables
         # Two fragments declared in fragment_prices/volumes → indices 0 and 1.
@@ -155,7 +155,7 @@ class TestHydroDispatchVariables:
         d = HydroDispatch(hydro_equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
         var = model.get_variable(f"{hydro_equipment.name}_stored_energy_{t}")
         assert var.lb() == 0
         assert var.ub() == pytest.approx(500.0)
@@ -164,7 +164,7 @@ class TestHydroDispatchVariables:
         d = HydroDispatch(hydro_equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
         # max_power = 100, fragment_volumes = [0.5, 0.5] → bounds [0, 50].
         for idx in (0, 1):
             var = model.get_variable(f"{hydro_equipment.name}_power_level_frag_{idx}_{t}")
@@ -176,7 +176,7 @@ class TestHydroDispatchVariables:
         d = HydroDispatch(hydro_equipment)
         d.setup(model, parameters.model_copy(update={"hydraulic_minimal_fragment_size": 10.0}))
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
         n = hydro_equipment.name
         # max_power = 100 → the 5 MW fragment is dropped, its volume goes to the other one.
         assert f"{n}_power_level_frag_0_{t}" not in model.variables
@@ -189,7 +189,7 @@ class TestHydroDispatchEnergyBalance:
         d = HydroDispatch(hydro_equipment)
         d.setup(model, parameters)
         for t in time_window:
-            d.add_variables(t)
+            d.add_variables([t])
         return d
 
     def test_balance_constraint_at_start_uses_initial_level(self, hydro_equipment, model, parameters, time_window):

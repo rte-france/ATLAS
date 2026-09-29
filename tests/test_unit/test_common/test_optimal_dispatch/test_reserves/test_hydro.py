@@ -140,7 +140,7 @@ def dispatch(hydro_equipment, model, parameters, time_window):
     d = HydroDispatch(hydro_equipment)
     d.setup(model, parameters)
     for t in time_window:
-        d.add_variables(t)
+        d.add_variables([t])
     return d
 
 

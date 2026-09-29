@@ -60,7 +60,7 @@ class HydroReserveHandler(RenewableReserveHandler):
         """
         m = self._require_model()
         n = self._name
-        stored = self._dispatch.stored_energy_var.get_value(time)
+        stored = self._dispatch.stored_energy[time]
         ru = m.get_variable(self.var("reserves_up", time))
         aru = m.get_variable(self.var("automated_reserves_up", time))
         rd = m.get_variable(self.var("reserves_down", time))

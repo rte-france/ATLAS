@@ -39,9 +39,9 @@ class HydroStep(AbstractOptimStep[HydroPO, "PortfolioOptimisationParameters"]):
         eq = self.equipment
         self._dispatch.setup(model, parameters)
         self._reserves.setup(model)
+        self._dispatch.add_variables(parameters.equipment_time_window(eq))
         for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding variables for hydro unit {eq.name} at time {time}")
-            self._dispatch.add_variables(time)
             self._reserves.add_variables(time, eq.maximum_power.get_value(time), eq.minimum_power.get_value(time))
 
     def add_constraints(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
@@ -80,7 +80,7 @@ class HydroStep(AbstractOptimStep[HydroPO, "PortfolioOptimisationParameters"]):
 
             for k in self._dispatch.fragment_volumes(time):
                 fragment_price = eq.fragment_data[k].price + marginal_value.value_at(time)
-                power_level_frag_var = self._dispatch.get_fragment_var(time, k)
+                power_level_frag_var = self._dispatch.power_level_frag[k][time]
 
                 if time in parameters.portfolio_time_window:
                     model.add_objective(fragment_price * power_level_frag_var * dt_h)

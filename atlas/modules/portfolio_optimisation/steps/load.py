@@ -33,10 +33,9 @@ class LoadStep(AbstractOptimStep[LoadPO, "PortfolioOptimisationParameters"]):
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
+        cfg.logger.debug(f"Adding variables for load unit {eq.name}")
         self._dispatch.setup(model, parameters)
-        for time in parameters.equipment_time_window(eq):
-            cfg.logger.debug(f"Adding variables for load unit {eq.name} at time {time}")
-            self._dispatch.add_variables(time)
+        self._dispatch.add_variables(parameters.equipment_time_window(eq))
 
     def add_constraints(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
@@ -54,7 +53,7 @@ class LoadStep(AbstractOptimStep[LoadPO, "PortfolioOptimisationParameters"]):
         for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding objective for load unit {eq.name} at time {time}")
             price_forecast = price_forecasts.get(time, 0.0)
-            power_level_var = self._dispatch.power_level_var.get_value(time)
+            power_level_var = self._dispatch.power_level[time]
             if eq.load_type == LoadType.POWER_TO_GAS:
                 model.add_objective((get_variable_cost(eq, time) - price_forecast) * power_level_var * dt_h)
             else:

@@ -9,14 +9,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from atlas.common.optimal_dispatch.marginal_pricing import bid_volumes
-from atlas.solver.model_var import ModelVar
 from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from pendulum import DateTime
 
     from atlas.abstract_class.parameters import AbstractModuleParameters
     from atlas.common.optimal_dispatch.input_objects.hydro import HydroDispatchInput
+    from atlas.solver.temporal_variable import TemporalVariable
 
 
 class HydroDispatch:
@@ -25,9 +27,9 @@ class HydroDispatch:
 
     Owns:
 
-    - ``{name}_stored_energy_{time}`` — reservoir energy state per timestep, bounded by
+    - ``{name}_stored_energy`` — reservoir energy state per timestep, bounded by
       ``[0, max_energy(time)]``.
-    - ``{name}_power_level_frag_{category}_{time}`` — one fragment per piecewise-linear
+    - ``{name}_power_level_frag_{category}`` — one fragment per piecewise-linear
       bid segment large enough to offer (see :func:`~atlas.common.optimal_dispatch.marginal_pricing.bid_volumes`),
       bounded by its (possibly redistributed) volume.
 
@@ -42,49 +44,59 @@ class HydroDispatch:
 
         dispatch = HydroDispatch(equipment)
         dispatch.setup(model, parameters)
-        for time in time_window:
-            dispatch.add_variables(time)
+        dispatch.add_variables(time_window)
         for time in portfolio_time_window:
             dispatch.add_energy_balance(model, time, parameters)
     """
 
     def __init__(self, equipment: HydroDispatchInput) -> None:
         self._eq = equipment
-        self._model: OptimisationModel = None  # type: ignore[assignment]
-        self.stored_energy_var: ModelVar = None  # type: ignore[assignment]
+        self.stored_energy: TemporalVariable = None  # type: ignore[assignment]
+        self.power_level_frag: dict[int, TemporalVariable] = {}
         self._minimal_fragment_size: float = 0.0
+        self._fragment_volumes: dict[DateTime, dict[int, float]] = {}
 
     def setup(self, model: OptimisationModel, parameters: AbstractModuleParameters) -> None:
-        """Bind to a solver model and prepare the stored-energy variable handle."""
-        self._model = model
+        """Bind to a solver model and declare the stored-energy and fragment temporal variables."""
         self._minimal_fragment_size = parameters.hydraulic_minimal_fragment_size  # type: ignore[attr-defined]
+        self._fragment_volumes = {}
         eq = self._eq
         n = eq.name
-        self.stored_energy_var = ModelVar(
-            getter=lambda time: model.get_variable(f"{n}_stored_energy_{time}"),
-            setter=lambda time: model.add_continuous_variable(
-                f"{n}_stored_energy_{time}", lower_bound=0, upper_bound=eq.maximum_energy.get_value(time)
-            ),
+        self.stored_energy = model.add_temporal_variable(
+            f"{n}_stored_energy", lower_bound=0, upper_bound=eq.maximum_energy
         )
+        self.power_level_frag = {
+            category: model.add_temporal_variable(
+                f"{n}_power_level_frag_{category}",
+                lower_bound=0,
+                upper_bound=lambda time, category=category: self.fragment_volumes(time)[category],
+            )
+            for category in eq.fragment_data
+        }
 
-    def add_variables(self, time: DateTime) -> None:
-        """Register the stored-energy and fragment power variables for *time*."""
-        self.stored_energy_var.set_model_var(time)
-        for category, volume in self.fragment_volumes(time).items():
-            self._model.add_continuous_variable(self._frag_key(time, category), lower_bound=0, upper_bound=volume)
+    def add_variables(self, times: Iterable[DateTime]) -> None:
+        """
+        Register the stored-energy and fragment power variables for *times*.
+
+        A fragment only gets a variable at the timesteps where it is kept by :meth:`fragment_volumes`.
+        """
+        times = list(times)
+        self.stored_energy.add_all(times)
+        for category, fragment in self.power_level_frag.items():
+            fragment.add_all(time for time in times if category in self.fragment_volumes(time))
 
     def fragment_volumes(self, time: DateTime) -> dict[int, float]:
         """Return the volume of each fragment kept at *time*, keyed by category."""
-        eq = self._eq
-        return bid_volumes(eq.fragment_data, eq.maximum_power.get_value(time), self._minimal_fragment_size)
+        if time not in self._fragment_volumes:
+            eq = self._eq
+            self._fragment_volumes[time] = bid_volumes(
+                eq.fragment_data, eq.maximum_power.get_value(time), self._minimal_fragment_size
+            )
+        return self._fragment_volumes[time]
 
     def power_fragments_sum(self, time: DateTime):
         """Return the symbolic sum of the fragment power variables kept at *time*."""
-        return sum(self._model.get_variable(self._frag_key(time, k)) for k in self.fragment_volumes(time))
-
-    def get_fragment_var(self, time: DateTime, category: int):
-        """Return the fragment power variable for *category* at *time*."""
-        return self._model.get_variable(self._frag_key(time, category))
+        return sum(self.power_level_frag[k][time] for k in self.fragment_volumes(time))
 
     def add_energy_balance(
         self, model: OptimisationModel, time: DateTime, parameters: AbstractModuleParameters
@@ -108,14 +120,11 @@ class HydroDispatch:
 
         inflow = eq.inflows.get_value(time) * dt_d if eq.inflows is not None else 0.0
         power_sum = self.power_fragments_sum(time)
-        stored = self.stored_energy_var.get_value(time)
+        stored = self.stored_energy[time]
 
         if time == start:
             initial = eq.initial_level.get_value(start - ts)
             model.add_constraint(stored == initial - power_sum * dt_h + inflow, f"storage_level_evol_{time}_{n}")
         else:
-            stored_prev = self.stored_energy_var.get_value(time - ts)
+            stored_prev = self.stored_energy[time - ts]
             model.add_constraint(stored == stored_prev - power_sum * dt_h + inflow, f"storage_level_evol_{time}_{n}")
-
-    def _frag_key(self, time: DateTime, category: int) -> str:
-        return f"{self._eq.name}_power_level_frag_{category}_{time}"
