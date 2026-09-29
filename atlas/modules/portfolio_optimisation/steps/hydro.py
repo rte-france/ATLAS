@@ -74,7 +74,6 @@ class HydroStep(AbstractOptimStep[HydroPO, "PortfolioOptimisationParameters"]):
             eq,
             parameters.temporal.execution_date,
             parameters.temporal.start_date - parameters.temporal.timestep,
-            eq._cached_energy_forecast,
         )
 
         for time in parameters.equipment_time_window(eq):

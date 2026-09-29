@@ -49,12 +49,13 @@ def forecast_ts(start_date, timestep):
 
 
 @pytest.fixture
-def equipment(node, portfolio, forecast_ts):
+def equipment(node, portfolio, forecast_ts, parameters):
     from atlas.enums import LoadType
     from atlas.math.forecasting_matrix import ForecastingMatrix
 
     fm = ForecastingMatrix()
-    eq = LoadDispatchInput(
+    fm.add(forecast_ts, parameters.temporal.execution_date)
+    return LoadDispatchInput(
         name="load_1",
         node=node,
         portfolio=portfolio,
@@ -62,8 +63,6 @@ def equipment(node, portfolio, forecast_ts):
         maximum_power_forecast=fm,
         additional_hours=pendulum.duration(hours=0),
     )
-    eq._cached_forecast = forecast_ts
-    return eq
 
 
 @pytest.fixture
@@ -125,25 +124,6 @@ class TestLoadDispatchHelpers:
         d.setup(model, parameters)
         outside = pendulum.datetime(2099, 1, 1)
         assert d.max_power(outside) == 0.0
-
-    def test_max_power_fallback_to_forecasting_matrix(self, node, portfolio, model, parameters, start_date, timestep):
-        from atlas.enums import LoadType
-        from atlas.math.forecasting_matrix import ForecastingMatrix
-
-        ts = Timeseries.from_index(start_date, timestep, start_date.add(hours=3), -30.0)
-        fm = ForecastingMatrix()
-        fm.add(ts, parameters.temporal.execution_date)
-        eq = LoadDispatchInput(
-            name="load_fb",
-            node=node,
-            portfolio=portfolio,
-            load_type=LoadType.BASE_LOAD,
-            maximum_power_forecast=fm,
-            additional_hours=pendulum.duration(hours=0),
-        )
-        d = LoadDispatch(eq)
-        d.setup(model, parameters)
-        assert d.max_power(start_date) == pytest.approx(-30.0)
 
 
 class TestLoadDispatchConstraints:

@@ -12,6 +12,7 @@ import pytest
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.common.optimal_dispatch.dispatch.renewable import RenewableDispatch
 from atlas.io_utils.parameters import DateParameters
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -22,7 +23,7 @@ class _RenewableStub:
 
     name: str
     maximum_curtailment_ratio: Timeseries
-    _cached_forecast: Timeseries | None
+    maximum_power_forecast: ForecastingMatrix
 
 
 @pytest.fixture
@@ -65,8 +66,15 @@ def curtailment_ts(start_date, timestep):
 
 
 @pytest.fixture
-def equipment(forecast_ts, curtailment_ts):
-    return _RenewableStub(name="wind_1", maximum_curtailment_ratio=curtailment_ts, _cached_forecast=forecast_ts)
+def forecasts(forecast_ts, parameters):
+    fm = ForecastingMatrix()
+    fm.add(forecast_ts, parameters.temporal.execution_date)
+    return fm
+
+
+@pytest.fixture
+def equipment(forecasts, curtailment_ts):
+    return _RenewableStub(name="wind_1", maximum_curtailment_ratio=curtailment_ts, maximum_power_forecast=forecasts)
 
 
 @pytest.fixture
@@ -96,28 +104,26 @@ class TestRenewableDispatchVariables:
         assert var.lb() == 0
         assert var.ub() == pytest.approx(100.0)
 
-    def test_power_level_bounds_zero_when_no_forecast(self, curtailment_ts, model, parameters, time_window):
-        eq = _RenewableStub(name="solar_1", maximum_curtailment_ratio=curtailment_ts, _cached_forecast=None)
-        d = RenewableDispatch(eq)
+    def test_power_level_bounds_zero_when_no_forecast(self, equipment, model, parameters, time_window):
+        d = RenewableDispatch(equipment)
         d.setup(model, parameters)
-        t = time_window[0]
-        d.add_variables(t)
-        var = model.get_variable(f"{eq.name}_power_level_{t}")
+        outside = time_window[-1].add(hours=5)
+        d.add_variables(outside)
+        var = model.get_variable(f"{equipment.name}_power_level_{outside}")
         assert var.lb() == 0
         assert var.ub() == 0
 
 
 class TestRenewableDispatchHelpers:
-    def test_max_power_uses_cached_forecast(self, equipment, model, parameters, time_window):
+    def test_max_power_reads_the_forecast(self, equipment, model, parameters, time_window):
         d = RenewableDispatch(equipment)
         d.setup(model, parameters)
         assert d.max_power(time_window[0]) == pytest.approx(100.0)
 
-    def test_max_power_returns_zero_without_forecast(self, curtailment_ts, model, parameters, time_window):
-        eq = _RenewableStub(name="solar_1", maximum_curtailment_ratio=curtailment_ts, _cached_forecast=None)
-        d = RenewableDispatch(eq)
+    def test_max_power_returns_zero_without_forecast(self, equipment, model, parameters, time_window):
+        d = RenewableDispatch(equipment)
         d.setup(model, parameters)
-        assert d.max_power(time_window[0]) == 0.0
+        assert d.max_power(time_window[-1].add(hours=5)) == 0.0
 
     def test_min_power_curtailment_applied(self, equipment, model, parameters, time_window):
         d = RenewableDispatch(equipment)

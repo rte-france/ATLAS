@@ -70,18 +70,8 @@ class LoadDispatch:
         model.add_constraint(power_level_var <= 0, f"power_min_{time}_{n}")
 
     def max_power(self, time: DateTime) -> float:
-        """Forecast-driven *lower* bound on power (negative for consumption), or 0 when unavailable.
-
-        Uses the pre-fetched ``_cached_forecast`` when present; falls back to querying
-        ``maximum_power_forecast`` directly so the dispatch remains valid even when
-        ``prefetch_forecasts`` has not been called.
-        """
-        forecast = getattr(self._eq, "_cached_forecast", None)
-        if forecast is not None and time in forecast:
-            return forecast.get_value(time)
+        """Forecast-driven *lower* bound on power (negative for consumption), or 0 when unavailable."""
         fm = self._eq.maximum_power_forecast
-        if fm is not None and self._execution_date in fm:
-            fallback = fm.get_forecast(self._execution_date, time, time)
-            if time in fallback:
-                return fallback.get_value(time)
-        return 0.0
+        if fm is None or not fm.indexes:
+            return 0.0
+        return fm.get_forecast(self._execution_date, time, time, default_value=0).get_value(time)

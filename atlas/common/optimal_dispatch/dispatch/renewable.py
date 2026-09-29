@@ -46,6 +46,7 @@ class RenewableDispatch:
     def __init__(self, equipment: RenewableDispatchInput) -> None:
         self._eq = equipment
         self._model: OptimisationModel = None  # type: ignore[assignment]
+        self._execution_date: DateTime = None  # type: ignore[assignment]
 
         self.power_level_var: ModelVar = None  # type: ignore[assignment]
 
@@ -54,14 +55,11 @@ class RenewableDispatch:
         Bind to a solver model and prepare the variable handle.
 
         Must be called before :meth:`add_variables` or :meth:`add_constraints`.
-        The equipment's ``_cached_forecast`` must already be populated by the caller
-        (typically via the equipment's ``prefetch_forecasts``).
 
         :param model: The optimisation model.
-        :param parameters: Module parameters (unused — accepted for signature symmetry
-            with other dispatch classes).
+        :param parameters: Module parameters, giving the execution date the forecasts are read at.
         """
-        del parameters
+        self._execution_date = parameters.temporal.execution_date
         self._model = model
         n = self._eq.name
         self.power_level_var = ModelVar(
@@ -92,9 +90,9 @@ class RenewableDispatch:
         model.add_constraint(power_level_var >= min_p, f"power_min_{time}_{n}")
 
     def max_power(self, time: DateTime) -> float:
-        """Forecast-driven upper bound on power, or 0 when no forecast is cached."""
-        forecast = self._eq._cached_forecast
-        return forecast.get_value(time) if forecast else 0.0
+        """Forecast-driven upper bound on power, or 0 when no forecast covers *time*."""
+        forecast = self._eq.maximum_power_forecast.get_forecast(self._execution_date, time, time, default_value=0)
+        return forecast.get_value(time)
 
     def min_power(self, time: DateTime) -> float:
         """Curtailment-driven lower bound: ``(1 - curtailment_ratio) × max_power``."""

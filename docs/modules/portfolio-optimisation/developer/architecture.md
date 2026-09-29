@@ -74,7 +74,8 @@ Processes optimization results:
 ## Equipment Models and Steps
 
 Each equipment type has a PO-specific input model (e.g., `ThermalPO`, `HydroPO`) holding the
-attributes read by the formulation, plus a `prefetch_forecasts()` method loading its forecast data.
+attributes read by the formulation. Forecasts are read straight from their forecasting matrices,
+which cache the resolved forecasts themselves.
 
 The formulation itself lives in the matching step under `steps/`, which implements:
 
