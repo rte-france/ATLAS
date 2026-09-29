@@ -507,8 +507,10 @@ class ThermalDispatch:
                 if power_t > 0:
                     self._stage(self.off, time, 0)
                     if not self._has_flat:
+                        # a unit with no ramp phase and no stable phase enters the window
+                        # free to move either way, as in the online branch above
                         self._stage(self.on_up, time, 1)
-                        self._stage(self.on_down, time, 0)
+                        self._stage(self.on_down, time, 1)
                 else:
                     self._stage(self.power_level, time, 0)
                     self._stage(self.off, time, 1)
