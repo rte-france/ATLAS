@@ -198,8 +198,8 @@ def _optimize_ev(
     for t in model.time_frame:
         if t >= parameters.temporal.end_date:
             break
-        Qvv[t] = round(model.get_variable(StorageModel.sold_at_key(t)).solution_value(), 2)
-        Qaa[t] = round(model.get_variable(StorageModel.purchased_at_key(t)).solution_value(), 2)
+        Qvv[t] = round(model.get_variable_value(StorageModel.sold_at_key(t)), 2)
+        Qaa[t] = round(model.get_variable_value(StorageModel.purchased_at_key(t)), 2)
 
     return Qvv, Qaa
 
@@ -247,8 +247,8 @@ def _optimize_battery(
     for t in model.time_frame:
         if t >= parameters.temporal.end_date:
             break
-        Qvv[t] = round(model.get_variable(StorageModel.sold_at_key(t)).solution_value(), 2)
-        Qaa[t] = round(model.get_variable(StorageModel.purchased_at_key(t)).solution_value(), 2)
+        Qvv[t] = round(model.get_variable_value(StorageModel.sold_at_key(t)), 2)
+        Qaa[t] = round(model.get_variable_value(StorageModel.purchased_at_key(t)), 2)
 
     return Qvv, Qaa
 

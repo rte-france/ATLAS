@@ -597,7 +597,7 @@ class Clearing:
         for market_area_name in self.input_dataset.market_areas:
             for time in self.input_dataset.times:
                 accepted_power_name = constants.local_balance_variable_name(market_area_name, time)
-                local_balances[market_area_name, time] = self.model.get_variable(accepted_power_name).solution_value()
+                local_balances[market_area_name, time] = self.model.get_variable_value(accepted_power_name)
         return local_balances
 
     def get_accepted_powers(self) -> dict[tuple[str, str], float]:
@@ -609,9 +609,7 @@ class Clearing:
         for market_area in self.input_dataset.market_areas.values():
             for order in market_area.orders.values():
                 accepted_power_name = constants.accepted_power_variable_name(order.market_area.name, order.name)
-                accepted_powers[order.market_area.name, order.name] = self.model.get_variable(
-                    accepted_power_name
-                ).solution_value()
+                accepted_powers[order.market_area.name, order.name] = self.model.get_variable_value(accepted_power_name)
         return accepted_powers
 
     def get_saturated_critical_branch(self) -> dict[tuple[str, pendulum.DateTime], float]:

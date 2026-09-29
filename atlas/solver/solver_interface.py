@@ -15,9 +15,15 @@ from ortools.linear_solver import pywraplp
 from pendulum import DateTime
 
 from atlas.config import logger
+from atlas.custom_errors import ModelNotSolvedError, UnsuccessfulSolveError
 from atlas.enums import SolverEnum, SolverStatus, VariableType
 from atlas.math.timeseries import Timeseries
-from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions
+from atlas.solver.models import (
+    SUCCESSFUL_SOLVER_STATUSES,
+    ConstraintBounds,
+    SolutionInfo,
+    SolverOptions,
+)
 from atlas.solver.solver_parameters import (
     GenericParameterBuilder,
     SCIPParameterBuilder,
@@ -119,6 +125,40 @@ class OptimisationModel:
     def options(self) -> SolverOptions:
         """Return the current solver options."""
         return self._options
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether the model has been solved and holds a readable solution.
+
+        Use it to branch on a failed solve; use :meth:`require_solution` to fail on one.
+
+        :return: True if the last solve finished on ``OPTIMAL`` or ``FEASIBLE``
+        :rtype: bool
+        """
+        return self._solution_info is not None and self._solution_info.is_successful
+
+    def require_solution(self) -> None:
+        """Raise if the model does not hold a solution that can be read back.
+
+        Every solution accessor calls this first, so that a failed solve surfaces as an error
+        instead of OR-Tools' default ``0.0`` values. Call it directly before reading variable
+        objects through :meth:`get_variable`, which is also used to build the model and therefore
+        cannot check the status itself.
+
+        **Example**
+
+            model.solve()
+            model.require_solution()
+            value = model.get_variable("x").solution_value()
+
+        :raises ModelNotSolvedError: If the model has not been solved yet
+        :raises UnsuccessfulSolveError: If the last solve did not produce a solution
+        """
+        if self._solution_info is None:
+            raise ModelNotSolvedError("Optimisation model has not been solved yet")
+
+        if not self._solution_info.is_successful:
+            raise UnsuccessfulSolveError(self._solution_info.status, self.name)
 
     def add_continuous_variable(
         self,
@@ -266,6 +306,11 @@ class OptimisationModel:
         :return: OR-Tools variable object
         :rtype: pywraplp.Variable
         :raises ValueError: If variable doesn't exist
+
+        .. warning::
+            This returns the variable object itself, for use in expressions while the model is
+            being built, so it cannot check the solve status. To read a solved value, use
+            :meth:`get_variable_value`, or call :meth:`require_solution` first.
         """
         if name not in self._variables_name:
             raise ValueError(f"Variable '{name}' not found")
@@ -432,6 +477,10 @@ class OptimisationModel:
         """
         Solve the optimization problem.
 
+        A failed solve is reported through the returned status, not raised, so that callers can
+        retry with a relaxed model. Reading the solution afterwards raises: see
+        :meth:`require_solution`.
+
         :return: Solution information
         :rtype: SolutionInfo
         """
@@ -456,10 +505,12 @@ class OptimisationModel:
         }
 
         mapped_status = status_map.get(status, SolverStatus.NOT_SOLVED)
-        if not self.name:
-            logger.info(f"Optimisation finished in {solve_time} with status: {mapped_status.name}")
+        prefix = f"{self.name} optimisation" if self.name else "Optimisation"
+        message = f"{prefix} finished in {solve_time} with status: {mapped_status.name}"
+        if mapped_status in SUCCESSFUL_SOLVER_STATUSES:
+            logger.info(message)
         else:
-            logger.info(f"{self.name} optimisation finished in {solve_time} with status: {mapped_status.name}")
+            logger.error(message)
 
         objective_value = None
 
@@ -486,11 +537,11 @@ class OptimisationModel:
         :type name: str
         :return: Variable value
         :rtype: float
-        :raises RuntimeError: If model hasn't been solved
+        :raises ModelNotSolvedError: If model hasn't been solved
+        :raises UnsuccessfulSolveError: If the last solve did not produce a solution
         :raises ValueError: If variable hasn't been added
         """
-        if not self._solution_info:
-            raise RuntimeError("Optimisation model has not been solved yet")
+        self.require_solution()
 
         if name not in self._variables_name:
             raise ValueError(f"Variable '{name}' not found in solution")
@@ -505,11 +556,11 @@ class OptimisationModel:
         :type name: str
         :return: Slack value of the constraint
         :rtype: float
-        :raises RuntimeError: If model hasn't been solved
+        :raises ModelNotSolvedError: If model hasn't been solved
+        :raises UnsuccessfulSolveError: If the last solve did not produce a solution
         :raises ValueError: If constraint hasn't been added
         """
-        if not self._solution_info:
-            raise RuntimeError("Optimisation model has not been solved yet")
+        self.require_solution()
 
         if name not in self._constraints_name:
             raise ValueError(f"Constraint '{name}' not found in model")
