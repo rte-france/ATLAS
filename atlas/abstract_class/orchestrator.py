@@ -81,8 +81,8 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
         Merge the given context into this orchestrator's context, then re-resolve every parameters
         against the updated context, so they stop reflecting the parameters they were originally resolved with.
 
-        If re-resolving against the new context fails (e.g. it produces invalid parameters), raise an exception.
-        This Orchestrator context will be reverted, but any s
+        If re-resolving against the new context fails (e.g. it produces invalid parameters), raise an exception and
+        this Orchestrator context will be reverted.
 
         :param context: merge this context parameters to the existing one, overwriting any parameters if it exists.
         :type context: ContextParameters
