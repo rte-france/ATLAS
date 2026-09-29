@@ -318,39 +318,56 @@ dataset.to_directory("data/atlas-dataset/")
 
 ## Filtering Equipment
 
-`filter_equipments` returns a new dataset containing only the named equipment units. All other object types (market areas, nodes, portfolios…) are preserved.
+`include_equipments` returns a new dataset containing only the named equipment units, `exclude_equipments` one without them, and `exclude_technologies` one without any equipment of the given technologies. All other object types (market areas, nodes, portfolios…) are preserved.
 
 ```python
 dataset = AtlasDataset.from_directory("data/atlas-dataset/")
 
 # Keep only these two units across all equipment types
-subset = dataset.filter_equipments(["fr_nuclear", "fr_mountain_hydro"])
+subset = dataset.include_equipments(["fr_nuclear", "fr_mountain_hydro"])
 
-# None or empty list → full copy, nothing filtered
-full_copy = dataset.filter_equipments(None)
+# None or empty list → nothing filtered
+unfiltered = dataset.include_equipments(None)
+
+# Remove a unit, or every wind farm
+without_nuclear = dataset.exclude_equipments(["fr_nuclear"])
+without_wind = dataset.exclude_technologies([BusinessModelName.WIND])
 ```
 
-The returned dataset is a deep copy — modifying it does not affect the original.
+The filters are shallow: the returned dataset has its own containers, but shares the business objects with the original. Call `model_copy(deep=True)` when an independent dataset is needed.
 
 ## Filtering Zones
 
-`filter_zones` keeps only objects that belong to a given set of control blocks (TSO zones). This is useful for running a simulation on a geographic sub-selection.
+`include_zones` keeps only objects that belong to a given set of control blocks (TSO zones). This is useful for running a simulation on a geographic sub-selection.
 
 ```python
 dataset = AtlasDataset.from_directory("data/atlas-dataset/")
 
 # Keep only the French zone (objects whose control_block == "cb_fr")
-fr_dataset = dataset.filter_zones(["cb_fr"])
+fr_dataset = dataset.include_zones(["cb_fr"])
 
 # Keep French and German zones together
-fr_de_dataset = dataset.filter_zones(["cb_fr", "cb_de"])
+fr_de_dataset = dataset.include_zones(["cb_fr", "cb_de"])
 ```
 
 By default, cross-border interconnections are only kept when **both** endpoints are in the selected zones (isolated network). Pass `include_external_borders=True` to also retain borders that connect a selected zone to an external one:
 
 ```python
 # Include borders where at least one side is in the selected zone
-fr_dataset_open = dataset.filter_zones(["cb_fr"], include_external_borders=True)
+fr_dataset_open = dataset.include_zones(["cb_fr"], include_external_borders=True)
+```
+
+## Chaining Filters
+
+Since the filters are shallow, they can be chained without paying a copy at each step. Copy once at the end:
+
+```python
+sub = (
+    dataset.include_zones(["cb_fr"])
+    .exclude_equipments(["fr_nuclear"])
+    .exclude_technologies([BusinessModelName.WIND])
+    .model_copy(deep=True)
+)
 ```
 
 Raises `ValueError` if any control block name does not exist in the dataset.
