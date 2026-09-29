@@ -45,6 +45,9 @@ class ConcreteOrchestratorParameters(AbstractOrchestratorParameters):
 class ConcreteOrchestrator(AbstractOrchestrator[ConcreteOrchestratorParameters, ConcreteJob]):
     """Minimalist implementation of AbstractOrchestrator"""
 
+    def _rebuild(self, previous_context: ContextParameters, attempted_context: ContextParameters) -> None:
+        return
+
     def __init__(self, jobs: list[ConcreteJob]):
         self._jobs: list[ConcreteJob] = jobs
 
