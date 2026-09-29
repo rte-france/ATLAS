@@ -81,7 +81,6 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
     """
 
     def __init__(self, input_data: AtlasDataset, parameters: BSPBalancingOrdersParameters):
-        self.input_data = input_data
         self.parameters = parameters
         self.target_times: list[DateTime] = generate_datetimes(
             parameters.temporal.start_date,
@@ -91,12 +90,17 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
 
         self.market_areas: dict[str, MarketArea] = self.get_market_areas(input_data.market_area)
 
-        self.hydro_equipments: dict[str, BalancingHydro] = self.get_hydro_equipments(input_data.hydro)
-        self.storage_equipments: dict[str, BalancingStorage] = self.get_storage_equipments(input_data.storage)
-        self.load_equipments: dict[str, BalancingLoad] = self.get_load_equipments(input_data.load)
-        self.wind_equipments: dict[str, BalancingWind] = self.get_wind_equipments(input_data.wind)
-        self.solar_equipments: dict[str, BalancingSolar] = self.get_solar_equipments(input_data.solar)
-        self.thermal_equipments: dict[str, BalancingThermal] = self.get_thermal_equipments(input_data.thermal)
+        control_block_names = sorted({market_area.control_block.name for market_area in self.market_areas.values()})
+        self.input_data = input_data.filter_zones(control_block_names) if control_block_names else input_data
+        self.input_data = self.input_data.exclude_equipments(parameters.excluded_equipments)
+        self.input_data = self.input_data.exclude_technologies(parameters.excluded_technologies)
+
+        self.hydro_equipments: dict[str, BalancingHydro] = self.get_hydro_equipments(self.input_data.hydro)
+        self.storage_equipments: dict[str, BalancingStorage] = self.get_storage_equipments(self.input_data.storage)
+        self.load_equipments: dict[str, BalancingLoad] = self.get_load_equipments(self.input_data.load)
+        self.wind_equipments: dict[str, BalancingWind] = self.get_wind_equipments(self.input_data.wind)
+        self.solar_equipments: dict[str, BalancingSolar] = self.get_solar_equipments(self.input_data.solar)
+        self.thermal_equipments: dict[str, BalancingThermal] = self.get_thermal_equipments(self.input_data.thermal)
 
     def get_market_areas(self, market_areas: Container[MarketArea]) -> dict[str, MarketArea]:
         """Filter and return market areas according to the 'market_area_names' parameter."""
@@ -104,24 +108,6 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
             return {ma.name: ma for ma in market_areas}
 
         return {ma.name: ma for ma in market_areas if ma.name in self.parameters.market_area_names}
-
-    def _is_in_included_market_area(self, equipment: Any) -> bool:
-        """Check whether the equipment belongs to one of the included market areas."""
-        return equipment.node.market_area.name in self.market_areas
-
-    def _is_excluded_by_parameters(self, equipment: Any) -> bool:
-        """Check whether the equipment is explicitly excluded by name or technology."""
-        if equipment.name in self.parameters.excluded_equipments:
-            logger.debug(f"Equipment {equipment.name} excluded by name parameter.")
-            return True
-        if type(equipment).__name__ in self.parameters.excluded_technologies:
-            logger.debug(f"Equipment {equipment.name} excluded by technology parameter.")
-            return True
-        return False
-
-    def _is_eligible(self, equipment: Any) -> bool:
-        """Return True if the equipment passes all common eligibility filters."""
-        return self._is_in_included_market_area(equipment) and not self._is_excluded_by_parameters(equipment)
 
     def get_hydro_equipments(self, equipments: Container[Hydro]) -> dict[str, BalancingHydro]:
         """Filter hydro equipments and cast them to BalancingHydro."""
@@ -157,8 +143,10 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
         """
         Filter equipments of a given technology and cast them to their balancing subclass.
 
-        Applies the common eligibility filters (market area, exclusion-list parameters),
-        plus an optional technology-specific exclusion check.
+        Market area and name/technology exclusion-list filtering already happened
+        upstream, on the AtlasDataset itself (filter_zones/exclude_equipments/
+        exclude_technologies) — this only applies an optional technology-specific
+        exclusion check.
 
         :param equipments: Equipments to filter, as found on the AtlasDataset
         :type equipments: Container[Any]
@@ -175,8 +163,6 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
         result = {}
         for equipment in equipments:
             if not isinstance(equipment, equipment_type):
-                continue
-            if not self._is_eligible(equipment):
                 continue
             if extra_exclusion is not None and extra_exclusion(equipment):
                 continue
