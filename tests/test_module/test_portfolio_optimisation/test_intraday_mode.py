@@ -157,8 +157,8 @@ class TestMarketAreaIntradayValidation:
 # ── Price source selection ────────────────────────────────────────────────────
 
 
-class TestGetPriceForecastIntraday:
-    """``PortfolioPO.get_price_forecast`` reads the intraday price sources."""
+class TestPriceForecastsIntraday:
+    """``PortfolioPO.price_forecasts`` reads the intraday price sources."""
 
     @pytest.mark.parametrize(
         "market, use_forecast, expected",
@@ -171,17 +171,19 @@ class TestGetPriceForecastIntraday:
     def test_price_source_per_market(self, market, use_forecast, expected):
         portfolio = _portfolio(id_price_forecast=_fm(35.0), id_price=_fm(60.0), da_price=_ts(40.0))
 
-        assert portfolio.get_price_forecast(TIME, _parameters(market=market, use_forecast=use_forecast)) == expected
+        prices = portfolio.price_forecasts([TIME], _parameters(market=market, use_forecast=use_forecast))
+        assert prices == {TIME: expected}
 
-    def test_returns_none_when_id_price_forecast_missing(self):
-        assert _portfolio().get_price_forecast(TIME, _parameters()) is None
+    def test_reads_zero_when_id_price_forecast_missing(self):
+        assert _portfolio().price_forecasts([TIME], _parameters()) == {TIME: 0.0}
 
     def test_falls_back_to_medium_forecast_outside_target_times(self):
         """Times outside the optimisation window always use ``price_forecast_medium``."""
         parameters = _parameters()
 
         assert END not in parameters.portfolio_time_window
-        assert _portfolio(id_price_forecast=_fm(35.0)).get_price_forecast(END, parameters) == 500.0
+        prices = _portfolio(id_price_forecast=_fm(35.0)).price_forecasts([TIME, END], parameters)
+        assert prices == {TIME: 35.0, END: 500.0}
 
 
 # ── Upstream energy ───────────────────────────────────────────────────────────
@@ -195,12 +197,13 @@ class TestUpstreamEnergyIntraday:
         [(10.0, 2.5, 12.5), (None, 3.0, 3.0), (7.0, None, 7.0), (None, None, 0.0)],
     )
     def test_cumulates_day_ahead_and_intraday(self, da, total_id, expected):
-        assert PortfolioPO._get_upstream_energy(_equipment(da, total_id), TIME, _parameters()) == expected
+        upstream_energy = PortfolioPO.upstream_energy(_equipment(da, total_id), _parameters())
+        assert upstream_energy.values == [expected] * NB_STEPS
 
     def test_day_ahead_ignores_cumulated_intraday(self):
         parameters = _parameters(market=MarketType.dayahead, use_forecast=False)
 
-        assert PortfolioPO._get_upstream_energy(_equipment(da=10.0, total_id=2.5), TIME, parameters) == 10.0
+        assert PortfolioPO.upstream_energy(_equipment(da=10.0, total_id=2.5), parameters).values == [10.0] * NB_STEPS
 
 
 # ── Imbalance prices ──────────────────────────────────────────────────────────

@@ -17,6 +17,7 @@ from atlas.solver.solver_interface import OptimisationModel
 if TYPE_CHECKING:
     from pendulum import DateTime, Duration
 
+    from atlas.math.timeseries import Timeseries
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
     from atlas.solver.temporal_variable import TemporalVariable
 
@@ -52,12 +53,15 @@ class PortfolioStep:
         self.large_imbalance_down: TemporalVariable = None  # type: ignore[assignment]
         self.contract_differences: dict[str, TemporalVariable] = {}
 
+        self._residual_energy: Timeseries = None  # type: ignore[assignment]
+        self._imbalance_limit: Timeseries = None  # type: ignore[assignment]
+
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters) -> None:
         portfolio = self.portfolio
         cfg.logger.debug(f"Adding variables for portfolio :{portfolio.name}")
-        maximum_power = {
-            time: portfolio._compute_maximum_power(time, parameters) for time in parameters.portfolio_time_window
-        }
+        maximum_power = portfolio.maximum_power(parameters)
+        self._residual_energy = portfolio.residual_energy(parameters)
+        self._imbalance_limit = self._residual_energy.clip(lower_bound=parameters.maximum_imbalance, inplace=False)
         self._add_imbalance_variables(model, parameters, maximum_power)
         self._add_contract_difference_variables(model, parameters, maximum_power)
 
@@ -69,11 +73,13 @@ class PortfolioStep:
         for step in self._equipment_steps:
             step.add_constraints(model, parameters)
 
+        has_reserves = portfolio.equipments.has_generation_equipment()
+        contracted_reserves = portfolio.contracted_reserves(parameters) if has_reserves else None
+        cfg.logger.debug(f"Adding constraints for portfolio :{portfolio.name}")
         for time in parameters.portfolio_time_window:
-            cfg.logger.debug(f"Adding constraints for portfolio :{portfolio.name}")
             self._add_global_constraints(time, model, parameters)
-            if portfolio.equipments.has_generation_equipment():
-                self._add_reserves_constraints(time, model, parameters)
+            if contracted_reserves is not None:
+                self._add_reserves_constraints(time, model, contracted_reserves)
 
     def add_objective(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters) -> None:
         portfolio = self.portfolio
@@ -81,7 +87,7 @@ class PortfolioStep:
         for step in self._equipment_steps:
             all_times.update(parameters.equipment_time_window(step.equipment))
 
-        price_forecasts = {time: portfolio.get_price_forecast(time, parameters) or 0.0 for time in all_times}
+        price_forecasts = portfolio.price_forecasts(list(all_times), parameters)
 
         for step in self._equipment_steps:
             step.add_objective(model, parameters, price_forecasts)
@@ -96,7 +102,10 @@ class PortfolioStep:
                 self._add_reserve_penalty_terms(model, time, parameters)
 
     def _add_reserves_constraints(
-        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+        self,
+        time: DateTime,
+        model: OptimisationModel,
+        contracted_reserves: tuple[Timeseries, Timeseries, Timeseries, Timeseries],
     ) -> None:
         portfolio = self.portfolio
 
@@ -110,8 +119,8 @@ class PortfolioStep:
         reserve_types = ["reserves_up", "reserves_down", "automated_reserves_up", "automated_reserves_down"]
         sum_reserves = {r_type: sum_reserve_vars(r_type) for r_type in reserve_types}
 
-        reserves_up, reserves_down, automated_reserves_up, automated_reserves_down = portfolio._compute_reserves_time(
-            time, parameters
+        reserves_up, reserves_down, automated_reserves_up, automated_reserves_down = (
+            reserves.get_value(time) for reserves in contracted_reserves
         )
 
         constraints_config = [
@@ -137,9 +146,8 @@ class PortfolioStep:
     def _add_global_constraints(
         self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
     ) -> None:
-        portfolio = self.portfolio
-        residual_energy = portfolio._compute_residual_energy(time, parameters)
-        max_overall_imbal = max(residual_energy, parameters.maximum_imbalance)
+        residual_energy = self._residual_energy.get_value(time)
+        max_overall_imbal = self._imbalance_limit.get_value(time)
         sum_power_variables = self._get_sum_power_level_variables(time, parameters)
         small_imbalance_up_var = self.small_imbalance_up[time]
         large_imbalance_up_var = self.large_imbalance_up[time]
@@ -164,39 +172,30 @@ class PortfolioStep:
         self,
         model: OptimisationModel,
         parameters: PortfolioOptimisationParameters,
-        maximum_power: dict[DateTime, float],
+        maximum_power: Timeseries,
     ) -> None:
         portfolio = self.portfolio
         window = parameters.portfolio_time_window
-        small_limit = {time: maximum_power[time] * parameters.small_imbalance_size for time in window}
-        overall_limit = {
-            time: max(portfolio._compute_residual_energy(time, parameters), parameters.maximum_imbalance)
-            for time in window
-        }
+        small_limit = maximum_power * parameters.small_imbalance_size
 
-        def imbalance(name: str, limit: dict[DateTime, float]) -> TemporalVariable:
-            return model.add_temporal_variable(
-                f"{portfolio.name}_{name}", window, lower_bound=0, upper_bound=limit.__getitem__
-            )
+        def imbalance(name: str, limit: Timeseries) -> TemporalVariable:
+            return model.add_temporal_variable(f"{portfolio.name}_{name}", window, lower_bound=0, upper_bound=limit)
 
         self.small_imbalance_up = imbalance("small_imbalance_up", small_limit)
         self.small_imbalance_down = imbalance("small_imbalance_down", small_limit)
-        self.large_imbalance_up = imbalance("large_imbalance_up", overall_limit)
-        self.large_imbalance_down = imbalance("large_imbalance_down", overall_limit)
+        self.large_imbalance_up = imbalance("large_imbalance_up", self._imbalance_limit)
+        self.large_imbalance_down = imbalance("large_imbalance_down", self._imbalance_limit)
 
     def _add_contract_difference_variables(
         self,
         model: OptimisationModel,
         parameters: PortfolioOptimisationParameters,
-        maximum_power: dict[DateTime, float],
+        maximum_power: Timeseries,
     ) -> None:
         portfolio = self.portfolio
         self.contract_differences = {
             name: model.add_temporal_variable(
-                f"{name}_{portfolio.name}",
-                parameters.portfolio_time_window,
-                lower_bound=0,
-                upper_bound=maximum_power.__getitem__,
+                f"{name}_{portfolio.name}", parameters.portfolio_time_window, lower_bound=0, upper_bound=maximum_power
             )
             for name in CONTRACT_DIFFERENCES
         }
