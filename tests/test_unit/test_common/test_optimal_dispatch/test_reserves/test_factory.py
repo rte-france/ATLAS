@@ -91,7 +91,7 @@ class TestReserveFactoryMaximumAutomated:
 class TestReserveFactoryWiring:
     def test_name_is_propagated(self, node, portfolio):
         handler = ReserveFactory.for_storage(_storage(node, portfolio))
-        assert handler.var("reserves_up", "T") == "reserves_up_st_T"
+        assert handler._name == "st"
 
     def test_dispatch_is_forwarded(self, node, portfolio):
         handler = ReserveFactory.for_thermal(_thermal(node, portfolio), DISPATCH)

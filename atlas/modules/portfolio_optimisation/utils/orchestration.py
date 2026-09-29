@@ -8,14 +8,19 @@ from __future__ import annotations
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import atlas.config as cfg
 from atlas.enums import SolverStatus
+from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.optim import PortfolioOptimisationModel
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.manual_activation import set_manual_activation
 from atlas.solver.models import SolutionInfo, SolverOptions
+
+if TYPE_CHECKING:
+    from pendulum import DateTime
 
 
 @dataclass
@@ -28,28 +33,30 @@ class SinglePortfolioResult:
     :type portfolio: PortfolioPO
     :param solution_info: Dictionary containing solver status, objective value, and solve time
     :type solution_info: SolutionInfo | None
-    :param variable_values: Dictionary mapping variable names to their optimized values
-    :type variable_values: dict[str, float]
+    :param solution: Solved values of each temporal variable, keyed by its name
+        (see :meth:`~atlas.solver.solver_interface.OptimisationModel.solution`)
+    :type solution: dict[str, Timeseries]
+    :param time_window: First and last time read back from the solution, None to read it whole
+    :type time_window: tuple[DateTime, DateTime] | None
+
+    Reading a variable, ``result["unit_power_level"]``, restricts it to the time window: only
+    the variables actually read back are sliced.
     """
 
     portfolio: PortfolioPO
     solution_info: SolutionInfo | None
-    variable_values: dict[str, float] = field(default_factory=dict)
+    solution: dict[str, Timeseries] = field(default_factory=dict)
+    time_window: tuple[DateTime, DateTime] | None = None
     is_manual_activation: bool = False
 
-    def get_variable_value(self, var_name: str) -> float:
-        """
-        Get the value of an optimization variable by name.
+    def __getitem__(self, variable: str) -> Timeseries:
+        """Return the solved values of *variable* over the time window."""
+        values = self.solution[variable]
+        return values if self.time_window is None else values.slice(*self.time_window, inplace=False)
 
-        This method provides the same interface as PortfolioOptimisationModel.get_variable_value(),
-        allowing transparent usage in the output dataset.
-
-        :param var_name: Name of the variable
-        :type var_name: str
-        :return: The variable's optimized value, or 0.0 if the variable doesn't exist
-        :rtype: float
-        """
-        return self.variable_values.get(var_name, 0.0)
+    def __contains__(self, variable: str) -> bool:
+        """Tell whether *variable* is part of the solution."""
+        return variable in self.solution
 
     @property
     def name(self) -> str:
@@ -97,11 +104,10 @@ def optimise_single_portfolio(
         solution_info = model.solve()
         model.require_solution()
 
-        variable_values = {var_name: model.get_variable_value(var_name) for var_name in model._variables_name}
-
         result = SinglePortfolioResult(
             portfolio=model.portfolio,
-            variable_values=variable_values,
+            solution=model.solution(),
+            time_window=(min(parameters.portfolio_time_window), max(parameters.portfolio_time_window)),
             solution_info=solution_info,
             is_manual_activation=False,
         )
@@ -118,7 +124,6 @@ def optimise_single_portfolio(
 
         result = SinglePortfolioResult(
             portfolio=portfolio,
-            variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.NOT_SOLVED),
             is_manual_activation=True,
         )
@@ -209,4 +214,4 @@ def optimise_portfolio_manual_activated(
 
     set_manual_activation(portfolio.equipments.get_all_equipment(), parameters)
 
-    return SinglePortfolioResult(portfolio=portfolio, variable_values={}, solution_info=None, is_manual_activation=True)
+    return SinglePortfolioResult(portfolio=portfolio, solution_info=None, is_manual_activation=True)

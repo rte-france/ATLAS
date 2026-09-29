@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from atlas.math.abstract_timeseries import AbstractTimeseries
-    from atlas.math.timeseries import Timeseries
+    from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 
 
 @runtime_checkable
@@ -26,11 +26,10 @@ class RenewableDispatchInput(Protocol):
     :param name: Equipment identifier, used as the prefix for solver-variable names.
     :param maximum_curtailment_ratio: Per-timestep ratio of forecast production that may be
         curtailed. ``min_power = (1 - curtailment) × forecast``.
-    :param _cached_forecast: Pre-fetched maximum-power forecast over the optimisation window.
-        The step is expected to populate this (via the equipment's ``prefetch_forecasts``)
-        before any dispatch method is called.
+    :param maximum_power_forecast: Maximum-power forecasts, read as anticipated at the
+        execution date.
     """
 
     name: str
     maximum_curtailment_ratio: AbstractTimeseries
-    _cached_forecast: Timeseries | None
+    maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix

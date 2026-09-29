@@ -8,6 +8,7 @@ import pendulum
 import pytest
 
 from atlas.common.optimal_dispatch.reserves.renewable import RenewableReserveHandler
+from atlas.math.timeseries import Timeseries
 from atlas.solver.solver_interface import OptimisationModel
 
 
@@ -29,7 +30,7 @@ def handler():
 class TestRenewableReserveHandlerVariables:
     def test_add_variables_creates_all_reserve_vars(self, handler, model, time):
         handler.setup(model)
-        handler.add_variables(time, max_power=100.0, min_power=80.0)
+        handler.add_variables([time], max_power=100.0, min_power=80.0)
 
         assert f"reserves_up_wind_1_{time}" in model.variables
         assert f"reserves_down_wind_1_{time}" in model.variables
@@ -38,15 +39,25 @@ class TestRenewableReserveHandlerVariables:
         assert f"automated_reserves_up_wind_1_{time}" in model.variables
         assert f"automated_reserves_down_wind_1_{time}" in model.variables
 
+    def test_bounds_follow_time_dependent_power(self, handler, model, time):
+        times = [time, time.add(hours=1)]
+        max_power = Timeseries({"time": times, "value": [100.0, 60.0]})
+        handler.setup(model)
+        handler.add_variables(times, max_power=max_power, min_power=lambda t: 0.5 * max_power.get_value(t))
+
+        assert handler.reserves_up[times[1]].ub() == pytest.approx(60.0)
+        assert handler.reserves_down[times[1]].lb() == pytest.approx(30.0)
+        assert handler.reserves_up.model_times == times
+
     def test_no_relaxed_reserves_variable(self, handler, model, time):
         """Renewables have no relaxed_reserves variable (unlike thermals)."""
         handler.setup(model)
-        handler.add_variables(time, max_power=100.0, min_power=80.0)
+        handler.add_variables([time], max_power=100.0, min_power=80.0)
         assert f"relaxed_reserves_wind_1_{time}" not in model.variables
 
     def test_reserves_up_bounds(self, handler, model, time):
         handler.setup(model)
-        handler.add_variables(time, max_power=100.0, min_power=80.0)
+        handler.add_variables([time], max_power=100.0, min_power=80.0)
 
         var = model.get_variable(f"reserves_up_wind_1_{time}")
         assert var.lb() == 0
@@ -55,7 +66,7 @@ class TestRenewableReserveHandlerVariables:
     def test_reserves_down_lower_bound_is_min_power(self, handler, model, time):
         """For renewables, ``reserves_down`` lower bound matches ``min_power`` (curtailed floor)."""
         handler.setup(model)
-        handler.add_variables(time, max_power=100.0, min_power=80.0)
+        handler.add_variables([time], max_power=100.0, min_power=80.0)
 
         var = model.get_variable(f"reserves_down_wind_1_{time}")
         assert var.lb() == pytest.approx(80.0)
@@ -63,7 +74,7 @@ class TestRenewableReserveHandlerVariables:
 
     def test_automated_reserves_bounds(self, handler, model, time):
         handler.setup(model)
-        handler.add_variables(time, max_power=100.0, min_power=80.0)
+        handler.add_variables([time], max_power=100.0, min_power=80.0)
 
         up_var = model.get_variable(f"automated_reserves_up_wind_1_{time}")
         dn_var = model.get_variable(f"automated_reserves_down_wind_1_{time}")
@@ -75,13 +86,13 @@ class TestRenewableReserveHandlerVariables:
 
     def test_requires_setup_before_add_variables(self, handler, time):
         with pytest.raises(RuntimeError):
-            handler.add_variables(time, max_power=100.0, min_power=80.0)
+            handler.add_variables([time], max_power=100.0, min_power=80.0)
 
 
 class TestRenewableReserveHandlerConstraints:
     def test_capacity_constraints_names(self, handler, model, time):
         handler.setup(model)
-        handler.add_variables(time, max_power=100.0, min_power=80.0)
+        handler.add_variables([time], max_power=100.0, min_power=80.0)
 
         handler.add_capacity_constraints(time, max_power=100.0)
 
@@ -90,7 +101,7 @@ class TestRenewableReserveHandlerConstraints:
 
     def test_automated_capacity_constraints_names(self, handler, model, time):
         handler.setup(model)
-        handler.add_variables(time, max_power=100.0, min_power=80.0)
+        handler.add_variables([time], max_power=100.0, min_power=80.0)
 
         handler.add_automated_capacity_constraints(time)
 
