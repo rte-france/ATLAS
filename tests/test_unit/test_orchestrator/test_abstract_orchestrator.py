@@ -8,16 +8,19 @@ Unit tests for Orchestrator.
 """
 
 import heapq
+from typing import cast
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
 from atlas import AtlasDataset, WorkflowParameters
+from atlas.custom_errors import WorkflowJobError
 from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.actionplan.action_plan import ActionPlan
 from atlas.orchestrator.actionplan.job import TaskJobsGenerator, TaskIterationPriority
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters
+from atlas.orchestrator.workflow.parameters import ResolvedStep
 from atlas.orchestrator.workflow.workflow import Workflow
 from tests.test_unit.test_orchestrator.orchestrator_factory import (
     ConcreteTaskGenerator,
@@ -53,8 +56,7 @@ class _OrchestratorBuilder():
         params = WorkflowParameters.from_file(config, overall_context)
         workflow = Workflow.__new__(Workflow)
         workflow.parameters = params
-        workflow._steps = [generate_step_from_job(job) for job in jobs]
-        workflow._resolved_parameters = [step.parameters.model_copy() for step in jobs]
+        workflow._resolved_steps = [generate_step_from_job(job) for job in jobs]
         return workflow
 
 
@@ -140,6 +142,26 @@ class TestOrchestratorExecute:
 
             with pytest.raises(RuntimeError, match="bad_job"):
                 orchestrator.execute()
+
+    def test_execute_logs_when_a_job_fails(self, tmp_path, orchestrator_builder):
+        job = MockJobBuilder().with_name("failing_job").build()
+        job.module.run = MagicMock(side_effect=ValueError("boom"))
+
+        orchestrator = orchestrator_builder(tmp_path, [job])
+
+        with (
+            patch("atlas.io_utils.atlas_dataset.AtlasDataset.from_directory", return_value=AtlasDataset()),
+            patch("atlas.orchestrator.current_input_state.CurrentInputState.from_directory") as MockFromDir,
+            patch("atlas.abstract_class.orchestrator.logger") as mock_logger,
+        ):
+            mock_cis_instance = MagicMock()
+            mock_cis_instance.data = AtlasDataset()
+            MockFromDir.return_value = mock_cis_instance
+
+            with pytest.raises(WorkflowJobError):
+                orchestrator.execute()
+
+        assert any("failing_job" in call.args[0] for call in mock_logger.error.call_args_list)
 
     def test_execute_applies_change_sets_after_each_step(self, tmp_path, orchestrator_builder):
         mock_change_set = MagicMock()

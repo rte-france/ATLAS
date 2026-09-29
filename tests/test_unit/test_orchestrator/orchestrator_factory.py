@@ -24,6 +24,10 @@ class ConcreteJob(AbstractJob):
 class ConcreteTaskGenerator(TaskJobsGenerator):
     """Minimalist implementation of TaskGenerator"""
 
+    @property
+    def _jobs_by_iteration(self) -> int:
+        return 1
+
     def __init__(self, task: Task, job = None, module_parameters = None):
         super().__init__(task)
         self._job: ConcreteJob = job
@@ -40,6 +44,9 @@ class ConcreteOrchestratorParameters(AbstractOrchestratorParameters):
 
 class ConcreteOrchestrator(AbstractOrchestrator[ConcreteOrchestratorParameters, ConcreteJob]):
     """Minimalist implementation of AbstractOrchestrator"""
+
+    def _rebuild(self, previous_context: ContextParameters, attempted_context: ContextParameters) -> None:
+        return
 
     def __init__(self, jobs: list[ConcreteJob]):
         self._jobs: list[ConcreteJob] = jobs
