@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import cast
 
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
+from atlas.custom_errors import UseContextError
+from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.actionplan.job import (
     ActionPlanJob,
     ModuleTaskJobsGenerator,
@@ -40,6 +42,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         :type parameters: WorkflowParameters
         """
         super().__init__(parameters)
+        self._raw_tasks: list[TaskModule | TaskWorkflow] = []
         self._task_job_generators: list[TaskJobsGenerator] = []
         for task in self.parameters.tasks:
             self.add_task(task)
@@ -61,7 +64,31 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
             )
 
         task_generator = self._resolve_task(task)
+        self._raw_tasks.append(task)
         self._task_job_generators.append(task_generator)
+
+    def _rebuild(self, previous_context: ContextParameters, attempted_context: ContextParameters) -> None:
+        """Re-resolve every step already added to this workflow against the attempted context.
+
+        If re-resolving fails (e.g. it produces invalid parameters), raise `UseContextError` (built from `previous_context` and `attempted_context`)
+        and leave this workflow entirely unchanged.
+
+        :raises UseContextError: if a step can no longer be resolved with the new context.
+        """
+        new_generators: list[TaskJobsGenerator] = []
+        for task in self._raw_tasks:
+            try:
+                generator = self._resolve_task(task)
+            except Exception as exc:
+                raise UseContextError(
+                    f"Task {task.name!r}: could not be re-resolved with the new context ({exc})",
+                    job_name=task.name,
+                    previous_context=previous_context,
+                    attempted_context=attempted_context,
+                    original_error=exc,
+                ) from exc
+            new_generators.append(generator)
+        self._task_job_generators = new_generators
 
     def _resolve_task(self, task: TaskModule | TaskWorkflow) -> TaskJobsGenerator:
         """Build the TaskJobsGenerator for a single task, resolving its parameters against this

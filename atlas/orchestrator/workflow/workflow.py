@@ -12,6 +12,8 @@ from pathlib import Path
 
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.abstract_class.parameters import AbstractModuleParameters
+from atlas.custom_errors import UseContextError
+from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.orchestrator.workflow.parameters import ResolvedStep, Step, WorkflowParameters
 
@@ -32,6 +34,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         :type parameters: WorkflowParameters
         """
         super().__init__(parameters)
+        self._raw_steps: list[tuple[Step, str | None]] = []
         self._resolved_steps: list[ResolvedStep] = []
         for step in self.parameters.steps:
             self.add_step(step, prefix_job_name)
@@ -65,6 +68,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
     def _add_one_step(self, step: Step, prefix_job_name: str | None = None) -> None:
         """Add a single step to the end of the workflow, add the prefix given and build parameters."""
+        self._raw_steps.append((step, prefix_job_name))
         resolved_step = self._resolve_step(step, prefix_job_name)
         self._resolved_steps.append(resolved_step)
 
@@ -101,6 +105,30 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         return contextualized_parameters.evolve(
             output=contextualized_parameters.output.evolve(output_dir=step_output_dir)
         )
+
+    def _rebuild(self, previous_context: ContextParameters, attempted_context: ContextParameters) -> None:
+        """
+        Re-resolve every step already added to this workflow against the attempted context.
+
+        If re-resolving fails (e.g. it produces invalid parameters), raise `UseContextError` (built from `previous_context` and `attempted_context`)
+        and leave this workflow entirely unchanged.
+
+        :raises UseContextError: if a step can no longer be resolved with the new context.
+        """
+        new_resolved_steps: list[ResolvedStep] = []
+        for step, prefix_job_name in self._raw_steps:
+            try:
+                new_resolved_step = self._resolve_step(step, prefix_job_name)
+            except Exception as exc:
+                raise UseContextError(
+                    f"Step {step.name!r}: could not be resolved with the new context ({exc})",
+                    job_name=step.name,
+                    previous_context=previous_context,
+                    attempted_context=attempted_context,
+                    original_error=exc,
+                ) from exc
+            new_resolved_steps.append(new_resolved_step)
+        self._resolved_steps = new_resolved_steps
 
     @property
     def context(self):
