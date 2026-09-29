@@ -8,6 +8,7 @@ Unit tests for Orchestrator.
 """
 
 import heapq
+from typing import cast
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -19,6 +20,7 @@ from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.actionplan.action_plan import ActionPlan
 from atlas.orchestrator.actionplan.job import TaskIterationPriority, TaskJobsGenerator
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters
+from atlas.orchestrator.workflow.parameters import ResolvedStep
 from atlas.orchestrator.workflow.workflow import Workflow
 from tests.test_unit.test_orchestrator.orchestrator_factory import (
     ConcreteOrchestrator,
@@ -54,8 +56,7 @@ class _OrchestratorBuilder:
         params = WorkflowParameters.from_file(config, overall_context)
         workflow = Workflow.__new__(Workflow)
         workflow.parameters = params
-        workflow._steps = [generate_step_from_job(job) for job in jobs]
-        workflow._resolved_parameters = [step.parameters.model_copy() for step in jobs]
+        workflow._resolved_steps = [generate_step_from_job(job) for job in jobs]
         return workflow
 
     @staticmethod

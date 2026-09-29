@@ -16,6 +16,7 @@ from pendulum import DateTime, Duration
 from atlas import Workflow
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import ContextParameters
+from atlas.custom_errors import UseContextError
 from atlas.orchestrator.actionplan.action_plan import ActionPlan
 from atlas.orchestrator.actionplan.job import ActionPlanJob
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, TaskModule, TaskWorkflow
@@ -479,6 +480,270 @@ class TestActionPlanContextParameters:
             ActionPlan.from_file(TestActionPlanContextParameters.create_config(tmp_path, context, module_parameters=""))
 
 
+class TestActionPlanDisregardedTemporalFields:
+    @staticmethod
+    def _build_config(tmp_path, module_parameters: str) -> Path:
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text(module_parameters)
+
+        config = tmp_path / "action_plan.yaml"
+        config.write_text(
+            f"name: test_action_plan\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"output_dataset_path: {output_dir}\n"
+            f"tasks:\n"
+            f"  - module: MarketClearing\n"
+            f"    parameters: {params_file}\n"
+            f"    from_: '2028-01-01 00:00:00'\n"
+            f"    until: '2028-01-03 00:00:00'\n"
+            f"    frequency: '1d'\n"
+        )
+        return config
+
+    def test_task_module_parameters_without_temporal(self, tmp_path):
+        config = self._build_config(tmp_path, "solver:\n  solver_name: GLOP\n")
+
+        action_plan = ActionPlan.from_file(config)
+        jobs = list(action_plan.jobs)
+
+        assert len(jobs) == 3
+        assert jobs[0].parameters.temporal.start_date == build_datetime("2028-01-01 00:00:00")
+        assert jobs[0].parameters.temporal.end_date == build_datetime("2028-01-01 00:00:00")
+        assert jobs[0].parameters.temporal.execution_date == build_datetime("2028-01-01 00:00:00")
+        assert jobs[1].parameters.temporal.start_date == build_datetime("2028-01-02 00:00:00")
+        assert jobs[2].parameters.temporal.start_date == build_datetime("2028-01-03 00:00:00")
+
+    def test_task_module_parameters_with_empty_temporal(self, tmp_path):
+        config = self._build_config(tmp_path, "temporal: {}\nsolver:\n  solver_name: GLOP\n")
+
+        action_plan = ActionPlan.from_file(config)
+        job = next(action_plan.jobs)
+
+        assert job.parameters.temporal.start_date == build_datetime("2028-01-01 00:00:00")
+        assert job.parameters.temporal.execution_date == build_datetime("2028-01-01 00:00:00")
+
+    def test_task_module_parameters_timestep_is_preserved_when_dates_are_omitted(self, tmp_path):
+        config = self._build_config(tmp_path, "temporal:\n  timestep: 30m\n")
+
+        action_plan = ActionPlan.from_file(config)
+        job = next(action_plan.jobs)
+
+        assert job.parameters.temporal.timestep == Duration(minutes=30)
+        assert job.parameters.temporal.start_date == build_datetime("2028-01-01 00:00:00")
+
+    def test_task_module_dict_parameters_without_temporal(self, tmp_path):
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        params = ActionPlanMockFactory.make_minimal_parameters(tmp_path, dataset_path=dataset_dir, output_path=output_dir)
+        action_plan = ActionPlan(params)
+        action_plan.add_task(
+            TaskModule(
+                module="MarketClearing",
+                parameters={"solver": {"solver_name": "GLOP"}},
+                from_=DateTime(2028, 1, 1),
+                until=DateTime(2028, 1, 1),
+                frequency=Duration(days=1),
+            )
+        )
+
+        job = next(action_plan.jobs)
+        assert job.parameters.temporal.start_date == build_datetime("2028-01-01 00:00:00")
+
+    def test_provided_temporal_dates_are_still_overwritten_per_iteration(self, tmp_path):
+        """Even when a file *does* set start_date/end_date/execution_date, they must still be
+        disregarded and replaced with the task's real per-iteration dates."""
+        config = self._build_config(
+            tmp_path,
+            "temporal:\n"
+            "  start_date: '1999-01-01 00:00:00'\n"
+            "  end_date: '1999-01-02 00:00:00'\n"
+            "  execution_date: '1999-01-01 00:00:00'\n"
+            "  timestep: 15m\n",
+        )
+
+        action_plan = ActionPlan.from_file(config)
+        job = next(action_plan.jobs)
+
+        assert job.parameters.temporal.start_date == build_datetime("2028-01-01 00:00:00")
+        assert job.parameters.temporal.timestep == Duration(minutes=15)
+
+    def test_action_plan_context_default_still_takes_priority_over_placeholder(self, tmp_path):
+        """An explicit ActionPlan-level context default for a temporal field must still win over
+        the internal placeholder used to bypass validation of disregarded fields."""
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("solver:\n  solver_name: GLOP\n")
+
+        config = tmp_path / "action_plan.yaml"
+        config.write_text(
+            f"name: test_action_plan\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"output_dataset_path: {output_dir}\n"
+            f"context:\n"
+            f"  default:\n"
+            f"    temporal:\n"
+            f"      timestep: '45m'\n"
+            f"tasks:\n"
+            f"  - module: MarketClearing\n"
+            f"    parameters: {params_file}\n"
+            f"    from_: '2028-01-01 00:00:00'\n"
+            f"    until: '2028-01-01 00:00:00'\n"
+            f"    frequency: '1d'\n"
+        )
+
+        action_plan = ActionPlan.from_file(config)
+        job = next(action_plan.jobs)
+
+        assert job.parameters.temporal.timestep == Duration(minutes=45)
+
+
+class TestActionPlanWorkflowTaskDisregardedTemporalFields:
+    """Mirrors TestActionPlanDisregardedTemporalFields but for a TaskWorkflow."""
+
+    @staticmethod
+    def _build_config(tmp_path, step_parameters: str) -> Path:
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        workflow_config = tmp_path / "sub_workflow.yaml"
+        workflow_config.write_text(
+            f"name: sub_workflow\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"steps:\n"
+            f"  - name: step1\n"
+            f"    module: MarketClearing\n"
+            f"    parameters:\n" + "".join(f"      {line}\n" for line in step_parameters.splitlines())
+        )
+
+        action_plan_config = tmp_path / "action_plan.yaml"
+        action_plan_config.write_text(
+            f"name: test_action_plan\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"output_dataset_path: {output_dir}\n"
+            f"tasks:\n"
+            f"  - workflow: {workflow_config}\n"
+            f"    from_: '2028-01-01 00:00:00'\n"
+            f"    until: '2028-01-03 00:00:00'\n"
+            f"    frequency: '1d'\n"
+        )
+        return action_plan_config
+
+    def test_task_workflow_step_parameters_without_temporal_block_succeeds(self, tmp_path):
+        config = self._build_config(tmp_path, "solver:\n  solver_name: GLOP")
+
+        action_plan = ActionPlan.from_file(config)
+        jobs = list(action_plan.jobs)
+
+        assert len(jobs) == 3
+        assert jobs[0].parameters.temporal.start_date == build_datetime("2028-01-01 00:00:00")
+        assert jobs[0].parameters.temporal.end_date == build_datetime("2028-01-01 00:00:00")
+        assert jobs[0].parameters.temporal.execution_date == build_datetime("2028-01-01 00:00:00")
+        assert jobs[1].parameters.temporal.start_date == build_datetime("2028-01-02 00:00:00")
+        assert jobs[2].parameters.temporal.start_date == build_datetime("2028-01-03 00:00:00")
+
+    def test_task_workflow_step_parameters_with_empty_temporal_block_succeeds(self, tmp_path):
+        config = self._build_config(tmp_path, "temporal: {}\nsolver:\n  solver_name: GLOP")
+
+        action_plan = ActionPlan.from_file(config)
+        job = next(action_plan.jobs)
+
+        assert job.parameters.temporal.start_date == build_datetime("2028-01-01 00:00:00")
+        assert job.parameters.temporal.execution_date == build_datetime("2028-01-01 00:00:00")
+
+    def test_task_workflow_step_timestep_is_preserved_when_dates_are_omitted(self, tmp_path):
+        config = self._build_config(tmp_path, "temporal:\n  timestep: 30m")
+
+        action_plan = ActionPlan.from_file(config)
+        job = next(action_plan.jobs)
+
+        assert job.parameters.temporal.timestep == Duration(minutes=30)
+        assert job.parameters.temporal.start_date == build_datetime("2028-01-01 00:00:00")
+
+    def test_task_workflow_dict_parameters_without_temporal_block_succeeds(self, tmp_path):
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        params = ActionPlanMockFactory.make_minimal_parameters(tmp_path, dataset_path=dataset_dir, output_path=output_dir)
+        action_plan = ActionPlan(params)
+        action_plan.add_task(
+            TaskWorkflow(
+                workflow={
+                    "name": "sub_workflow",
+                    "dataset_path": str(dataset_dir),
+                    "steps": [
+                        {
+                            "name": "step1",
+                            "module": "MarketClearing",
+                            "parameters": {"solver": {"solver_name": "GLOP"}},
+                        }
+                    ],
+                },
+                from_=DateTime(2028, 1, 1),
+                until=DateTime(2028, 1, 1),
+                frequency=Duration(days=1),
+            )
+        )
+
+        job = next(action_plan.jobs)
+        assert job.parameters.temporal.start_date == build_datetime("2028-01-01 00:00:00")
+
+    def test_provided_temporal_dates_are_still_overwritten_per_iteration(self, tmp_path):
+        """Even when a step's file *does* set start_date/end_date/execution_date, they must still
+        be disregarded and replaced with the task's real per-iteration dates (existing behaviour,
+        unaffected by making these fields optional)."""
+        config = self._build_config(
+            tmp_path,
+            "temporal:\n"
+            "  start_date: '1999-01-01 00:00:00'\n"
+            "  end_date: '1999-01-02 00:00:00'\n"
+            "  execution_date: '1999-01-01 00:00:00'\n"
+            "  timestep: 15m",
+        )
+
+        action_plan = ActionPlan.from_file(config)
+        job = next(action_plan.jobs)
+
+        assert job.parameters.temporal.start_date == build_datetime("2028-01-01 00:00:00")
+        assert job.parameters.temporal.timestep == Duration(minutes=15)
+
+    def test_standalone_workflow_still_requires_temporal_fields(self, tmp_path):
+        """Boundary check: the bypass only applies once a workflow is wrapped in a TaskWorkflow and
+        run through an ActionPlan. A Workflow built and validated on its own has no per-iteration
+        forced context to fill temporal in, so it still needs valid dates -- this is expected, not
+        a regression."""
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+
+        workflow_config = tmp_path / "sub_workflow.yaml"
+        workflow_config.write_text(
+            f"name: sub_workflow\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"steps:\n"
+            f"  - name: step1\n"
+            f"    module: MarketClearing\n"
+            f"    parameters:\n"
+            f"      solver:\n"
+            f"        solver_name: GLOP\n"
+        )
+
+        with pytest.raises(Exception):
+            Workflow.from_file(workflow_config)
+
+
 class TestActionPlanPathFromActionPlan:
     def test_dataset_loaded_relative_to_action_plan_when_path_from_action_plan_true(self, tmp_path):
         dataset_dir = tmp_path / "dataset"
@@ -570,6 +835,90 @@ class TestActionPlanPathFromActionPlan:
         action_plan = ActionPlan.from_file(config)
         step = next(action_plan.jobs)
 
-        assert step.parameters.export.run_dir == Path(
-            tmp_path / "results" / "MarketClearing" / "2028-01-01T00:00:00+00:00"
+        assert step.parameters.export.run_dir == Path(tmp_path / 'results' / 'MarketClearing' / '2028-01-01T00:00:00+00:00')
+
+
+class TestActionPlanUseContext:
+    """Note: Any task parameters is resolved with the context when the ActionPlan is built.
+    We want to ensure that use_context() re-resolve tasks already built, not just update
+    parameters.context while leaving previously-resolved task parameters stale."""
+
+    @staticmethod
+    def _build_action_plan(tmp_path) -> ActionPlan:
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("solver:\n  solver_name: GLOP\n")
+
+        config = tmp_path / "action_plan.yaml"
+        config.write_text(
+            f"name: test_action_plan\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"output_dataset_path: {output_dir}\n"
+            f"tasks:\n"
+            f"  - module: MarketClearing\n"
+            f"    parameters: {params_file}\n"
+            f"    from_: '2028-01-01 00:00:00'\n"
+            f"    until: '2028-01-01 00:00:00'\n"
+            f"    frequency: '1d'\n"
         )
+        return ActionPlan.from_file(config)
+
+    def test_use_context_re_resolves_already_built_tasks(self, tmp_path):
+        action_plan = self._build_action_plan(tmp_path)
+        assert next(action_plan.jobs).parameters.solver.solver_name == "GLOP"
+
+        action_plan.use_context(ContextParameters(forced={"solver": {"solver_name": "CBC"}}))
+
+        assert next(action_plan.jobs).parameters.solver.solver_name == "CBC"
+
+    def test_use_context_re_resolves_tasks_added_after_construction(self, tmp_path):
+        """A task added via add_task() must also be re-resolved."""
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        params = ActionPlanMockFactory.make_minimal_parameters(tmp_path, dataset_path=dataset_dir, output_path=output_dir)
+        action_plan = ActionPlan(params)
+        action_plan.add_task(
+            TaskModule(
+                module="MarketClearing",
+                parameters={"solver": {"solver_name": "GLOP"}},
+                from_=DateTime(2028, 1, 1),
+                until=DateTime(2028, 1, 1),
+                frequency=Duration(days=1),
+            )
+        )
+        assert next(action_plan.jobs).parameters.solver.solver_name == "GLOP"
+
+        action_plan.use_context(ContextParameters(forced={"solver": {"solver_name": "CBC"}}))
+
+        assert next(action_plan.jobs).parameters.solver.solver_name == "CBC"
+
+    def test_use_context_raises_and_leaves_action_plan_unchanged_if_resolution_breaks(self, tmp_path):
+        action_plan = self._build_action_plan(tmp_path)
+        context_before = action_plan.parameters.context
+        job_before = next(action_plan.jobs)
+        attempted_context = ContextParameters(forced={"solver": {"solver_name": "NOT_A_REAL_SOLVER"}})
+
+        with pytest.raises(UseContextError) as exc_info:
+            action_plan.use_context(attempted_context)
+
+        error = exc_info.value
+        assert error.job_name == "MarketClearing"
+        assert error.previous_context == context_before
+        assert error.attempted_context == attempted_context
+        assert isinstance(error.original_error, Exception)
+
+        assert action_plan.parameters.context == context_before
+        job_after = next(action_plan.jobs)
+        assert job_after.parameters.solver.solver_name == job_before.parameters.solver.solver_name
+
+    def test_use_context_merges_context_on_success(self, tmp_path):
+        action_plan = self._build_action_plan(tmp_path)
+
+        action_plan.use_context(ContextParameters(default={"added": 1}))
+
+        assert action_plan.parameters.context.default["added"] == 1

@@ -72,10 +72,37 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
 
     def use_context(self, context: ContextParameters) -> None:
         """
-        :param context: add this context parameters to the existing one, overwriting any parameters if it exists.
+        Merge the given context into this orchestrator's context, then re-resolve every parameters
+        against the updated context, so they stop reflecting the parameters they were originally resolved with.
+
+        If re-resolving against the new context fails (e.g. it produces invalid parameters), raise an exception and
+        this Orchestrator context will be reverted.
+
+        :param context: merge this context parameters to the existing one, overwriting any parameters if it exists.
         :type context: ContextParameters
         """
+        previous_parameters = self.parameters
         self.parameters = self.parameters.evolve(context=self.parameters.context.apply(context))
+        try:
+            self._rebuild(previous_parameters.context, context)
+        except Exception:
+            self.parameters = previous_parameters
+            raise
+
+    @abstractmethod
+    def _rebuild(self, previous_context: ContextParameters, attempted_context: ContextParameters) -> None:
+        """
+        Re-resolve any internally cached parameters against the current `self.parameters`
+        (and its context). Called by `use_context()` after the context has been updated.
+
+        If re-resolving fails (e.g. it produces invalid parameters), raise `UseContextError` (built from `previous_context` and `attempted_context`).
+
+        :param previous_context: this orchestrator's context right before `use_context()` was called.
+        :type previous_context: ContextParameters
+        :param attempted_context: the context that was passed to `use_context()`.
+        :type attempted_context: ContextParameters
+        """
+        pass
 
     def execute(self) -> CurrentInputState:
         """
