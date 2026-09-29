@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
     from atlas.abstract_class.parameters import AbstractModuleParameters
     from atlas.common.optimal_dispatch.input_objects.load import LoadDispatchInput
+    from atlas.math.timeseries import Timeseries
     from atlas.solver.temporal_variable import TemporalVariable
 
 
@@ -43,6 +44,7 @@ class LoadDispatch:
     def __init__(self, equipment: LoadDispatchInput) -> None:
         self._eq = equipment
         self._execution_date: DateTime = None  # type: ignore[assignment]
+        self._forecast: Timeseries | None = None
         self.power_level: TemporalVariable = None  # type: ignore[assignment]
 
     def setup(self, model: OptimisationModel, parameters: AbstractModuleParameters) -> None:
@@ -53,7 +55,15 @@ class LoadDispatch:
         )
 
     def add_variables(self, times: Iterable[DateTime]) -> None:
-        """Register the power-level variables for *times* in the model."""
+        """
+        Register the power-level variables for *times* in the model.
+
+        The maximum-power forecast is read once over *times*, :meth:`max_power` then serves it.
+        """
+        times = list(times)
+        forecasts = self._eq.maximum_power_forecast
+        if times and forecasts is not None and forecasts.indexes:
+            self._forecast = forecasts.get_forecast(self._execution_date, min(times), max(times), default_value=0)
         self.power_level.add_all(times)
 
     def add_constraints(self, model: OptimisationModel, time: DateTime) -> None:
@@ -65,8 +75,9 @@ class LoadDispatch:
         model.add_constraint(power_level_var <= 0, f"power_min_{time}_{n}")
 
     def max_power(self, time: DateTime) -> float:
-        """Forecast-driven *lower* bound on power (negative for consumption), or 0 when unavailable."""
-        fm = self._eq.maximum_power_forecast
-        if fm is None or not fm.indexes:
-            return 0.0
-        return fm.get_forecast(self._execution_date, time, time, default_value=0).get_value(time)
+        """
+        Forecast-driven *lower* bound on power (negative for consumption), or 0 when unavailable.
+
+        Only defined at the times given to :meth:`add_variables`.
+        """
+        return self._forecast.get_value(time) if self._forecast is not None else 0.0

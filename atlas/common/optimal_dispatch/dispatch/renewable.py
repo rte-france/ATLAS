@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
     from atlas.abstract_class.parameters import AbstractModuleParameters
     from atlas.common.optimal_dispatch.input_objects.renewable import RenewableDispatchInput
+    from atlas.math.timeseries import Timeseries
     from atlas.solver.temporal_variable import TemporalVariable
 
 
@@ -47,6 +48,7 @@ class RenewableDispatch:
     def __init__(self, equipment: RenewableDispatchInput) -> None:
         self._eq = equipment
         self._execution_date: DateTime = None  # type: ignore[assignment]
+        self._forecast: Timeseries | None = None
 
         self.power_level: TemporalVariable = None  # type: ignore[assignment]
 
@@ -65,7 +67,16 @@ class RenewableDispatch:
         )
 
     def add_variables(self, times: Iterable[DateTime]) -> None:
-        """Register the power-level variables for *times* in the model."""
+        """
+        Register the power-level variables for *times* in the model.
+
+        The maximum-power forecast is read once over *times*, :meth:`max_power` then serves it.
+        """
+        times = list(times)
+        if times:
+            self._forecast = self._eq.maximum_power_forecast.get_forecast(
+                self._execution_date, min(times), max(times), default_value=0
+            )
         self.power_level.add_all(times)
 
     def add_constraints(self, model: OptimisationModel, time: DateTime) -> None:
@@ -85,9 +96,12 @@ class RenewableDispatch:
         model.add_constraint(power_level_var >= min_p, f"power_min_{time}_{n}")
 
     def max_power(self, time: DateTime) -> float:
-        """Forecast-driven upper bound on power, or 0 when no forecast covers *time*."""
-        forecast = self._eq.maximum_power_forecast.get_forecast(self._execution_date, time, time, default_value=0)
-        return forecast.get_value(time)
+        """
+        Forecast-driven upper bound on power, or 0 when no forecast covers *time*.
+
+        Only defined at the times given to :meth:`add_variables`.
+        """
+        return self._forecast.get_value(time) if self._forecast is not None else 0.0
 
     def min_power(self, time: DateTime) -> float:
         """Curtailment-driven lower bound: ``(1 - curtailment_ratio) × max_power``."""

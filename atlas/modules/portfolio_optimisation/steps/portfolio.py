@@ -55,8 +55,11 @@ class PortfolioStep:
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters) -> None:
         portfolio = self.portfolio
         cfg.logger.debug(f"Adding variables for portfolio :{portfolio.name}")
-        self._add_imbalance_variables(model, parameters)
-        self._add_contract_difference_variables(model, parameters)
+        maximum_power = {
+            time: portfolio._compute_maximum_power(time, parameters) for time in parameters.portfolio_time_window
+        }
+        self._add_imbalance_variables(model, parameters, maximum_power)
+        self._add_contract_difference_variables(model, parameters, maximum_power)
 
         for step in self._equipment_steps:
             step.add_variables(model, parameters)
@@ -157,16 +160,19 @@ class PortfolioStep:
             name=f"down_imbalance_limit_{time}",
         )
 
-    def _add_imbalance_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters) -> None:
+    def _add_imbalance_variables(
+        self,
+        model: OptimisationModel,
+        parameters: PortfolioOptimisationParameters,
+        maximum_power: dict[DateTime, float],
+    ) -> None:
         portfolio = self.portfolio
         window = parameters.portfolio_time_window
-        small_limit: dict[DateTime, float] = {}
-        overall_limit: dict[DateTime, float] = {}
-        for time in window:
-            residual_energy = portfolio._compute_residual_energy(time, parameters)
-            maximum_power = portfolio._compute_maximum_power(time, parameters)
-            small_limit[time] = maximum_power * parameters.small_imbalance_size
-            overall_limit[time] = max(residual_energy, parameters.maximum_imbalance)
+        small_limit = {time: maximum_power[time] * parameters.small_imbalance_size for time in window}
+        overall_limit = {
+            time: max(portfolio._compute_residual_energy(time, parameters), parameters.maximum_imbalance)
+            for time in window
+        }
 
         def imbalance(name: str, limit: dict[DateTime, float]) -> TemporalVariable:
             return model.add_temporal_variable(
@@ -179,12 +185,12 @@ class PortfolioStep:
         self.large_imbalance_down = imbalance("large_imbalance_down", overall_limit)
 
     def _add_contract_difference_variables(
-        self, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+        self,
+        model: OptimisationModel,
+        parameters: PortfolioOptimisationParameters,
+        maximum_power: dict[DateTime, float],
     ) -> None:
         portfolio = self.portfolio
-        maximum_power = {
-            time: portfolio._compute_maximum_power(time, parameters) for time in parameters.portfolio_time_window
-        }
         self.contract_differences = {
             name: model.add_temporal_variable(
                 f"{name}_{portfolio.name}",

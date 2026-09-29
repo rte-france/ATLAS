@@ -5,6 +5,7 @@ This file is part of the ATLAS project.
 """
 
 from dataclasses import dataclass
+from unittest.mock import patch
 
 import pendulum
 import pytest
@@ -118,16 +119,31 @@ class TestRenewableDispatchHelpers:
     def test_max_power_reads_the_forecast(self, equipment, model, parameters, time_window):
         d = RenewableDispatch(equipment)
         d.setup(model, parameters)
+        d.add_variables(time_window)
         assert d.max_power(time_window[0]) == pytest.approx(100.0)
 
     def test_max_power_returns_zero_without_forecast(self, equipment, model, parameters, time_window):
         d = RenewableDispatch(equipment)
         d.setup(model, parameters)
-        assert d.max_power(time_window[-1].add(hours=5)) == 0.0
+        outside = time_window[-1].add(hours=5)
+        d.add_variables([*time_window, outside])
+        assert d.max_power(outside) == 0.0
+
+    def test_forecast_is_read_once_over_the_window(self, equipment, model, parameters, time_window):
+        d = RenewableDispatch(equipment)
+        d.setup(model, parameters)
+        with patch.object(
+            equipment.maximum_power_forecast, "get_forecast", wraps=equipment.maximum_power_forecast.get_forecast
+        ) as get_forecast:
+            d.add_variables(time_window)
+            for t in time_window:
+                d.add_constraints(model, t)
+        get_forecast.assert_called_once()
 
     def test_min_power_curtailment_applied(self, equipment, model, parameters, time_window):
         d = RenewableDispatch(equipment)
         d.setup(model, parameters)
+        d.add_variables(time_window)
         # min_power = (1 - 0.2) * 100 = 80
         assert d.min_power(time_window[0]) == pytest.approx(80.0)
 

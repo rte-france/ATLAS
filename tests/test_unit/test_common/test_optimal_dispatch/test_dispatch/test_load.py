@@ -117,12 +117,14 @@ class TestLoadDispatchHelpers:
     def test_max_power_returns_signed_forecast(self, equipment, model, parameters, time_window):
         d = LoadDispatch(equipment)
         d.setup(model, parameters)
+        d.add_variables(time_window)
         assert d.max_power(time_window[0]) == pytest.approx(-50.0)
 
-    def test_max_power_returns_zero_when_time_missing(self, equipment, model, parameters):
+    def test_max_power_returns_zero_when_time_missing(self, equipment, model, parameters, time_window):
         d = LoadDispatch(equipment)
         d.setup(model, parameters)
-        outside = pendulum.datetime(2099, 1, 1)
+        outside = time_window[-1].add(hours=5)
+        d.add_variables([*time_window, outside])
         assert d.max_power(outside) == 0.0
 
 
