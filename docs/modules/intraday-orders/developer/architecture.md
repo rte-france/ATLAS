@@ -13,7 +13,7 @@ atlas/modules/intraday_orders/
 ├── module.py                            # IntradayOrdersModule (AbstractModule)
 ├── parameters.py                        # IntradayOrdersParameters
 ├── input_dataset.py                     # IntradayOrdersInputDataset
-├── result.py                    # IntradayOrdersOutputDataset (builds change sets)
+├── result.py                            # IntradayOrdersResult (builds change sets)
 ├── utils.py                             # engaged_quantity(), build_intraday_order()
 ├── models/
 │   ├── enums.py                         # PlanningDelta, WindowType, InflexibleChaining
@@ -59,7 +59,7 @@ Pydantic model inheriting from `AbstractModuleParameters`. Defines the module pa
 
 Converts core business models into intraday-orders-specific input objects (`HydroIDO`, `ThermalIDO`, …).
 
-### **`IntradayOrdersOutputDataset`**
+### **`IntradayOrdersResult`**
 
 Collects the generated `order` / `order_coupling` lists and, in `build_change_sets()`, emits `AddObject` change sets for them plus `UpdateObject` change sets writing each unit's submitted volumes back onto the equipment.
 
@@ -97,7 +97,7 @@ execute()
   ├→ for each asset formulator: formulate(equipments, order_window, parameters)
   │     ├→ build Orders and OrderCouplings (the target_planning − cleared_engagement delta)
   │     └→ accumulate id_*/total_id_* submitted volumes onto each equipment
-  └→ IntradayOrdersOutputDataset is filled
+  └→ IntradayOrdersResult is filled
   ↓
 build_change_sets() → AddObject(order/coupling) + UpdateObject(submitted volumes)
   ↓

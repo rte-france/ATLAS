@@ -114,7 +114,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         """Resolve a task, that run a module, into its ModuleTaskJobsGenerator
         :param task: task that run a module
         :type task: TaskModule
-        :param root_run_dir: path to the root output directory used for the task
+        :param root_run_dir: path to the root run tree used for the task
         :type root_run_dir: Path
         """
         if isinstance(task.parameters, (str, Path)):
@@ -139,7 +139,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         """Resolve a task, that run a workflow, into its WorkflowTaskJobsGenerator
         :param task: task that run a workflow
         :type task: TaskWorkflow
-        :param root_run_dir: path to the root output directory used for the task
+        :param root_run_dir: path to the root run tree used for the task
         :type root_run_dir: Path
         """
         if isinstance(task.workflow, (str, Path)):

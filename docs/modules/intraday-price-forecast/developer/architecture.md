@@ -14,7 +14,7 @@ intraday_price_forecast/
 ├── module.py                             # Core module implementation
 ├── parameters.py                         # Configuration parameters
 ├── input_dataset.py                      # Input data aggregation
-├── result.py                     # Output data aggregation
+├── result.py                             # IntradayPriceForecastResult (builds change sets)
 ├── orchestrator.py                       # Main computation logic
 └── input_objects/                        # Intraday-specific models
     ├── __init__.py
@@ -33,7 +33,7 @@ Implements `AbstractModule` with methods:
 - `get_parameters_class()`: Returns `IntradayPriceForecastParameters`
 - `import_data()`: Creates `IntradayPriceForecastInputDataset`
 - `validate_data()`: Returns `True` (validation delegated to Pydantic models)
-- `execute()`: Runs orchestrator and returns `IntradayPriceForecastOutputDataset`
+- `execute()`: Runs orchestrator and returns `IntradayPriceForecastResult`
 - `validates_results()`: Checks all market areas have price forecasts
 - `export_results()`: Returns without action (data updated in place)
 
@@ -59,7 +59,7 @@ Converts business models to intraday-specific models:
 - Creates `LoadIDPF`, `SolarIDPF`, `WindIDPF` instances with references to market areas
 - Builds a market area mapping for portfolio-to-market-area relationships
 
-### IntradayPriceForecastOutputDataset
+### IntradayPriceForecastResult
 
 Inherits from `ModuleResult`. Contains:
 
@@ -133,7 +133,7 @@ execute()
   │   │   ├→ _apply_non_negativity_constraint()
   │   │   ├→ _apply_price_caps()
   │   │   └→ _save_price_forecast()
-  │   └→ Return IntradayPriceForecastOutputDataset
+  │   └→ Return IntradayPriceForecastResult
   ↓
 validates_results() → Check all market areas have forecasts
   ↓

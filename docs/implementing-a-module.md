@@ -79,7 +79,7 @@ class MyModule(
 | `get_parameters_class` | the Parameters class | — |
 | `import_data` | populated `InputDataset` | — |
 | `validate_data` | `True` / `False` | `AssertionError` on `False` |
-| `execute` | populated `OutputDataset` | — |
+| `execute` | populated `ModuleResult` | — |
 | `validates_results` | `True` / `False` | `AssertionError` on `False` |
 | `export_results` | `None` | — |
 
@@ -133,7 +133,7 @@ add computed properties or restrict the interface of a business object.
 
 ---
 
-## Step 3 — OutputDataset
+## Step 3 — Result
 
 Extend `ModuleResult` and implement `build_change_sets()`.
 Change sets tell the orchestrator what was modified so it can propagate results downstream.

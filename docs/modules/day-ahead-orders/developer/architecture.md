@@ -13,7 +13,7 @@ atlas/modules/day_ahead_orders/
 ├── input_dataset.py                     # Input data structure
 ├── main.py                              # Execution entry point
 ├── module.py                            # The module DayAheadOrdersModule (AbstractModule)
-├── result.py                    # Output data structure
+├── result.py                            # DayAheadOrdersResult (builds change sets)
 ├── orchestrator.py                      # Orchestrates the mains steps of the module execution
 ├── parameters.py                        # Module parameters
 └── input_objects/                       # Equipment-specific models
@@ -62,7 +62,7 @@ Pydantic model inheriting from `AbstractModuleParameters`. Defines all configura
 
 Converts business models to day-ahead-orders-specific models
 
-### **`DayAheadOrdersOutputDataset`**
+### **`DayAheadOrdersResult`**
 
 Update dataset with the result of orders formulation: see the lists "orders" and "order_coupling"
 

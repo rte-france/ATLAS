@@ -1,6 +1,6 @@
 # Run a Workflow
 
-A workflow chains multiple modules sequentially — the output dataset of each step becomes the input of the next.
+A workflow chains multiple modules sequentially — the result of each step is applied to the Current Input State, which becomes the input of the next.
 
 ---
 
@@ -132,15 +132,15 @@ This is useful for building workflows dynamically, for example when the list of 
 
 ## Accessing Results
 
-After execution, access the final output dataset:
+After execution, access the result of the last step:
 
 ```python
 workflow.execute()
 
-# Final dataset after all steps
+# Result of the last step
 result = workflow.final_result
 
-# Access results from the final dataset
+# Access values from that result
 for order in result.order.all():
     print(f"{order.name}: {order.accepted_power} MW")
 ```
