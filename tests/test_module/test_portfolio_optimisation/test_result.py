@@ -49,11 +49,24 @@ def _parameters(*, is_portfolio_bidding: bool = True, use_forecast: bool = False
     return parameters
 
 
+#: Temporal variables every solution of the test portfolio holds; thermal state indicators are optional.
+SOLVED_VARIABLES = [
+    "th_power_level",
+    "st_power_level_sell",
+    "st_power_level_buy",
+    "st_stored_energy",
+    "so_power_level",
+    *(f"pf_{size}_imbalance_{direction}" for size in ("small", "large") for direction in ("up", "down")),
+]
+
+
 def _result(
     portfolio: PortfolioPO, solution: dict[str, Timeseries], is_manual_activation: bool = False
 ) -> SinglePortfolioResult:
+    """Build a solved result, every variable of the portfolio not in *solution* being zero."""
+    zeros = {name: _timeseries([0.0] * len(TARGET_TIMES)) for name in SOLVED_VARIABLES}
     return SinglePortfolioResult(
-        portfolio=portfolio, solution_info=None, solution=solution, is_manual_activation=is_manual_activation
+        portfolio=portfolio, solution_info=None, solution=zeros | solution, is_manual_activation=is_manual_activation
     )
 
 

@@ -29,8 +29,8 @@ class SinglePortfolioResult:
     :type portfolio: PortfolioPO
     :param solution_info: Dictionary containing solver status, objective value, and solve time
     :type solution_info: SolutionInfo | None
-    :param solution: Solved values of each temporal variable, keyed by its name, as returned by
-        :meth:`~atlas.solver.solver_interface.OptimisationModel.solution`
+    :param solution: Solved values of each temporal variable over the portfolio time window, keyed
+        by its name (see :meth:`~atlas.solver.solver_interface.OptimisationModel.solution`)
     :type solution: dict[str, Timeseries]
     """
 
@@ -38,27 +38,6 @@ class SinglePortfolioResult:
     solution_info: SolutionInfo | None
     solution: dict[str, Timeseries] = field(default_factory=dict)
     is_manual_activation: bool = False
-
-    def get_timeseries(self, variable: str, window: Timeseries) -> Timeseries:
-        """
-        Get the solved values of a temporal variable, aligned on a target window.
-
-        **Example**
-
-            result.get_timeseries("unit_power_level", window)
-
-        :param variable: Name of the temporal variable
-        :type variable: str
-        :param window: Timeseries whose index the result is aligned on
-        :type window: Timeseries
-        :return: The solved values on the index of *window*, 0.0 where the variable has no solver
-            variable, and everywhere if it does not exist
-        :rtype: Timeseries
-        """
-        values = self.solution.get(variable)
-        if values is None:
-            return Timeseries.from_timeseries(window, default_value=0.0)
-        return values.reindex(window, default=0.0, inplace=False)
 
     @property
     def name(self) -> str:
@@ -106,9 +85,10 @@ def optimise_single_portfolio(
         solution_info = model.solve()
         model.require_solution()
 
+        start, end = min(parameters.portfolio_time_window), max(parameters.portfolio_time_window)
         result = SinglePortfolioResult(
             portfolio=model.portfolio,
-            solution=model.solution(),
+            solution={name: values.slice(start, end, inplace=False) for name, values in model.solution().items()},
             solution_info=solution_info,
             is_manual_activation=False,
         )

@@ -28,28 +28,6 @@ TIMES = [pendulum.datetime(2024, 1, 1), pendulum.datetime(2024, 1, 1, 1)]
 class TestPortfolioOptimisationResult:
     """Test suite for SinglePortfolioResult dataclass."""
 
-    @pytest.fixture
-    def result(self):
-        portfolio = Mock(spec=PortfolioPO)
-        portfolio.name = "test_portfolio"
-        return SinglePortfolioResult(
-            portfolio=portfolio,
-            solution={"var1": Timeseries({"time": TIMES, "value": [10.5, 20.0]})},
-            solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
-        )
-
-    @pytest.fixture
-    def window(self):
-        return Timeseries.from_index(TIMES[0], pendulum.duration(minutes=30), TIMES[1], default_value=0.0)
-
-    def test_get_timeseries_aligns_on_window(self, result, window):
-        """Solved values are kept, window times holding no solver variable read 0.0."""
-        assert result.get_timeseries("var1", window).values == [10.5, 0.0, 20.0]
-
-    def test_get_timeseries_non_existing_variable(self, result, window):
-        """A variable absent from the solution reads 0.0 over the whole window."""
-        assert result.get_timeseries("non_existing", window).values == [0.0, 0.0, 0.0]
-
     def test_name_property(self):
         """Test that name property returns portfolio name."""
         portfolio = Mock(spec=PortfolioPO)
@@ -92,8 +70,8 @@ class TestOptimiseSinglePortfolio:
 
         mock_model = Mock()
         mock_model.portfolio = mock_portfolio
-        solution = {"var1": Timeseries({"time": TIMES, "value": [10.0, 20.0]})}
-        mock_model.solution.return_value = solution
+        mock_model.solution.return_value = {"var1": Timeseries({"time": TIMES, "value": [10.0, 20.0]})}
+        mock_parameters.portfolio_time_window = TIMES[1:]
         mock_model.solve.return_value = SolutionInfo(status=SolverStatus.OPTIMAL)
         mock_model_class.return_value = mock_model
 
@@ -102,7 +80,8 @@ class TestOptimiseSinglePortfolio:
         assert result.name == "test_portfolio"
         assert isinstance(result, SinglePortfolioResult)
         assert result.portfolio == mock_portfolio
-        assert result.solution == solution
+        # the solution is restricted to the portfolio time window
+        assert result.solution["var1"].values == [20.0]
         assert result.solution_info.status == SolverStatus.OPTIMAL
 
         mock_model.set_direction.assert_called_once_with("minimize")

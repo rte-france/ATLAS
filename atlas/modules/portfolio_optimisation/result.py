@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from functools import cached_property
 from typing import TYPE_CHECKING
 
 from atlas.abstract_class.dataset import ModuleResult
@@ -130,7 +129,7 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
         :param optimisation_result: Solved optimisation holding the variable values.
         :type optimisation_result: SinglePortfolioResult
         """
-        schedule = extract_equipment_schedule(equipment, optimisation_result, self._window)
+        schedule = extract_equipment_schedule(equipment, optimisation_result)
 
         if self.parameters.use_forecast:
             equipment.id_po_for_orders = self._upsert_forecast(equipment.id_po_for_orders, schedule.power)
@@ -170,14 +169,12 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
         :type optimisation_result: SinglePortfolioResult
         """
 
-        def imbalance(name: str) -> Timeseries:
-            return optimisation_result.get_timeseries(f"{portfolio.name}_{name}", self._window)
-
+        solution = optimisation_result.solution
         imbalance_ts = (
-            imbalance("large_imbalance_down")
-            + imbalance("small_imbalance_down")
-            - imbalance("large_imbalance_up")
-            - imbalance("small_imbalance_up")
+            solution[f"{portfolio.name}_large_imbalance_down"]
+            + solution[f"{portfolio.name}_small_imbalance_down"]
+            - solution[f"{portfolio.name}_large_imbalance_up"]
+            - solution[f"{portfolio.name}_small_imbalance_up"]
         )
 
         portfolio.imbalance = self._upsert_forecast(portfolio.imbalance, imbalance_ts)
@@ -191,31 +188,17 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
         :param portfolio: Portfolio to update.
         :type portfolio: PortfolioPO
         """
-        power_ts = Timeseries.from_timeseries(self._window, default_value=0.0)
+        start, end = min(self.parameters.portfolio_time_window), max(self.parameters.portfolio_time_window)
+        power_ts = Timeseries.from_index(start, self.parameters.temporal.timestep, end, default_value=0.0)
 
         for _, equipment_list in portfolio.equipments.iter_by_type():
             for equipment in equipment_list:
                 if equipment.power:
                     power_ts = power_ts + equipment.power.get_forecast(
-                        self.parameters.temporal.execution_date,
-                        min(self.parameters.portfolio_time_window),
-                        max(self.parameters.portfolio_time_window),
+                        self.parameters.temporal.execution_date, start, end
                     )
 
         portfolio.power = self._upsert_forecast(portfolio.power, power_ts)
-
-    @cached_property
-    def _window(self) -> Timeseries:
-        """
-        Zero-valued timeseries spanning the target times, on which every result is aligned.
-
-        :return: The timeseries indexed by the portfolio time window.
-        :rtype: Timeseries
-        """
-        window = self.parameters.portfolio_time_window
-        return Timeseries.from_index(
-            start_date=window[0], frequency=self.parameters.temporal.timestep, end_date=window[-1], default_value=0.0
-        )
 
     def _upsert_forecast(
         self, matrix: ForecastingMatrix | LazyForecastingMatrix | None, timeseries: Timeseries

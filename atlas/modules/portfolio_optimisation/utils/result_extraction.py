@@ -14,15 +14,16 @@ the output dataset lets the latter deal only with writing results onto business 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import reduce
 from typing import TYPE_CHECKING
 
 from atlas.enums import ThermalDispatchState
-from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
 from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 
 if TYPE_CHECKING:
+    from atlas.math.timeseries import Timeseries
     from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
     from atlas.modules.portfolio_optimisation.utils.orchestration import SinglePortfolioResult
 
@@ -40,7 +41,7 @@ THERMAL_STATE_VARIABLES: dict[ThermalDispatchState, str] = {
 @dataclass
 class EquipmentSchedule:
     """
-    Optimised schedule of a single equipment over the target window.
+    Optimised schedule of a single equipment over the portfolio time window.
 
     :param power: Power level over the window, in MW.
     :type power: Timeseries
@@ -57,9 +58,7 @@ class EquipmentSchedule:
     state_sequence: Timeseries | None = None
 
 
-def extract_equipment_schedule(
-    equipment: EquipmentPO, optimisation_result: SinglePortfolioResult, window: Timeseries
-) -> EquipmentSchedule:
+def extract_equipment_schedule(equipment: EquipmentPO, optimisation_result: SinglePortfolioResult) -> EquipmentSchedule:
     """
     Read the optimised schedule of an equipment from the solved variables.
 
@@ -71,71 +70,69 @@ def extract_equipment_schedule(
     :type equipment: EquipmentPO
     :param optimisation_result: Solved optimisation holding the variable values.
     :type optimisation_result: SinglePortfolioResult
-    :param window: Timeseries spanning the target times, on which every schedule is aligned.
-    :type window: Timeseries
     :return: The optimised schedule.
     :rtype: EquipmentSchedule
 
     :Example:
 
-    >>> schedule = extract_equipment_schedule(thermal, result, window)  # doctest: +SKIP
+    >>> schedule = extract_equipment_schedule(thermal, result)  # doctest: +SKIP
     >>> schedule.state_sequence.first_value()  # doctest: +SKIP
     6.0
     """
     extractor = _EXTRACTORS.get(type(equipment), _extract_power_only)
-    return extractor(equipment, optimisation_result, window)
+    return extractor(equipment, optimisation_result.solution)
 
 
-def _extract_thermal(
-    equipment: ThermalPO, optimisation_result: SinglePortfolioResult, window: Timeseries
-) -> EquipmentSchedule:
+def _extract_thermal(equipment: ThermalPO, solution: dict[str, Timeseries]) -> EquipmentSchedule:
     """
     Read the power schedule and the operating state sequence of a thermal unit.
 
     The state indicators are binary and mutually exclusive, so the state is the sum of each
     indicator times its :class:`ThermalDispatchState` value; a unit with no indicator set is
-    reported as :attr:`ThermalDispatchState.UNKNOWN` (0).
+    reported as :attr:`ThermalDispatchState.UNKNOWN` (0). Indicators the unit's combination
+    does not use are absent from the solution.
     """
-    state_sequence = Timeseries.from_timeseries(window, default_value=float(ThermalDispatchState.UNKNOWN))
-    for state, prefix in THERMAL_STATE_VARIABLES.items():
-        state_sequence = state_sequence + optimisation_result.get_timeseries(
-            f"{prefix}_{equipment.name}", window
-        ) * float(state)
+    power = solution[f"{equipment.name}_power_level"]
+    state_sequence = sum(
+        (
+            solution[f"{prefix}_{equipment.name}"] * float(state)
+            for state, prefix in THERMAL_STATE_VARIABLES.items()
+            if f"{prefix}_{equipment.name}" in solution
+        ),
+        start=power * float(ThermalDispatchState.UNKNOWN),
+    )
+    return EquipmentSchedule(power=power, state_sequence=state_sequence)
+
+
+def _extract_hydro(equipment: HydroPO, solution: dict[str, Timeseries]) -> EquipmentSchedule:
+    """
+    Read the power schedule, summed over fragments, and the stock trajectory of a hydro unit.
+
+    A fragment too small to bid carries no variable at some timesteps, or none at all, so the
+    fragments are summed on the union of their timesteps.
+    """
+    fragments = [
+        solution[name]
+        for category in equipment.fragment_data
+        if (name := f"{equipment.name}_power_level_frag_{category}") in solution
+    ]
     return EquipmentSchedule(
-        power=optimisation_result.get_timeseries(f"{equipment.name}_power_level", window),
-        state_sequence=state_sequence,
+        power=reduce(lambda total, fragment: total.add_on_union(fragment, inplace=False), fragments),
+        stored_energy=solution[f"{equipment.name}_stored_energy"],
     )
 
 
-def _extract_hydro(
-    equipment: HydroPO, optimisation_result: SinglePortfolioResult, window: Timeseries
-) -> EquipmentSchedule:
-    """Read the power schedule, summed over fragments, and the stock trajectory of a hydro unit."""
-    # Fragments too small to bid carry no variable at some timesteps; they read back as 0.0.
-    power = Timeseries.from_timeseries(window, default_value=0.0)
-    for category in equipment.fragment_data:
-        power = power + optimisation_result.get_timeseries(f"{equipment.name}_power_level_frag_{category}", window)
-    return EquipmentSchedule(
-        power=power, stored_energy=optimisation_result.get_timeseries(f"{equipment.name}_stored_energy", window)
-    )
-
-
-def _extract_storage(
-    equipment: StoragePO, optimisation_result: SinglePortfolioResult, window: Timeseries
-) -> EquipmentSchedule:
+def _extract_storage(equipment: StoragePO, solution: dict[str, Timeseries]) -> EquipmentSchedule:
     """Read the net power schedule (sell plus negative buy) and the stock trajectory of a storage unit."""
     return EquipmentSchedule(
-        power=optimisation_result.get_timeseries(f"{equipment.name}_power_level_sell", window)
-        + optimisation_result.get_timeseries(f"{equipment.name}_power_level_buy", window),
-        stored_energy=optimisation_result.get_timeseries(f"{equipment.name}_stored_energy", window),
+        power=solution[f"{equipment.name}_power_level_sell"] + solution[f"{equipment.name}_power_level_buy"],
+        stored_energy=solution[f"{equipment.name}_stored_energy"],
     )
 
 
-def _extract_power_only(
-    equipment: EquipmentPO, optimisation_result: SinglePortfolioResult, window: Timeseries
-) -> EquipmentSchedule:
+def _extract_power_only(equipment: EquipmentPO, solution: dict[str, Timeseries]) -> EquipmentSchedule:
     """Read the power schedule of an equipment carrying no stock and no operating state."""
-    return EquipmentSchedule(power=optimisation_result.get_timeseries(f"{equipment.name}_power_level", window))
+    return EquipmentSchedule(power=solution[f"{equipment.name}_power_level"])
 
 
 #: Equipment types with a dedicated extractor; anything else falls back to :func:`_extract_power_only`.
