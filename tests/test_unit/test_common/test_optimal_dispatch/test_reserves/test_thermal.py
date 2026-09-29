@@ -114,7 +114,7 @@ def _setup_dispatch(equipment, model, parameters, time_window):
     d = ThermalDispatch(equipment)
     d.setup(model, parameters)
     for t in time_window:
-        d.add_variables(t)
+        d.add_variables([t])
     return d
 
 
@@ -256,7 +256,7 @@ class TestThermalReserveHandlerCapacityConstraints:
         assert len(model.constraints) - before == 4
 
     def test_capacity_constraints_with_stop(self, node, portfolio, power_ts, min_power_ts, model, parameters, time):
-        """Combination 2: unavailable = off + stop_var."""
+        """Combination 2: unavailable = off + stop."""
         eq = _make_equipment(
             node,
             portfolio,
@@ -275,7 +275,7 @@ class TestThermalReserveHandlerCapacityConstraints:
         assert f"automated_reserves_down_max_{time}_{eq.name}" in model.constraints
 
     def test_capacity_constraints_with_start(self, node, portfolio, power_ts, min_power_ts, model, parameters, time):
-        """Combination 4: unavailable = off + on_start_var."""
+        """Combination 4: unavailable = off + on_start."""
         eq = _make_equipment(
             node,
             portfolio,

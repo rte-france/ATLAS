@@ -40,8 +40,8 @@ class ThermalStep(AbstractOptimStep[ThermalPO, "PortfolioOptimisationParameters"
         self._reserves.setup(model)
 
         eq = self.equipment
+        self._dispatch.add_variables(parameters.equipment_time_window(eq))
         for time in parameters.equipment_time_window(eq):
-            self._dispatch.add_variables(time)
             self._reserves.add_variables(
                 time,
                 eq.maximum_power.get_value(time),
@@ -59,7 +59,7 @@ class ThermalStep(AbstractOptimStep[ThermalPO, "PortfolioOptimisationParameters"
             d.add_constraints(model, time, parameters)
             self._reserves.add_fill_up_constraints(
                 time,
-                d.power_level_var.get_value(time),
+                d.power_level[time],
                 eq.maximum_power.get_value(time),
                 eq.minimum_power.get_value(time),
                 parameters.allowed_round_off_error,
@@ -84,7 +84,7 @@ class ThermalStep(AbstractOptimStep[ThermalPO, "PortfolioOptimisationParameters"
         for time in parameters.equipment_time_window(eq):
             price_forecast = price_forecasts.get(time, 0.0)
             variable_cost = eq.variable_cost.get_value(time)
-            power_level_var = self._dispatch.power_level_var.get_value(time)
+            power_level_var = self._dispatch.power_level[time]
             model.add_objective(variable_cost * power_level_var * parameters.temporal.timestep.total_hours())
 
             if time > max(parameters.portfolio_time_window):
@@ -92,5 +92,5 @@ class ThermalStep(AbstractOptimStep[ThermalPO, "PortfolioOptimisationParameters"
 
             if eq.startup_cost is not None:
                 startup_cost = eq.startup_cost.get_value(time)
-                turned_on_var = model.get_variable(f"t_on_{eq.name}_{time}")
+                turned_on_var = self._dispatch.turned_on[time]
                 model.add_objective(startup_cost * turned_on_var)

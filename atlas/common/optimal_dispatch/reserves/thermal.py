@@ -133,9 +133,9 @@ class ThermalReserveHandler(ReserveHandler):
         """
         m = self._require_model()
         d = self._dispatch
-        online_sum = d.on_up_var.get_value(time) + d.on_down_var.get_value(time)
+        online_sum = d.on_up[time] + d.on_down[time]
         if d.has_flat:
-            online_sum = online_sum + d.on_flat_var.get_value(time)
+            online_sum = online_sum + d.on_flat[time]
         m.add_constraint(
             m.get_variable(self.var("relaxed_reserves", time)) <= min_power * (1 - online_sum),
             f"relaxed_reserves_{time}_{self._name}",
@@ -156,11 +156,11 @@ class ThermalReserveHandler(ReserveHandler):
         m = self._require_model()
         d = self._dispatch
 
-        unavailable = d.off_var.get_value(time)
+        unavailable = d.off[time]
         if d.has_start:
-            unavailable = unavailable + d.on_start_var.get_value(time)
+            unavailable = unavailable + d.on_start[time]
         if d.has_stop:
-            unavailable = unavailable + d.stop_var.get_value(time)
+            unavailable = unavailable + d.stop[time]
 
         n = self._name
         aru = m.get_variable(self.var("automated_reserves_up", time))
@@ -170,7 +170,7 @@ class ThermalReserveHandler(ReserveHandler):
 
         res_unavailable = unavailable
         if d.has_flat:
-            res_unavailable = res_unavailable + d.on_up_var.get_value(time) + d.on_down_var.get_value(time)
+            res_unavailable = res_unavailable + d.on_up[time] + d.on_down[time]
 
         ru = m.get_variable(self.var("reserves_up", time))
         rd = m.get_variable(self.var("reserves_down", time))
