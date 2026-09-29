@@ -95,7 +95,7 @@ def optimise_single_portfolio(
             model.export_model(output_path / f"po_{portfolio.name}.lp")
 
         solution_info = model.solve()
-        model.check_solution()
+        model.require_solution()
 
         variable_values = {var_name: model.get_variable_value(var_name) for var_name in model._variables_name}
 

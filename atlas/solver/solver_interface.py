@@ -130,15 +130,15 @@ class OptimisationModel:
     def has_solution(self) -> bool:
         """Whether the model has been solved and holds a readable solution.
 
-        Use it to branch on a failed solve; use :meth:`check_solution` to fail on one.
+        Use it to branch on a failed solve; use :meth:`require_solution` to fail on one.
 
         :return: True if the last solve finished on ``OPTIMAL`` or ``FEASIBLE``
         :rtype: bool
         """
         return self._solution_info is not None and self._solution_info.is_successful
 
-    def check_solution(self) -> SolutionInfo:
-        """Ensure the model holds a solution that can be read back.
+    def require_solution(self) -> None:
+        """Raise if the model does not hold a solution that can be read back.
 
         Every solution accessor calls this first, so that a failed solve surfaces as an error
         instead of OR-Tools' default ``0.0`` values. Call it directly before reading variable
@@ -148,11 +148,9 @@ class OptimisationModel:
         **Example**
 
             model.solve()
-            model.check_solution()
+            model.require_solution()
             value = model.get_variable("x").solution_value()
 
-        :return: The solution info of the last solve
-        :rtype: SolutionInfo
         :raises ModelNotSolvedError: If the model has not been solved yet
         :raises UnsuccessfulSolveError: If the last solve did not produce a solution
         """
@@ -161,8 +159,6 @@ class OptimisationModel:
 
         if not self._solution_info.is_successful:
             raise UnsuccessfulSolveError(self._solution_info.status, self.name)
-
-        return self._solution_info
 
     def add_continuous_variable(
         self,
@@ -314,7 +310,7 @@ class OptimisationModel:
         .. warning::
             This returns the variable object itself, for use in expressions while the model is
             being built, so it cannot check the solve status. To read a solved value, use
-            :meth:`get_variable_value`, or call :meth:`check_solution` first.
+            :meth:`get_variable_value`, or call :meth:`require_solution` first.
         """
         if name not in self._variables_name:
             raise ValueError(f"Variable '{name}' not found")
@@ -483,7 +479,7 @@ class OptimisationModel:
 
         A failed solve is reported through the returned status, not raised, so that callers can
         retry with a relaxed model. Reading the solution afterwards raises: see
-        :meth:`check_solution`.
+        :meth:`require_solution`.
 
         :return: Solution information
         :rtype: SolutionInfo
@@ -545,7 +541,7 @@ class OptimisationModel:
         :raises UnsuccessfulSolveError: If the last solve did not produce a solution
         :raises ValueError: If variable hasn't been added
         """
-        self.check_solution()
+        self.require_solution()
 
         if name not in self._variables_name:
             raise ValueError(f"Variable '{name}' not found in solution")
@@ -564,7 +560,7 @@ class OptimisationModel:
         :raises UnsuccessfulSolveError: If the last solve did not produce a solution
         :raises ValueError: If constraint hasn't been added
         """
-        self.check_solution()
+        self.require_solution()
 
         if name not in self._constraints_name:
             raise ValueError(f"Constraint '{name}' not found in model")

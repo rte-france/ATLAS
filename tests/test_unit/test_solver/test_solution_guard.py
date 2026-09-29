@@ -70,7 +70,7 @@ class TestSolutionInfoIsSuccessful:
 
 
 class TestCheckSolution:
-    """Test suite for OptimisationModel.check_solution and has_solution."""
+    """Test suite for OptimisationModel.require_solution and has_solution."""
 
     def test_has_solution_is_false_before_solving(self):
         model = build_feasible_model()
@@ -89,24 +89,24 @@ class TestCheckSolution:
 
         assert model.has_solution is False
 
-    def test_check_solution_raises_before_solving(self):
+    def test_require_solution_raises_before_solving(self):
         model = build_feasible_model()
 
         with pytest.raises(ModelNotSolvedError, match="has not been solved yet"):
-            model.check_solution()
+            model.require_solution()
 
-    def test_check_solution_returns_the_solution_info(self):
+    def test_require_solution_passes_on_a_successful_solve(self):
         model = build_feasible_model()
-        solution_info = model.solve()
+        model.solve()
 
-        assert model.check_solution() is solution_info
+        model.require_solution()
 
-    def test_check_solution_raises_on_a_failed_solve(self):
+    def test_require_solution_raises_on_a_failed_solve(self):
         model = build_infeasible_model()
         model.solve()
 
         with pytest.raises(UnsuccessfulSolveError) as excinfo:
-            model.check_solution()
+            model.require_solution()
 
         assert excinfo.value.status == SolverStatus.INFEASIBLE
         assert "infeasible_test" in str(excinfo.value)
@@ -117,7 +117,7 @@ class TestCheckSolution:
         model.solve()
 
         with pytest.raises(SolverError):
-            model.check_solution()
+            model.require_solution()
 
     def test_failed_solve_is_logged_as_an_error(self):
         model = build_infeasible_model()
@@ -168,10 +168,6 @@ class TestSolutionAccessorsGuard:
 
         assert variable is not None
         model.add_constraint(variable <= 1, "relaxed")
-
-    def test_accessors_recover_after_a_successful_re_solve(self):
-        model = build_infeasible_model()
-        model.solve()
         model.deactivate_constraint("impossible")
         model.solve()
 
