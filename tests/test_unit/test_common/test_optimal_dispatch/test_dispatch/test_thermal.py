@@ -730,3 +730,36 @@ class TestThermalDispatchDailyEnergyConstraint:
 
         energy_constraints = [c for c in model.constraints if "energy_limit_of" in c]
         assert len(energy_constraints) == 2
+
+
+class TestThermalDispatchFormulationFixes:
+    """Rows and bounds that the day-ahead migration pinned down on the shared dispatch."""
+
+    def _build(self, node, portfolio, power_ts, min_power_ts, parameters, model, **kwargs):
+        eq = _make_equipment(node, portfolio, power_ts, min_power_ts, **REALISTIC_MIN_TIMES, **kwargs)
+        dispatch = ThermalDispatch(eq)
+        dispatch.setup(model, parameters)
+        window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
+        dispatch.add_variables(window)
+        for time in window:
+            dispatch.add_constraints(model, time, parameters)
+            dispatch.add_dd_and_gradient_constraints(model, time, time - parameters.temporal.timestep)
+        return eq, dispatch, window
+
+    def test_ramp_eviction_spans_the_full_ramp(self, node, portfolio, power_ts, min_power_ts, parameters, model):
+        """A unit that stopped at t must have left STOP exactly T_stop steps later."""
+        eq, dispatch, window = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            parameters,
+            model,
+            shutdown_duration=pendulum.duration(hours=2),
+        )
+        time = window[-1]
+        evicted_at = time - dispatch.T_stop * parameters.temporal.timestep
+
+        assert f"eviction_constraint_{time}_{eq.name}" in model.constraints
+        # the evicted turned_off is inside the window, so the row really couples the two
+        assert f"t_off_{eq.name}_{evicted_at}" in model.variables
