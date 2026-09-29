@@ -28,9 +28,8 @@ class HydroDispatch:
     - ``{name}_stored_energy_{time}`` — reservoir energy state per timestep, bounded by
       ``[0, max_energy(time)]``.
     - ``{name}_power_level_frag_{category}_{time}`` — one fragment per piecewise-linear
-      bid segment (defined by ``equipment.fragment_data``), bounded by the segment volume.
-      Only the fragments kept by :func:`bid_volumes` get a variable, so fragments smaller
-      than ``minimal_fragment_size`` are dropped and their volume redistributed.
+      bid segment large enough to offer (see :func:`~atlas.common.optimal_dispatch.marginal_pricing.bid_volumes`),
+      bounded by its (possibly redistributed) volume.
 
     Provides the energy-balance constraint (``stored_energy = previous + inflow − Σ fragments × Δt``),
     which the caller invokes only at the dates when balance applies (e.g. PO portfolio_time_window).
@@ -53,19 +52,12 @@ class HydroDispatch:
         self._eq = equipment
         self._model: OptimisationModel = None  # type: ignore[assignment]
         self.stored_energy_var: ModelVar = None  # type: ignore[assignment]
-        self._minimal_fragment_size = 0.0
+        self._minimal_fragment_size: float = 0.0
 
-    def setup(
-        self, model: OptimisationModel, parameters: AbstractModuleParameters, minimal_fragment_size: float = 0.0
-    ) -> None:
-        """
-        Bind to a solver model and prepare the stored-energy variable handle.
-
-        :param minimal_fragment_size: Smallest fragment volume worth a variable, see :func:`bid_volumes`
-        """
-        del parameters
+    def setup(self, model: OptimisationModel, parameters: AbstractModuleParameters) -> None:
+        """Bind to a solver model and prepare the stored-energy variable handle."""
         self._model = model
-        self._minimal_fragment_size = minimal_fragment_size
+        self._minimal_fragment_size = parameters.hydraulic_minimal_fragment_size  # type: ignore[attr-defined]
         eq = self._eq
         n = eq.name
         self.stored_energy_var = ModelVar(

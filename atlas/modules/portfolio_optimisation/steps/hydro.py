@@ -37,9 +37,7 @@ class HydroStep(AbstractOptimStep[HydroPO, "PortfolioOptimisationParameters"]):
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
-        # Only the fragments large enough to be bid get a variable, so the plan is made of
-        # the fragments the order modules will actually submit.
-        self._dispatch.setup(model, parameters, parameters.hydraulic_minimal_fragment_size)
+        self._dispatch.setup(model, parameters)
         self._reserves.setup(model)
         for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding variables for hydro unit {eq.name} at time {time}")
@@ -88,3 +86,4 @@ class HydroStep(AbstractOptimStep[HydroPO, "PortfolioOptimisationParameters"]):
                     model.add_objective(fragment_price * power_level_frag_var * dt_h)
                 else:
                     model.add_objective(-(price_forecast - fragment_price) * power_level_frag_var * dt_h)
+            cfg.logger.debug(f"Finished adding objective for hydro unit {eq.name} at time {time}")
