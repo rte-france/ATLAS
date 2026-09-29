@@ -169,12 +169,11 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
         :type optimisation_result: SinglePortfolioResult
         """
 
-        solution = optimisation_result.solution
         imbalance_ts = (
-            solution[f"{portfolio.name}_large_imbalance_down"]
-            + solution[f"{portfolio.name}_small_imbalance_down"]
-            - solution[f"{portfolio.name}_large_imbalance_up"]
-            - solution[f"{portfolio.name}_small_imbalance_up"]
+            optimisation_result[f"{portfolio.name}_large_imbalance_down"]
+            + optimisation_result[f"{portfolio.name}_small_imbalance_down"]
+            - optimisation_result[f"{portfolio.name}_large_imbalance_up"]
+            - optimisation_result[f"{portfolio.name}_small_imbalance_up"]
         )
 
         portfolio.imbalance = self._upsert_forecast(portfolio.imbalance, imbalance_ts)

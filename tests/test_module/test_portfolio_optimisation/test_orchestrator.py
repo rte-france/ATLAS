@@ -80,8 +80,9 @@ class TestOptimiseSinglePortfolio:
         assert result.name == "test_portfolio"
         assert isinstance(result, SinglePortfolioResult)
         assert result.portfolio == mock_portfolio
-        # the solution is restricted to the portfolio time window
-        assert result.solution["var1"].values == [20.0]
+        # reading a variable restricts it to the portfolio time window
+        assert result["var1"].values == [20.0]
+        assert result.solution["var1"].values == [10.0, 20.0]
         assert result.solution_info.status == SolverStatus.OPTIMAL
 
         mock_model.set_direction.assert_called_once_with("minimize")

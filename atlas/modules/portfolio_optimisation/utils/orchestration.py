@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import atlas.config as cfg
 from atlas.enums import SolverStatus
@@ -17,6 +18,9 @@ from atlas.modules.portfolio_optimisation.optim import PortfolioOptimisationMode
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.manual_activation import set_manual_activation
 from atlas.solver.models import SolutionInfo, SolverOptions
+
+if TYPE_CHECKING:
+    from pendulum import DateTime
 
 
 @dataclass
@@ -29,15 +33,30 @@ class SinglePortfolioResult:
     :type portfolio: PortfolioPO
     :param solution_info: Dictionary containing solver status, objective value, and solve time
     :type solution_info: SolutionInfo | None
-    :param solution: Solved values of each temporal variable over the portfolio time window, keyed
-        by its name (see :meth:`~atlas.solver.solver_interface.OptimisationModel.solution`)
+    :param solution: Solved values of each temporal variable, keyed by its name
+        (see :meth:`~atlas.solver.solver_interface.OptimisationModel.solution`)
     :type solution: dict[str, Timeseries]
+    :param time_window: First and last time read back from the solution, None to read it whole
+    :type time_window: tuple[DateTime, DateTime] | None
+
+    Reading a variable, ``result["unit_power_level"]``, restricts it to the time window: only
+    the variables actually read back are sliced.
     """
 
     portfolio: PortfolioPO
     solution_info: SolutionInfo | None
     solution: dict[str, Timeseries] = field(default_factory=dict)
+    time_window: tuple[DateTime, DateTime] | None = None
     is_manual_activation: bool = False
+
+    def __getitem__(self, variable: str) -> Timeseries:
+        """Return the solved values of *variable* over the time window."""
+        values = self.solution[variable]
+        return values if self.time_window is None else values.slice(*self.time_window, inplace=False)
+
+    def __contains__(self, variable: str) -> bool:
+        """Tell whether *variable* is part of the solution."""
+        return variable in self.solution
 
     @property
     def name(self) -> str:
@@ -85,10 +104,10 @@ def optimise_single_portfolio(
         solution_info = model.solve()
         model.require_solution()
 
-        start, end = min(parameters.portfolio_time_window), max(parameters.portfolio_time_window)
         result = SinglePortfolioResult(
             portfolio=model.portfolio,
-            solution={name: values.slice(start, end, inplace=False) for name, values in model.solution().items()},
+            solution=model.solution(),
+            time_window=(min(parameters.portfolio_time_window), max(parameters.portfolio_time_window)),
             solution_info=solution_info,
             is_manual_activation=False,
         )

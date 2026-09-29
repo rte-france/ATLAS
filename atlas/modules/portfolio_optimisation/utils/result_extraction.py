@@ -80,10 +80,10 @@ def extract_equipment_schedule(equipment: EquipmentPO, optimisation_result: Sing
     6.0
     """
     extractor = _EXTRACTORS.get(type(equipment), _extract_power_only)
-    return extractor(equipment, optimisation_result.solution)
+    return extractor(equipment, optimisation_result)
 
 
-def _extract_thermal(equipment: ThermalPO, solution: dict[str, Timeseries]) -> EquipmentSchedule:
+def _extract_thermal(equipment: ThermalPO, solution: SinglePortfolioResult) -> EquipmentSchedule:
     """
     Read the power schedule and the operating state sequence of a thermal unit.
 
@@ -104,7 +104,7 @@ def _extract_thermal(equipment: ThermalPO, solution: dict[str, Timeseries]) -> E
     return EquipmentSchedule(power=power, state_sequence=state_sequence)
 
 
-def _extract_hydro(equipment: HydroPO, solution: dict[str, Timeseries]) -> EquipmentSchedule:
+def _extract_hydro(equipment: HydroPO, solution: SinglePortfolioResult) -> EquipmentSchedule:
     """
     Read the power schedule, summed over fragments, and the stock trajectory of a hydro unit.
 
@@ -122,7 +122,7 @@ def _extract_hydro(equipment: HydroPO, solution: dict[str, Timeseries]) -> Equip
     )
 
 
-def _extract_storage(equipment: StoragePO, solution: dict[str, Timeseries]) -> EquipmentSchedule:
+def _extract_storage(equipment: StoragePO, solution: SinglePortfolioResult) -> EquipmentSchedule:
     """Read the net power schedule (sell plus negative buy) and the stock trajectory of a storage unit."""
     return EquipmentSchedule(
         power=solution[f"{equipment.name}_power_level_sell"] + solution[f"{equipment.name}_power_level_buy"],
@@ -130,7 +130,7 @@ def _extract_storage(equipment: StoragePO, solution: dict[str, Timeseries]) -> E
     )
 
 
-def _extract_power_only(equipment: EquipmentPO, solution: dict[str, Timeseries]) -> EquipmentSchedule:
+def _extract_power_only(equipment: EquipmentPO, solution: SinglePortfolioResult) -> EquipmentSchedule:
     """Read the power schedule of an equipment carrying no stock and no operating state."""
     return EquipmentSchedule(power=solution[f"{equipment.name}_power_level"])
 
