@@ -41,15 +41,13 @@ class StoragePOStep(AbstractOptimStep[StoragePO, "PortfolioOptimisationParameter
 
         self._dispatch.setup(model, parameters, nbr_fragment)
         self._reserves.setup(model)
+        self._dispatch.add_variables(parameters.equipment_time_window(eq))
 
         for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding variables for storage unit {eq.name} at time {time}")
             max_power = eq.maximum_power.get_value(time)
             min_power = eq.minimum_power.get_value(time)
-
-            self._dispatch.add_variables(time)
             self._reserves.add_variables(time, max_power, min_power)
-            self._dispatch.add_fragment_variables(time, max_power, min_power)
 
     def add_constraints(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
@@ -70,14 +68,14 @@ class StoragePOStep(AbstractOptimStep[StoragePO, "PortfolioOptimisationParameter
 
             self._reserves.add_fill_up_constraints(
                 time,
-                self._dispatch.power_level_sell_var.get_value(time),
-                self._dispatch.power_level_buy_var.get_value(time),
+                self._dispatch.power_level_sell[time],
+                self._dispatch.power_level_buy[time],
                 self._dispatch.effective_max_sell(time),
                 self._dispatch.effective_min_buy(time),
             )
             self._reserves.add_capacity_constraints(
                 time,
-                self._dispatch.stored_energy_var.get_value(time),
+                self._dispatch.stored_energy[time],
                 max_energy,
                 min_soc,
                 parameters.battery_reserve_duration.total_hours(),
@@ -87,8 +85,8 @@ class StoragePOStep(AbstractOptimStep[StoragePO, "PortfolioOptimisationParameter
             if time not in parameters.portfolio_time_window:
                 self._dispatch.add_fragment_sum_constraints(
                     time,
-                    self._dispatch.power_level_sell_var.get_value(time),
-                    self._dispatch.power_level_buy_var.get_value(time),
+                    self._dispatch.power_level_sell[time],
+                    self._dispatch.power_level_buy[time],
                 )
 
         self._dispatch.add_cycle_balance_constraint(model, window, parameters)
@@ -106,8 +104,8 @@ class StoragePOStep(AbstractOptimStep[StoragePO, "PortfolioOptimisationParameter
         for time in parameters.equipment_time_window(eq):
             cfg.logger.debug(f"Adding objective for storage unit {eq.name} at time {time}")
             price_forecast = price_forecasts.get(time, 0.0)
-            power_level_sell_var = self._dispatch.power_level_sell_var.get_value(time)
-            power_level_buy_var = self._dispatch.power_level_buy_var.get_value(time)
+            power_level_sell_var = self._dispatch.power_level_sell[time]
+            power_level_buy_var = self._dispatch.power_level_buy[time]
             model.add_objective(
                 -price_forecast
                 * (power_level_buy_var + power_level_sell_var)
@@ -119,8 +117,8 @@ class StoragePOStep(AbstractOptimStep[StoragePO, "PortfolioOptimisationParameter
                 nb_fragment = parameters.storage_mapping[eq.storage_type]["nb_fragment"]
 
                 for n in range(nb_fragment):
-                    sell_n = self._dispatch.get_fragment_sell_var(time, n)
-                    buy_n = self._dispatch.get_fragment_buy_var(time, n)
+                    sell_n = self._dispatch.power_level_sell_n[n][time]
+                    buy_n = self._dispatch.power_level_buy_n[n][time]
 
                     if nb_fragment == 1 and n == 0:
                         model.add_objective(-(sell_n + buy_n) * price_forecast)
