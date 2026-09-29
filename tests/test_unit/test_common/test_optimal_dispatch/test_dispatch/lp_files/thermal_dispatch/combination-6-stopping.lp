@@ -2,10 +2,10 @@
 \   Name             : 
 \   Format           : Free
 \   Constraints      : 324
-\   Variables        : 103
+\   Variables        : 96
 \     Binary         : 66
 \     Integer        : 0
-\     Continuous     : 37
+\     Continuous     : 30
 Minimize
  Obj: +1 th_power_level_2024_01_01_00_00_00_00_00 +1 th_power_level_2024_01_01_01_00_00_00_00 +1 th_power_level_2024_01_01_02_00_00_00_00 +1 th_power_level_2024_01_01_03_00_00_00_00 +1 th_power_level_2024_01_01_04_00_00_00_00 +1 th_power_level_2024_01_01_05_00_00_00_00 
 Subject to

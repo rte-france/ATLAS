@@ -339,7 +339,9 @@ class ThermalDispatch:
             variables.append(self.down_to_stop_grad)
         if self._has_stop and self._has_flat:
             variables.append(self.flat_down_stop)
-        if self._has_flat and (self._has_start or self._has_stop):
+        # dd_grad only appears in the gradient constraints of a unit that has both a stable
+        # phase and a shutdown ramp — creating it otherwise leaves a variable no row mentions
+        if self._has_flat and self._has_stop:
             variables.append(self.dd_grad)
         variables.append(self.power_level)
         return variables
@@ -354,7 +356,7 @@ class ThermalDispatch:
             self.stable.add(prev)
             self.entered_up.add(prev)
             self.entered_down.add(prev)
-        if self._T_stable >= 1 and (self._T_start >= 1 or self._T_stop >= 1):
+        if self._T_stable >= 1 and self._T_stop >= 1:
             self.dd_grad.add(prev)
 
     # ── Initial conditions ────────────────────────────────────────────────
