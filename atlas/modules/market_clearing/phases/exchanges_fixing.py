@@ -253,5 +253,5 @@ class ExchangesFixing:
         for time in self.input_dataset.times:
             for border_name in self.input_dataset.market_borders.keys():
                 border_exchange_name = constants.border_exchange_variable_name(border_name, time)
-                border_exchanges[border_name, time] = self.model.get_variable(border_exchange_name).solution_value()
+                border_exchanges[border_name, time] = self.model.get_variable_value(border_exchange_name)
         return border_exchanges

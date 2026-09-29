@@ -25,6 +25,11 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Solver interface
+
+- 🐛 Reading a solution from a model whose solve did not succeed now raises `UnsuccessfulSolveError` instead of returning OR-Tools' default `0.0` for every variable. A failed solve is also logged as an error rather than an info.
+- 🐛 Market clearing pricing now fails when none of its three attempts finds a solution, instead of reporting zero prices.
+- 
 ### Breaking changes
 
 The word `output` named at least six unrelated concepts. One word now stands for one concept: `run_dir` for the per-execution root directory, `export` for booleans, `result` for what a module returns, `columns` for Antares column-name configuration.
