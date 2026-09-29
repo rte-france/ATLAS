@@ -29,8 +29,8 @@ class TestWorkflowAddStep:
         params = WorkflowParameters.from_file(conf)
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
-        wf._steps = []
-        wf._resolved_parameters = []
+        wf._resolved_steps = []
+        wf._raw_steps = []
         return wf
 
     @pytest.fixture(autouse=True)
