@@ -142,7 +142,7 @@ class TestOtherTechnologiesLPComparison:
                 output_dir=compare_dir,
                 pb1_name="Reference",
                 pb2_name="Generated",
-                tolerance=1,
+                tolerance=1e-9,
                 normalize_names=True,
                 keep_identical=False,
             )
