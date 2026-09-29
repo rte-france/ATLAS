@@ -88,13 +88,12 @@ class ThermalDispatch:
     #: State changes the machine forbids, per ``(has_stop, has_start, has_flat)``. Each
     #: ``(from, to)`` pair becomes ``from(t-1) + to(t) <= 1``.
     #:
-    #: Two rules generate the whole table. A ramp cannot be skipped: a unit with a shutdown
-    #: ramp has to pass through STOP to reach OFF and cannot leave STOP for an ON state,
-    #: and symmetrically for START. And the power cannot reverse in one step: ON_UP → ON_DOWN
-    #: and back are barred whenever the plateau exists to sit between them.
+    #: Two rules generate it: a ramp cannot be skipped (STOP is the only way to OFF, START
+    #: the only way in), and the power cannot reverse in one step once a plateau exists to
+    #: sit between ON_UP and ON_DOWN.
     #:
-    #: The constraint's number is its position in the tuple, so **the order is part of the
-    #: LP names** — append, never insert.
+    #: A ban's number is its position, so **the order is part of the LP names** — append,
+    #: never insert.
     _BANNED_TRANSITIONS: ClassVar[dict[tuple[bool, bool, bool], tuple[tuple[str, str], ...]]] = {
         # 1 — no ramp, no plateau: the unit is free, nothing to forbid
         (False, False, False): (),
@@ -413,9 +412,13 @@ class ThermalDispatch:
         else:
             self._T_stable = 0
 
-        max_grad = getattr(eq, "maximum_gradient", 0.0) or 0.0
-        self._Delta_Q = max_grad * ts.total_minutes()
-
+        # 0 (or None) means the unit has no gradient limit — see Equipment.maximum_gradient
+        self._Delta_Q = (eq.maximum_gradient or 0.0) * ts.total_minutes()
+        # Widest power swing the unit can make. It bounds the gradient auxiliaries and the
+        # products they linearise, and stands in as the free ramp of a unit with no
+        # gradient limit. Taken over the whole series rather than the delivery window, so
+        # that it covers every swing the model can express — including the lookahead hours
+        # a module adds past end_date.
         self._maximum_power_swing = eq.maximum_power.max()
 
         self._has_stop = self._T_stop >= 1
@@ -485,9 +488,8 @@ class ThermalDispatch:
                 self.aux_down_grad,
             ]
 
-        # Entering the shutdown ramp. With a plateau the unit comes from ON_FLAT via
-        # ON_DOWN and needs the three-term marker; without one it comes straight from
-        # ON_DOWN, and dd_grad has no row to appear in.
+        # Entering the shutdown ramp: from ON_FLAT via ON_DOWN with a plateau, which needs
+        # the three-term marker, straight from ON_DOWN without, where dd_grad has no row.
         if self._has_stop and not self._has_flat:
             variables.append(self.down_to_stop_grad)
         if self._has_stop and self._has_flat:
@@ -609,8 +611,6 @@ class ThermalDispatch:
         if self._has_flat:
             self._init_stable_times(parameters, ic)
             self._init_gradient_initial_conditions(parameters)
-            if self._has_stop:
-                self._init_flat_down_stop(parameters, ic)
 
     def _init_one_time(
         self,
@@ -619,6 +619,25 @@ class ThermalDispatch:
         time: DateTime,
         power_ts: Timeseries,
     ) -> None:
+        """
+        Pin the unit's state one step before the window, from its past dispatch.
+
+        Everything set here is a value fixed on the temporal variables. The measured power selects
+        one of three regimes, in the order the branches below take them: at or above
+        ``minimum_power`` the unit was in an ON state; producing below it, it was on a ramp;
+        zero, it was off. A unit without ramps has no middle regime.
+
+        Both ON states are set for a running unit: these are constants, so mutual exclusion
+        does not apply, and setting one alone would one-side the first gradient row.
+
+        :param parameters: Module parameters
+        :param extended_start_date: First timestep fixed before the window
+        :type extended_start_date: DateTime
+        :param time: Timestep to initialise
+        :type time: DateTime
+        :param power_ts: Past dispatch of the unit
+        :type power_ts: Timeseries
+        """
         ts = parameters.temporal.timestep
         if time in power_ts:
             power_t = power_ts.get_value(time)
@@ -762,30 +781,6 @@ class ThermalDispatch:
                 if self._staged(self.on_down, time) - self._staged(self.on_down, prev_time) == 1:
                     self._stage(self.entered_down, time, 1)
 
-    def _init_flat_down_stop(self, parameters: AbstractModuleParameters, ic: ThermalInitialConditions) -> None:
-        ts = parameters.temporal.timestep
-        start_date = parameters.temporal.start_date
-        for idx, time in enumerate(ic.stable_initial_times):
-            if idx >= 2:
-                self._set_flat_down_stop(time, time - ts, time - 2 * ts)
-        self._set_flat_down_stop(
-            start_date - ts,
-            start_date - 2 * ts,
-            start_date - 3 * ts,
-        )
-
-    def _set_flat_down_stop(self, time: DateTime, time_minus_one: DateTime, time_minus_two: DateTime) -> None:
-        self._stage(
-            self.flat_down_stop,
-            time,
-            (
-                self._staged(self.stop, time)
-                + self._staged(self.on_down, time_minus_one)
-                + self._staged(self.on_flat, time_minus_two)
-            )
-            / 3,
-        )
-
     def _init_gradient_initial_conditions(self, parameters: AbstractModuleParameters) -> None:
         temporal = parameters.temporal
         t_minus_one = temporal.start_date - temporal.timestep
@@ -876,6 +871,7 @@ class ThermalDispatch:
         on_down_prev = self.on_down[prev_time]
         flat_prev2 = self.on_flat[prev_time - ts]  # type: ignore[operator]
         n = self._eq.name
+        # naming only
         prefix = "flat_down_stop_evol" if not self._has_start else "flat_down_stop"
         model.add_constraint(fds <= stop, f"{prefix}_1_{time}_{n}")
         model.add_constraint(fds <= on_down_prev, f"{prefix}_2_{time}_{n}")
@@ -901,8 +897,8 @@ class ThermalDispatch:
         """
         Define the up/down gradient auxiliaries at *time*.
 
-        Each one holds the power step ``dq`` when the unit is in the matching ON state and
-        zero otherwise. A product of a variable by a state cannot be written directly, so
+        Each one holds the power step when the unit is in the matching ON state and zero
+        otherwise. A product of a variable by a state cannot be written directly, so
         it is expressed as four inequalities that are slack when the state is off and tight
         when it is on. ``swing`` is what makes them slack, so it has to be at least as
         large as any power step the unit can take, or the rows would forbid real dispatches.
@@ -911,33 +907,33 @@ class ThermalDispatch:
         swing = self._maximum_power_swing
         power = self.power_level[time]
         power_prev = self.power_level[prev_time]
-        dq = power - power_prev
+        power_step = power - power_prev
 
         on_up_prev = self.on_up[prev_time]
         on_down_prev = self.on_down[prev_time]
         on_up = self.on_up[time]
         on_down = self.on_down[time]
-        aux_u = self.aux_up_grad[time]
-        aux_d = self.aux_down_grad[time]
-        u = self.up_grad[time]
-        d = self.down_grad[time]
+        aux_up = self.aux_up_grad[time]
+        aux_down = self.aux_down_grad[time]
+        up_grad = self.up_grad[time]
+        down_grad = self.down_grad[time]
 
-        model.add_constraint(aux_u <= swing * on_up_prev, f"tilde_U_evol_1_{time}_{n}")
-        model.add_constraint(aux_u >= -swing * on_up_prev, f"tilde_U_evol_2_{time}_{n}")
-        model.add_constraint(aux_u <= dq + swing * (1 - on_up_prev), f"tilde_U_evol_3_{time}_{n}")
-        model.add_constraint(aux_u >= dq - swing * (1 - on_up_prev), f"tilde_U_evol_4_{time}_{n}")
-        model.add_constraint(aux_d <= swing * on_down_prev, f"tilde_D_evol_1_{time}_{n}")
-        model.add_constraint(aux_d >= -swing * on_down_prev, f"tilde_D_evol_2_{time}_{n}")
-        model.add_constraint(aux_d <= dq + swing * (1 - on_down_prev), f"tilde_D_evol_3_{time}_{n}")
-        model.add_constraint(aux_d >= dq - swing * (1 - on_down_prev), f"tilde_D_evol_4_{time}_{n}")
-        model.add_constraint(u <= swing * on_up, f"U_evol_1_{time}_{n}")
-        model.add_constraint(u >= -swing * on_up, f"U_evol_2_{time}_{n}")
-        model.add_constraint(u <= aux_u + swing * (1 - on_up), f"U_evol_3_{time}_{n}")
-        model.add_constraint(u >= aux_u - swing * (1 - on_up), f"U_evol_4_{time}_{n}")
-        model.add_constraint(d <= swing * on_down, f"D_evol_1_{time}_{n}")
-        model.add_constraint(d >= -swing * on_down, f"D_evol_2_{time}_{n}")
-        model.add_constraint(d <= aux_d + swing * (1 - on_down), f"D_evol_3_{time}_{n}")
-        model.add_constraint(d >= aux_d - swing * (1 - on_down), f"D_evol_4_{time}_{n}")
+        model.add_constraint(aux_up <= swing * on_up_prev, f"tilde_U_evol_1_{time}_{n}")
+        model.add_constraint(aux_up >= -swing * on_up_prev, f"tilde_U_evol_2_{time}_{n}")
+        model.add_constraint(aux_up <= power_step + swing * (1 - on_up_prev), f"tilde_U_evol_3_{time}_{n}")
+        model.add_constraint(aux_up >= power_step - swing * (1 - on_up_prev), f"tilde_U_evol_4_{time}_{n}")
+        model.add_constraint(aux_down <= swing * on_down_prev, f"tilde_D_evol_1_{time}_{n}")
+        model.add_constraint(aux_down >= -swing * on_down_prev, f"tilde_D_evol_2_{time}_{n}")
+        model.add_constraint(aux_down <= power_step + swing * (1 - on_down_prev), f"tilde_D_evol_3_{time}_{n}")
+        model.add_constraint(aux_down >= power_step - swing * (1 - on_down_prev), f"tilde_D_evol_4_{time}_{n}")
+        model.add_constraint(up_grad <= swing * on_up, f"U_evol_1_{time}_{n}")
+        model.add_constraint(up_grad >= -swing * on_up, f"U_evol_2_{time}_{n}")
+        model.add_constraint(up_grad <= aux_up + swing * (1 - on_up), f"U_evol_3_{time}_{n}")
+        model.add_constraint(up_grad >= aux_up - swing * (1 - on_up), f"U_evol_4_{time}_{n}")
+        model.add_constraint(down_grad <= swing * on_down, f"D_evol_1_{time}_{n}")
+        model.add_constraint(down_grad >= -swing * on_down, f"D_evol_2_{time}_{n}")
+        model.add_constraint(down_grad <= aux_down + swing * (1 - on_down), f"D_evol_3_{time}_{n}")
+        model.add_constraint(down_grad >= aux_down - swing * (1 - on_down), f"D_evol_4_{time}_{n}")
 
     def _add_down_to_stop_evol(self, model: OptimisationModel, time: DateTime, prev_time: DateTime) -> None:
         """
@@ -1037,10 +1033,9 @@ class ThermalDispatch:
             expr_prev = expr_prev + self.on_start[prev_time]
         model.add_constraint(expr_prev == 1, f"mutual_exclusion_{prev_time}_{n}")
 
-        # Part of _BANNED_TRANSITIONS, applied one step earlier: the power reversals, and
-        # the bans out of STOP once that state exists. The rest are not re-emitted here.
-        # Each keeps the number it has inside the window, so it is looked up rather than
-        # counted — that is where the run 3,4,5 (or 5,6,7 without a startup ramp) comes from.
+        # Part of _BANNED_TRANSITIONS one step earlier: the power reversals plus the bans
+        # out of STOP. The rest are not re-emitted. Each keeps the number it has inside the
+        # window, hence the lookup rather than a count.
         states = self._state_vars()
         bans = self._BANNED_TRANSITIONS[self._has_stop, self._has_start, self._has_flat]
         boundary_bans = [("on_up", "on_down"), ("on_down", "on_up")]
@@ -1074,10 +1069,20 @@ class ThermalDispatch:
     def _add_eviction_constraints(
         self, model: OptimisationModel, time: DateTime, parameters: AbstractModuleParameters
     ) -> None:
+        """
+        Forbid re-entering a ramp before the previous one has run its course.
+
+        The ramp lasts exactly ``T_stop`` (resp. ``T_start``) steps counting the one the
+        unit turned off (resp. on) on. The anchor can land before the window, where
+        ``turned_off`` is a constant and the row degenerates to ``stop(t) <= 1``.
+
+        :param model: The optimisation model
+        :param time: Current timestep
+        :type time: DateTime
+        :param parameters: Module parameters
+        """
         n = self._eq.name
         ts = parameters.temporal.timestep
-        # the ramp lasts exactly T_stop (resp. T_start) steps counting the one the unit
-        # turned off (resp. on) on, so it must have left the ramp state that many steps later
         if self._has_stop:
             stop = self.stop[time]
             evict_stop = time - self._T_stop * ts
@@ -1097,16 +1102,16 @@ class ThermalDispatch:
         n = self._eq.name
         ts = parameters.temporal.timestep
         start_date = parameters.temporal.start_date
-        has_start_offset = self._T_start if self._has_start else 0
-        has_stop_offset = self._T_stop if self._has_stop else 0
+        start_offset = self._T_start if self._has_start else 0
+        stop_offset = self._T_stop if self._has_stop else 0
 
         on_expr = self.on_up[time] + self.on_down[time]
         if self._has_flat:
             on_expr = on_expr + self.on_flat[time]
 
         if self._T_on >= 2:
-            for s in range(1, self._T_on):
-                local_time = time - (s + has_start_offset) * ts
+            for steps_back in range(1, self._T_on):
+                local_time = time - (steps_back + start_offset) * ts
                 model.add_constraint(
                     self.turned_on[local_time] <= on_expr,
                     f"minimum_time_on_{n}_{local_time}_{time}",
@@ -1116,16 +1121,16 @@ class ThermalDispatch:
             if self._has_flat and time == start_date:
                 prev_time = time - ts
                 on_expr_prev = self.on_up[prev_time] + self.on_down[prev_time] + self.on_flat[prev_time]
-                for s in range(1, self._T_on):
-                    local_time = time - (s + has_start_offset + 1) * ts
+                for steps_back in range(1, self._T_on):
+                    local_time = time - (steps_back + start_offset + 1) * ts
                     model.add_constraint(
                         self.turned_on[local_time] <= on_expr_prev,
                         f"minimum_time_on_{n}_{local_time}_{prev_time}",
                     )
 
         if self._T_off >= 2:
-            for s in range(1, self._T_off):
-                local_time = time - (s + has_stop_offset) * ts
+            for steps_back in range(1, self._T_off):
+                local_time = time - (steps_back + stop_offset) * ts
                 model.add_constraint(
                     self.turned_off[local_time] <= self.off[time],
                     f"minimum_time_off_{n}_{local_time}_{time}",
@@ -1133,8 +1138,8 @@ class ThermalDispatch:
 
         if self._has_flat and self._T_stable >= 2:
             on_flat = self.on_flat[time]
-            for s in range(1, self._T_stable - 1):
-                local_time = time - s * ts
+            for steps_back in range(1, self._T_stable - 1):
+                local_time = time - steps_back * ts
                 model.add_constraint(
                     self.stable[local_time] <= on_flat,
                     f"minimum_time_stable_{n}_{local_time}_{time}",
@@ -1144,10 +1149,10 @@ class ThermalDispatch:
                 on_flat_prev = self.on_flat[prev_time]
                 # suffix with prev_time, never `time`: this loop shifts local_time one step
                 # further back than the loop above, so reusing `time` collides with the name
-                # it already emitted for s + 1. prev_time sits before the window, so it can
+                # it already emitted for steps_back + 1. prev_time sits before the window, so it can
                 # never clash with a suffix produced at another timestep.
-                for s in range(1, self._T_stable - 1):
-                    local_time = time - (s + 1) * ts
+                for steps_back in range(1, self._T_stable - 1):
+                    local_time = time - (steps_back + 1) * ts
                     model.add_constraint(
                         self.stable[local_time] <= on_flat_prev,
                         f"minimum_time_stable_{n}_{local_time}_{prev_time}",
@@ -1155,8 +1160,8 @@ class ThermalDispatch:
 
         if self._has_stop and self._T_stop >= 2:
             stop = self.stop[time]
-            for s in range(1, self._T_stop - 1):
-                local_time = time - s * ts
+            for steps_back in range(1, self._T_stop - 1):
+                local_time = time - steps_back * ts
                 model.add_constraint(
                     self.turned_off[local_time] <= stop,
                     f"shutdown_ramp_{n}_{local_time}_{time}",
@@ -1164,9 +1169,10 @@ class ThermalDispatch:
 
         if self._has_start and self._T_start >= 2:
             start = self.on_start[time]
+            # naming only; the stray underscore is in the LP references
             prefix = "startup_ramp" if not self._has_flat else "start_up_ramp"
-            for s in range(1, self._T_start - 1):
-                local_time = time - s * ts
+            for steps_back in range(1, self._T_start - 1):
+                local_time = time - steps_back * ts
                 model.add_constraint(
                     self.turned_on[local_time] <= start,
                     f"{prefix}_{n}_{local_time}_{time}",
@@ -1213,14 +1219,29 @@ class ThermalDispatch:
         model.add_constraint(dd_prev >= d_prev - swing * (1 - stop), f"DD_evol_4_{time}_{n}")
 
     def _add_gradient_constraints(self, model: OptimisationModel, time: DateTime, prev_time: DateTime) -> None:
+        """
+        Bound the power step: ``down_bound <= p(t) - p(t-1) <= up_bound``.
+
+        Both bounds start from the unit's gradient limit and are widened, term by term, by
+        each event that legitimately lets the unit move further on this step: holding an ON
+        state, firing a ramp increment, or leaving ON_DOWN for the shutdown ramp. With no
+        gradient limit there is nothing to enforce and ``swing`` stands in — hence the
+        ``unconstrained_*`` naming.
+
+        :param model: The optimisation model
+        :param time: Current timestep
+        :type time: DateTime
+        :param prev_time: Previous timestep
+        :type prev_time: DateTime
+        """
         n = self._eq.name
         delta_q = self._Delta_Q
         swing = self._maximum_power_swing
-        dq = delta_q if delta_q > 0 else swing
+        ramp_allowance = delta_q if delta_q > 0 else swing
 
         p = self.power_level[time]
         p_prev = self.power_level[prev_time]
-        diff = p - p_prev
+        power_step = p - p_prev
 
         ton = self.turned_on[time]
         toff = self.turned_off[time]
@@ -1230,13 +1251,13 @@ class ThermalDispatch:
             entered_down_prev = self.entered_down[prev_time]
             u_prev = self.up_grad[prev_time]
             d_prev = self.down_grad[prev_time]
-            up_base = dq * entered_up_prev + u_prev + d_prev
-            down_base = -dq * entered_down_prev + u_prev + d_prev
+            up_bound = ramp_allowance * entered_up_prev + u_prev + d_prev
+            down_bound = -ramp_allowance * entered_down_prev + u_prev + d_prev
         else:
             on_up_prev = self.on_up[prev_time]
             on_down_prev = self.on_down[prev_time]
-            up_base = dq * on_up_prev
-            down_base = -dq * on_down_prev
+            up_bound = ramp_allowance * on_up_prev
+            down_bound = -ramp_allowance * on_down_prev
 
         q_min = self._eq.minimum_power.max()
 
@@ -1244,31 +1265,32 @@ class ThermalDispatch:
             q_step_up = q_min / self._T_start
             start_prev = self.on_start[prev_time]
             startup_contrib = q_step_up * ton + start_prev * q_step_up
-            up_base = up_base + startup_contrib
-            down_base = down_base + startup_contrib
+            up_bound = up_bound + startup_contrib
+            down_bound = down_bound + startup_contrib
         else:
-            up_base = up_base + swing * ton
+            up_bound = up_bound + swing * ton
 
         if self._has_stop:
             q_step_down = q_min / self._T_stop
             stop_prev = self.stop[prev_time]
             shutdown_contrib = -toff * q_step_down - stop_prev * q_step_down
-            up_base = up_base + shutdown_contrib
-            down_base = down_base + shutdown_contrib
+            up_bound = up_bound + shutdown_contrib
+            down_bound = down_bound + shutdown_contrib
             if self._has_flat:
                 fds = self.flat_down_stop[time]
                 dd_prev = self.dd_grad[prev_time]
-                down_base = down_base + fds * dq - dd_prev
-                up_base = up_base - dd_prev
+                down_bound = down_bound + fds * ramp_allowance - dd_prev
+                up_bound = up_bound - dd_prev
             else:
                 down_to_stop = self.down_to_stop_grad[time]
-                down_base = down_base + down_to_stop * dq
+                down_bound = down_bound + down_to_stop * ramp_allowance
         else:
-            down_base = down_base - swing * toff
+            down_bound = down_bound - swing * toff
 
-        prefix = "upward_gradient" if delta_q > 0 else "unconstrained_upward_gradient"
-        suffix = "downward_gradient" if delta_q > 0 else "unconstrained_downward_gradient"
+        up_prefix = "upward_gradient" if delta_q > 0 else "unconstrained_upward_gradient"
+        down_prefix = "downward_gradient" if delta_q > 0 else "unconstrained_downward_gradient"
 
+        # naming only: two configurations down_prefix the row with the previous timestep
         if not self._has_stop and not self._has_start and not self._has_flat:
             grad_time = prev_time
         elif self._has_start and not self._has_stop and not self._has_flat and delta_q == 0:
@@ -1276,5 +1298,5 @@ class ThermalDispatch:
         else:
             grad_time = time
 
-        model.add_constraint(diff <= up_base, f"{prefix}_{n}_{grad_time}")
-        model.add_constraint(diff >= down_base, f"{suffix}_{n}_{grad_time}")
+        model.add_constraint(power_step <= up_bound, f"{up_prefix}_{n}_{grad_time}")
+        model.add_constraint(power_step >= down_bound, f"{down_prefix}_{n}_{grad_time}")
