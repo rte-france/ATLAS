@@ -8,18 +8,17 @@ from __future__ import annotations
 
 import math
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pendulum import DateTime, Duration
 
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.common.optimal_dispatch.dispatch.thermal_initial_conditions import ThermalInitialConditions
 from atlas.enums import VariableType
-from atlas.math.timeseries import Timeseries
 from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Mapping
 
     from atlas.common.optimal_dispatch.input_objects.thermal import ThermalDispatchInput
     from atlas.solver.temporal_variable import TemporalVariable
@@ -81,8 +80,9 @@ class ThermalDispatch:
         self.aux_down_grad: TemporalVariable = None  # type: ignore[assignment]
         self.dd_grad: TemporalVariable = None  # type: ignore[assignment]
 
-        # Initial conditions staged before being fixed — see _add_initial_conditions()
-        self._initial: dict[TemporalVariable, dict[DateTime, float]] = {}
+        # Variables created at each timestep of the window — see _declare_variables()
+        self._window_variables: list[TemporalVariable] = []
+        self._timestep: Duration = None  # type: ignore[assignment]
 
     # ── Public API ────────────────────────────────────────────────────────
 
@@ -122,9 +122,13 @@ class ThermalDispatch:
             ``temporal.start_date``, ``temporal.end_date``, ``temporal.execution_date``
         """
         self._compute_time_parameters(parameters)
-        self._declare_variables(model)
-        self._add_initial_variables(parameters)
-        self._add_initial_conditions(parameters)
+        ic = self._build_initial_conditions(parameters)
+        self._declare_variables(model, ic)
+        for variable, values in self._initial_values(ic).items():
+            for time, value in values.items():
+                variable.fix(time, value)
+        if self._has_flat and not ic.day_zero:
+            self._add_initial_gradient_constraints(model, ic)
 
     def add_variables(self, times: Iterable[DateTime]) -> None:
         """
@@ -136,7 +140,7 @@ class ThermalDispatch:
         :type times: Iterable[DateTime]
         """
         times = list(times)
-        for variable in self._window_variables():
+        for variable in self._window_variables:
             variable.add_all(times)
 
     def add_constraints(self, model: OptimisationModel, time: DateTime, parameters: AbstractModuleParameters) -> None:
@@ -234,6 +238,7 @@ class ThermalDispatch:
         eq = self._eq
         temporal = parameters.temporal
         ts = temporal.timestep
+        self._timestep = ts
 
         self._T_on = (
             int(max(1, math.ceil(eq.minimum_time_on / ts))) + 1
@@ -287,109 +292,51 @@ class ThermalDispatch:
         else:
             return 8
 
-    def _declare_variables(self, model: OptimisationModel) -> None:
+    def _declare_variables(self, model: OptimisationModel, ic: ThermalInitialConditions) -> None:
+        """
+        Declare every temporal variable of the unit.
+
+        Each family records whether the combination uses it over the window, and whether it is
+        also a solver variable at the timestep preceding the horizon (the states the flat phase
+        must link across the start date); anywhere else before the horizon, it is fixed.
+        """
         eq = self._eq
         n = eq.name
+        flat, start, stop = self._has_flat, self._has_start, self._has_stop
+        prev = ic.initial_times[-1]
+        self._window_variables = []
 
-        def boolean(name: str) -> TemporalVariable:
-            return model.add_temporal_variable(name, variable_type=VariableType.BOOLEAN)
+        def declare(name: str, used: bool, at_prev: bool = False, **options: Any) -> TemporalVariable:
+            variable = model.add_temporal_variable(name, [prev] if at_prev else None, **options)
+            if used:
+                self._window_variables.append(variable)
+            return variable
 
-        def gradient(name: str) -> TemporalVariable:
-            return model.add_temporal_variable(name, lower_bound=-eq.maximum_power, upper_bound=eq.maximum_power)
+        boolean: dict[str, Any] = {"variable_type": VariableType.BOOLEAN}
+        gradient: dict[str, Any] = {"lower_bound": -eq.maximum_power, "upper_bound": eq.maximum_power}
 
-        self.off = boolean(f"off_{n}")
-        self.on_flat = boolean(f"on_flat_{n}")
-        self.on_up = boolean(f"on_up_{n}")
-        self.on_down = boolean(f"on_down_{n}")
-        self.on_start = boolean(f"on_start_{n}")
-        self.entered_up = boolean(f"entered_up_{n}")
-        self.entered_down = boolean(f"entered_down_{n}")
-        self.stable = boolean(f"stable_{n}")
-        self.flat_down_stop = boolean(f"flat_down_stop_{n}")
-        self.down_to_stop_grad = boolean(f"down_to_stop_grad_{n}")
-        self.stop = boolean(f"stop_{n}")
-        self.turned_off = boolean(f"t_off_{n}")
-        self.turned_on = boolean(f"t_on_{n}")
-        self.power_level = model.add_temporal_variable(f"{n}_power_level", lower_bound=0, upper_bound=eq.maximum_power)
-        self.up_grad = gradient(f"up_grad_{n}")
-        self.down_grad = gradient(f"down_grad_{n}")
-        self.aux_up_grad = gradient(f"aux_up_grad_{n}")
-        self.aux_down_grad = gradient(f"aux_down_grad_{n}")
-        self.dd_grad = gradient(f"dd_grad_{n}")
-
-    def _window_variables(self) -> list[TemporalVariable]:
-        """Return the temporal variables the unit's combination needs at each timestep of the window."""
-        variables = [self.off, self.on_up, self.on_down, self.turned_on, self.turned_off]
-        if self._has_start:
-            variables.append(self.on_start)
-        if self._has_stop:
-            variables.append(self.stop)
-        if self._has_flat:
-            variables += [
-                self.on_flat,
-                self.stable,
-                self.entered_up,
-                self.entered_down,
-                self.up_grad,
-                self.aux_up_grad,
-                self.down_grad,
-                self.aux_down_grad,
-            ]
-        if self._has_stop and not self._has_flat:
-            variables.append(self.down_to_stop_grad)
-        if self._has_stop and self._has_flat:
-            variables.append(self.flat_down_stop)
-        if self._has_flat and (self._has_start or self._has_stop):
-            variables.append(self.dd_grad)
-        variables.append(self.power_level)
-        return variables
-
-    def _add_initial_variables(self, parameters: AbstractModuleParameters) -> None:
-        temporal = parameters.temporal
-        prev = temporal.start_date - temporal.timestep
-        if self._T_stable >= 1:
-            self.on_up.add(prev)
-            self.on_down.add(prev)
-            self.on_flat.add(prev)
-            self.stable.add(prev)
-            self.entered_up.add(prev)
-            self.entered_down.add(prev)
-        if self._T_stable >= 1 and (self._T_start >= 1 or self._T_stop >= 1):
-            self.dd_grad.add(prev)
+        self.off = declare(f"off_{n}", True, **boolean)
+        self.on_up = declare(f"on_up_{n}", True, at_prev=flat, **boolean)
+        self.on_down = declare(f"on_down_{n}", True, at_prev=flat, **boolean)
+        self.on_flat = declare(f"on_flat_{n}", flat, at_prev=flat, **boolean)
+        self.on_start = declare(f"on_start_{n}", start, **boolean)
+        self.stop = declare(f"stop_{n}", stop, **boolean)
+        self.turned_on = declare(f"t_on_{n}", True, **boolean)
+        self.turned_off = declare(f"t_off_{n}", True, **boolean)
+        self.stable = declare(f"stable_{n}", flat, at_prev=flat, **boolean)
+        self.entered_up = declare(f"entered_up_{n}", flat, at_prev=flat, **boolean)
+        self.entered_down = declare(f"entered_down_{n}", flat, at_prev=flat, **boolean)
+        self.flat_down_stop = declare(f"flat_down_stop_{n}", flat and stop, **boolean)
+        self.down_to_stop_grad = declare(f"down_to_stop_grad_{n}", stop and not flat, **boolean)
+        self.power_level = declare(f"{n}_power_level", True, lower_bound=0, upper_bound=eq.maximum_power)
+        # the gradients before the horizon follow the planned power, see _add_initial_gradient_constraints
+        self.up_grad = declare(f"up_grad_{n}", flat, at_prev=flat and not ic.day_zero, **gradient)
+        self.down_grad = declare(f"down_grad_{n}", flat, at_prev=flat and not ic.day_zero, **gradient)
+        self.aux_up_grad = declare(f"aux_up_grad_{n}", flat, **gradient)
+        self.aux_down_grad = declare(f"aux_down_grad_{n}", flat, **gradient)
+        self.dd_grad = declare(f"dd_grad_{n}", flat and (start or stop), at_prev=flat and (start or stop), **gradient)
 
     # ── Initial conditions ────────────────────────────────────────────────
-
-    def _add_initial_conditions(self, parameters: AbstractModuleParameters) -> None:
-        """
-        Fix the state of the unit before the horizon.
-
-        The initial values are derived from one another and some are revised along the way, so
-        they are staged first and only fixed on the temporal variables once all are known.
-        """
-        self._initial = {}
-        ic = self._build_initial_conditions(parameters)
-        if ic.day_zero:
-            self._init_day_zero(parameters, ic)
-        else:
-            self._init_from_previous(parameters, ic)
-
-        for variable, values in self._initial.items():
-            for time, value in values.items():
-                variable.fix(time, value)
-        self._initial = {}
-
-    def _stage(self, variable: TemporalVariable, time: DateTime, value: float) -> None:
-        """Stage the initial *value* of *variable* at *time*, replacing any value staged before."""
-        self._initial.setdefault(variable, {})[time] = value
-
-    def _staged(self, variable: TemporalVariable, time: DateTime) -> float:
-        """Return the initial value staged for *variable* at *time*."""
-        return self._initial[variable][time]
-
-    def _initial_value(self, variable: TemporalVariable, time: DateTime):
-        """Return the initial value staged for *variable* at *time*, or its solver variable if none is."""
-        staged = self._initial.get(variable, {})
-        return staged[time] if time in staged else variable[time]
 
     def _build_initial_conditions(self, parameters: AbstractModuleParameters) -> ThermalInitialConditions:
         eq = self._eq
@@ -424,261 +371,117 @@ class ThermalDispatch:
             day_zero=day_zero,
         )
 
-    def _init_day_zero(self, parameters: AbstractModuleParameters, ic: ThermalInitialConditions) -> None:
-        for time in ic.initial_times:
-            self._init_day_zero_core(time)
-            if not self._has_flat:
-                self._init_day_zero_on_states(time)
+    def _initial_values(self, ic: ThermalInitialConditions) -> dict[TemporalVariable, dict[DateTime, float]]:
+        """
+        Derive the values fixed before the horizon from the power planned for the unit.
+
+        Each timestep before the horizon gets a phase from its planned power — offline, ramping
+        (below the minimum power, for combinations with a start or stop ramp) or online — and,
+        for combinations with both ramps, the ramp direction from the power trend. Every state
+        indicator follows from the phase, and every transition indicator (``t_on``, ``t_off``,
+        ``stable``, ``entered_*``, ...) from two consecutive states. On day zero, when no power
+        was planned yet, the unit is offline throughout.
+
+        Only the values the constraints read are fixed: ``flat_down_stop``, ``down_to_stop_grad``
+        and the gradient auxiliaries are only read within the horizon.
+
+        :return: Fixed values of each temporal variable, keyed by time
+        """
+        times, stable_times = ic.initial_times, ic.stable_initial_times
+        flat, start, stop = self._has_flat, self._has_start, self._has_stop
+        planned = ic.power_ts if not ic.day_zero else None
+
+        power: dict[DateTime, float] = {}
+        online: dict[DateTime, bool] = {}
+        ramping: dict[DateTime, bool] = {}
+        for time in times:
+            p = planned.get_value(time) if planned is not None and time in planned else None
+            if p is None:
+                power[time], online[time], ramping[time] = 0.0, False, False
+            elif start or stop:
+                power[time] = p
+                online[time] = p >= self._eq.minimum_power.get_value(time)
+                ramping[time] = not online[time] and p > 0
             else:
-                self._init_day_zero_gradient_vars(time)
-            if self._has_stop:
-                self._stage(self.stop, time, 0)
-                if not self._has_flat:
-                    self._stage(self.down_to_stop_grad, time, 0)
-                else:
-                    self._stage(self.flat_down_stop, time, 0)
-            if self._has_start:
-                self._stage(self.on_start, time, 0)
+                power[time] = p if p > 0 else 0.0
+                online[time], ramping[time] = p > 0, False
+        offline = {time: not online[time] and not ramping[time] for time in times}
+        running = {time: not offline[time] for time in times}
 
-        for time in ic.stable_initial_times:
-            self._init_day_zero_stable_vars(time)
+        # with both ramps, a ramp rising towards the minimum power is a start, a falling one a stop;
+        # on a flat power (or at the first timestep) the direction is unknown and both are kept
+        rising = dict.fromkeys(times, True)
+        falling = dict.fromkeys(times, True)
+        if start and stop:
+            for previous, time in zip(times, times[1:], strict=False):
+                if ramping[time]:
+                    before = planned.get_value(previous) if previous in planned else 0  # type: ignore[union-attr]
+                    rising[time] = not power[time] < before
+                    falling[time] = not power[time] > before
+        is_start = {time: ramping[time] and rising[time] for time in times}
+        is_stop = {time: ramping[time] and falling[time] for time in times}
 
-        if self._has_flat and not self._has_stop and not self._has_start:
-            if isinstance(ic.power_ts, Timeseries):
-                self._init_gradient_initial_conditions(parameters)
+        def rises(indicator: dict[DateTime, bool], state_times: list[DateTime]) -> dict[DateTime, bool]:
+            """Whether *indicator* switches on at each of *state_times*, never at the first one."""
+            switched = {state_times[0]: False} if state_times else {}
+            for previous, time in zip(state_times, state_times[1:], strict=False):
+                switched[time] = indicator[time] and not indicator[previous]
+            return switched
 
-    def _init_from_previous(self, parameters: AbstractModuleParameters, ic: ThermalInitialConditions) -> None:
-        if not isinstance(ic.power_ts, Timeseries):
-            raise ValueError("power_ts is required when day_zero is False")
+        values: dict[TemporalVariable, Mapping[DateTime, float]] = {
+            self.power_level: power,
+            self.off: offline,
+            self.turned_off: rises(is_stop if stop else offline, times),
+            self.turned_on: rises(is_start if start else running, times),
+        }
+        if start:
+            values[self.on_start] = is_start
+        if stop:
+            values[self.stop] = is_stop
 
-        for time in ic.initial_times:
-            self._init_one_time(parameters, ic.extended_start_date, time, ic.power_ts)
-
-        if self._has_flat:
-            self._init_stable_times(parameters, ic)
-            self._init_gradient_initial_conditions(parameters)
-            if self._has_stop:
-                self._init_flat_down_stop(parameters, ic)
-
-    def _init_one_time(
-        self,
-        parameters: AbstractModuleParameters,
-        extended_start_date: DateTime,
-        time: DateTime,
-        power_ts: Timeseries,
-    ) -> None:
-        ts = parameters.temporal.timestep
-        if time in power_ts:
-            power_t = power_ts.get_value(time)
-            self._stage(self.power_level, time, power_t)
-
-            if self._has_start or self._has_stop:
-                min_power = self._eq.minimum_power.get_value(time)
-                if power_t >= min_power:
-                    self._stage(self.off, time, 0)
-                    if self._has_stop:
-                        self._stage(self.stop, time, 0)
-                    if self._has_start:
-                        self._stage(self.on_start, time, 0)
-                    if not self._has_flat:
-                        self._stage(self.on_up, time, 1)
-                        self._stage(self.on_down, time, 1)
-                elif power_t > 0:
-                    self._stage(self.off, time, 0)
-                    if self._has_stop:
-                        self._stage(self.stop, time, 1)
-                    if self._has_start:
-                        self._stage(self.on_start, time, 1)
-                    if not self._has_flat:
-                        self._stage(self.on_up, time, 0)
-                        self._stage(self.on_down, time, 0)
-                else:
-                    self._stage(self.off, time, 1)
-                    if self._has_stop:
-                        self._stage(self.stop, time, 0)
-                    if self._has_start:
-                        self._stage(self.on_start, time, 0)
-                    if not self._has_flat:
-                        self._stage(self.on_up, time, 0)
-                        self._stage(self.on_down, time, 0)
-            else:
-                if power_t > 0:
-                    self._stage(self.off, time, 0)
-                    if not self._has_flat:
-                        self._stage(self.on_up, time, 1)
-                        self._stage(self.on_down, time, 0)
-                else:
-                    self._stage(self.power_level, time, 0)
-                    self._stage(self.off, time, 1)
-                    if not self._has_flat:
-                        self._stage(self.on_up, time, 0)
-                        self._stage(self.on_down, time, 0)
+        if not flat:
+            # an online unit may go either way when it has ramps, it can only have gone up without
+            values[self.on_up] = online
+            values[self.on_down] = online if start or stop else dict.fromkeys(times, False)
         else:
-            self._stage(self.power_level, time, 0)
-            self._stage(self.off, time, 1)
-            if self._has_stop:
-                self._stage(self.stop, time, 0)
-            if self._has_start:
-                self._stage(self.on_start, time, 0)
-            if not self._has_flat:
-                self._stage(self.on_up, time, 0)
-                self._stage(self.on_down, time, 0)
+            # an online unit's flat phase is read from the power trend, up to the timestep before the horizon
+            trend = {time: power[time + self._timestep] - power[time] for time in stable_times}
+            on_up = {time: online[time] and trend[time] > 0 for time in stable_times}
+            on_down = {time: online[time] and trend[time] < 0 for time in stable_times}
+            on_flat = {time: online[time] and trend[time] == 0 for time in stable_times}
+            values |= {
+                self.on_up: on_up,
+                self.on_down: on_down,
+                self.on_flat: on_flat,
+                self.stable: rises(on_flat, stable_times),
+                self.entered_up: rises(on_up, stable_times),
+                self.entered_down: rises(on_down, stable_times),
+            }
+            if ic.day_zero:
+                # nothing ran yet, so the unit was not going up or down either
+                values |= dict.fromkeys((self.up_grad, self.down_grad), dict.fromkeys(times, 0.0))
 
-        self._stage(self.turned_on, time, 0)
-        self._stage(self.turned_off, time, 0)
-        if self._has_stop and not self._has_flat:
-            self._stage(self.down_to_stop_grad, time, 0)
+        return {
+            variable: {time: float(value) for time, value in by_time.items()} for variable, by_time in values.items()
+        }
 
-        if time == extended_start_date:
-            return
+    def _add_initial_gradient_constraints(self, model: OptimisationModel, ic: ThermalInitialConditions) -> None:
+        """
+        Link the gradients at the timestep preceding the horizon to the planned power.
 
-        prev_time = time - ts
-
-        if self._has_start and self._has_stop and time in power_ts:
-            power_t = power_ts.get_value(time)
-            prev_power = power_ts.get_value(prev_time) if prev_time in power_ts else 0
-            if self._staged(self.on_start, time) == 1:
-                if power_t > prev_power:
-                    self._stage(self.stop, time, 0)
-                elif power_t < prev_power:
-                    self._stage(self.stop, time, 1)
-                    self._stage(self.on_start, time, 0)
-
-        if self._has_stop:
-            if self._staged(self.stop, time) - self._staged(self.stop, prev_time) == 1:
-                self._stage(self.turned_off, time, 1)
-        else:
-            if self._staged(self.off, time) - self._staged(self.off, prev_time) == 1:
-                self._stage(self.turned_off, time, 1)
-
-        if self._has_start:
-            if self._staged(self.on_start, time) - self._staged(self.on_start, prev_time) == 1:
-                self._stage(self.turned_on, time, 1)
-        else:
-            if self._staged(self.off, time) - self._staged(self.off, prev_time) == -1:
-                self._stage(self.turned_on, time, 1)
-
-        if self._has_stop and not self._has_flat:
-            if self._staged(self.stop, time) - self._staged(self.on_down, prev_time) == 0:
-                self._stage(self.down_to_stop_grad, time, 1)
-
-    def _init_stable_times(self, parameters: AbstractModuleParameters, ic: ThermalInitialConditions) -> None:
-        ts = parameters.temporal.timestep
-        for time in ic.stable_initial_times:
-            next_time = time + ts
-            current_power = self._staged(self.power_level, time)
-            next_power = self._staged(self.power_level, next_time)
-
-            self._stage(self.stable, time, 0)
-            self._stage(self.entered_up, time, 0)
-            self._stage(self.entered_down, time, 0)
-
-            if self._staged(self.off, time) == 0:
-                in_ramp = (self._has_stop and self._staged(self.stop, time) == 1) or (
-                    self._has_start and self._staged(self.on_start, time) == 1
-                )
-                if in_ramp:
-                    self._stage(self.on_up, time, 0)
-                    self._stage(self.on_down, time, 0)
-                    self._stage(self.on_flat, time, 0)
-                else:
-                    if current_power < next_power:
-                        self._stage(self.on_up, time, 1)
-                        self._stage(self.on_down, time, 0)
-                        self._stage(self.on_flat, time, 0)
-                    elif current_power > next_power:
-                        self._stage(self.on_up, time, 0)
-                        self._stage(self.on_down, time, 1)
-                        self._stage(self.on_flat, time, 0)
-                    else:
-                        self._stage(self.on_up, time, 0)
-                        self._stage(self.on_down, time, 0)
-                        self._stage(self.on_flat, time, 1)
-            else:
-                self._stage(self.on_up, time, 0)
-                self._stage(self.on_down, time, 0)
-                self._stage(self.on_flat, time, 0)
-
-            if time != ic.extended_start_date and self._staged(self.off, time) != 1:
-                prev_time = time - ts
-                if self._staged(self.on_flat, time) - self._staged(self.on_flat, prev_time) == 1:
-                    self._stage(self.stable, time, 1)
-                if self._staged(self.on_up, time) - self._staged(self.on_up, prev_time) == 1:
-                    self._stage(self.entered_up, time, 1)
-                if self._staged(self.on_down, time) - self._staged(self.on_down, prev_time) == 1:
-                    self._stage(self.entered_down, time, 1)
-
-    def _init_flat_down_stop(self, parameters: AbstractModuleParameters, ic: ThermalInitialConditions) -> None:
-        ts = parameters.temporal.timestep
-        start_date = parameters.temporal.start_date
-        for idx, time in enumerate(ic.stable_initial_times):
-            if idx >= 2:
-                self._set_flat_down_stop(time, time - ts, time - 2 * ts)
-        self._set_flat_down_stop(
-            start_date - ts,
-            start_date - 2 * ts,
-            start_date - 3 * ts,
+        The unit's up (down) state at that timestep is a solver variable, so its gradient is the
+        planned power variation when the unit was already going up (down) the timestep before.
+        """
+        n = self._eq.name
+        prev = ic.initial_times[-1]
+        before = prev - self._timestep
+        variation = self.power_level[prev] - self.power_level[before]
+        model.add_constraint(
+            self.up_grad[prev] == variation * self.on_up[prev] * self.on_up[before], f"up_grad_initial_{n}"
         )
-
-    def _set_flat_down_stop(self, time: DateTime, time_minus_one: DateTime, time_minus_two: DateTime) -> None:
-        self._stage(
-            self.flat_down_stop,
-            time,
-            (
-                self._staged(self.stop, time)
-                + self._staged(self.on_down, time_minus_one)
-                + self._staged(self.on_flat, time_minus_two)
-            )
-            / 3,
+        model.add_constraint(
+            self.down_grad[prev] == variation * self.on_down[prev] * self.on_down[before], f"down_grad_initial_{n}"
         )
-
-    def _init_gradient_initial_conditions(self, parameters: AbstractModuleParameters) -> None:
-        temporal = parameters.temporal
-        t_minus_one = temporal.start_date - temporal.timestep
-        t_minus_two = temporal.start_date - 2 * temporal.timestep
-
-        power_minus_one = self._initial_value(self.power_level, t_minus_one)
-        power_minus_two = self._initial_value(self.power_level, t_minus_two)
-        power_diff = power_minus_one - power_minus_two
-
-        self._stage(
-            self.up_grad,
-            t_minus_one,
-            power_diff * self._initial_value(self.on_up, t_minus_one) * self._initial_value(self.on_up, t_minus_two),
-        )
-        self._stage(
-            self.down_grad,
-            t_minus_one,
-            power_diff
-            * self._initial_value(self.on_down, t_minus_one)
-            * self._initial_value(self.on_down, t_minus_two),
-        )
-
-    # ── Day-zero helpers ──────────────────────────────────────────────────
-
-    def _init_day_zero_core(self, time: DateTime) -> None:
-        self._stage(self.off, time, 1)
-        self._stage(self.turned_on, time, 0)
-        self._stage(self.turned_off, time, 0)
-        self._stage(self.power_level, time, 0)
-
-    def _init_day_zero_on_states(self, time: DateTime) -> None:
-        self._stage(self.on_up, time, 0)
-        self._stage(self.on_down, time, 0)
-
-    def _init_day_zero_gradient_vars(self, time: DateTime) -> None:
-        self._stage(self.up_grad, time, 0)
-        self._stage(self.down_grad, time, 0)
-        self._stage(self.aux_up_grad, time, 0)
-        self._stage(self.aux_down_grad, time, 0)
-
-    def _init_day_zero_stable_vars(self, time: DateTime) -> None:
-        self._stage(self.on_flat, time, 0)
-        self._stage(self.on_up, time, 0)
-        self._stage(self.on_down, time, 0)
-        self._stage(self.stable, time, 0)
-        self._stage(self.entered_up, time, 0)
-        self._stage(self.entered_down, time, 0)
 
     # ── Constraints ───────────────────────────────────────────────────────
 
