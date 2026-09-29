@@ -198,13 +198,13 @@ def _process_classic_mixed_fuel(
         ),
         co2_emission_factor=thermal.properties.co2,
         outage_mean_duration=duration(
-            hours=thermal.get_prepro_data_matrix()[parameters.output.FODuration].mean()
+            hours=thermal.get_prepro_data_matrix()[parameters.columns.FODuration].mean()
         ),  # FODuration
         scheduled_shutdown_mean_duration=duration(
-            hours=thermal.get_prepro_data_matrix()[parameters.output.PODuration].mean()
+            hours=thermal.get_prepro_data_matrix()[parameters.columns.PODuration].mean()
         ),  # PODuration
-        outage_probability=thermal.get_prepro_data_matrix()[parameters.output.FORate].mean(),  # FORate
-        scheduled_shutdown_probability=thermal.get_prepro_data_matrix()[parameters.output.PORate].mean(),  # PORate
+        outage_probability=thermal.get_prepro_data_matrix()[parameters.columns.FORate].mean(),  # FORate
+        scheduled_shutdown_probability=thermal.get_prepro_data_matrix()[parameters.columns.PORate].mean(),  # PORate
         minimum_time_off=duration(hours=thermal.properties.min_down_time),
         minimum_time_on=duration(hours=thermal.properties.min_up_time),
         unit_count=thermal.properties.unit_count,

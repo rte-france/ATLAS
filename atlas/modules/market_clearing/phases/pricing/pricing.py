@@ -48,7 +48,7 @@ class Pricing:
     def compute(self):
         self.build_first()
         solver_info = self.model.solve()
-        output_path = self.parameters.get_lp_dir()
+        output_path = self.parameters.lp_dir
         if self.parameters.solver.export_lp:
             output_path.mkdir(parents=True, exist_ok=True)
             self.model.export_model(str(output_path / "pricing_1_model.lp"))

@@ -3,7 +3,7 @@ import pendulum
 import polars as pl
 import pytest
 
-from atlas.io_utils.utils import deep_update, get_metadata_from_file, get_metadata_from_frame, deduplicate_names
+from atlas.io_utils.utils import deduplicate_names, deep_update, get_metadata_from_file, get_metadata_from_frame
 
 
 def test_get_metadata_from_frame_polars():
@@ -109,6 +109,7 @@ def test_deep_update():
     assert x == {"t": {"a": -1, "b": 2, "c": -3}}
     assert y == {"t": {"a": 1, "c": 3}}
 
+
 class TestDeduplicateNames:
     def test_empty_list_returns_empty_list(self):
         assert deduplicate_names([]) == []
@@ -153,7 +154,6 @@ class TestDeduplicateNames:
 
     def test_accepts_any_sequence_not_just_list(self):
         assert deduplicate_names(("job_test", "job_test")) == ["job_test_1", "job_test_2"]
-
 
     def test_two_duplicates_get_suffixed_in_order(self):
         names = ["job_test", "job_test"]

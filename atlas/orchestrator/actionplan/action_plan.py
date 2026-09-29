@@ -97,7 +97,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
         :raises ValueError: if `task` is of an unsupported type.
         """
-        root_output_dir = self.parameters.resolve_path(self.parameters.output_dir) / task.name
+        root_run_dir = self.parameters.resolve_path(self.parameters.output_dir) / task.name
 
         _TASK_RESOLVER = {
             TaskModule: self._resolve_task_module,
@@ -108,14 +108,14 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         if resolver is None:
             raise ValueError(f"Unknown type {type(task)} when resolving {task} for Action Plan {self}")
 
-        return resolver(task, root_output_dir)
+        return resolver(task, root_run_dir)
 
-    def _resolve_task_module(self, task: TaskModule, root_output_dir: Path) -> ModuleTaskJobsGenerator:
+    def _resolve_task_module(self, task: TaskModule, root_run_dir: Path) -> ModuleTaskJobsGenerator:
         """Resolve a task, that run a module, into its ModuleTaskJobsGenerator
         :param task: task that run a module
         :type task: TaskModule
-        :param root_output_dir: path to the root output directory used for the task
-        :type root_output_dir: Path
+        :param root_run_dir: path to the root run tree used for the task
+        :type root_run_dir: Path
         """
         if isinstance(task.parameters, (str, Path)):
             path = task.parameters if isinstance(task.parameters, Path) else Path(task.parameters)
@@ -133,14 +133,14 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         else:
             task_parameters = self.parameters.context.apply_on_parameters(task.parameters)
 
-        return ModuleTaskJobsGenerator(task, task_parameters, root_output_dir)
+        return ModuleTaskJobsGenerator(task, task_parameters, root_run_dir)
 
-    def _resolve_task_workflow(self, task: TaskWorkflow, root_output_dir: Path) -> WorkflowTaskJobsGenerator:
+    def _resolve_task_workflow(self, task: TaskWorkflow, root_run_dir: Path) -> WorkflowTaskJobsGenerator:
         """Resolve a task, that run a workflow, into its WorkflowTaskJobsGenerator
         :param task: task that run a workflow
         :type task: TaskWorkflow
-        :param root_output_dir: path to the root output directory used for the task
-        :type root_output_dir: Path
+        :param root_run_dir: path to the root run tree used for the task
+        :type root_run_dir: Path
         """
         if isinstance(task.workflow, (str, Path)):
             task_parameters = WorkflowParameters.from_file(
@@ -151,7 +151,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         else:
             task_parameters = self.parameters.context.apply_on_parameters(task.workflow.parameters)
 
-        return WorkflowTaskJobsGenerator(task, task_parameters, root_output_dir)
+        return WorkflowTaskJobsGenerator(task, task_parameters, root_run_dir)
 
     @property
     def jobs(self) -> Iterator[ActionPlanJob]:
