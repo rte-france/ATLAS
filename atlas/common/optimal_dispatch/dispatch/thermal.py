@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from pendulum import DateTime, Duration
 
@@ -27,11 +27,41 @@ if TYPE_CHECKING:
 
 class ThermalDispatch:
     """
-    Physical dispatch component for a single thermal unit.
+    Physical dispatch model for a single thermal unit.
 
-    Owns all model variables and physical constraints (combinations 1–8).
-    Does **not** handle reserves, fill-up constraints, or objective terms —
-    those remain module-specific.
+    Owns the model variables and the physical constraints. Reserves, fill-up constraints
+    and objective terms stay in the calling module.
+
+    **The state machine.** At every timestep the unit occupies exactly one state — see
+    :meth:`_add_mutual_exclusion`::
+
+        OFF ──▶ START ──▶ ON_UP ⇄ ON_FLAT ⇄ ON_DOWN ──▶ STOP ──▶ OFF
+                 ramp    └──── power free to move ────┘    ramp
+
+    ``START`` and ``STOP`` are the startup and shutdown ramps, ``ON_FLAT`` the stable
+    plateau. All three are optional, so a unit only carries the states its characteristics
+    give it — :meth:`_add_transition_constraints` bans whatever the resulting machine
+    cannot do:
+
+    - startup ramp — :attr:`has_start`, exists when ``T_start >= 1``, state ``on_start``
+    - shutdown ramp — :attr:`has_stop`, exists when ``T_stop >= 1``, state ``stop``
+    - stable plateau — :attr:`has_flat`, exists when ``T_stable >= 1``, state ``on_flat``
+
+    The eight ways of combining those three flags are the eight model variants the codebase
+    calls *combinations 1 to 8* (:attr:`combination`), one per ``thermal-combination-*``
+    test dataset.
+
+    **The two regimes.** The model reaches back before the delivery window. Ahead of
+    ``temporal.start_date`` the unit's state is *known*: it is derived from the initial
+    conditions and fixed on the temporal variables. Inside the window it is a decision
+    variable. Reading ``variable[t]`` hides the difference, so a constraint reaching across
+    the boundary silently mixes constants and variables.
+
+    That boundary is where this model is hardest to get right — a row anchored before
+    ``start_date`` degenerates instead of binding, and mutual exclusion does not apply
+    between constants. :meth:`_add_initial_boundary_constraints`,
+    :meth:`_add_eviction_constraints` and the ``time == start_date`` branches of
+    :meth:`_add_minimum_time_constraints` all live on it.
 
     Typical usage::
 
@@ -41,6 +71,19 @@ class ThermalDispatch:
         for time in time_window:
             dispatch.add_constraints(model, time, parameters)
     """
+
+    #: Model variant per ``(has_stop, has_start, has_flat)``. The number carries no meaning
+    #: of its own — it labels the combination in logs and names the test datasets.
+    _COMBINATIONS: ClassVar[dict[tuple[bool, bool, bool], int]] = {
+        (False, False, False): 1,
+        (True, False, False): 2,
+        (False, False, True): 3,
+        (False, True, False): 4,
+        (True, False, True): 5,
+        (False, True, True): 6,
+        (True, True, False): 7,
+        (True, True, True): 8,
+    }
 
     def __init__(self, equipment: ThermalDispatchInput) -> None:
         self._eq = equipment
@@ -60,26 +103,34 @@ class ThermalDispatch:
         self._has_start: bool = False
         self._has_flat: bool = False
 
-        # Temporal variables — declared by _declare_variables()
+        # Temporal variables — declared by _declare_variables(), grouped by role
+
+        # States — exactly one of these is 1 at any timestep
         self.off: TemporalVariable = None  # type: ignore[assignment]
-        self.on_flat: TemporalVariable = None  # type: ignore[assignment]
-        self.on_up: TemporalVariable = None  # type: ignore[assignment]
-        self.on_down: TemporalVariable = None  # type: ignore[assignment]
         self.on_start: TemporalVariable = None  # type: ignore[assignment]
+        self.on_up: TemporalVariable = None  # type: ignore[assignment]
+        self.on_flat: TemporalVariable = None  # type: ignore[assignment]
+        self.on_down: TemporalVariable = None  # type: ignore[assignment]
+        self.stop: TemporalVariable = None  # type: ignore[assignment]
+
+        # Transition markers — fire on the step the unit enters the matching state
+        self.turned_on: TemporalVariable = None  # type: ignore[assignment]
+        self.turned_off: TemporalVariable = None  # type: ignore[assignment]
         self.entered_up: TemporalVariable = None  # type: ignore[assignment]
         self.entered_down: TemporalVariable = None  # type: ignore[assignment]
         self.stable: TemporalVariable = None  # type: ignore[assignment]
         self.flat_down_stop: TemporalVariable = None  # type: ignore[assignment]
         self.down_to_stop_grad: TemporalVariable = None  # type: ignore[assignment]
-        self.stop: TemporalVariable = None  # type: ignore[assignment]
-        self.turned_off: TemporalVariable = None  # type: ignore[assignment]
-        self.turned_on: TemporalVariable = None  # type: ignore[assignment]
-        self.power_level: TemporalVariable = None  # type: ignore[assignment]
+
+        # Gradient auxiliaries — linearised products of a power step by a state
         self.up_grad: TemporalVariable = None  # type: ignore[assignment]
-        self.aux_up_grad: TemporalVariable = None  # type: ignore[assignment]
         self.down_grad: TemporalVariable = None  # type: ignore[assignment]
+        self.aux_up_grad: TemporalVariable = None  # type: ignore[assignment]
         self.aux_down_grad: TemporalVariable = None  # type: ignore[assignment]
         self.dd_grad: TemporalVariable = None  # type: ignore[assignment]
+
+        # The dispatch
+        self.power_level: TemporalVariable = None  # type: ignore[assignment]
 
         # Initial conditions staged before being fixed — see _add_initial_conditions()
         self._initial: dict[TemporalVariable, dict[DateTime, float]] = {}
@@ -222,10 +273,18 @@ class ThermalDispatch:
 
     @property
     def combination(self) -> int:
+        """
+        Which of the eight model variants this unit falls into — see :attr:`_COMBINATIONS`.
+
+        Reported in logs and used to name the reference LP files; nothing in the model
+        branches on the number itself, only on :attr:`has_start`, :attr:`has_stop` and
+        :attr:`has_flat`.
+        """
         return self._combination
 
     @property
     def name(self) -> str:
+        """Name of the unit being dispatched."""
         return self._eq.name
 
     # ── Initialisation ────────────────────────────────────────────────────
@@ -265,26 +324,7 @@ class ThermalDispatch:
         self._has_stop = self._T_stop >= 1
         self._has_start = self._T_start >= 1
         self._has_flat = self._T_stable >= 1
-        self._combination = self._determine_combination()
-
-    def _determine_combination(self) -> int:
-        s, st, f = self._has_stop, self._has_start, self._has_flat
-        if not s and not st and not f:
-            return 1
-        elif s and not st and not f:
-            return 2
-        elif not s and not st and f:
-            return 3
-        elif not s and st and not f:
-            return 4
-        elif s and not st and f:
-            return 5
-        elif not s and st and f:
-            return 6
-        elif s and st and not f:
-            return 7
-        else:
-            return 8
+        self._combination = self._COMBINATIONS[self._has_stop, self._has_start, self._has_flat]
 
     def _declare_variables(self, model: OptimisationModel) -> None:
         eq = self._eq
@@ -297,34 +337,46 @@ class ThermalDispatch:
             swing = self._maximum_power_swing
             return model.add_temporal_variable(name, lower_bound=-swing, upper_bound=swing)
 
+        # States
         self.off = boolean(f"off_{n}")
-        self.on_flat = boolean(f"on_flat_{n}")
-        self.on_up = boolean(f"on_up_{n}")
-        self.on_down = boolean(f"on_down_{n}")
         self.on_start = boolean(f"on_start_{n}")
+        self.on_up = boolean(f"on_up_{n}")
+        self.on_flat = boolean(f"on_flat_{n}")
+        self.on_down = boolean(f"on_down_{n}")
+        self.stop = boolean(f"stop_{n}")
+
+        # Transition markers
+        self.turned_on = boolean(f"t_on_{n}")
+        self.turned_off = boolean(f"t_off_{n}")
         self.entered_up = boolean(f"entered_up_{n}")
         self.entered_down = boolean(f"entered_down_{n}")
         self.stable = boolean(f"stable_{n}")
         self.flat_down_stop = boolean(f"flat_down_stop_{n}")
         self.down_to_stop_grad = boolean(f"down_to_stop_grad_{n}")
-        self.stop = boolean(f"stop_{n}")
-        self.turned_off = boolean(f"t_off_{n}")
-        self.turned_on = boolean(f"t_on_{n}")
-        self.power_level = model.add_temporal_variable(f"{n}_power_level", lower_bound=0, upper_bound=eq.maximum_power)
+
+        # Gradient auxiliaries
         self.up_grad = gradient(f"up_grad_{n}")
         self.down_grad = gradient(f"down_grad_{n}")
         self.aux_up_grad = gradient(f"aux_up_grad_{n}")
         self.aux_down_grad = gradient(f"aux_down_grad_{n}")
         self.dd_grad = gradient(f"dd_grad_{n}")
 
+        # The dispatch
+        self.power_level = model.add_temporal_variable(f"{n}_power_level", lower_bound=0, upper_bound=eq.maximum_power)
+
     def _window_variables(self) -> list[TemporalVariable]:
         """Return the temporal variables the unit's combination needs at each timestep of the window."""
+        # Always present: the unit is either off or moving, and either edge can fire
         variables = [self.off, self.on_up, self.on_down, self.turned_on, self.turned_off]
+
+        # One state per optional phase
         if self._has_start:
             variables.append(self.on_start)
         if self._has_stop:
             variables.append(self.stop)
+
         if self._has_flat:
+            # entering ON_UP / ON_FLAT / ON_DOWN, and the gradients those entries release
             variables += [
                 self.on_flat,
                 self.stable,
@@ -335,14 +387,15 @@ class ThermalDispatch:
                 self.down_grad,
                 self.aux_down_grad,
             ]
+
+        # Entering the shutdown ramp. With a plateau the unit comes from ON_FLAT via
+        # ON_DOWN and needs the three-term marker; without one it comes straight from
+        # ON_DOWN, and dd_grad has no row to appear in.
         if self._has_stop and not self._has_flat:
             variables.append(self.down_to_stop_grad)
         if self._has_stop and self._has_flat:
-            variables.append(self.flat_down_stop)
-        # dd_grad only appears in the gradient constraints of a unit that has both a stable
-        # phase and a shutdown ramp — creating it otherwise leaves a variable no row mentions
-        if self._has_flat and self._has_stop:
-            variables.append(self.dd_grad)
+            variables += [self.flat_down_stop, self.dd_grad]
+
         variables.append(self.power_level)
         return variables
 
