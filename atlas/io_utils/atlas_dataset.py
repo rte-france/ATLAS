@@ -618,26 +618,6 @@ class AtlasDataset(BaseModel):
         excluded = set(equipment_names or ())
         return self._filtered(lambda equipment: equipment.name not in excluded, cfg.EQUIPMENT_MODELS)
 
-    def filter_equipments(self, equipment_names: list[str] | None) -> AtlasDataset:
-        """
-        Filter the dataset to include only specified equipment by name.
-
-        Unlike include_equipments, the result is fully independent from this dataset.
-
-        :param equipment_names: List of equipment names to include. If None or empty, returns a copy of the full dataset.
-        :type equipment_names: list[str] | None
-
-        :return: A new AtlasDataset containing only the specified equipment (deep copy)
-        :rtype: AtlasDataset
-
-        Example:
-            >>> dataset = AtlasDataset(thermal=[plant1, plant2, plant3])
-            >>> filtered = dataset.filter_equipments(["plant1", "plant3"])
-            >>> len(filtered.thermal)
-            2
-        """
-        return self.include_equipments(equipment_names).model_copy(deep=True)
-
     def exclude_technologies(
         self, technologies: Iterable[BusinessModelName | type[BusinessModel]] | None
     ) -> AtlasDataset:
@@ -754,30 +734,6 @@ class AtlasDataset(BaseModel):
                 for equipment_type in cfg.EQUIPMENT_MODELS
             },
         )
-
-    def filter_zones(self, control_block_names: list[str], include_external_borders: bool = False) -> AtlasDataset:
-        """
-        Filter the dataset to include only objects associated with specified control blocks (zones).
-
-        Unlike include_zones, the result is fully independent from this dataset.
-
-        For market borders and critical branches:
-        - If include_external_borders is False (default), only includes borders/branches where both endpoints
-          are in the filtered zones, creating an isolated network
-        - If include_external_borders is True, includes borders/branches where at least one endpoint is in
-          the filtered zones, allowing connections to external zones
-
-        :param control_block_names: List of control block names to include in the filtered dataset
-        :type control_block_names: list[str]
-        :param include_external_borders: Whether to include borders/branches with at least one endpoint in filtered zones
-        :type include_external_borders: bool
-
-        :return: A new AtlasDataset containing only the filtered objects (deep copy)
-        :rtype: AtlasDataset
-
-        :raises ValueError: If any control block name in control_block_names does not exist in the dataset
-        """
-        return self.include_zones(control_block_names, include_external_borders).model_copy(deep=True)
 
     def set_frequency_all(
         self,

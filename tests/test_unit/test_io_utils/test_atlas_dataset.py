@@ -1077,26 +1077,7 @@ def dataset():
     return ds
 
 
-def test_filter_equipments_keeps_only_selected():
-    cb = ControlBlock(name="cb1")
-    ma = MarketArea(name="ma1", control_block=cb)
-    node = Node(name="node1", control_block=cb, market_area=ma)
-    portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
-    t1 = Thermal(name="plant_1", node=node, portfolio=portfolio)
-    t2 = Thermal(name="plant_2", node=node, portfolio=portfolio)
-    t3 = Thermal(name="plant_3", node=node, portfolio=portfolio)
-
-    dataset = AtlasDataset(thermal=[t1, t2, t3])
-
-    filtered = dataset.filter_equipments(["plant_1", "plant_3"])
-
-    remaining_names = [e.name for e in filtered.thermal]
-
-    assert set(remaining_names) == {"plant_1", "plant_3"}
-    assert "plant_2" not in remaining_names
-
-
-def test_filter_does_not_modify_original_dataset():
+def test_include_equipments_does_not_modify_original_dataset():
     cb = ControlBlock(name="cb1")
     ma = MarketArea(name="ma1", control_block=cb)
     node = Node(name="node1", control_block=cb, market_area=ma)
@@ -1106,7 +1087,7 @@ def test_filter_does_not_modify_original_dataset():
 
     dataset = AtlasDataset(thermal=[t1, t2])
 
-    filtered = dataset.filter_equipments(["plant_1"])
+    filtered = dataset.include_equipments(["plant_1"])
 
     assert len(dataset.thermal) == 2  # original unchanged
     assert len(filtered.thermal) == 1
@@ -1301,7 +1282,7 @@ class TestExcludeTechnologies:
 
 
 class TestFilterZones:
-    """Test suite for the filter_zones method covering bug fixes and new features."""
+    """Test suite for the include_zones method covering bug fixes and new features."""
 
     @pytest.fixture
     def multi_zone_dataset(self):
@@ -1393,7 +1374,7 @@ class TestFilterZones:
 
     def test_filter_single_zone_basic(self, multi_zone_dataset):
         """Test filtering to a single zone includes correct objects."""
-        filtered = multi_zone_dataset.filter_zones(["FR"])
+        filtered = multi_zone_dataset.include_zones(["FR"])
 
         # Should include FR control block
         assert len(filtered.control_block) == 1
@@ -1414,7 +1395,7 @@ class TestFilterZones:
 
     def test_filter_zone_equipment_filtering(self, multi_zone_dataset):
         """Test that equipment is correctly filtered based on node's control block."""
-        filtered = multi_zone_dataset.filter_zones(["FR"])
+        filtered = multi_zone_dataset.include_zones(["FR"])
 
         # Should include FR equipment
         assert len(filtered.thermal) == 1
@@ -1428,7 +1409,7 @@ class TestFilterZones:
 
     def test_filter_zone_portfolios(self, multi_zone_dataset):
         """Test that portfolios are correctly filtered."""
-        filtered = multi_zone_dataset.filter_zones(["FR"])
+        filtered = multi_zone_dataset.include_zones(["FR"])
 
         assert len(filtered.portfolio) == 1
         assert "portfolio_FR" in filtered.portfolio
@@ -1436,7 +1417,7 @@ class TestFilterZones:
 
     def test_filter_zone_orders(self, multi_zone_dataset):
         """Test that orders are correctly filtered by market area's control block."""
-        filtered = multi_zone_dataset.filter_zones(["FR"])
+        filtered = multi_zone_dataset.include_zones(["FR"])
 
         assert len(filtered.order) == 1
         assert "order_FR" in filtered.order
@@ -1444,7 +1425,7 @@ class TestFilterZones:
 
     def test_filter_zone_order_couplings(self, multi_zone_dataset):
         """Test that order couplings are included if ANY order belongs to filtered zones."""
-        filtered = multi_zone_dataset.filter_zones(["FR"])
+        filtered = multi_zone_dataset.include_zones(["FR"])
 
         # Should include coupling because order_FR is in the coupling
         assert len(filtered.order_coupling) == 1
@@ -1452,19 +1433,19 @@ class TestFilterZones:
 
     def test_filter_zone_borders_default_both_endpoints(self, multi_zone_dataset):
         """Test that borders are only included when BOTH endpoints are in filtered zones (default behavior)."""
-        filtered = multi_zone_dataset.filter_zones(["FR"])
+        filtered = multi_zone_dataset.include_zones(["FR"])
 
         # No borders should be included because no border has both endpoints in FR
         assert len(filtered.market_border) == 0
 
         # Filter for FR and DE
-        filtered_fr_de = multi_zone_dataset.filter_zones(["FR", "DE"])
+        filtered_fr_de = multi_zone_dataset.include_zones(["FR", "DE"])
         assert len(filtered_fr_de.market_border) == 1
         assert "border_FR_DE" in filtered_fr_de.market_border
 
     def test_filter_zone_borders_include_external(self, multi_zone_dataset):
         """Test that borders are included when ANY endpoint is in filtered zones with include_external_borders=True."""
-        filtered = multi_zone_dataset.filter_zones(["FR"], include_external_borders=True)
+        filtered = multi_zone_dataset.include_zones(["FR"], include_external_borders=True)
 
         # Should include borders where FR is one endpoint
         assert len(filtered.market_border) == 2
@@ -1474,19 +1455,19 @@ class TestFilterZones:
 
     def test_filter_zone_critical_branches_default(self, multi_zone_dataset):
         """Test that critical branches follow same logic as borders by default."""
-        filtered = multi_zone_dataset.filter_zones(["FR"])
+        filtered = multi_zone_dataset.include_zones(["FR"])
 
         # No critical branches should be included with only FR
         assert len(filtered.critical_branch) == 0
 
         # Filter for FR and DE
-        filtered_fr_de = multi_zone_dataset.filter_zones(["FR", "DE"])
+        filtered_fr_de = multi_zone_dataset.include_zones(["FR", "DE"])
         assert len(filtered_fr_de.critical_branch) == 1
         assert "cb_FR_DE" in filtered_fr_de.critical_branch
 
     def test_filter_zone_critical_branches_include_external(self, multi_zone_dataset):
         """Test critical branches with include_external_borders=True."""
-        filtered = multi_zone_dataset.filter_zones(["FR"], include_external_borders=True)
+        filtered = multi_zone_dataset.include_zones(["FR"], include_external_borders=True)
 
         # Should include critical branch where FR node is one endpoint
         assert len(filtered.critical_branch) == 1
@@ -1495,14 +1476,14 @@ class TestFilterZones:
     def test_filter_zone_validation_nonexistent_zone(self, multi_zone_dataset):
         """Test that ValueError is raised for non-existent control block names."""
         with pytest.raises(ValueError, match="Control blocks not found in dataset"):
-            multi_zone_dataset.filter_zones(["NONEXISTENT"])
+            multi_zone_dataset.include_zones(["NONEXISTENT"])
 
         with pytest.raises(ValueError, match="Control blocks not found in dataset"):
-            multi_zone_dataset.filter_zones(["FR", "INVALID_ZONE"])
+            multi_zone_dataset.include_zones(["FR", "INVALID_ZONE"])
 
     def test_filter_zone_multiple_zones(self, multi_zone_dataset):
         """Test filtering with multiple zones."""
-        filtered = multi_zone_dataset.filter_zones(["FR", "DE"])
+        filtered = multi_zone_dataset.include_zones(["FR", "DE"])
 
         assert len(filtered.control_block) == 2
         assert "FR" in filtered.control_block
@@ -1513,12 +1494,12 @@ class TestFilterZones:
         assert len(filtered.thermal) == 2
         assert len(filtered.hydro) == 1
 
-    def test_filter_zone_returns_deep_copy(self, multi_zone_dataset):
-        """Test that filter_zones returns a deep copy and doesn't modify original."""
+    def test_filter_zone_does_not_modify_original(self, multi_zone_dataset):
+        """Test that include_zones doesn't modify the original dataset."""
         original_cb_count = len(multi_zone_dataset.control_block)
         original_node_count = len(multi_zone_dataset.node)
 
-        filtered = multi_zone_dataset.filter_zones(["FR"])
+        filtered = multi_zone_dataset.include_zones(["FR"])
 
         # Original should be unchanged
         assert len(multi_zone_dataset.control_block) == original_cb_count
@@ -1535,7 +1516,7 @@ class TestFilterZones:
         node = Node(name="node1", control_block=cb, market_area=ma)
         dataset = AtlasDataset(control_block=[cb], market_area=[ma], node=[node])
 
-        filtered = dataset.filter_zones([])
+        filtered = dataset.include_zones([])
 
         # Should return empty dataset
         assert len(filtered.control_block) == 0
@@ -1576,7 +1557,7 @@ class TestFilterZones:
             load=[load],
         )
 
-        filtered = dataset.filter_zones(["ZONE1"])
+        filtered = dataset.include_zones(["ZONE1"])
 
         # Check ZONE1 equipment is included
         assert len(filtered.thermal) == 1
@@ -1627,7 +1608,7 @@ class TestFilterZones:
             market_area_ptdf=[ma_ptdf1, ma_ptdf2],
         )
 
-        filtered = dataset.filter_zones(["CB1"])
+        filtered = dataset.include_zones(["CB1"])
 
         assert len(filtered.market_area_ptdf) == 1
         assert "ma_ptdf1" in filtered.market_area_ptdf
@@ -1667,14 +1648,14 @@ class TestFilterZones:
             node_ptdf=[node_ptdf1, node_ptdf2],
         )
 
-        filtered = dataset.filter_zones(["CB1"])
+        filtered = dataset.include_zones(["CB1"])
 
         assert len(filtered.node_ptdf) == 1
         assert "node_ptdf1" in filtered.node_ptdf
         assert "node_ptdf2" not in filtered.node_ptdf
 
-    def test_include_zones_matches_filter_zones_selection(self, multi_zone_dataset):
-        """include_zones selects exactly what filter_zones documents, for every option."""
+    def test_include_zones_border_selection(self, multi_zone_dataset):
+        """include_zones keeps borders and branches according to include_external_borders."""
         kept = multi_zone_dataset.include_zones(["FR", "DE"])
         assert {b.name for b in kept.market_border} == {"border_FR_DE"}
         assert {c.name for c in kept.critical_branch} == {"cb_FR_DE"}
@@ -1702,12 +1683,6 @@ class TestFilterZones:
     def test_include_zones_validation_nonexistent_zone(self, multi_zone_dataset):
         with pytest.raises(ValueError, match="Control blocks not found in dataset"):
             multi_zone_dataset.include_zones(["FR", "INVALID_ZONE"])
-
-    def test_filter_zones_returns_independent_objects(self, multi_zone_dataset):
-        filtered = multi_zone_dataset.filter_zones(["FR"])
-
-        assert filtered.node.get("node_FR1") == multi_zone_dataset.node.get("node_FR1")
-        assert filtered.node.get("node_FR1") is not multi_zone_dataset.node.get("node_FR1")
 
     def test_filters_chain_without_copying_until_asked(self, multi_zone_dataset):
         """The chain suggested in the review: zones, then equipment, then technologies, then one copy."""
@@ -1805,19 +1780,12 @@ class TestShallowFiltering:
 
         assert [e.name for e in filtered.thermal] == ["plant_2"]
 
-    def test_filter_equipments_returns_an_independent_deep_copy(self, thermals):
-        dataset, plants = thermals
-
-        filtered = dataset.filter_equipments(["plant_1"])
-
-        assert filtered.thermal.get("plant_1") == plants[0]
-        assert filtered.thermal.get("plant_1") is not plants[0]
-
     def test_model_copy_deep_detaches_a_shallow_result(self, thermals):
         dataset, plants = thermals
 
         detached = dataset.exclude_equipments(["plant_2"]).model_copy(deep=True)
 
+        assert detached.thermal.get("plant_1") == plants[0]
         assert detached.thermal.get("plant_1") is not plants[0]
 
 
