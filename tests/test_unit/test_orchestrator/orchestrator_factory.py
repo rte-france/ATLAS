@@ -24,6 +24,10 @@ class ConcreteJob(AbstractJob):
 class ConcreteTaskGenerator(TaskJobsGenerator):
     """Minimalist implementation of TaskGenerator"""
 
+    @property
+    def _jobs_by_iteration(self) -> int:
+        return 1
+
     def __init__(self, task: Task, job = None, module_parameters = None):
         super().__init__(task)
         self._job: ConcreteJob = job

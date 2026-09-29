@@ -60,27 +60,27 @@ class TaskJobsGenerator(ABC):
         """Return true if given task and this generator task have the same priority and, at some point, have to be executed with the same execution."""
         return Task.are_concurrent(self._task, task)
 
-    def start_date(self, iteration):
+    def start_date(self, iteration: int):
         """Return the start date associated to the given iteration for the task"""
         return self.execution_date(iteration) + self._task.offset_start_date
 
-    def execution_date(self, iteration):
+    def execution_date(self, iteration: int):
         """Return the execution date associated to the given iteration for the task"""
         return self._task.from_ + (iteration - 1) * self._task.frequency
 
-    def end_date(self, iteration):
+    def end_date(self, iteration: int):
         """Return the end date associated to the given iteration for the task"""
         return self.execution_date(iteration) + self._task.offset_end_date
 
-    def priority(self, iteration) -> TaskIterationPriority:
+    def priority(self, iteration: int) -> TaskIterationPriority:
         """Return the iteration priority associated to the given iteration for the task"""
         return TaskIterationPriority(self.execution_date(iteration), self._task.priority)
 
-    def is_valid_iteration(self, iteration) -> bool:
+    def is_valid_iteration(self, iteration: int) -> bool:
         """Return true the task have the given iteration and false otherwise."""
         return 1 <= iteration <= len(self)
 
-    def build_jobs(self, iteration) -> list[AbstractJob] | None:
+    def build_jobs(self, iteration: int) -> list[AbstractJob] | None:
         """
         Build and return the list of ActionPlanJob for the given iteration.
         Return None if no job for the given iteration exists.
@@ -90,20 +90,29 @@ class TaskJobsGenerator(ABC):
         return self._build_jobs(iteration)
 
     @abstractmethod
-    def _build_jobs(self, iteration) -> list[AbstractJob]:
-        """
-        Build and return the list of ActionPlanJob for the given, assumed valid, iteration.
-        """
+    def _build_jobs(self, iteration: int) -> list[AbstractJob]:
+        """Build and return the list of ActionPlanJob for the given, assumed valid, iteration."""
         pass
 
     @cached_property
-    def _length(self) -> int:
+    def _number_of_iteration(self) -> int:
+        """Return the total number of valid iteration."""
         span_seconds = (self._task.until - self._task.from_).total_seconds()
         step_seconds = self._task.frequency.total_seconds()
         return int(span_seconds // step_seconds) + 1
 
+    @property
+    @abstractmethod
+    def _jobs_by_iteration(self) -> int:
+        """Return the number of job by iteration."""
+        pass
+
+    def jobs_count(self):
+        """Return the total number of job generated through all iterations."""
+        return self._number_of_iteration * self._jobs_by_iteration
+
     def __len__(self):
-        return self._length
+        return self._number_of_iteration
 
 
 class ModuleTaskJobsGenerator(TaskJobsGenerator):
@@ -125,6 +134,11 @@ class ModuleTaskJobsGenerator(TaskJobsGenerator):
                 self._build_parameters(iteration),
             )
         ]
+
+    @property
+    def _jobs_by_iteration(self) -> int:
+        """Return the number of job by iteration."""
+        return 1
 
     def _build_parameters(self, iteration) -> AbstractModuleParameters:
         """Build and return parameters to use for the module for the given iteration."""
@@ -151,6 +165,16 @@ class WorkflowTaskJobsGenerator(TaskJobsGenerator):
         self.parameters: WorkflowParameters = parameters
         self.root_output_dir = root_output_dir
 
+    def _build_jobs(self, iteration) -> list[AbstractJob]:
+        """Build and return the list of ActionPlanJob for the given iteration."""
+        workflow = Workflow(self._build_parameters(iteration), f"task {self._task.name!r} iteration {iteration}")
+        return list(workflow.jobs)
+
+    @property
+    def _jobs_by_iteration(self) -> int:
+        """Return the number of job by iteration."""
+        return len(self.parameters.steps)
+
     def _build_parameters(self, iteration) -> WorkflowParameters:
         """Build and return parameters to use for the workflow for the given iteration."""
         parameters = self.parameters.model_copy(deep=True)
@@ -170,8 +194,3 @@ class WorkflowTaskJobsGenerator(TaskJobsGenerator):
             inplace=True,
         )
         return parameters
-
-    def _build_jobs(self, iteration) -> list[AbstractJob]:
-        """Build and return the list of ActionPlanJob for the given iteration."""
-        workflow = Workflow(self._build_parameters(iteration), f"task {self._task.name!r} iteration {iteration}")
-        return list(workflow.jobs)
