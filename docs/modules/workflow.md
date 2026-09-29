@@ -8,9 +8,6 @@ once**. If you need the same modules to run repeatedly over a rolling horizon, u
 [action plan](action-plan.md) instead.
 
 
-<!--
-FIXME - make on other pass on this, coolhead
--->
 As an [orchestrator](orchestrator.md), a workflow shares its execution model, rollback, snapshot and export behaviour.
 
 ---
@@ -34,9 +31,6 @@ steps:
 
 The order in which `steps` are written in the YAML is important: it defines the actual chain of modules in the simulation. The `module` field has to correspond to an existing module name (cf. the overview of each individual
 module for its name in the [Modules section](index.md)).
-<!-- 
-FIXME - precise that `parameters` field can be a dict or a path
--->
 
 Three different types of parameters exist:
 
@@ -270,8 +264,8 @@ once in [Orchestrator](orchestrator.md#advanced-options). In short:
 | `create_job_snapshots` | `false` | Snapshot the state before the workflow and before each step |
 | `export_output` | `true` | Write the final state to `<output_dir>/workflow_output` |
 
-With `create_job_snapshots: true`, a workflow creates one snapshot named `Workflow_input` before the first step,
-then one named `input_'<step name>'` before each step. Snapshot labels are listed in the logs when a step fails.
+With `create_job_snapshots: true`, a workflow creates one snapshot named `Workflow_input` before the first job,
+then one named `input_'<job name>'` before each job. Snapshot labels are listed in the logs when a step fails.
 
 ---
 

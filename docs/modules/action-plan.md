@@ -145,9 +145,17 @@ If `name` is omitted, the task is named after what it runs: the module name for 
 
 ## Run
 
-<!--
-FIXME - missing CLI section
--->
+```bash
+atlas action-plan run action_plan.yaml
+```
+
+To inspect the steps of an action plan file before running it:
+
+```bash
+atlas action-plan list action_plan.yaml
+```
+
+See the [CLI reference](../cli.md) for all commands.
 
 ### Python
 
@@ -168,13 +176,6 @@ action_plan = ActionPlan.from_file(
     ContextParameters(forced={"solver": {"solver_name": "SCIP"}}),
 )
 ```
-
-<!--
-FIXME - remove when CLI is added
--->
-!!! warning "No CLI command yet"
-    There is currently **no** `atlas action-plan` command. Action plans are run from Python only. The
-    [CLI](../cli.md) covers modules and workflows.
 
 ### Programmatic
 
@@ -230,9 +231,6 @@ action_plan.add_task(TaskModule(...))
 
 ---
 
-<!--
-FIXME - need a retake, should we move this part earlier? or quote it in earlier sections of this .md?
--->
 ## Scheduling
 
 The scheduler interleaves every task's iterations into a single ordered stream of jobs, sorted first by execution
@@ -253,14 +251,6 @@ tasks:
 A `TaskModule` iteration produces exactly one job. A `TaskWorkflow` iteration produces **one job per step of the
 workflow**, all of them emitted consecutively before the next task's iteration; the workflow is rebuilt for each
 iteration with that iteration's dates.
-
-<!--
-FIXME - fix this issue, and remove the note
--->
-!!! note "`jobs_count` counts iterations, not jobs"
-    `ActionPlan.jobs_count` — and the `n/total` progress counter in the logs — sums the number of *iterations*
-    across tasks. A `TaskWorkflow` with several steps therefore yields more jobs than `jobs_count` announces, and
-    the progress counter can run past the total. `len(list(action_plan.jobs))` gives the real number of jobs.
 
 ---
 
@@ -376,16 +366,9 @@ once in [Orchestrator](orchestrator.md#advanced-options). In short:
 | `export_output` | `true` | Write the final state to `<output_dir>/actionplan_output` |
 
 With `create_job_snapshots: true`, an action plan creates one snapshot named `ActionPlan_input` before the first
-job, then one named `input_task '<task name>' iteration <n>` before each job. Snapshot labels are listed in the
+job, then one named `input_'<job name>'` before each job. Snapshot labels are listed in the
 logs when a job fails.
 
-<!--
-FIXME - review this
--->
-
-Because every job in the schedule reads and writes the same state, `rollback_on_job_failure` only undoes the
-**failing job**. Jobs that already succeeded stay applied; the action plan stops at the failure with a
-`WorkflowJobError` carrying the job name and the state.
 
 ---
 
