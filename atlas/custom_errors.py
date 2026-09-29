@@ -7,6 +7,7 @@ from atlas.orchestrator.change_set import ChangeSet
 
 if TYPE_CHECKING:
     from atlas.io_utils.atlas_dataset import AtlasDataset
+    from atlas.io_utils.parameters import ContextParameters
     from atlas.orchestrator.current_input_state import CurrentInputState
 
 
@@ -112,6 +113,38 @@ class UnsuccessfulSolveError(SolverError):
         )
         self.status = status
         self.model_name = model_name
+
+
+class UseContextError(RuntimeError):
+    """Raised when a context cannot be resolved on an orchestrator's already-built
+    steps/tasks against the new context.
+
+    The orchestrator is left completely unchanged, as if `use_context()` had never been called:
+    its context is rolled back to what it was right before the call.
+
+    Example:
+        >>> try:
+        ...     workflow.use_context(new_context)
+        ... except UseContextError as e:
+        ...     print(f"{e.job_name!r} could not be resolved with the new context")
+        ...     print(e.previous_context)   # this orchestrator's context before the failed call
+        ...     print(e.attempted_context)  # the context that was passed to use_context()
+        ...     print(e.original_error)     # the underlying resolution failure
+    """
+
+    def __init__(
+        self,
+        message: str,
+        job_name: str,
+        previous_context: ContextParameters,
+        attempted_context: ContextParameters,
+        original_error: Exception,
+    ):
+        super().__init__(message)
+        self.job_name = job_name
+        self.previous_context = previous_context
+        self.attempted_context = attempted_context
+        self.original_error = original_error
 
 
 class DataQualityWarning(UserWarning):

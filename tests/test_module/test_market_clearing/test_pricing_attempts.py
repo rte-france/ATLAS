@@ -40,7 +40,8 @@ class _FakeSolverParameters:
 class _FakeParameters:
     solver = _FakeSolverParameters()
 
-    def get_lp_dir(self) -> Path:
+    @property
+    def lp_dir(self) -> Path:
         return Path("unused")
 
 
