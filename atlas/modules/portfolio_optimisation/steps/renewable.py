@@ -18,6 +18,8 @@ from atlas.modules.portfolio_optimisation.utils.getters import get_variable_cost
 from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
+    from pendulum import DateTime
+
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
@@ -35,6 +37,15 @@ class RenewableStep(AbstractOptimStep[WindPO | SolarPO, "PortfolioOptimisationPa
         super().__init__(equipment)
         self._dispatch = RenewableDispatch(equipment)
         self._reserves = ReserveFactory.for_renewable(equipment)
+
+    def power_level(self, time: DateTime):
+        """Power injected by the unit at *time*."""
+        return self._dispatch.power_level[time]
+
+    @property
+    def reserves(self) -> RenewableReserveHandler:
+        """Reserve handler of the unit, holding its reserve temporal variables."""
+        return self._reserves
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment

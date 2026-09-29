@@ -17,6 +17,8 @@ from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
 from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
+    from pendulum import DateTime
+
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
@@ -34,6 +36,15 @@ class HydroStep(AbstractOptimStep[HydroPO, "PortfolioOptimisationParameters"]):
         super().__init__(equipment)
         self._dispatch = HydroDispatch(equipment)
         self._reserves = ReserveFactory.for_hydro(equipment, self._dispatch)
+
+    def power_level(self, time: DateTime):
+        """Power produced by the unit at *time*, summed over its fragments."""
+        return self._dispatch.power_fragments_sum(time)
+
+    @property
+    def reserves(self) -> HydroReserveHandler:
+        """Reserve handler of the unit, holding its reserve temporal variables."""
+        return self._reserves
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment

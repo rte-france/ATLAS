@@ -16,6 +16,8 @@ from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
 from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
+    from pendulum import DateTime
+
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
@@ -34,6 +36,15 @@ class StoragePOStep(AbstractOptimStep[StoragePO, "PortfolioOptimisationParameter
         super().__init__(equipment)
         self._dispatch = StorageDispatch(equipment)
         self._reserves = ReserveFactory.for_storage(equipment)
+
+    def power_level(self, time: DateTime):
+        """Net power of the unit at *time*: discharge (positive) plus charge (negative)."""
+        return self._dispatch.power_level_sell[time] + self._dispatch.power_level_buy[time]
+
+    @property
+    def reserves(self) -> StorageReserveHandler:
+        """Reserve handler of the unit, holding its reserve temporal variables."""
+        return self._reserves
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment

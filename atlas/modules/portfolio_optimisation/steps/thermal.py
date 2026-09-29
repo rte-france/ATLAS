@@ -16,6 +16,8 @@ from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
+    from pendulum import DateTime
+
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
@@ -34,6 +36,15 @@ class ThermalStep(AbstractOptimStep[ThermalPO, "PortfolioOptimisationParameters"
         super().__init__(equipment)
         self._dispatch = ThermalDispatch(equipment)
         self._reserves = ReserveFactory.for_thermal(equipment, self._dispatch)
+
+    def power_level(self, time: DateTime):
+        """Power injected by the unit at *time*."""
+        return self._dispatch.power_level[time]
+
+    @property
+    def reserves(self) -> ThermalReserveHandler:
+        """Reserve handler of the unit, holding its reserve temporal variables."""
+        return self._reserves
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         self._dispatch.setup(model, parameters)

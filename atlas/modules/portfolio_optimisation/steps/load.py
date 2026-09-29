@@ -17,6 +17,8 @@ from atlas.modules.portfolio_optimisation.utils.getters import get_variable_cost
 from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
+    from pendulum import DateTime
+
     from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
@@ -30,6 +32,10 @@ class LoadStep(AbstractOptimStep[LoadPO, "PortfolioOptimisationParameters"]):
     def __init__(self, equipment: LoadPO):
         super().__init__(equipment)
         self._dispatch = LoadDispatch(equipment)
+
+    def power_level(self, time: DateTime):
+        """Power of the unit at *time*, negative when consuming."""
+        return self._dispatch.power_level[time]
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         eq = self.equipment
