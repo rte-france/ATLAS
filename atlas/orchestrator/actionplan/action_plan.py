@@ -16,7 +16,6 @@ from typing import cast
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.custom_errors import UseContextError
 from atlas.io_utils.parameters import ContextParameters
-from atlas.io_utils.parameters import ContextParameters
 from atlas.io_utils.utils import deep_update
 from atlas.orchestrator.actionplan.job import (
     ActionPlanJob,

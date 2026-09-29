@@ -92,6 +92,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
         try:
             self._rebuild(previous_parameters.context, context)
         except Exception:
+            self.parameters = previous_parameters
             raise
 
     @abstractmethod

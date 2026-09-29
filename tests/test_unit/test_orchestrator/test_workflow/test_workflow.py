@@ -15,9 +15,11 @@ import pytest
 from atlas import WorkflowJob
 from atlas.custom_errors import UseContextError
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.io_utils.parameters import ContextParameters
-from atlas.orchestrator.workflow.workflow import Workflow, WorkflowParameters
+from atlas.io_utils.parameters import ContextParameters, DateParameters
+from atlas.modules.market_clearing.parameters import MarketClearingParameters
+from atlas.orchestrator.workflow.workflow import Workflow, WorkflowParameters, Step
 from atlas.timing import build_datetime
+from tests.test_unit.test_common.test_optimal_dispatch.test_dispatch.test_thermal import start_date
 from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, OrchestratorConfigBuilder, \
     generate_step_from_job
 
@@ -33,21 +35,24 @@ class TestWorkflowAddStep:
         wf._raw_steps = []
         return wf
 
-    @pytest.fixture(autouse=True)
-    def job_builder(self):
-        self.job_builder = MockJobBuilder().with_job_class(WorkflowJob)
+    @staticmethod
+    def step_builder(name: str) -> Step:
+        return Step(name=name, module="MarketClearing", parameters=MarketClearingParameters(
+            temporal=DateParameters(
+                execution_date=build_datetime("2028-09-27 00:00:00"),
+                start_date=build_datetime("2028-09-27 00:00:00"),
+                end_date=build_datetime("2028-09-27 00:00:00")
+            )))
 
     def test_add_single_step(self, tmp_path, empty_workflow):
-        job = self.job_builder.with_name("s1").build()
-        step = generate_step_from_job(job)
+        step = TestWorkflowAddStep.step_builder("s1")
         empty_workflow.add_step(step)
 
         assert empty_workflow.jobs_count == 1
         assert next(empty_workflow.jobs).name == repr("s1")
 
     def test_add_list_of_steps(self, tmp_path, empty_workflow):
-        jobs = [self.job_builder.with_name(f"s{i}").build() for i in range(3)]
-        steps = [generate_step_from_job(job) for job in jobs]
+        steps = [TestWorkflowAddStep.step_builder(f"s{i}") for i in range(3)]
         empty_workflow.add_step(steps)
 
         assert empty_workflow.jobs_count == 3
@@ -59,16 +64,14 @@ class TestWorkflowAddStep:
             empty_workflow.add_step("not_a_step")
 
     def test_add_list_with_invalid_item_raises_type_error(self, tmp_path, empty_workflow):
-        job = self.job_builder.with_name("s1").build()
-        valid_step = generate_step_from_job(job)
+        valid_step = TestWorkflowAddStep.step_builder("s1")
+
         with pytest.raises(TypeError):
             empty_workflow.add_step([valid_step, "not_a_step"])
 
     def test_steps_appended_in_order(self, tmp_path, empty_workflow):
-        j1 = self.job_builder.with_name("first").build()
-        j2 = self.job_builder.with_name("second").build()
-        s1 = generate_step_from_job(j1)
-        s2 = generate_step_from_job(j2)
+        s1 = TestWorkflowAddStep.step_builder("first")
+        s2 = TestWorkflowAddStep.step_builder("second")
         empty_workflow.add_step(s1)
         empty_workflow.add_step(s2)
 
@@ -471,10 +474,17 @@ class TestWorkflowUseContext:
 
     def test_use_context_re_resolves_steps_added_after_construction(self, tmp_path):
         """A step added via add_step() must also be re-resolved."""
+
         workflow = self._build_workflow(tmp_path)
-        job_builder = MockJobBuilder().with_job_class(WorkflowJob).with_name("extra")
-        extra_job = job_builder.build()
-        workflow.add_step(generate_step_from_job(extra_job))
+
+        extra_step = Step(name="extra", module="MarketClearing", parameters=MarketClearingParameters(
+            temporal=DateParameters(
+                execution_date=build_datetime("2028-09-27 00:00:00"),
+                start_date=build_datetime("2028-09-27 00:00:00"),
+                end_date=build_datetime("2028-09-27 00:00:00")
+            )))
+        workflow.add_step(extra_step)
+
         assert workflow.jobs_count == 2
 
         workflow.use_context(ContextParameters(forced={"solver": {"solver_name": "CBC"}}))
