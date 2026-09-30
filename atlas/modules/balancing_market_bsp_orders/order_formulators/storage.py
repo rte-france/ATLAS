@@ -95,7 +95,7 @@ def compute_daily_balancing_energy(equipment: BalancingStorage, parameters: BSPB
     return energy_timeframe_power.sum() * timestep.total_hours()
 
 
-class StorageOrderFormulator(AbstractOrderFormulator):
+class StorageOrderFormulator(AbstractOrderFormulator[BalancingStorage]):
     """Formulates balancing orders for storage equipment.
 
     Upward orders (Sell): the unit discharges, increasing its output toward maximum_power.
@@ -129,7 +129,6 @@ class StorageOrderFormulator(AbstractOrderFormulator):
         parameters: BSPBalancingOrdersParameters,
     ) -> None:
         super().__init__(equipment, target_times, parameters)
-        self.equipment: BalancingStorage = equipment
 
     def formulate(self) -> tuple[list[Order], list[OrderCoupling]]:
         """

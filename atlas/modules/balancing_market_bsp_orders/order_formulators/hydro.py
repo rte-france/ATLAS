@@ -18,7 +18,7 @@ from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
 
-class HydraulicOrderFormulator(AbstractOrderFormulator):
+class HydraulicOrderFormulator(AbstractOrderFormulator[BalancingHydro]):
     """Formulates balancing orders for hydraulic equipment.
 
     Upward orders (Sell): the unit increases its output toward maximum_power.
@@ -39,7 +39,6 @@ class HydraulicOrderFormulator(AbstractOrderFormulator):
         parameters: BSPBalancingOrdersParameters,
     ) -> None:
         super().__init__(equipment, target_times, parameters)
-        self.equipment: BalancingHydro = equipment
 
     def formulate(self) -> tuple[list[Order], list[OrderCoupling]]:
         """

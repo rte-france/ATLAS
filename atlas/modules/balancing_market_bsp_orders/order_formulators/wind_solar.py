@@ -8,12 +8,14 @@ Module that implements WindPvOrderFormulator.
 
 import atlas.config as cfg
 from atlas.enums import OrderType
+from atlas.modules.balancing_market_bsp_orders.input_objects.solar import BalancingSolar
+from atlas.modules.balancing_market_bsp_orders.input_objects.wind import BalancingWind
 from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
 
-class WindPvOrderFormulator(AbstractOrderFormulator):
+class WindPvOrderFormulator(AbstractOrderFormulator[BalancingWind | BalancingSolar]):
     """Formulates balancing orders for wind and solar equipment.
 
     Upward orders (Sell): only formulated when res_self_balancing is True.

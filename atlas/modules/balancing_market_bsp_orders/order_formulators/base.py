@@ -14,10 +14,11 @@ from atlas.enums import MarketType, OrderType, Product
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
+from atlas.objects.equipment.equipment import Equipment
 from atlas.objects.market.order import Order
 
 
-class AbstractOrderFormulator(ABC):
+class AbstractOrderFormulator[E: Equipment](ABC):
     """Abstract base class for balancing order formulators.
 
     Provides shared logic for:
@@ -27,16 +28,19 @@ class AbstractOrderFormulator(ABC):
     - Building Order instances
 
     Subclasses implement formulate() and override max/min power extraction
-    where the equipment type differs (e.g. Load uses maximum_power_forecast).
+    where the equipment type differs (e.g. Load uses maximum_power_forecast). Each
+    subclass parameterizes E with its concrete equipment type (e.g.
+    ``AbstractOrderFormulator[BalancingHydro]``), so ``self.equipment`` is typed
+    accordingly without re-annotating it in every subclass.
     """
 
     def __init__(
         self,
-        equipment,  # TODO : typing
+        equipment: E,
         target_times: list[DateTime],
         parameters: BSPBalancingOrdersParameters,
     ) -> None:
-        self.equipment = equipment
+        self.equipment: E = equipment
         self.target_times = target_times
         self.parameters = parameters
 

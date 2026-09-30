@@ -12,7 +12,9 @@ from pendulum import DateTime, Duration
 
 import atlas.config as cfg
 from atlas.enums import CouplingType, OrderType
+from atlas.modules.balancing_market_bsp_orders.input_objects.thermal import BalancingThermal
 from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator
+from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
@@ -36,10 +38,15 @@ class ShutdownCase(Enum):
     ON_BOTH_SIDES = "on_both_sides"
 
 
-class ThermalOrderFormulator(AbstractOrderFormulator):
+class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
     """Formulates balancing orders for thermal equipment."""
 
-    def __init__(self, equipment, target_times, parameters) -> None:
+    def __init__(
+        self,
+        equipment: BalancingThermal,
+        target_times: list[DateTime],
+        parameters: BSPBalancingOrdersParameters,
+    ) -> None:
         super().__init__(equipment, target_times, parameters)
         self._coupling_counters: dict[CouplingType, int] = {}
         self._upward_orders_by_time: dict[DateTime, list[Order]] = {}

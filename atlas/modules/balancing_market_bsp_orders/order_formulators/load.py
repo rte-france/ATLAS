@@ -17,7 +17,7 @@ from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
 
-class LoadOrderFormulator(AbstractOrderFormulator):
+class LoadOrderFormulator(AbstractOrderFormulator[BalancingLoad]):
     """Formulates balancing orders for load equipment.
 
     Upward orders (Sell): the load reduces its consumption, freeing power upward.
@@ -35,7 +35,6 @@ class LoadOrderFormulator(AbstractOrderFormulator):
         parameters: BSPBalancingOrdersParameters,
     ) -> None:
         super().__init__(equipment, target_times, parameters)
-        self.equipment: BalancingLoad = equipment
 
     def formulate(self) -> tuple[list[Order], list[OrderCoupling]]:
         """
