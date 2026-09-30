@@ -6,9 +6,13 @@ This file is part of the ATLAS project.
 Module that implements BSPBalancingOrdersModule.
 """
 
+from collections.abc import Iterable
+
+import atlas.config as cfg
 from atlas.abstract_class.module import AbstractModule
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.balancing_market_bsp_orders.input_dataset import BSPBalancingOrdersInputDataset
+from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator
 from atlas.modules.balancing_market_bsp_orders.order_formulators.hydro import HydraulicOrderFormulator
 from atlas.modules.balancing_market_bsp_orders.order_formulators.load import LoadOrderFormulator
 from atlas.modules.balancing_market_bsp_orders.order_formulators.storage import StorageOrderFormulator
@@ -16,6 +20,7 @@ from atlas.modules.balancing_market_bsp_orders.order_formulators.thermal import 
 from atlas.modules.balancing_market_bsp_orders.order_formulators.wind_solar import WindPvOrderFormulator
 from atlas.modules.balancing_market_bsp_orders.output_dataset import BSPBalancingOrdersOutputDataset
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
+from atlas.objects.equipment.equipment import Equipment
 
 
 class BSPBalancingOrdersModule(
@@ -67,33 +72,29 @@ class BSPBalancingOrdersModule(
         """
         output_dataset = BSPBalancingOrdersOutputDataset()
 
-        for load in input_dataset.load_equipments.values():
-            orders, _ = LoadOrderFormulator(load, input_dataset.target_times, parameters).formulate()
-            output_dataset.orders.extend(orders)
+        steps: list[tuple[str, type[AbstractOrderFormulator], Iterable[Equipment]]] = [
+            ("load", LoadOrderFormulator, input_dataset.load_equipments.values()),
+            (
+                "wind/pv",
+                WindPvOrderFormulator,
+                [*input_dataset.wind_equipments.values(), *input_dataset.solar_equipments.values()],
+            ),
+            ("storage", StorageOrderFormulator, input_dataset.storage_equipments.values()),
+            ("hydraulic", HydraulicOrderFormulator, input_dataset.hydro_equipments.values()),
+            ("thermic", ThermalOrderFormulator, input_dataset.thermal_equipments.values()),
+        ]
 
-        for wind in input_dataset.wind_equipments.values():
-            orders, _ = WindPvOrderFormulator(wind, input_dataset.target_times, parameters).formulate()
-            output_dataset.orders.extend(orders)
+        for name, formulator_class, equipments in steps:
+            cfg.logger.info(f"Formulation of the {name} orders...")
+            for equipment in equipments:
+                orders, order_couplings = formulator_class(
+                    equipment, input_dataset.target_times, parameters
+                ).formulate()
+                output_dataset.orders.extend(orders)
+                output_dataset.couplings.extend(order_couplings)
+            cfg.logger.info(f"{name.capitalize()} orders formulated.")
 
-        for solar in input_dataset.solar_equipments.values():
-            orders, _ = WindPvOrderFormulator(solar, input_dataset.target_times, parameters).formulate()
-            output_dataset.orders.extend(orders)
-
-        for storage in input_dataset.storage_equipments.values():
-            orders, _ = StorageOrderFormulator(storage, input_dataset.target_times, parameters).formulate()
-            output_dataset.orders.extend(orders)
-
-        for hydro in input_dataset.hydro_equipments.values():
-            orders, _ = HydraulicOrderFormulator(hydro, input_dataset.target_times, parameters).formulate()
-            output_dataset.orders.extend(orders)
-
-        for thermal in input_dataset.thermal_equipments.values():
-            orders, order_couplings = ThermalOrderFormulator(
-                thermal, input_dataset.target_times, parameters
-            ).formulate()
-            output_dataset.orders.extend(orders)
-            output_dataset.couplings.extend(order_couplings)
-
+        cfg.logger.info("Formulation of orders successfully completed.")
         return output_dataset
 
     def validates_results(
