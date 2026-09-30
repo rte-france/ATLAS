@@ -84,9 +84,7 @@ class TestReserveFactoryMaximumAutomated:
     )
     def test_unset_capacities_count_as_zero(self, node, portfolio, afrr, fcr, expected):
         """Both fields are optional on Equipment — an unset one must not poison the sum."""
-        handler = ReserveFactory.for_thermal(
-            _thermal(node, portfolio, maximum_afrr=afrr, maximum_fcr=fcr), DISPATCH
-        )
+        handler = ReserveFactory.for_thermal(_thermal(node, portfolio, maximum_afrr=afrr, maximum_fcr=fcr), DISPATCH)
         assert handler._maximum_automated == pytest.approx(expected)
 
 

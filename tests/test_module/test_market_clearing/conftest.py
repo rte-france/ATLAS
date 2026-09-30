@@ -12,8 +12,8 @@ import pytest
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.module import MarketClearingModule
-from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
+from atlas.modules.market_clearing.result import MarketClearingResult
 
 INPUT_DATASET_DIR = Path("tests/dataset/day_ahead/market_clearing_input")
 PARAMETERS_PATH = Path("tests/dataset/parameters/day_ahead/market_clearing.yml")
@@ -38,8 +38,7 @@ def parameters(market_clearing_module: MarketClearingModule, lp_export_dir: Path
         pytest.skip(f"Market clearing parameters not found: {PARAMETERS_PATH}")
     params = market_clearing_module.import_parameters(PARAMETERS_PATH)
     params = params.evolve(
-        output=params.output.evolve(output_dir=lp_export_dir),
-        solver=params.solver.evolve(export_lp=True)
+        export=params.export.evolve(run_dir=lp_export_dir), solver=params.solver.evolve(export_lp=True)
     )
     return params
 
@@ -63,11 +62,11 @@ def input_dataset(
 
 
 @pytest.fixture(scope="session")
-def output_dataset(
+def result(
     market_clearing_module: MarketClearingModule,
     atlas_data: AtlasDataset,
     parameters: MarketClearingParameters,
-) -> tuple[MarketClearingOutputDataset, float]:
+) -> tuple[MarketClearingResult, float]:
     start = pendulum.now()
     result = market_clearing_module.run(atlas_data, parameters)
     elapsed = (pendulum.now() - start).total_seconds()
@@ -75,7 +74,7 @@ def output_dataset(
 
 
 @pytest.fixture(scope="session")
-def generated_lp_dir(output_dataset: tuple[MarketClearingOutputDataset, float], lp_export_dir: Path) -> Path:
+def generated_lp_dir(result: tuple[MarketClearingResult, float], lp_export_dir: Path) -> Path:
     return lp_export_dir / "lp_export"
 
 
@@ -90,8 +89,7 @@ def parameters_id(market_clearing_module: MarketClearingModule, lp_export_id_dir
         pytest.skip(f"Market clearing parameters not found: {PARAMETERS_ID_PATH}")
     params = market_clearing_module.import_parameters(PARAMETERS_ID_PATH)
     params = params.evolve(
-        output=params.output.evolve(output_dir=lp_export_id_dir),
-        solver=params.solver.evolve(export_lp=True)
+        export=params.export.evolve(run_dir=lp_export_id_dir), solver=params.solver.evolve(export_lp=True)
     )
     return params
 
@@ -115,11 +113,11 @@ def input_dataset_id(
 
 
 @pytest.fixture(scope="session")
-def output_dataset_id(
+def result_id(
     market_clearing_module: MarketClearingModule,
     atlas_data_id: AtlasDataset,
     parameters_id: MarketClearingParameters,
-) -> tuple[MarketClearingOutputDataset, float]:
+) -> tuple[MarketClearingResult, float]:
     start = pendulum.now()
     result = market_clearing_module.run(atlas_data_id, parameters_id)
     elapsed = (pendulum.now() - start).total_seconds()
@@ -127,5 +125,5 @@ def output_dataset_id(
 
 
 @pytest.fixture(scope="session")
-def generated_lp_dir_id(output_dataset_id: tuple[MarketClearingOutputDataset, float], lp_export_id_dir: Path) -> Path:
+def generated_lp_dir_id(result_id: tuple[MarketClearingResult, float], lp_export_id_dir: Path) -> Path:
     return lp_export_id_dir / "lp_export"

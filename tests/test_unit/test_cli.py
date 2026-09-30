@@ -95,7 +95,7 @@ class TestRunCommandModuleMode:
 
         mock_params_class = MagicMock()
         mock_params_instance = MagicMock()
-        mock_params_instance.output.export_output_dataset = False
+        mock_params_instance.export.export_dataset = False
         mock_params_class.from_file.return_value = mock_params_instance
         mock_module_instance.get_parameters_class.return_value = mock_params_class
 

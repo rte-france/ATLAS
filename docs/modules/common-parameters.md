@@ -10,7 +10,7 @@ All ATLAS modules inherit from `AbstractModuleParameters` and share a common set
 Common parameters are organized into four sections:
 ```yaml
 temporal:       # Time configuration (required)
-output:         # Output configuration (recommended, has defaults)
+export:         # What to write to disk, and where (recommended, has defaults)
 solver:         # Solver configuration (optional, has defaults)
 multiprocessing: # Parallel execution (optional, has defaults)
 ```
@@ -42,13 +42,13 @@ multiprocessing: # Parallel execution (optional, has defaults)
 
 ---
 
-## `output` — Output Configuration (optional)
+## `export` — What the module writes to disk (optional)
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `export_result` | boolean | `false` | Write results back to business model objects |
-| `export_output_dataset` | boolean | `false` | Export the output dataset to disk |
-| `output_dir` | path | `"output"` | Directory where outputs are written |
+| `export_results` | boolean | `false` | Write results back to business model objects |
+| `export_dataset` | boolean | `false` | Serialize the dataset produced by the module |
+| `run_dir` | path | `"output"` | Root directory of the run tree (holds `results/`, `output_dataset/`, `lp_export/`) |
 
 ---
 
@@ -76,10 +76,10 @@ solver:
   use_presolve: false
   export_lp: false
 
-output:
-  export_result: false
-  export_output_dataset: false
-  output_dir: "results/"
+export:
+  export_results: false
+  export_dataset: false
+  run_dir: "results/"
 
 multiprocessing:
   enable: false

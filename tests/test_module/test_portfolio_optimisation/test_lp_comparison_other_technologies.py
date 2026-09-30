@@ -46,8 +46,8 @@ def generated_lp_files():
             "small_imbalance_penalty": 0.05,
             "excluded_technologies": ["thermal"],
             "excluded_market_areas": ["ma_b"],
-            "output": {
-                "output_dir": tmpdir,
+            "export": {
+                "run_dir": tmpdir,
             },
         }
 

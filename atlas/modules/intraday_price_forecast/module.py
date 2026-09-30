@@ -15,15 +15,13 @@ from atlas.modules.intraday_price_forecast.input_objects.load import LoadIDPF
 from atlas.modules.intraday_price_forecast.input_objects.market_area import MarketAreaIDPF
 from atlas.modules.intraday_price_forecast.input_objects.solar import SolarIDPF
 from atlas.modules.intraday_price_forecast.input_objects.wind import WindIDPF
-from atlas.modules.intraday_price_forecast.output_dataset import IntradayPriceForecastOutputDataset
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
+from atlas.modules.intraday_price_forecast.result import IntradayPriceForecastResult
 from atlas.timing import generate_datetimes
 
 
 class IntradayPriceForecastModule(
-    AbstractModule[
-        IntradayPriceForecastParameters, IntradayPriceForecastInputDataset, IntradayPriceForecastOutputDataset
-    ]
+    AbstractModule[IntradayPriceForecastParameters, IntradayPriceForecastInputDataset, IntradayPriceForecastResult]
 ):
     def get_parameters_class(self):
         return IntradayPriceForecastParameters
@@ -40,7 +38,7 @@ class IntradayPriceForecastModule(
 
     def execute(
         self, parameters: IntradayPriceForecastParameters, input_dataset: IntradayPriceForecastInputDataset
-    ) -> IntradayPriceForecastOutputDataset:
+    ) -> IntradayPriceForecastResult:
         """
         Execute the intraday price forecast computation for all market areas.
 
@@ -52,15 +50,15 @@ class IntradayPriceForecastModule(
         5. Apply price caps and store results
 
         :return: Output dataset with updated price forecasts
-        :rtype: IntradayPriceForecastOutputDataset
+        :rtype: IntradayPriceForecastResult
         """
-        output_dataset = IntradayPriceForecastOutputDataset(parameters, input_dataset)
+        result = IntradayPriceForecastResult(parameters, input_dataset)
 
         time_window = generate_datetimes(
             parameters.temporal.start_date, parameters.penultimate_date, parameters.temporal.timestep
         )
 
-        for market_area in output_dataset.market_area:
+        for market_area in result.market_area:
             cfg.logger.info(f"Computing intraday price forecast for market area: '{market_area.name}'")
 
             loads, solars, winds = self._filter_assets_by_market_area(market_area, input_dataset)
@@ -84,15 +82,15 @@ class IntradayPriceForecastModule(
                 f"Intraday price for market area '{market_area.name}' has been done using {price_source_label}"
             )
 
-        return output_dataset
+        return result
 
     def validates_results(
         self,
         parameters: IntradayPriceForecastParameters,
         input_dataset: IntradayPriceForecastInputDataset,
-        output_dataset: IntradayPriceForecastOutputDataset,
+        result: IntradayPriceForecastResult,
     ) -> bool:
-        for market_area in output_dataset.market_area:
+        for market_area in result.market_area:
             if market_area.id_price_forecast is None:
                 logger.error(
                     f"intraday price forecast missing for Market area {market_area.name} doesn't have negative price cap isn't negative: {parameters.intraday_negative_price_cap}"
@@ -109,7 +107,7 @@ class IntradayPriceForecastModule(
         self,
         parameters: IntradayPriceForecastParameters,
         input_dataset: IntradayPriceForecastInputDataset,
-        output_dataset: IntradayPriceForecastOutputDataset,
+        result: IntradayPriceForecastResult,
     ) -> None:
         return
 
