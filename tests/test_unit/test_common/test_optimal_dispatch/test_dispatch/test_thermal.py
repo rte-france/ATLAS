@@ -235,7 +235,7 @@ class TestThermalDispatchCombinations:
 
 
 class TestThermalDispatchVariables:
-    def test_setup_creates_model_vars(self, comb1_equipment, model, parameters):
+    def test_setup_creates_temporal_variables(self, comb1_equipment, model, parameters):
         d = ThermalDispatch(comb1_equipment)
         d.setup(model, parameters)
 
