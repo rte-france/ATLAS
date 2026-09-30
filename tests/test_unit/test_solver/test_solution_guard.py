@@ -11,11 +11,14 @@ from io import StringIO
 
 import pytest
 from loguru import logger as loguru_logger
+from pendulum import datetime
 
 from atlas.custom_errors import ModelNotSolvedError, SolverError, UnsuccessfulSolveError
 from atlas.enums import SolverEnum, SolverStatus
 from atlas.solver.models import SolutionInfo
 from atlas.solver.solver_interface import OptimisationModel
+
+_TIMES = [datetime(2025, 1, 1, hour, tz="UTC") for hour in range(3)]
 
 
 def build_infeasible_model(name: str | None = "infeasible_test") -> OptimisationModel:
@@ -157,6 +160,40 @@ class TestSolutionAccessorsGuard:
 
         assert model.get_variable_value("x") == pytest.approx(10.0)
         assert model.get_constraint_slack_value("capacity") == pytest.approx(0.0)
+
+    def test_model_solution_raises_instead_of_returning_zeros(self):
+        model = build_infeasible_model()
+        model.add_temporal_variable("power", _TIMES, lower_bound=0, upper_bound=1)
+        model.solve()
+
+        with pytest.raises(UnsuccessfulSolveError):
+            model.solution()
+
+    def test_temporal_variable_solution_raises_instead_of_returning_zeros(self):
+        model = build_infeasible_model()
+        power = model.add_temporal_variable("power", _TIMES, lower_bound=0, upper_bound=1)
+        model.solve()
+
+        with pytest.raises(UnsuccessfulSolveError):
+            power.solution()
+
+        with pytest.raises(UnsuccessfulSolveError):
+            power.solution_value(_TIMES[0])
+
+    def test_temporal_variable_solution_raises_before_solving(self):
+        model = build_infeasible_model()
+        power = model.add_temporal_variable("power", _TIMES, lower_bound=0, upper_bound=1)
+
+        with pytest.raises(ModelNotSolvedError):
+            power.solution()
+
+    def test_temporal_variable_solution_works_on_a_solved_model(self):
+        model = build_feasible_model()
+        power = model.add_temporal_variable("power", _TIMES, lower_bound=2, upper_bound=2)
+        model.solve()
+
+        assert power.solution().get_value(_TIMES[0]) == pytest.approx(2.0)
+        assert model.solution()["power"].get_value(_TIMES[1]) == pytest.approx(2.0)
 
     def test_get_variable_stays_usable_after_a_failed_solve(self):
         """A failed attempt is relaxed and re-solved (pricing does this twice), so building the

@@ -202,7 +202,8 @@ class TemporalVariable:
         :type t: DateTime
         :return: The value at *t*
         :rtype: float
-        :raises RuntimeError: If *t* holds a solver variable and the model has not been solved
+        :raises ModelNotSolvedError: If *t* holds a solver variable and the model has not been solved
+        :raises UnsuccessfulSolveError: If the last solve did not produce a solution
         :raises KeyError: If *t* was never added
         """
         if t in self._fixed:
@@ -219,7 +220,8 @@ class TemporalVariable:
         :type include_fixed: bool
         :return: Values indexed by timestamp
         :rtype: Timeseries
-        :raises RuntimeError: If the model has not been solved
+        :raises ModelNotSolvedError: If the model has not been solved
+        :raises UnsuccessfulSolveError: If the last solve did not produce a solution
         :raises ValueError: If there is no value to return
         """
         self._check_solved()
@@ -298,8 +300,7 @@ class TemporalVariable:
             raise ValueError(f"Temporal variable '{self._name}' already holds a fixed value at {min(clash)}")
 
     def _check_solved(self) -> None:
-        if self._model.solution_info is None:
-            raise RuntimeError(f"Optimisation model has not been solved yet, cannot read '{self._name}'")
+        self._model.require_solution()
 
 
 def _resolve(bound: Bound, t: DateTime) -> float:
