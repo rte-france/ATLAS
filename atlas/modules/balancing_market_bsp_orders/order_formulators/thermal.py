@@ -443,12 +443,11 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
     def _startup_fits_within_timestep(self) -> bool:
         """
         Legacy's 'startup duration constraint' for Case 4 shutdown orders (equipment
-        ON both before and after): 'equipment.StartupDuration*60 + equipment.SetupDelay*60
-        > p.time_step' invalidates the order — the equipment must be able to fully
-        restart within one timestep for this kind of shutdown to be offered at all.
-        setup_delay is stored as a plain float in hours (see
-        AbstractOrderFormulator.is_after_setup_delay), so it's wrapped in a Duration
-        here to compare directly against startup_duration and timestep.
+        ON both before and after): 'startup_duration + setup_delay > p.time_step'
+        invalidates the order — the equipment must be able to fully restart within one
+        timestep for this kind of shutdown to be offered at all. setup_delay is stored
+        as a plain float in hours (see AbstractOrderFormulator.is_after_setup_delay),
+        so it's wrapped in a Duration here to compare directly against startup_duration and timestep.
 
         :return: True if startup_duration + setup_delay fits within one timestep
         :rtype: bool
