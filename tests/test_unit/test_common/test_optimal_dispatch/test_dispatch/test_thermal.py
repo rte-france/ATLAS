@@ -10,7 +10,7 @@ import pendulum
 import pytest
 
 from atlas.abstract_class.parameters import AbstractModuleParameters
-from atlas.common.optimal_dispatch.dispatch.thermal import ThermalDispatch
+from atlas.common.optimal_dispatch.dispatch.thermal import ThermalDispatch, _rising_edges
 from atlas.common.optimal_dispatch.input_objects.thermal import ThermalDispatchInput
 from atlas.io_utils.parameters import DateParameters
 from atlas.math.forecasting_matrix import ForecastingMatrix
@@ -887,6 +887,33 @@ class TestThermalDispatchFormulationFixes:
 
         assert dispatch.on_up[previous] == 1
         assert dispatch.on_down[previous] == 1
+
+    @pytest.mark.parametrize(
+        "durations",
+        [
+            pytest.param({}, id="plateau-without-minimum-times"),
+            pytest.param(
+                {**REALISTIC_MIN_TIMES, "minimum_stable_power_duration": pendulum.duration(hours=8)},
+                id="plateau-longer-than-minimum-times",
+            ),
+        ],
+    )
+    def test_the_history_reaches_as_far_back_as_the_plateau_rows(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model, time_window, durations
+    ):
+        """The fixed history covers every past step the plateau rows read."""
+        durations = {"minimum_stable_power_duration": pendulum.duration(hours=2)} | durations
+        dispatch = ThermalDispatch(_make_equipment(node, portfolio, power_ts, min_power_ts, **durations))
+        dispatch.setup(model, parameters)
+        dispatch.add_variables(time_window)
+        for time in time_window:
+            dispatch.add_constraints(model, time, parameters)
+
+        assert dispatch.has_flat
+
+
+def test_rising_edges_mark_each_switch_on_but_never_the_first_step():
+    assert _rising_edges([1, 1, 0, 1, 0, 0, 1]) == [0, 0, 0, 1, 0, 0, 1]
 
 
 class TestBannedTransitionsTable:

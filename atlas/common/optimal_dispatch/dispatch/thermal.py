@@ -13,9 +13,7 @@ from typing import TYPE_CHECKING, ClassVar
 from pendulum import DateTime, Duration
 
 from atlas.abstract_class.parameters import AbstractModuleParameters
-from atlas.common.optimal_dispatch.dispatch.thermal_initial_conditions import ThermalInitialConditions
 from atlas.enums import VariableType
-from atlas.math.timeseries import Timeseries
 from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
@@ -57,11 +55,13 @@ class ThermalDispatch:
     variable. Reading ``variable[t]`` hides the difference, so a constraint reaching across
     the boundary silently mixes constants and variables.
 
-    That boundary is where this model is hardest to get right — a row anchored before
-    ``start_date`` degenerates instead of binding, and mutual exclusion does not apply
-    between constants. :meth:`_add_initial_boundary_constraints`,
-    :meth:`_add_eviction_constraints` and the ``time == start_date`` branches of
-    :meth:`_add_minimum_time_constraints` all live on it.
+    The past is fixed by :meth:`_add_initial_conditions`: classify each past step from its
+    power, then derive the markers as rising edges of those states. One exception: ON_UP,
+    ON_DOWN and ON_FLAT describe the move to the next step, so on the step before the
+    window they depend on the window and stay solver variables. With a plateau that step is
+    therefore part of the model: :meth:`_add_step_before_window` emits its rows. A row
+    anchored before ``start_date`` degenerates instead of binding, and mutual exclusion
+    does not apply between constants.
 
     Typical usage::
 
@@ -181,6 +181,16 @@ class ThermalDispatch:
         ),
     }
 
+    #: Bans re-emitted on the step before the window: the power reversals and the bans out of
+    #: STOP, the ones reaching a direction state still left to the solver there.
+    _BOUNDARY_BANS: ClassVar[tuple[tuple[str, str], ...]] = (
+        ("on_up", "on_down"),
+        ("on_down", "on_up"),
+        ("stop", "on_flat"),
+        ("stop", "on_down"),
+        ("stop", "on_up"),
+    )
+
     def __init__(self, equipment: ThermalDispatchInput) -> None:
         self._eq = equipment
 
@@ -227,9 +237,6 @@ class ThermalDispatch:
 
         # The dispatch
         self.power_level: TemporalVariable
-
-        # Initial conditions staged before being fixed — see _add_initial_conditions()
-        self._initial: dict[TemporalVariable, dict[DateTime, float]] = {}
 
     # ── Public API ────────────────────────────────────────────────────────
 
@@ -314,7 +321,7 @@ class ThermalDispatch:
         self._add_mutual_exclusion(model, time)
 
         if self._has_flat and time == parameters.temporal.start_date:
-            self._add_initial_boundary_constraints(model, time, prev_time, ts)
+            self._add_step_before_window(model, prev_time, ts)
 
         self._add_transition_constraints(model, time, prev_time)
         self._add_eviction_constraints(model, time, parameters)
@@ -499,335 +506,132 @@ class ThermalDispatch:
         return variables
 
     def _add_initial_variables(self, parameters: AbstractModuleParameters) -> None:
-        temporal = parameters.temporal
-        prev = temporal.start_date - temporal.timestep
-        if self._T_stable >= 1:
-            self.on_up.add(prev)
-            self.on_down.add(prev)
-            self.on_flat.add(prev)
-            self.stable.add(prev)
-            self.entered_up.add(prev)
-            self.entered_down.add(prev)
-        if self._T_stable >= 1 and self._T_stop >= 1:
+        """
+        Leave the direction states to the solver on the step before the window.
+
+        ON_UP, ON_DOWN and ON_FLAT at ``t`` describe the move from ``t`` to ``t + 1``, so on
+        ``start_date - timestep`` they depend on the first power of the window: they cannot be
+        read from the past dispatch. :meth:`_add_step_before_window` gives them their rows.
+        """
+        if not self._has_flat:
+            return
+        prev = parameters.temporal.start_date - parameters.temporal.timestep
+        for variable in (self.on_up, self.on_down, self.on_flat, self.stable, self.entered_up, self.entered_down):
+            variable.add(prev)
+        if self._has_stop:
             self.dd_grad.add(prev)
 
     # ── Initial conditions ────────────────────────────────────────────────
 
     def _add_initial_conditions(self, parameters: AbstractModuleParameters) -> None:
         """
-        Fix the state of the unit before the horizon.
+        Fix the state of the unit before the window, from its past dispatch.
 
-        The initial values are derived from one another and some are revised along the way, so
-        they are staged first and only fixed on the temporal variables once all are known.
-        """
-        self._initial = {}
-        ic = self._build_initial_conditions(parameters)
-        if ic.day_zero:
-            self._init_day_zero(parameters, ic)
-        else:
-            self._init_from_previous(parameters, ic)
+        The past is read in three passes, each one from the previous only: the power, then
+        the state the unit was in, then the transition markers as the rising edges of those
+        states — the definition the constraints enforce inside the window.
 
-        for variable, values in self._initial.items():
-            for time, value in values.items():
-                variable.fix(time, value)
-        self._initial = {}
-
-    def _stage(self, variable: TemporalVariable, time: DateTime, value: float) -> None:
-        """Stage the initial *value* of *variable* at *time*, replacing any value staged before."""
-        self._initial.setdefault(variable, {})[time] = value
-
-    def _staged(self, variable: TemporalVariable, time: DateTime) -> float:
-        """Return the initial value staged for *variable* at *time*."""
-        return self._initial[variable][time]
-
-    def _initial_value(self, variable: TemporalVariable, time: DateTime):
-        """Return the initial value staged for *variable* at *time*, or its solver variable if none is."""
-        staged = self._initial.get(variable, {})
-        return staged[time] if time in staged else variable[time]
-
-    def _build_initial_conditions(self, parameters: AbstractModuleParameters) -> ThermalInitialConditions:
-        eq = self._eq
-        temporal = parameters.temporal
-        T_traceback = max(self._T_on + self._T_start, self._T_off + self._T_stop)
-
-        initial_times: list[DateTime] = []
-        stable_initial_times: list[DateTime] = []
-        if T_traceback > 0:
-            for k in range(T_traceback, 0, -1):
-                initial_times.append(temporal.start_date - k * temporal.timestep)
-        else:
-            initial_times.append(temporal.start_date - temporal.timestep)
-        for k in range(T_traceback, 1, -1):
-            stable_initial_times.append(temporal.start_date - k * temporal.timestep)
-
-        power_ts = (
-            eq.power.get_forecast(temporal.execution_date, initial_times[0], initial_times[-1])
-            if eq.power is not None
-            else None
-        )
-
-        day_zero = power_ts is None
-        if power_ts is not None:
-            if temporal.start_date - temporal.timestep != power_ts.last_date():
-                day_zero = True
-
-        return ThermalInitialConditions(
-            initial_times=initial_times,
-            stable_initial_times=stable_initial_times,
-            power_ts=power_ts,
-            day_zero=day_zero,
-        )
-
-    def _init_day_zero(self, parameters: AbstractModuleParameters, ic: ThermalInitialConditions) -> None:
-        for time in ic.initial_times:
-            self._init_day_zero_core(time)
-            if not self._has_flat:
-                self._init_day_zero_on_states(time)
-            else:
-                self._init_day_zero_gradient_vars(time)
-            if self._has_stop:
-                self._stage(self.stop, time, 0)
-                if not self._has_flat:
-                    self._stage(self.down_to_stop_grad, time, 0)
-                else:
-                    self._stage(self.flat_down_stop, time, 0)
-            if self._has_start:
-                self._stage(self.on_start, time, 0)
-
-        for time in ic.stable_initial_times:
-            self._init_day_zero_stable_vars(time)
-
-        if self._has_flat and not self._has_stop and not self._has_start:
-            if isinstance(ic.power_ts, Timeseries):
-                self._init_gradient_initial_conditions(parameters)
-
-    def _init_from_previous(self, parameters: AbstractModuleParameters, ic: ThermalInitialConditions) -> None:
-        if not isinstance(ic.power_ts, Timeseries):
-            raise ValueError("power_ts is required when day_zero is False")
-
-        for time in ic.initial_times:
-            self._init_one_time(parameters, ic.extended_start_date, time, ic.power_ts)
-
-        if self._has_flat:
-            self._init_stable_times(parameters, ic)
-            self._init_gradient_initial_conditions(parameters)
-
-    def _init_one_time(
-        self,
-        parameters: AbstractModuleParameters,
-        extended_start_date: DateTime,
-        time: DateTime,
-        power_ts: Timeseries,
-    ) -> None:
-        """
-        Pin the unit's state one step before the window, from its past dispatch.
-
-        Everything set here is a value fixed on the temporal variables. The measured power selects
-        one of three regimes, in the order the branches below take them: at or above
-        ``minimum_power`` the unit was in an ON state; producing below it, it was on a ramp;
-        zero, it was off. A unit without ramps has no middle regime.
-
-        Both ON states are set for a running unit: these are constants, so mutual exclusion
-        does not apply, and setting one alone would one-side the first gradient row.
+        Only the values a constraint reads are fixed. The history reaches as far back as the
+        deepest of them: the minimum times on and off counted from the end of their ramp, and
+        with a plateau its minimum time and the two steps the plateau rows look back.
 
         :param parameters: Module parameters
-        :param extended_start_date: First timestep fixed before the window
-        :type extended_start_date: DateTime
-        :param time: Timestep to initialise
-        :type time: DateTime
-        :param power_ts: Past dispatch of the unit
-        :type power_ts: Timeseries
         """
-        ts = parameters.temporal.timestep
-        if time in power_ts:
-            power_t = power_ts.get_value(time)
-            self._stage(self.power_level, time, power_t)
-
-            if self._has_start or self._has_stop:
-                min_power = self._eq.minimum_power.get_value(time)
-                if power_t >= min_power:
-                    self._stage(self.off, time, 0)
-                    if self._has_stop:
-                        self._stage(self.stop, time, 0)
-                    if self._has_start:
-                        self._stage(self.on_start, time, 0)
-                    if not self._has_flat:
-                        self._stage(self.on_up, time, 1)
-                        self._stage(self.on_down, time, 1)
-                elif power_t > 0:
-                    self._stage(self.off, time, 0)
-                    if self._has_stop:
-                        self._stage(self.stop, time, 1)
-                    if self._has_start:
-                        self._stage(self.on_start, time, 1)
-                    if not self._has_flat:
-                        self._stage(self.on_up, time, 0)
-                        self._stage(self.on_down, time, 0)
-                else:
-                    self._stage(self.off, time, 1)
-                    if self._has_stop:
-                        self._stage(self.stop, time, 0)
-                    if self._has_start:
-                        self._stage(self.on_start, time, 0)
-                    if not self._has_flat:
-                        self._stage(self.on_up, time, 0)
-                        self._stage(self.on_down, time, 0)
-            else:
-                if power_t > 0:
-                    self._stage(self.off, time, 0)
-                    if not self._has_flat:
-                        # a unit with no ramp phase and no stable phase enters the window
-                        # free to move either way, as in the online branch above
-                        self._stage(self.on_up, time, 1)
-                        self._stage(self.on_down, time, 1)
-                else:
-                    self._stage(self.power_level, time, 0)
-                    self._stage(self.off, time, 1)
-                    if not self._has_flat:
-                        self._stage(self.on_up, time, 0)
-                        self._stage(self.on_down, time, 0)
-        else:
-            self._stage(self.power_level, time, 0)
-            self._stage(self.off, time, 1)
-            if self._has_stop:
-                self._stage(self.stop, time, 0)
-            if self._has_start:
-                self._stage(self.on_start, time, 0)
-            if not self._has_flat:
-                self._stage(self.on_up, time, 0)
-                self._stage(self.on_down, time, 0)
-
-        self._stage(self.turned_on, time, 0)
-        self._stage(self.turned_off, time, 0)
-        if self._has_stop and not self._has_flat:
-            self._stage(self.down_to_stop_grad, time, 0)
-
-        if time == extended_start_date:
-            return
-
-        prev_time = time - ts
-
-        if self._has_start and self._has_stop and time in power_ts:
-            power_t = power_ts.get_value(time)
-            prev_power = power_ts.get_value(prev_time) if prev_time in power_ts else 0
-            if self._staged(self.on_start, time) == 1:
-                if power_t > prev_power:
-                    self._stage(self.stop, time, 0)
-                elif power_t < prev_power:
-                    self._stage(self.stop, time, 1)
-                    self._stage(self.on_start, time, 0)
-
-        if self._has_stop:
-            if self._staged(self.stop, time) - self._staged(self.stop, prev_time) == 1:
-                self._stage(self.turned_off, time, 1)
-        else:
-            if self._staged(self.off, time) - self._staged(self.off, prev_time) == 1:
-                self._stage(self.turned_off, time, 1)
-
-        if self._has_start:
-            if self._staged(self.on_start, time) - self._staged(self.on_start, prev_time) == 1:
-                self._stage(self.turned_on, time, 1)
-        else:
-            if self._staged(self.off, time) - self._staged(self.off, prev_time) == -1:
-                self._stage(self.turned_on, time, 1)
-
-        if self._has_stop and not self._has_flat:
-            if self._staged(self.stop, time) - self._staged(self.on_down, prev_time) == 0:
-                self._stage(self.down_to_stop_grad, time, 1)
-
-    def _init_stable_times(self, parameters: AbstractModuleParameters, ic: ThermalInitialConditions) -> None:
-        ts = parameters.temporal.timestep
-        for time in ic.stable_initial_times:
-            next_time = time + ts
-            current_power = self._staged(self.power_level, time)
-            next_power = self._staged(self.power_level, next_time)
-
-            self._stage(self.stable, time, 0)
-            self._stage(self.entered_up, time, 0)
-            self._stage(self.entered_down, time, 0)
-
-            if self._staged(self.off, time) == 0:
-                in_ramp = (self._has_stop and self._staged(self.stop, time) == 1) or (
-                    self._has_start and self._staged(self.on_start, time) == 1
-                )
-                if in_ramp:
-                    self._stage(self.on_up, time, 0)
-                    self._stage(self.on_down, time, 0)
-                    self._stage(self.on_flat, time, 0)
-                else:
-                    if current_power < next_power:
-                        self._stage(self.on_up, time, 1)
-                        self._stage(self.on_down, time, 0)
-                        self._stage(self.on_flat, time, 0)
-                    elif current_power > next_power:
-                        self._stage(self.on_up, time, 0)
-                        self._stage(self.on_down, time, 1)
-                        self._stage(self.on_flat, time, 0)
-                    else:
-                        self._stage(self.on_up, time, 0)
-                        self._stage(self.on_down, time, 0)
-                        self._stage(self.on_flat, time, 1)
-            else:
-                self._stage(self.on_up, time, 0)
-                self._stage(self.on_down, time, 0)
-                self._stage(self.on_flat, time, 0)
-
-            if time != ic.extended_start_date and self._staged(self.off, time) != 1:
-                prev_time = time - ts
-                if self._staged(self.on_flat, time) - self._staged(self.on_flat, prev_time) == 1:
-                    self._stage(self.stable, time, 1)
-                if self._staged(self.on_up, time) - self._staged(self.on_up, prev_time) == 1:
-                    self._stage(self.entered_up, time, 1)
-                if self._staged(self.on_down, time) - self._staged(self.on_down, prev_time) == 1:
-                    self._stage(self.entered_down, time, 1)
-
-    def _init_gradient_initial_conditions(self, parameters: AbstractModuleParameters) -> None:
         temporal = parameters.temporal
-        t_minus_one = temporal.start_date - temporal.timestep
-        t_minus_two = temporal.start_date - 2 * temporal.timestep
+        depth = max(self._T_on + self._T_start, self._T_off + self._T_stop, 1)
+        if self._has_flat:
+            depth = max(depth, self._T_stable - 1, 2)
+        times: list[DateTime] = [temporal.start_date - k * temporal.timestep for k in range(depth, 0, -1)]
 
-        power_minus_one = self._initial_value(self.power_level, t_minus_one)
-        power_minus_two = self._initial_value(self.power_level, t_minus_two)
-        power_diff = power_minus_one - power_minus_two
+        power = self._initial_power(parameters, times)
+        history = self._initial_states(times, power)
+        history[self.power_level] = power
+        for variable, values in history.items():
+            # the direction states stop one step short of the window, zip stops with them
+            for time, value in zip(times, values, strict=False):
+                variable.fix(time, value)
 
-        self._stage(
-            self.up_grad,
-            t_minus_one,
-            power_diff * self._initial_value(self.on_up, t_minus_one) * self._initial_value(self.on_up, t_minus_two),
+        if self._has_flat:
+            # up_grad(t) = (p(t) - p(t-1)) * on_up(t) * on_up(t-1). On the step before the window
+            # only on_up(t) is still a solver variable, so the value fixed is linear in it.
+            last, step = times[-1], power[-1] - power[-2]
+            self.up_grad.fix(last, step * history[self.on_up][-1] * self.on_up[last])
+            self.down_grad.fix(last, step * history[self.on_down][-1] * self.on_down[last])
+
+    def _initial_power(self, parameters: AbstractModuleParameters, times: list[DateTime]) -> list[float]:
+        """
+        Read the past dispatch of the unit over *times*, 0 where there is none.
+
+        A past dispatch that stops before ``start_date - timestep`` is discarded as a whole
+        (day zero): the unit is then taken as off all along.
+        """
+        temporal = parameters.temporal
+        past = (
+            self._eq.power.get_forecast(temporal.execution_date, times[0], times[-1])
+            if self._eq.power is not None
+            else None
         )
-        self._stage(
-            self.down_grad,
-            t_minus_one,
-            power_diff
-            * self._initial_value(self.on_down, t_minus_one)
-            * self._initial_value(self.on_down, t_minus_two),
-        )
+        if past is None or past.last_date() != times[-1]:
+            return [0.0] * len(times)
+        return [past.get_value(time) if time in past else 0.0 for time in times]
 
-    # ── Day-zero helpers ──────────────────────────────────────────────────
+    def _initial_states(self, times: list[DateTime], power: list[float]) -> dict[TemporalVariable, list[float]]:
+        """
+        Classify each past step from its power, and derive the transition markers from it.
 
-    def _init_day_zero_core(self, time: DateTime) -> None:
-        self._stage(self.off, time, 1)
-        self._stage(self.turned_on, time, 0)
-        self._stage(self.turned_off, time, 0)
-        self._stage(self.power_level, time, 0)
+        At or above ``minimum_power`` the unit was running, below it but producing it was on
+        a ramp, at zero it was off. A unit without ramps has no middle regime: it runs as
+        soon as it produces. A unit with both ramps tells them apart by the power trend, and
+        is left on both when the trend is unknown — first step or flat power.
 
-    def _init_day_zero_on_states(self, time: DateTime) -> None:
-        self._stage(self.on_up, time, 0)
-        self._stage(self.on_down, time, 0)
+        :return: The fixed values of each temporal variable, aligned on *times*
+        """
+        has_ramps = self._has_start or self._has_stop
+        both_ramps = self._has_start and self._has_stop
+        off: list[float] = []
+        running: list[float] = []
+        start: list[float] = []
+        stop: list[float] = []
+        for k, (time, p) in enumerate(zip(times, power, strict=True)):
+            runs = p >= self._eq.minimum_power.get_value(time) if has_ramps else p > 0
+            ramps = not runs and p > 0
+            trend = p - power[k - 1] if k else 0.0
+            off.append(float(not runs and not ramps))
+            running.append(float(runs))
+            start.append(float(ramps and not (both_ramps and trend < 0)))
+            stop.append(float(ramps and not (both_ramps and trend > 0)))
 
-    def _init_day_zero_gradient_vars(self, time: DateTime) -> None:
-        self._stage(self.up_grad, time, 0)
-        self._stage(self.down_grad, time, 0)
-        self._stage(self.aux_up_grad, time, 0)
-        self._stage(self.aux_down_grad, time, 0)
+        history: dict[TemporalVariable, list[float]] = {
+            self.off: off,
+            self.turned_on: _rising_edges(start) if self._has_start else _rising_edges([1 - v for v in off]),
+            self.turned_off: _rising_edges(stop) if self._has_stop else _rising_edges(off),
+        }
+        if self._has_start:
+            history[self.on_start] = start
+        if self._has_stop:
+            history[self.stop] = stop
 
-    def _init_day_zero_stable_vars(self, time: DateTime) -> None:
-        self._stage(self.on_flat, time, 0)
-        self._stage(self.on_up, time, 0)
-        self._stage(self.on_down, time, 0)
-        self._stage(self.stable, time, 0)
-        self._stage(self.entered_up, time, 0)
-        self._stage(self.entered_down, time, 0)
+        if not self._has_flat:
+            # A running unit is left free to move either way. These are constants, so mutual
+            # exclusion does not bind them, and opening one alone would one-side the first
+            # gradient row.
+            history[self.on_up] = history[self.on_down] = running
+            return history
+
+        # the direction is the move to the next step: the last step before the window is the
+        # solver's — see _add_initial_variables
+        up = [runs * (p < p_next) for runs, p, p_next in zip(running, power, power[1:], strict=False)]
+        down = [runs * (p > p_next) for runs, p, p_next in zip(running, power, power[1:], strict=False)]
+        flat = [runs * (p == p_next) for runs, p, p_next in zip(running, power, power[1:], strict=False)]
+        history |= {
+            self.on_up: up,
+            self.on_down: down,
+            self.on_flat: flat,
+            self.entered_up: _rising_edges(up),
+            self.entered_down: _rising_edges(down),
+            self.stable: _rising_edges(flat),
+        }
+        return history
 
     # ── Constraints ───────────────────────────────────────────────────────
 
@@ -977,77 +781,37 @@ class ThermalDispatch:
             expr = expr + self.on_start[time]
         model.add_constraint(expr == 1, f"mutual_exclusion_{time}_{n}")
 
-    def _add_initial_boundary_constraints(
-        self, model: OptimisationModel, time: DateTime, prev_time: DateTime, ts: Duration
-    ) -> None:
+    def _add_step_before_window(self, model: OptimisationModel, prev_time: DateTime, ts: Duration) -> None:
         """
-        Re-apply the per-step constraints on the step *before* the window.
+        Emit on the step before the window the per-step rows its solver variables need.
 
-        A unit with a plateau carries its state one step back from ``start_date``, so the
-        transition markers defined there need their defining rows too — otherwise the
-        solver is free to set them to anything. Called only when :attr:`has_flat`, and only
-        on the first timestep.
-
-        Everything here reads ``prev_time`` and ``prev2``, both outside the window, where
-        the temporal variables serve fixed values rather than solver variables. Rows that end up mixing
-        two constants are degenerate, not wrong — that is expected on this boundary.
+        With a plateau the direction states and their markers are solver variables on
+        ``start_date - timestep`` too — see :meth:`_add_initial_variables` — so they get the
+        same rows as inside the window, or the solver would be free to set them to anything.
+        The rows read the step before, fixed: the temporal variables serve constants there,
+        so the rows mixing only constants are degenerate, not wrong.
 
         :param model: The optimisation model
-        :param time: First timestep of the window
-        :type time: DateTime
         :param prev_time: One step before the window
         :type prev_time: DateTime
         :param ts: Duration of one timestep
         :type ts: Duration
         """
-        n = self._eq.name
         prev2 = prev_time - ts  # type: ignore[operator]
+        self._add_stable(model, prev_time, prev2)
+        self._add_entered_up_down(model, prev_time, prev2)
+        self._add_mutual_exclusion(model, prev_time)
+        self._add_transition_constraints(model, prev_time, prev2, only=self._BOUNDARY_BANS)
+        self._add_minimum_time_on(model, prev_time, ts)
+        self._add_minimum_time_stable(model, prev_time, ts)
 
-        on_flat_prev = self.on_flat[prev_time]
-        on_flat_prev2 = self.on_flat[prev2]
-        on_up_prev = self.on_up[prev_time]
-        on_up_prev2 = self.on_up[prev2]
-        on_down_prev = self.on_down[prev_time]
-        on_down_prev2 = self.on_down[prev2]
-        stable_prev = self.stable[prev_time]
-        entered_up_prev = self.entered_up[prev_time]
-        entered_down_prev = self.entered_down[prev_time]
-
-        # stable marks the step the unit *enters* the flat state, so it is barred whenever
-        # the unit was already flat — same definition as inside the window
-        model.add_constraint(stable_prev <= 1 - on_flat_prev2, f"stable_evol_1_{prev_time}_{n}")
-        model.add_constraint(stable_prev <= on_flat_prev, f"stable_evol_2_{prev_time}_{n}")
-        model.add_constraint(stable_prev >= on_flat_prev - on_flat_prev2, f"stable_evol_3_{prev_time}_{n}")
-
-        model.add_constraint(entered_up_prev <= 1 - on_up_prev2, f"entered_up_evol_1_{prev_time}_{n}")
-        model.add_constraint(entered_up_prev <= on_up_prev, f"entered_up_evol_2_{prev_time}_{n}")
-        model.add_constraint(entered_up_prev >= on_up_prev - on_up_prev2, f"entered_up_evol_3_{prev_time}_{n}")
-        model.add_constraint(entered_down_prev <= 1 - on_down_prev2, f"entered_down_evol_1_{prev_time}_{n}")
-        model.add_constraint(entered_down_prev <= on_down_prev, f"entered_down_evol_2_{prev_time}_{n}")
-        model.add_constraint(entered_down_prev >= on_down_prev - on_down_prev2, f"entered_down_evol_3_{prev_time}_{n}")
-
-        expr_prev = self.off[prev_time] + on_up_prev + on_down_prev + on_flat_prev
-        if self._has_stop:
-            expr_prev = expr_prev + self.stop[prev_time]
-        if self._has_start:
-            expr_prev = expr_prev + self.on_start[prev_time]
-        model.add_constraint(expr_prev == 1, f"mutual_exclusion_{prev_time}_{n}")
-
-        # Part of _BANNED_TRANSITIONS one step earlier: the power reversals plus the bans
-        # out of STOP. The rest are not re-emitted. Each keeps the number it has inside the
-        # window, hence the lookup rather than a count.
-        states = self._state_vars()
-        bans = self._BANNED_TRANSITIONS[self._has_stop, self._has_start, self._has_flat]
-        boundary_bans = [("on_up", "on_down"), ("on_down", "on_up")]
-        if self._has_stop:
-            boundary_bans += [("stop", "on_flat"), ("stop", "on_down"), ("stop", "on_up")]
-        for from_state, to_state in boundary_bans:
-            model.add_constraint(
-                states[from_state][prev2] + states[to_state][prev_time] <= 1,
-                f"transition_constraint_{bans.index((from_state, to_state)) + 1}_{prev_time}_{n}",
-            )
-
-    def _add_transition_constraints(self, model: OptimisationModel, time: DateTime, prev_time: DateTime) -> None:
+    def _add_transition_constraints(
+        self,
+        model: OptimisationModel,
+        time: DateTime,
+        prev_time: DateTime,
+        only: tuple[tuple[str, str], ...] | None = None,
+    ) -> None:
         """
         Ban the state changes the unit's machine cannot make — see :attr:`_BANNED_TRANSITIONS`.
 
@@ -1056,11 +820,16 @@ class ThermalDispatch:
         :type time: DateTime
         :param prev_time: Previous timestep
         :type prev_time: DateTime
+        :param only: Emit these bans only, when the machine has them. A ban keeps its number
+            in the table either way.
+        :type only: tuple[tuple[str, str], ...] | None
         """
         n = self._eq.name
         states = self._state_vars()
         bans = self._BANNED_TRANSITIONS[self._has_stop, self._has_start, self._has_flat]
         for index, (from_state, to_state) in enumerate(bans, start=1):
+            if only is not None and (from_state, to_state) not in only:
+                continue
             model.add_constraint(
                 states[from_state][prev_time] + states[to_state][time] <= 1,
                 f"transition_constraint_{index}_{time}_{n}",
@@ -1101,32 +870,9 @@ class ThermalDispatch:
     ) -> None:
         n = self._eq.name
         ts = parameters.temporal.timestep
-        start_date = parameters.temporal.start_date
-        start_offset = self._T_start if self._has_start else 0
         stop_offset = self._T_stop if self._has_stop else 0
 
-        on_expr = self.on_up[time] + self.on_down[time]
-        if self._has_flat:
-            on_expr = on_expr + self.on_flat[time]
-
-        if self._T_on >= 2:
-            for steps_back in range(1, self._T_on):
-                local_time = time - (steps_back + start_offset) * ts
-                model.add_constraint(
-                    self.turned_on[local_time] <= on_expr,
-                    f"minimum_time_on_{n}_{local_time}_{time}",
-                )
-            # the stable phase puts the unit's state one step before the window inside the
-            # model, so the minimum-on window anchored on that step has to be enforced too
-            if self._has_flat and time == start_date:
-                prev_time = time - ts
-                on_expr_prev = self.on_up[prev_time] + self.on_down[prev_time] + self.on_flat[prev_time]
-                for steps_back in range(1, self._T_on):
-                    local_time = time - (steps_back + start_offset + 1) * ts
-                    model.add_constraint(
-                        self.turned_on[local_time] <= on_expr_prev,
-                        f"minimum_time_on_{n}_{local_time}_{prev_time}",
-                    )
+        self._add_minimum_time_on(model, time, ts)
 
         if self._T_off >= 2:
             for steps_back in range(1, self._T_off):
@@ -1136,27 +882,7 @@ class ThermalDispatch:
                     f"minimum_time_off_{n}_{local_time}_{time}",
                 )
 
-        if self._has_flat and self._T_stable >= 2:
-            on_flat = self.on_flat[time]
-            for steps_back in range(1, self._T_stable - 1):
-                local_time = time - steps_back * ts
-                model.add_constraint(
-                    self.stable[local_time] <= on_flat,
-                    f"minimum_time_stable_{n}_{local_time}_{time}",
-                )
-            if time == start_date:
-                prev_time = time - ts
-                on_flat_prev = self.on_flat[prev_time]
-                # suffix with prev_time, never `time`: this loop shifts local_time one step
-                # further back than the loop above, so reusing `time` collides with the name
-                # it already emitted for steps_back + 1. prev_time sits before the window, so it can
-                # never clash with a suffix produced at another timestep.
-                for steps_back in range(1, self._T_stable - 1):
-                    local_time = time - (steps_back + 1) * ts
-                    model.add_constraint(
-                        self.stable[local_time] <= on_flat_prev,
-                        f"minimum_time_stable_{n}_{local_time}_{prev_time}",
-                    )
+        self._add_minimum_time_stable(model, time, ts)
 
         if self._has_stop and self._T_stop >= 2:
             stop = self.stop[time]
@@ -1177,6 +903,35 @@ class ThermalDispatch:
                     self.turned_on[local_time] <= start,
                     f"{prefix}_{n}_{local_time}_{time}",
                 )
+
+    def _add_minimum_time_on(self, model: OptimisationModel, time: DateTime, ts: Duration) -> None:
+        """Keep the unit on for ``T_on`` steps once its startup ramp is over."""
+        if self._T_on < 2:
+            return
+        n = self._eq.name
+        start_offset = self._T_start if self._has_start else 0
+        on_expr = self.on_up[time] + self.on_down[time]
+        if self._has_flat:
+            on_expr = on_expr + self.on_flat[time]
+        for steps_back in range(1, self._T_on):
+            local_time = time - (steps_back + start_offset) * ts
+            model.add_constraint(
+                self.turned_on[local_time] <= on_expr,
+                f"minimum_time_on_{n}_{local_time}_{time}",
+            )
+
+    def _add_minimum_time_stable(self, model: OptimisationModel, time: DateTime, ts: Duration) -> None:
+        """Keep the unit on its plateau for ``T_stable`` steps once it has entered it."""
+        if not self._has_flat or self._T_stable < 2:
+            return
+        n = self._eq.name
+        on_flat = self.on_flat[time]
+        for steps_back in range(1, self._T_stable - 1):
+            local_time = time - steps_back * ts
+            model.add_constraint(
+                self.stable[local_time] <= on_flat,
+                f"minimum_time_stable_{n}_{local_time}_{time}",
+            )
 
     def _add_power_bounds(self, model: OptimisationModel, time: DateTime) -> None:
         n = self._eq.name
@@ -1300,3 +1055,15 @@ class ThermalDispatch:
 
         model.add_constraint(power_step <= up_bound, f"{up_prefix}_{n}_{grad_time}")
         model.add_constraint(power_step >= down_bound, f"{down_prefix}_{n}_{grad_time}")
+
+
+def _rising_edges(states: list[float]) -> list[float]:
+    """
+    Mark each step a 0/1 state sequence switches on.
+
+    The first step is never marked: what came before it is unknown.
+
+    >>> _rising_edges([0, 1, 1, 0, 1])
+    [0.0, 1.0, 0.0, 0.0, 1.0]
+    """
+    return [0.0] + [float(now > before) for before, now in zip(states, states[1:], strict=False)]
