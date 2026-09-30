@@ -202,31 +202,31 @@ class ThermalDispatch:
         # Temporal variables — declared by _declare_variables(), grouped by role
 
         # States — exactly one of these is 1 at any timestep
-        self.off: TemporalVariable = None  # type: ignore[assignment]
-        self.on_start: TemporalVariable = None  # type: ignore[assignment]
-        self.on_up: TemporalVariable = None  # type: ignore[assignment]
-        self.on_flat: TemporalVariable = None  # type: ignore[assignment]
-        self.on_down: TemporalVariable = None  # type: ignore[assignment]
-        self.stop: TemporalVariable = None  # type: ignore[assignment]
+        self.off: TemporalVariable
+        self.on_start: TemporalVariable
+        self.on_up: TemporalVariable
+        self.on_flat: TemporalVariable
+        self.on_down: TemporalVariable
+        self.stop: TemporalVariable
 
         # Transition markers — fire on the step the unit enters the matching state
-        self.turned_on: TemporalVariable = None  # type: ignore[assignment]
-        self.turned_off: TemporalVariable = None  # type: ignore[assignment]
-        self.entered_up: TemporalVariable = None  # type: ignore[assignment]
-        self.entered_down: TemporalVariable = None  # type: ignore[assignment]
-        self.stable: TemporalVariable = None  # type: ignore[assignment]
-        self.flat_down_stop: TemporalVariable = None  # type: ignore[assignment]
-        self.down_to_stop_grad: TemporalVariable = None  # type: ignore[assignment]
+        self.turned_on: TemporalVariable
+        self.turned_off: TemporalVariable
+        self.entered_up: TemporalVariable
+        self.entered_down: TemporalVariable
+        self.stable: TemporalVariable
+        self.flat_down_stop: TemporalVariable
+        self.down_to_stop_grad: TemporalVariable
 
         # Gradient auxiliaries — linearised products of a power step by a state
-        self.up_grad: TemporalVariable = None  # type: ignore[assignment]
-        self.down_grad: TemporalVariable = None  # type: ignore[assignment]
-        self.aux_up_grad: TemporalVariable = None  # type: ignore[assignment]
-        self.aux_down_grad: TemporalVariable = None  # type: ignore[assignment]
-        self.dd_grad: TemporalVariable = None  # type: ignore[assignment]
+        self.up_grad: TemporalVariable
+        self.down_grad: TemporalVariable
+        self.aux_up_grad: TemporalVariable
+        self.aux_down_grad: TemporalVariable
+        self.dd_grad: TemporalVariable
 
         # The dispatch
-        self.power_level: TemporalVariable = None  # type: ignore[assignment]
+        self.power_level: TemporalVariable
 
         # Initial conditions staged before being fixed — see _add_initial_conditions()
         self._initial: dict[TemporalVariable, dict[DateTime, float]] = {}

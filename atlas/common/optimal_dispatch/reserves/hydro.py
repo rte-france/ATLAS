@@ -41,7 +41,7 @@ class HydroReserveHandler(RenewableReserveHandler):
     def __init__(self, name: str, dispatch: HydroDispatch, maximum_automated: float) -> None:
         super().__init__(name, maximum_automated)
         self._dispatch = dispatch
-        self.relaxed_reserves: TemporalVariable = None  # type: ignore[assignment]
+        self.relaxed_reserves: TemporalVariable
 
     def add_variables(self, times: Iterable[DateTime], max_power: Bound, min_power: Bound) -> None:
         times = list(times)

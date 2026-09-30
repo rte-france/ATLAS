@@ -35,12 +35,12 @@ class ReserveHandler(ABC):
         self._maximum_automated = maximum_automated
         self._model: OptimisationModel | None = None
 
-        self.reserves_up: TemporalVariable = None  # type: ignore[assignment]
-        self.reserves_down: TemporalVariable = None  # type: ignore[assignment]
-        self.unprovided_reserves_up: TemporalVariable = None  # type: ignore[assignment]
-        self.unprovided_reserves_down: TemporalVariable = None  # type: ignore[assignment]
-        self.automated_reserves_up: TemporalVariable = None  # type: ignore[assignment]
-        self.automated_reserves_down: TemporalVariable = None  # type: ignore[assignment]
+        self.reserves_up: TemporalVariable
+        self.reserves_down: TemporalVariable
+        self.unprovided_reserves_up: TemporalVariable
+        self.unprovided_reserves_down: TemporalVariable
+        self.automated_reserves_up: TemporalVariable
+        self.automated_reserves_down: TemporalVariable
 
     def setup(self, model: OptimisationModel) -> None:
         """

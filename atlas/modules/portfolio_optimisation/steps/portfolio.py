@@ -47,14 +47,14 @@ class PortfolioStep:
         ]
         self._steps_by_equipment = {step.equipment.name: step for step in self._equipment_steps}
 
-        self.small_imbalance_up: TemporalVariable = None  # type: ignore[assignment]
-        self.small_imbalance_down: TemporalVariable = None  # type: ignore[assignment]
-        self.large_imbalance_up: TemporalVariable = None  # type: ignore[assignment]
-        self.large_imbalance_down: TemporalVariable = None  # type: ignore[assignment]
+        self.small_imbalance_up: TemporalVariable
+        self.small_imbalance_down: TemporalVariable
+        self.large_imbalance_up: TemporalVariable
+        self.large_imbalance_down: TemporalVariable
         self.contract_differences: dict[str, TemporalVariable] = {}
 
-        self._residual_energy: Timeseries = None  # type: ignore[assignment]
-        self._imbalance_limit: Timeseries = None  # type: ignore[assignment]
+        self._residual_energy: Timeseries
+        self._imbalance_limit: Timeseries
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters) -> None:
         portfolio = self.portfolio

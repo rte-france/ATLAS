@@ -51,7 +51,7 @@ class HydroDispatch:
 
     def __init__(self, equipment: HydroDispatchInput) -> None:
         self._eq = equipment
-        self.stored_energy: TemporalVariable = None  # type: ignore[assignment]
+        self.stored_energy: TemporalVariable
         self.power_level_frag: dict[int, TemporalVariable] = {}
         self._minimal_fragment_size: float = 0.0
         self._fragment_volumes: dict[DateTime, dict[int, float]] = {}

@@ -45,13 +45,13 @@ class StorageDispatch:
     def __init__(self, equipment: StorageDispatchInput) -> None:
         self._eq = equipment
         self._initial_stock: float = 0.0
-        self._model: OptimisationModel = None  # type: ignore[assignment]
+        self._model: OptimisationModel
         self._nb_fragments: int = 0
 
-        self.power_level_sell: TemporalVariable = None  # type: ignore[assignment]
-        self.power_level_buy: TemporalVariable = None  # type: ignore[assignment]
-        self.is_sell: TemporalVariable = None  # type: ignore[assignment]
-        self.stored_energy: TemporalVariable = None  # type: ignore[assignment]
+        self.power_level_sell: TemporalVariable
+        self.power_level_buy: TemporalVariable
+        self.is_sell: TemporalVariable
+        self.stored_energy: TemporalVariable
         self.power_level_sell_n: list[TemporalVariable] = []
         self.power_level_buy_n: list[TemporalVariable] = []
 

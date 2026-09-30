@@ -43,9 +43,9 @@ class LoadDispatch:
 
     def __init__(self, equipment: LoadDispatchInput) -> None:
         self._eq = equipment
-        self._execution_date: DateTime = None  # type: ignore[assignment]
+        self._execution_date: DateTime
         self._forecast: Timeseries | None = None
-        self.power_level: TemporalVariable = None  # type: ignore[assignment]
+        self.power_level: TemporalVariable
 
     def setup(self, model: OptimisationModel, parameters: AbstractModuleParameters) -> None:
         """Bind to a solver model and declare the power-level temporal variable."""

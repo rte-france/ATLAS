@@ -42,7 +42,7 @@ class ThermalReserveHandler(ReserveHandler):
         self.feasible_automated_reserves_up_procured: Timeseries
         self.feasible_automated_reserves_down_procured: Timeseries
         self.automated_unsupplied_reserves: float = 0.0
-        self.relaxed_reserves: TemporalVariable = None  # type: ignore[assignment]
+        self.relaxed_reserves: TemporalVariable
 
     def setup_reserve_forecasts(
         self,
