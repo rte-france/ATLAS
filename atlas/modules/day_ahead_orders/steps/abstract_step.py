@@ -12,8 +12,8 @@ from pendulum import DateTime
 
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.result import DayAheadOrdersResult
 
 
 @dataclass
@@ -25,7 +25,7 @@ class StepResult:
 class AbstractOrderStep(ABC):
     def __init__(
         self,
-        dataset: DayAheadOrdersOutput,
+        dataset: DayAheadOrdersResult,
         orders_time: list[DateTime],
         parameters: DayAheadOrdersParameters,
     ) -> None:

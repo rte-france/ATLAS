@@ -47,7 +47,7 @@ class TestWorkflowIntegration:
     def test_workflow_produce_output(self, executed_workflow):
         workflow, _, _, _, _ = executed_workflow
         workflow = cast(Workflow, workflow)
-        assert workflow.get_output_dataset() is not None
+        assert workflow.final_result is not None
 
     def test_workflow_cis_is_modified_after_execution(self, executed_workflow):
         _, initial_cis, final_cis, _, _ = executed_workflow
