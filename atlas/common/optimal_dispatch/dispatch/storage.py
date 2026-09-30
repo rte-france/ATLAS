@@ -302,25 +302,21 @@ class StorageDispatch:
             f"{n}_power_level_buy", lower_bound=eq.minimum_power, upper_bound=0
         )
         self.is_sell = model.add_temporal_variable(f"{n}_is_sell", variable_type=VariableType.BOOLEAN)
+        # the two series are loaded independently, so their indexes need not align: the product
+        # stays a per-timestep lookup rather than a Timeseries multiplication, which would raise
         self.stored_energy = model.add_temporal_variable(
             f"{n}_stored_energy",
             lower_bound=lambda time: eq.minimum_state_of_charge.get_value(time) * eq.maximum_energy.get_value(time),
             upper_bound=eq.maximum_energy,
         )
+        fragment_max_power = eq.maximum_power / nb if nb else None
+        fragment_min_power = eq.minimum_power / nb if nb else None
         self.power_level_sell_n = [
-            model.add_temporal_variable(
-                f"{n}_power_level_sell_n_{i}",
-                lower_bound=0,
-                upper_bound=lambda time: eq.maximum_power.get_value(time) / nb,
-            )
+            model.add_temporal_variable(f"{n}_power_level_sell_n_{i}", lower_bound=0, upper_bound=fragment_max_power)
             for i in range(nb)
         ]
         self.power_level_buy_n = [
-            model.add_temporal_variable(
-                f"{n}_power_level_buy_n_{i}",
-                lower_bound=lambda time: eq.minimum_power.get_value(time) / nb,
-                upper_bound=0,
-            )
+            model.add_temporal_variable(f"{n}_power_level_buy_n_{i}", lower_bound=fragment_min_power, upper_bound=0)
             for i in range(nb)
         ]
 
