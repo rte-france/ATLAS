@@ -9,8 +9,100 @@ Acts as a regression anchor for the upcoming input_dataset refactor.
 
 from collections import Counter
 
+import pytest
+from pendulum import DateTime, Duration
+
 from atlas.enums import CouplingType
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.io_utils.parameters import DateParameters
+from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
+from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.objects.market.critical_branch import CriticalBranch
+from atlas.objects.market.market_area import MarketArea
+from atlas.objects.market.market_area_ptdf import MarketAreaPtdf
+from atlas.objects.network.node import Node
+from atlas.objects.network_operator.control_block import ControlBlock
+
+
+@pytest.fixture
+def two_zone_fb_dataset() -> AtlasDataset:
+    """A 2-zone dataset (FR/DE) with a critical branch and a PTDF in each zone, for testing
+    zone-restricted Flow-Based resolution (see issue #422: these containers used to be built
+    from the *unfiltered* dataset, regardless of control_block_names/market_area_names)."""
+    cb_fr = ControlBlock(name="FR")
+    cb_de = ControlBlock(name="DE")
+    ma_fr = MarketArea(name="FR", control_block=cb_fr)
+    ma_de = MarketArea(name="DE", control_block=cb_de)
+    node_fr = Node(name="node_FR", control_block=cb_fr, market_area=ma_fr)
+    node_de = Node(name="node_DE", control_block=cb_de, market_area=ma_de)
+
+    da_ptdf = Timeseries.from_values(DateTime(2028, 1, 1), "1h", [0.5])
+    ptdf_fr = MarketAreaPtdf(name="ptdf_FR", market_area=ma_fr, da_ptdf=da_ptdf)
+    ptdf_de = MarketAreaPtdf(name="ptdf_DE", market_area=ma_de, da_ptdf=da_ptdf)
+    branch_fr = CriticalBranch(
+        name="branch_FR", uphill_node=node_fr, downhill_node=node_fr, market_area_ptdf=[ptdf_fr], node_ptdf=[]
+    )
+    branch_de = CriticalBranch(
+        name="branch_DE", uphill_node=node_de, downhill_node=node_de, market_area_ptdf=[ptdf_de], node_ptdf=[]
+    )
+
+    return AtlasDataset(
+        control_block=[cb_fr, cb_de],
+        market_area=[ma_fr, ma_de],
+        node=[node_fr, node_de],
+        market_area_ptdf=[ptdf_fr, ptdf_de],
+        critical_branch=[branch_fr, branch_de],
+    )
+
+
+def _fb_parameters(**overrides) -> MarketClearingParameters:
+    return MarketClearingParameters(
+        temporal=DateParameters(
+            start_date=DateTime(2028, 1, 1),
+            end_date=DateTime(2028, 1, 1, 1),
+            execution_date=DateTime(2027, 12, 31, 23),
+            timestep=Duration(hours=1),
+        ),
+        exchange_constraints_type=ExchangeConstraintsType.FB,
+        **overrides,
+    )
+
+
+class TestZoneFiltering:
+    """Regression tests for issue #422: MarketClearingInputDataset now scopes itself to the
+    selected zones via AtlasDataset.include_zones instead of filtering each container by hand."""
+
+    def test_restricted_zone_with_flow_based_does_not_crash(self, two_zone_fb_dataset: AtlasDataset) -> None:
+        """Previously raised KeyError: critical_branch/market_area_ptdf were never zone-filtered,
+        so a PTDF from the excluded zone had no matching entry in the (zone-filtered) market_areas."""
+        input_dataset = MarketClearingInputDataset(two_zone_fb_dataset, _fb_parameters(control_block_names=["FR"]))
+
+        assert set(input_dataset.market_area_ptdfs) == {"ptdf_FR"}
+        assert set(input_dataset.critical_branches) == {"branch_FR"}
+        assert set(input_dataset.control_blocks) == {"FR"}
+
+    def test_only_market_area_names_restricts_control_blocks_too(self, two_zone_fb_dataset: AtlasDataset) -> None:
+        """Setting only market_area_names (control_block_names left at 'all') must restrict the
+        same way, since control blocks and market areas are named identically here."""
+        input_dataset = MarketClearingInputDataset(two_zone_fb_dataset, _fb_parameters(market_area_names=["DE"]))
+
+        assert set(input_dataset.control_blocks) == {"DE"}
+        assert set(input_dataset.market_area_ptdfs) == {"ptdf_DE"}
+
+    def test_inconsistent_zone_names_raise(self, two_zone_fb_dataset: AtlasDataset) -> None:
+        """Previously: an inconsistent pair silently produced an empty control_blocks dict."""
+        with pytest.raises(ValueError, match="must select the same zones"):
+            MarketClearingInputDataset(
+                two_zone_fb_dataset, _fb_parameters(control_block_names=["FR"], market_area_names=["DE"])
+            )
+
+    def test_consistent_zone_names_on_both_parameters_still_works(self, two_zone_fb_dataset: AtlasDataset) -> None:
+        input_dataset = MarketClearingInputDataset(
+            two_zone_fb_dataset, _fb_parameters(control_block_names=["FR"], market_area_names=["FR"])
+        )
+
+        assert set(input_dataset.control_blocks) == {"FR"}
 
 
 class TestTimesAndMode:

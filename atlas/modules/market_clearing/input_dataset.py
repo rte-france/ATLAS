@@ -4,6 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from typing import Literal
+
 from atlas.abstract_class.dataset import AbstractDataset
 from atlas.enums import CouplingType
 from atlas.io_utils.atlas_dataset import AtlasDataset
@@ -38,20 +40,52 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
 
         self.is_atc = self.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
 
-        self.orders = self.get_orders(input_data.order.all())
-        self.order_couplings = self.get_order_couplings(input_data.order_coupling.all(), self.orders)
+        zone_names = self._resolve_zone_names()
+        scoped_data = input_data if zone_names == "all" else input_data.include_zones(zone_names)
+
+        self.orders = self.get_orders(scoped_data.order.all())
+        self.order_couplings = self.get_order_couplings(scoped_data.order_coupling.all(), self.orders)
         self.apply_coupling_flags()
-        self.market_areas = self.get_market_areas(input_data.market_area.all(), self.orders)
-        self.market_borders = self.get_market_borders(input_data.market_border.all())
-        self.control_blocks = self.get_control_blocks(input_data.control_block.all())
+        self.market_areas = self.get_market_areas(scoped_data.market_area.all(), self.orders)
+        self.market_borders = self.get_market_borders(scoped_data.market_border.all())
+        self.control_blocks = self.get_control_blocks(scoped_data.control_block.all())
 
         self.market_area_ptdfs: dict[str, MarketAreaPtdfMC] = {}
         self.critical_branches: dict[str, CriticalBranchMC] = {}
         if self.parameters.exchange_constraints_type == ExchangeConstraintsType.FB:
-            self.market_area_ptdfs = self.get_market_area_ptdfs(input_data.market_area_ptdf.all(), self.market_areas)
+            self.market_area_ptdfs = self.get_market_area_ptdfs(scoped_data.market_area_ptdf.all(), self.market_areas)
             self.critical_branches = self.get_critical_branches(
-                input_data.critical_branch.all(), self.market_area_ptdfs
+                scoped_data.critical_branch.all(), self.market_area_ptdfs
             )
+
+    def _resolve_zone_names(self) -> Literal["all"] | list[str]:
+        """
+        Reconcile ``control_block_names`` and ``market_area_names`` into a single zone selection.
+
+        In this dataset, a control block and its market area are a 1-1 pair sharing the same name,
+        so ``AtlasDataset.include_zones`` can filter on either. When only one of the two parameters
+        restricts the scope, it is used as-is. When both do, they must designate the same zones -
+        this is checked explicitly rather than silently prioritizing one over the other.
+
+        :return: "all" if neither parameter restricts the scope, otherwise the list of zone names
+        :rtype: Literal["all"] | list[str]
+        :raises ValueError: If control_block_names and market_area_names both restrict the scope
+            but disagree on which zones to keep
+        """
+        control_block_names = self.parameters.control_block_names
+        market_area_names = self.parameters.market_area_names
+
+        if control_block_names == "all":
+            return market_area_names
+        if market_area_names == "all":
+            return control_block_names
+        if set(control_block_names) != set(market_area_names):
+            raise ValueError(
+                "control_block_names and market_area_names must select the same zones (control blocks and "
+                f"market areas are named identically in this dataset): got {sorted(control_block_names)} "
+                f"vs {sorted(market_area_names)}"
+            )
+        return control_block_names
 
     def get_critical_branches(
         self, critical_branches: list[CriticalBranch], market_area_ptdfs: dict[str, MarketAreaPtdfMC]
@@ -71,33 +105,14 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         return mc_critical_branches
 
     def get_control_blocks(self, control_blocks: list[ControlBlock]) -> dict[str, ControlBlock]:
-        # filter by the parameters control_block_names
-        if self.parameters.control_block_names == "all":
-            control_blocks_to_keep = control_blocks
-        else:
-            control_blocks_to_keep = [
-                control_block
-                for control_block in control_blocks
-                if control_block.name in self.parameters.control_block_names
-            ]
-        # filter by the present market_area
-        control_blocks_mc = {}
-        for control_block in control_blocks_to_keep:
-            for market_area in self.market_areas.values():
-                if control_block == market_area.control_block:
-                    mc_control_block = ControlBlock(**dict(control_block))
-                    control_blocks_mc[control_block.name] = mc_control_block
-        return control_blocks_mc
+        # `control_blocks` is already scoped to the selected zones (see _resolve_zone_names / include_zones
+        # in __init__), so every control block here is kept.
+        return {control_block.name: ControlBlock(**dict(control_block)) for control_block in control_blocks}
 
     def get_market_areas(self, market_areas: list[MarketArea], orders: dict[str, OrderMC]) -> dict[str, MarketAreaMC]:
-        if self.parameters.market_area_names == "all":
-            market_areas_to_keep = market_areas
-        else:
-            market_areas_to_keep = [
-                market_area for market_area in market_areas if market_area.name in self.parameters.market_area_names
-            ]
+        # `market_areas` is already scoped to the selected zones, so every market area here is kept.
         mc_market_areas = {}
-        for market_area in market_areas_to_keep:
+        for market_area in market_areas:
             market_area_orders = {
                 order_name: order for order_name, order in orders.items() if order.market_area.name == market_area.name
             }
@@ -172,19 +187,10 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 parent.order_coupling_parent_ids = parent_ids
 
     def get_market_borders(self, market_borders: list[MarketBorder]) -> dict[str, MarketBorderMC]:
+        # `market_borders` is already scoped to the selected zones (both endpoints inside the zone
+        # selection, mirroring the previous behaviour of always excluding external borders).
         mc_market_borders = {}
         for market_border in market_borders:
-            if self.parameters.market_area_names != "all":
-                if (
-                    market_border.uphill_market_area is None
-                    or market_border.uphill_market_area.name not in self.parameters.market_area_names
-                ):
-                    continue
-                if (
-                    market_border.downhill_market_area is None
-                    or market_border.downhill_market_area.name not in self.parameters.market_area_names
-                ):
-                    continue
             market_border_dump = {
                 **dict(market_border),
                 "timestep": self.parameters.temporal.timestep,
