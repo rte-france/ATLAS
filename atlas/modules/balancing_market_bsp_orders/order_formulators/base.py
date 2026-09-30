@@ -133,7 +133,7 @@ class AbstractOrderFormulator[E: Equipment](ABC):
         :rtype: bool
         """
         elapsed = time - self.parameters.temporal.execution_date
-        return elapsed >= Duration(hours=self.equipment.setup_delay)
+        return elapsed >= Duration(hours=self.equipment.setup_delay or 0.0)
 
     def build_order(
         self,
@@ -267,12 +267,12 @@ class AbstractOrderFormulator[E: Equipment](ABC):
         previous_time = time - timestep
         next_time = time + timestep
 
-        previous_forecasted_power = self.equipment.power.get_forecast(
-            execution_date, previous_time, previous_time, default_value=0.0
+        previous_forecasted_power = self._get_forecast_or_zero(
+            self.equipment.power, execution_date, previous_time, previous_time
         ).get_value(previous_time)
 
-        next_forecasted_power = self.equipment.power.get_forecast(
-            execution_date, next_time, next_time, default_value=0.0
+        next_forecasted_power = self._get_forecast_or_zero(
+            self.equipment.power, execution_date, next_time, next_time
         ).get_value(next_time)
 
         if previous_forecasted_power > 0:

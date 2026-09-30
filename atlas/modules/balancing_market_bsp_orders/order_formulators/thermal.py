@@ -453,8 +453,9 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
         :return: True if startup_duration + setup_delay fits within one timestep
         :rtype: bool
         """
-        setup_delay = Duration(hours=self.equipment.setup_delay)
-        return self.equipment.startup_duration + setup_delay <= self.parameters.temporal.timestep
+        setup_delay = Duration(hours=self.equipment.setup_delay or 0.0)
+        startup_duration = self.equipment.startup_duration or Duration()
+        return startup_duration + setup_delay <= self.parameters.temporal.timestep
 
     def _classify_shutdown_case(self, time: DateTime) -> ShutdownCase:
         """

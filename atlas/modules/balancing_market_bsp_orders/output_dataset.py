@@ -6,14 +6,14 @@ This file is part of the ATLAS project.
 Module that implements BSPBalancingOrdersOutputDataset.
 """
 
-from atlas.abstract_class.dataset import AbstractModuleOutput
+from atlas.abstract_class.dataset import ModuleResult
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
-from atlas.orchestrator.change_set import AddObject
+from atlas.orchestrator.change_set import AddObject, ChangeSet
 
 
-class BSPBalancingOrdersOutputDataset(AbstractModuleOutput[BSPBalancingOrdersParameters]):
+class BSPBalancingOrdersOutputDataset(ModuleResult[BSPBalancingOrdersParameters]):
     """Output dataset for the Balancing Orders Formulation module.
 
     Holds the formulated orders and their couplings, ready to be exported
@@ -23,7 +23,7 @@ class BSPBalancingOrdersOutputDataset(AbstractModuleOutput[BSPBalancingOrdersPar
     """
 
     def __init__(self) -> None:
-        self.change_sets = []
+        self.change_sets: list[ChangeSet] = []
         self.orders: list[Order] = []
         self.couplings: list[OrderCoupling] = []
 

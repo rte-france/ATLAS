@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from atlas.abstract_class.dataset import AbstractDataset
 from atlas.config import logger
-from atlas.enums import LoadType
+from atlas.enums import BusinessModelName, LoadType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.container import Container
 from atlas.modules.balancing_market_bsp_orders.input_objects.hydro import BalancingHydro
@@ -91,9 +91,11 @@ class BSPBalancingOrdersInputDataset(AbstractDataset[BSPBalancingOrdersParameter
         self.market_areas: dict[str, MarketArea] = self.get_market_areas(input_data.market_area)
 
         control_block_names = sorted({market_area.control_block.name for market_area in self.market_areas.values()})
-        self.input_data = input_data.filter_zones(control_block_names) if control_block_names else input_data
+        self.input_data = input_data.include_zones(control_block_names) if control_block_names else input_data
         self.input_data = self.input_data.exclude_equipments(parameters.excluded_equipments)
-        self.input_data = self.input_data.exclude_technologies(parameters.excluded_technologies)
+        self.input_data = self.input_data.exclude_technologies(
+            [BusinessModelName(technology.lower()) for technology in parameters.excluded_technologies]
+        )
 
         self.hydro_equipments: dict[str, BalancingHydro] = self.get_hydro_equipments(self.input_data.hydro)
         self.storage_equipments: dict[str, BalancingStorage] = self.get_storage_equipments(self.input_data.storage)
