@@ -20,7 +20,7 @@ from atlas.modules.market_clearing.input_dataset import MarketClearingInputDatas
 from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.order_links import OrderLinkResolver
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
-from atlas.modules.market_clearing.phases._border_variables import add_border_variables
+from atlas.modules.market_clearing.phases._border_variables import add_exchange_variables
 from atlas.modules.market_clearing.phases.clearing import Clearing
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
 from atlas.modules.market_clearing.phases.pricing import Pricing, third_attempt
@@ -600,14 +600,12 @@ class _ClearingAlgorithms:
         self.input_dataset = input_dataset
         self.parameters = parameters
         self.model = OptimisationModel("GLOP")
-        self.borders = add_border_variables(
-            self.model, input_dataset, with_absolute_exchanges=False, only_borders_with_losses=True
-        )
+        self.exchange = add_exchange_variables(self.model, input_dataset)
 
     def tied_exchanges(self, constraint_name: str) -> tuple[pendulum.DateTime, pendulum.DateTime]:
         """Return the (tied, block start) times an exchange equality constraint links together."""
         constraint = self.model.get_constraint(constraint_name)
-        exchange = self.borders.exchange["ab"]
+        exchange = self.exchange["ab"]
         coefficients = {time: constraint.GetCoefficient(exchange[time]) for time in self.input_dataset.times}
         (tied,) = [time for time, coefficient in coefficients.items() if coefficient == 1.0]
         (block_start,) = [time for time, coefficient in coefficients.items() if coefficient == -1.0]
