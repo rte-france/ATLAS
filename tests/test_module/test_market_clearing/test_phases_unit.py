@@ -5,7 +5,7 @@ This file is part of the ATLAS project.
 
 Unit tests for the pure algorithms of the market_clearing phases (price groups, neighbour
 detection, order-link resolution, marginal fixing, order feasibility) — PR-1 of the code
-quality audit in issue #296. These run without a solver: Pricing's algorithmic methods are
+quality audit in issue #296. These never solve a model: Pricing's algorithmic methods are
 exercised via the unbound-method technique against a lightweight duck-typed stand-in for
 `self`, since `Pricing.__init__` otherwise requires a live OR-Tools model.
 """
@@ -24,6 +24,7 @@ from atlas.modules.market_clearing.phases._border_variables import add_border_va
 from atlas.modules.market_clearing.phases.clearing import Clearing
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
 from atlas.modules.market_clearing.phases.pricing import Pricing, third_attempt
+from atlas.modules.market_clearing.phases.pricing._types import PricingVariables
 from atlas.solver.solver_interface import OptimisationModel
 from tests.test_module.test_market_clearing.factories import (
     make_market_area,
@@ -37,28 +38,13 @@ from tests.test_module.test_market_clearing.factories import (
 ONE_HOUR = pendulum.duration(hours=1)
 
 
-class _FakeOptimisationModel:
-    """Duck-typed stand-in for the `OptimisationModel` a real `Pricing` composes as `self.model` —
-    returns a plain float placeholder for any variable, since these tests only check whether a
-    variable/constraint was created and, for arithmetic, don't care about its exact value."""
-
-    def __init__(self):
-        self._variables: dict = {}
-
-    def add_continuous_variable(self, name, lower_bound=float("-inf"), upper_bound=float("inf")):
-        return self._variables.setdefault(name, 0.0)
-
-    def get_variable(self, name):
-        return self._variables.setdefault(name, 0.0)
-
-
 class _PricingAlgorithms:
     """Duck-typed stand-in for `Pricing` exposing only its solver-free algorithms.
 
     `Pricing.__init__` builds a live OR-Tools model and immediately runs these methods as a
     side effect, which makes the real class impractical to unit test in isolation. Binding the
     unbound methods here runs the exact same production code against a minimal fake `input_dataset`
-    / `parameters`, without needing a solver.
+    / `parameters`, in a model that is never solved.
     """
 
     def __init__(self, input_dataset, parameters, clearing_border_exchanges=None, clearing_accepted_powers=None):
@@ -69,7 +55,8 @@ class _PricingAlgorithms:
         self.saturated_critical_branch = {}
         self.dict_linked_orders: dict = {}
         self._full_link_id_by_order: dict = {}
-        self.model = _FakeOptimisationModel()
+        self.model = OptimisationModel("GLOP")
+        self.variables = PricingVariables()
 
     # Each wrapper below calls the real, unbound `Pricing` method (or, for the third pricing attempt,
     # the plain `third_attempt` function it now delegates to) against this stand-in — mypy doesn't
@@ -578,6 +565,8 @@ class TestCreateOppositeDeltaP:
         pricing.dict_linked_orders = order_links.linked_orders
         pricing.dict_parent_child_orders = order_links.parent_child_orders
         pricing._full_link_id_by_order = order_links.full_link_id_by_order
+        # Both orders belong to price group 0, the only group of the single time step
+        pricing.variables.price = {0: pricing.model.add_temporal_variable("price_on_group_0", times)}
         return pricing
 
     def test_no_accepted_order_gives_the_none_sentinel(self, parameters: MarketClearingParameters) -> None:
@@ -600,7 +589,7 @@ class TestCreateOppositeDeltaP:
 
         pricing.create_delta_price_pc_variables(opposite_delta_p_dict)
 
-        assert constants.delta_p_pc(next(iter(pricing.dict_parent_child_orders))) in pricing.model._variables
+        assert constants.delta_p_pc(next(iter(pricing.dict_parent_child_orders))) in pricing.model.variables
 
 
 class _ClearingAlgorithms:

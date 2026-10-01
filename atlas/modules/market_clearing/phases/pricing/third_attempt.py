@@ -46,9 +46,7 @@ def compute_opposite_delta_p(pricing: _PricingPhase) -> dict[int, float | None]:
             if order.group_index is None:
                 continue
             local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
-            local_price = pricing.model.get_variable(
-                constants.price_on_group_variable_name(order.group_index, order.start_date)
-            )
+            local_price = pricing.variables.price[order.group_index][order.start_date]
             coeff_sale = order.production_sign
 
             # If order is accepted, add its delta P to the overall paradoxical delta P of this group of linked orders
@@ -137,9 +135,7 @@ def create_paradoxical_delta_price_order_constraints(pricing: _PricingPhase) -> 
                 if local_cleared_power > pricing.parameters.allowed_round_off_error:
                     if order.group_index is None:
                         continue
-                    local_price = pricing.model.get_variable(
-                        constants.price_on_group_variable_name(order.group_index, order.start_date)
-                    )
+                    local_price = pricing.variables.price[order.group_index][order.start_date]
                     coeff_sale = order.production_sign
                     opposite_delta_p = coeff_sale * (order.price - local_price)
                     paradoxical_delta_p = pricing.model.get_variable(
@@ -201,14 +197,12 @@ def create_paradoxical_delta_price_pc_constraints(
 def create_paradoxical_delta_price_lo_constraints(pricing: _PricingPhase) -> None:
     for index_lo, orders in pricing.dict_linked_orders.items():
         paradoxical_delta_p = pricing.model.get_variable(constants.delta_p_lo(index_lo))
-        opposite_delta_p = 0
+        opposite_delta_p = 0.0
         for order in orders:
             if order.group_index is None:
                 continue
             local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
-            local_price = pricing.model.get_variable(
-                constants.price_on_group_variable_name(order.group_index, order.start_date)
-            )
+            local_price = pricing.variables.price[order.group_index][order.start_date]
             coeff_sale = order.production_sign
 
             # If order is accepted, add its delta P to the overall paradoxical delta P of this group of linked orders

@@ -7,6 +7,7 @@ Structural type shared by the first/second/third pricing attempt modules, so the
 type-checked against `Pricing` without importing it back (`Pricing` imports the attempt modules).
 """
 
+from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Protocol
 
@@ -16,7 +17,9 @@ from atlas.modules.market_clearing.data_classes import PriceGroup
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
+from atlas.modules.market_clearing.phases._helpers import GroupPair
 from atlas.solver.solver_interface import OptimisationModel
+from atlas.solver.temporal_variable import TemporalVariable
 
 
 class PricingAttempt(IntEnum):
@@ -28,10 +31,34 @@ class PricingAttempt(IntEnum):
     SECOND = 2
 
 
+@dataclass
+class PricingVariables:
+    """Temporal variables of the pricing model, filled by the attempts that create them.
+
+    Price groups are rebuilt at every time step and a group id is the index of the market area that
+    opens the group: the same id may gather different areas at different times, and only exists at
+    some of them (see :func:`~atlas.modules.market_clearing.phases._helpers.times_by_group`). Pair
+    families are keyed by the ids of both groups, in the order given by
+    :func:`~atlas.modules.market_clearing.phases._helpers.iter_group_pairs`.
+    """
+
+    price: dict[int, TemporalVariable] = field(default_factory=dict)
+    positive_price: dict[int, TemporalVariable] = field(default_factory=dict)
+    negative_price: dict[int, TemporalVariable] = field(default_factory=dict)
+    positive_price_diff: dict[GroupPair, TemporalVariable] = field(default_factory=dict)
+    negative_price_diff: dict[GroupPair, TemporalVariable] = field(default_factory=dict)
+    positive_branch_load_slack: dict[GroupPair, TemporalVariable] = field(default_factory=dict)
+    negative_branch_load_slack: dict[GroupPair, TemporalVariable] = field(default_factory=dict)
+    shadow_price: dict[str, TemporalVariable] = field(default_factory=dict)
+    worst_rejected_sale: dict[int, TemporalVariable] = field(default_factory=dict)
+    worst_rejected_buy: dict[int, TemporalVariable] = field(default_factory=dict)
+
+
 class _PricingPhase(Protocol):
     """Structural type for the `Pricing` state the first/second/third attempt functions read."""
 
     model: OptimisationModel
+    variables: PricingVariables
     parameters: MarketClearingParameters
     input_dataset: MarketClearingInputDataset
     price_groups: dict[pendulum.DateTime, list[PriceGroup]]
