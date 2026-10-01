@@ -67,7 +67,7 @@ def _opposite_delta_p(pricing: _PricingPhase, order: OrderMC) -> pywraplp.Linear
 
 def create_delta_price_lo_variables(pricing: _PricingPhase) -> dict[int, pywraplp.Variable]:
     return {
-        index_lo: pricing.model.add_continuous_variable(constants.delta_p_lo(index_lo), 0, float("inf"))
+        index_lo: pricing.model.add_continuous_variable(f"delta_p_LO_{index_lo}", 0, float("inf"))
         for index_lo in pricing.dict_linked_orders
     }
 
@@ -89,7 +89,7 @@ def create_delta_price_order_variables(pricing: _PricingPhase) -> dict[str, pywr
             continue
         if pricing.is_accepted(order):
             delta_p[order.name] = pricing.model.add_continuous_variable(
-                constants.delta_p_order(order.name, order.market_area.name, order.start_date), 0, float("inf")
+                f"delta_p_order_{order.name}_area_{order.market_area.name}_t_{order.start_date}", 0, float("inf")
             )
     return delta_p
 
@@ -108,9 +108,7 @@ def create_paradoxical_delta_price_order_constraints(pricing: _PricingPhase, par
             if pricing.is_accepted(order) and order.group_index is not None:
                 pricing.model.add_constraint(
                     paradox.orders[order.name] >= _opposite_delta_p(pricing, order),
-                    constants.paradoxical_delta_p_order_constraint_name(
-                        order.name, order.market_area.name, order.start_date
-                    ),
+                    f"paradoxical_delta_p_order_{order.name}_area_{order.market_area.name}_t_{order.start_date}",
                 )
 
 
@@ -120,7 +118,7 @@ def create_paradoxical_delta_price_pc_constraints(
     for index_pc, delta_p in paradox.parent_child.items():
         pricing.model.add_constraint(
             delta_p >= opposite_delta_p_dict[index_pc],
-            constants.paradoxical_delta_p_pc_constraint_name(index_pc),
+            f"paradoxical_delta_p_PC_{index_pc}",
         )
 
 
@@ -133,5 +131,5 @@ def create_paradoxical_delta_price_lo_constraints(pricing: _PricingPhase, parado
         )
         pricing.model.add_constraint(
             paradox.linked_orders[index_lo] >= opposite_delta_p,
-            constants.paradoxical_delta_p_lo_constraint_name(index_lo),
+            f"paradoxical_delta_p_LO_{index_lo}",
         )

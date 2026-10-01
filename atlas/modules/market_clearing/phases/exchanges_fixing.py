@@ -9,7 +9,6 @@ from typing import Any
 
 import pendulum
 
-import atlas.modules.market_clearing.constants as constants
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases._border_variables import (
@@ -83,7 +82,7 @@ class ExchangesFixing:
                     exchange_sum = self.compute_atc_exchange_sum_for_market_area(market_area_name, time)
                 else:
                     exchange_sum = self.compute_fb_exchange_sum_for_market_area(market_area_name, time)
-                constraint_name = constants.constraint_4_2_constraint_name(market_area_name, time)
+                constraint_name = f"Constraint_4.2_at_time_{time}_on_market_area_{market_area_name}"
                 clearing_exchange_value = clearing_local_balances[market_area_name, time]
                 self.model.add_constraint(clearing_exchange_value == exchange_sum, constraint_name)
 
@@ -130,13 +129,13 @@ class ExchangesFixing:
                     timed_imports = self.losses[border_name].imports[time]
                     self.model.add_constraint(
                         timed_pos_exchanges + timed_neg_exchanges == 0.5 * (timed_imports + timed_exports),
-                        constants.absolute_timed_exchanges_constraint_name(border_name, time),
+                        f"Positive_and_negative_parts_definition_at_time_{time}_on_market_border_{border_name}",
                     )
                 else:
                     timed_exchanges = self.exchange[border_name][time]
                     self.model.add_constraint(
                         timed_pos_exchanges + timed_neg_exchanges == timed_exchanges,
-                        constants.absolute_timed_exchanges_constraint_name(border_name, time),
+                        f"Positive_and_negative_parts_definition_at_time_{time}_on_market_border_{border_name}",
                     )
 
     def create_borders_constraints(self) -> None:
@@ -156,11 +155,11 @@ class ExchangesFixing:
 
                 self.model.add_constraint(
                     relative_min_flow <= 0.5 * (timed_import + timed_export),
-                    constants.constraint_4_4a_min_constraint_name(border_name, time),
+                    f"Constraint_4.4a_(min)_at_time_{time}_on_market_border_{border_name}",
                 )
                 self.model.add_constraint(
                     relative_max_flow >= 0.5 * (timed_import + timed_export),
-                    constants.constraint_4_4a_max_constraint_name(border_name, time),
+                    f"Constraint_4.4a_(max)_at_time_{time}_on_market_border_{border_name}",
                 )
 
                 tmp_rhs = ((1.0 - loss_factor) - 1.0 / (1.0 - loss_factor)) * timed_xsis + timed_export / (
@@ -168,30 +167,30 @@ class ExchangesFixing:
                 )
 
                 self.model.add_constraint(
-                    timed_import == tmp_rhs, constants.constraint_4_3a_constraint_name(border_name, time)
+                    timed_import == tmp_rhs, f"Constraint_4.3a_at_time_{time}_on_market_border_{border_name}"
                 )
 
                 self.model.add_constraint(
                     timed_xsis >= 0.5 * timed_export,
-                    constants.constraint_4_3b_constraint_name(border_name, time),
+                    f"Constraint_4.3b_at_time_{time}_on_market_border_{border_name}",
                 )
 
                 self.model.add_constraint(
                     timed_nus * relative_min_flow <= timed_xsis,
-                    constants.constraint_4_3d_min_constraint_name(border_name, time),
+                    f"Constraint_4.3d_(min)_at_time_{time}_on_market_border {border_name}",
                 )
                 self.model.add_constraint(
                     timed_nus * relative_max_flow >= timed_xsis,
-                    constants.constraint_4_3d_max_constraint_name(border_name, time),
+                    f"Constraint_4.3d_(max)_at_time_{time}_on_market_border_{border_name}",
                 )
 
                 self.model.add_constraint(
                     (1 - timed_nus) * relative_min_flow <= timed_export - timed_xsis,
-                    constants.constraint_4_3e_min_constraint_name(border_name, time),
+                    f"Constraint_4.3e_(min)_at_time_{time}_on_market_border_{border_name}",
                 )
                 self.model.add_constraint(
                     (1 - timed_nus) * relative_max_flow >= timed_export - timed_xsis,
-                    constants.constraint_4_3e_max_constraint_name(border_name, time),
+                    f"Constraint_4.3e_(max)_at_time_{time}_on_market_border_{border_name}",
                 )
 
                 # Compute the constraint (4.5) that considers the time
@@ -204,7 +203,7 @@ class ExchangesFixing:
                         exchange = self.exchange[border_name]
                         self.model.add_constraint(
                             exchange[time] == exchange[block_start],
-                            constants.border_exchanges_constraint_name(border_name, time),
+                            f"Constraint_4.5_at_time_{time}_on_market_border_{border_name}",
                         )
 
     def get_border_exchanges(self) -> dict[tuple[str, pendulum.DateTime], float]:
