@@ -41,6 +41,20 @@ Pydantic models for equipment assets, market entities, and network objects.
 - [:lucide-sliders: **Solver Interface**](solver/interface.md) — OR-Tools solver interface
 - [:lucide-blocks: **Models**](solver/models.md) — Optimisation model helpers
 
+## :lucide-gauge: Optimal Dispatch
+
+Shared dispatch layer — variables and physical constraints reused across market modules.
+
+- [:lucide-fire: **ThermalDispatch**](optimal-dispatch/thermal.md) — operating states, ramps, minimum times
+- [:lucide-battery-charging: **StorageDispatch**](optimal-dispatch/storage.md) — charge/discharge and state of charge
+- [:lucide-waves: **HydroDispatch**](optimal-dispatch/hydro.md) — reservoir balance and bid fragments
+- [:lucide-wind: **RenewableDispatch**](optimal-dispatch/renewable.md) — forecast bounds and curtailment
+- [:lucide-plug: **LoadDispatch**](optimal-dispatch/load.md) — consumption bounds
+- [:lucide-clipboard-check: **Input Objects**](optimal-dispatch/input-objects.md) — the `*DispatchInput` contracts
+- [:lucide-scale: **Reserve Handlers**](optimal-dispatch/reserves.md) — reserve variables and constraints
+- [:lucide-droplet: **Marginal Pricing**](optimal-dispatch/marginal-pricing.md) — hydro water values
+- [:lucide-layers: **AbstractOptimStep**](optimal-dispatch/steps.md) — the shape a module's per-equipment step implements
+
 ## :lucide-settings: Utilities
 
 - [:lucide-list: **Enum**](enum.md) — Enumeration types used across Atlas
