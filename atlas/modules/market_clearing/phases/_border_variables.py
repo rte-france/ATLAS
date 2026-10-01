@@ -10,61 +10,99 @@ Clearing only creates the loss variables for borders with a non-zero loss factor
 ExchangesFixing creates them unconditionally.
 """
 
-from collections.abc import Callable
-from typing import Protocol
+from dataclasses import dataclass, field
 
-import pendulum
-
-import atlas.modules.market_clearing.constants as constants
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.input_objects.market_border import DEFAULT_MAX_FLOW, DEFAULT_MIN_FLOW
 from atlas.solver.solver_interface import OptimisationModel
+from atlas.solver.temporal_variable import TemporalVariable
 
 
-class _BorderVariablePhase(Protocol):
-    """Structural type for the Clearing/ExchangesFixing phase objects these helpers run against."""
+@dataclass
+class BorderVariables:
+    """Temporal variables of the market borders, each family keyed by border name.
 
-    input_dataset: MarketClearingInputDataset
-    model: OptimisationModel
+    A family left empty was not created for the phase: absolute exchanges are optional in Clearing,
+    loss variables only exist in ATC and, in Clearing, only for borders with losses.
+    """
 
-
-def create_border_exchange_variables(phase: _BorderVariablePhase, is_atc: bool) -> None:
-    for border_name, border in phase.input_dataset.market_borders.items():
-        for time in phase.input_dataset.times:
-            relative_max_flow = border.max_flow.get_value(time) if is_atc else float("inf")
-            relative_min_flow = border.min_flow.get_value(time) if is_atc else float("-inf")
-            phase.model.add_continuous_variable(
-                constants.border_exchange_variable_name(border_name, time),
-                relative_min_flow,
-                relative_max_flow,
-            )
+    exchange: dict[str, TemporalVariable]
+    positive_exchange: dict[str, TemporalVariable] = field(default_factory=dict)
+    negative_exchange: dict[str, TemporalVariable] = field(default_factory=dict)
+    imports: dict[str, TemporalVariable] = field(default_factory=dict)
+    exports: dict[str, TemporalVariable] = field(default_factory=dict)
+    xsis: dict[str, TemporalVariable] = field(default_factory=dict)
+    nus: dict[str, TemporalVariable] = field(default_factory=dict)
 
 
-def create_border_pos_exchanges_variables(phase: _BorderVariablePhase, is_atc: bool) -> None:
-    for border_name, border in phase.input_dataset.market_borders.items():
-        for time in phase.input_dataset.times:
-            relative_max_flow = border.max_flow.get_value(time) if is_atc else DEFAULT_MAX_FLOW
-            phase.model.add_continuous_variable(
-                constants.border_pos_exchange_variable_name(border_name, time), 0.0, relative_max_flow
-            )
-
-
-def create_border_neg_exchanges_variables(phase: _BorderVariablePhase, is_atc: bool) -> None:
-    for border_name, border in phase.input_dataset.market_borders.items():
-        for time in phase.input_dataset.times:
-            relative_min_flow = border.min_flow.get_value(time) if is_atc else DEFAULT_MIN_FLOW
-            phase.model.add_continuous_variable(
-                constants.border_neg_exchange_variable_name(border_name, time), relative_min_flow, 0.0
-            )
-
-
-def create_border_loss_variables(
-    phase: _BorderVariablePhase,
-    variable_name: Callable[[str, pendulum.DateTime], str],
+def add_border_variables(
+    model: OptimisationModel,
+    input_dataset: MarketClearingInputDataset,
+    with_absolute_exchanges: bool,
     only_borders_with_losses: bool,
-) -> None:
-    for border_name, border in phase.input_dataset.market_borders.items():
-        if only_borders_with_losses and not (border.loss_factor and border.loss_factor != 0.0):
-            continue
-        for time in phase.input_dataset.times:
-            phase.model.add_continuous_variable(variable_name(border_name, time), -float("inf"), float("inf"))
+) -> BorderVariables:
+    """Create the border variables of a phase model over the clearing times.
+
+    In ATC, exchanges are bounded by the border flow limits; in flow-based they are free and
+    the critical branches constrain them instead.
+
+    :param model: Model of the phase
+    :type model: OptimisationModel
+    :param input_dataset: Market clearing input dataset
+    :type input_dataset: MarketClearingInputDataset
+    :param with_absolute_exchanges: Whether to create the positive and negative exchange variables
+    :type with_absolute_exchanges: bool
+    :param only_borders_with_losses: Whether to create the loss variables only for borders with a
+        non-zero loss factor
+    :type only_borders_with_losses: bool
+    :return: The created border variables
+    :rtype: BorderVariables
+    """
+    times = input_dataset.times
+    borders = input_dataset.market_borders
+    is_atc = input_dataset.is_atc
+
+    variables = BorderVariables(
+        exchange={
+            name: model.add_temporal_variable(
+                f"exchange_on_{name}",
+                times,
+                lower_bound=border.min_flow if is_atc else float("-inf"),
+                upper_bound=border.max_flow if is_atc else float("inf"),
+            )
+            for name, border in borders.items()
+        }
+    )
+
+    if with_absolute_exchanges:
+        variables.positive_exchange = {
+            name: model.add_temporal_variable(
+                f"positive_exchange_on_{name}",
+                times,
+                lower_bound=0.0,
+                upper_bound=border.max_flow if is_atc else DEFAULT_MAX_FLOW,
+            )
+            for name, border in borders.items()
+        }
+        variables.negative_exchange = {
+            name: model.add_temporal_variable(
+                f"negative_exchange_on_{name}",
+                times,
+                lower_bound=border.min_flow if is_atc else DEFAULT_MIN_FLOW,
+                upper_bound=0.0,
+            )
+            for name, border in borders.items()
+        }
+
+    if is_atc:
+        lossy_borders = [
+            name
+            for name, border in borders.items()
+            if not only_borders_with_losses or (border.loss_factor and border.loss_factor != 0.0)
+        ]
+        variables.imports = {name: model.add_temporal_variable(f"import_on_{name}", times) for name in lossy_borders}
+        variables.exports = {name: model.add_temporal_variable(f"export_on_{name}", times) for name in lossy_borders}
+        variables.xsis = {name: model.add_temporal_variable(f"xsi_on_{name}", times) for name in lossy_borders}
+        variables.nus = {name: model.add_temporal_variable(f"nu_on_{name}", times) for name in lossy_borders}
+
+    return variables
