@@ -24,9 +24,9 @@ if TYPE_CHECKING:
 def build_variables(pricing: _PricingPhase, opposite_delta_p_dict: dict[int, float | None]) -> ParadoxVariables:
     """Create all variables for the third pricing phase model"""
     return ParadoxVariables(
-        linked_orders=create_delta_price_lo_variables(pricing),
-        parent_child=create_delta_price_pc_variables(pricing, opposite_delta_p_dict),
-        orders=create_delta_price_order_variables(pricing),
+        linked_orders=create_linked_orders_delta_p_variables(pricing),
+        parent_child=create_parent_child_delta_p_variables(pricing, opposite_delta_p_dict),
+        orders=create_order_delta_p_variables(pricing),
     )
 
 
@@ -34,10 +34,10 @@ def build_constraints(
     pricing: _PricingPhase, paradox: ParadoxVariables, opposite_delta_p_dict: dict[int, float | None]
 ) -> None:
     """Create all constraints for the third pricing phase model"""
-    deactivate_surplus_constraints(pricing)
-    create_paradoxical_delta_price_lo_constraints(pricing, paradox)
-    create_paradoxical_delta_price_pc_constraints(pricing, paradox, opposite_delta_p_dict)
-    create_paradoxical_delta_price_order_constraints(pricing, paradox)
+    relax_surplus_constraints(pricing)
+    create_linked_orders_delta_p_constraints(pricing, paradox)
+    create_parent_child_delta_p_constraints(pricing, paradox, opposite_delta_p_dict)
+    create_order_delta_p_constraints(pricing, paradox)
 
 
 def build_objective(pricing: _PricingPhase, paradox: ParadoxVariables) -> None:
@@ -49,7 +49,7 @@ def build_objective(pricing: _PricingPhase, paradox: ParadoxVariables) -> None:
 def compute_opposite_delta_p(pricing: _PricingPhase) -> dict[int, float | None]:
     """Sum the opposite delta-P of the accepted orders of each parent-child group, None if none is accepted."""
     opposite_delta_p_dict: dict[int, float | None] = {}
-    for index_pc, (parent_orders, children_orders) in pricing.dict_parent_child_orders.items():
+    for index_pc, (parent_orders, children_orders) in pricing.parent_child_orders.items():
         opposite_delta_p = None
         for order in parent_orders + children_orders:
             if order.group_index is None or not pricing.is_accepted(order):
@@ -65,24 +65,24 @@ def _opposite_delta_p(pricing: _PricingPhase, order: OrderMC) -> pywraplp.Linear
     return order.production_sign * (order.price - pricing.order_price(order))
 
 
-def create_delta_price_lo_variables(pricing: _PricingPhase) -> dict[int, pywraplp.Variable]:
+def create_linked_orders_delta_p_variables(pricing: _PricingPhase) -> dict[int, pywraplp.Variable]:
     return {
         index_lo: pricing.model.add_continuous_variable(f"delta_p_LO_{index_lo}", 0, float("inf"))
-        for index_lo in pricing.dict_linked_orders
+        for index_lo in pricing.linked_orders
     }
 
 
-def create_delta_price_pc_variables(
+def create_parent_child_delta_p_variables(
     pricing: _PricingPhase, opposite_delta_p_dict: dict[int, float | None]
 ) -> dict[int, pywraplp.Variable]:
     return {
         index_pc: pricing.model.add_continuous_variable(constants.delta_p_pc(index_pc), 0, float("inf"))
-        for index_pc in pricing.dict_parent_child_orders
+        for index_pc in pricing.parent_child_orders
         if opposite_delta_p_dict[index_pc] is not None
     }
 
 
-def create_delta_price_order_variables(pricing: _PricingPhase) -> dict[str, pywraplp.Variable]:
+def create_order_delta_p_variables(pricing: _PricingPhase) -> dict[str, pywraplp.Variable]:
     delta_p = {}
     for order in pricing.standalone_orders():
         if order.requires_status_variable is None or order.parent_child_id is not None:
@@ -94,7 +94,7 @@ def create_delta_price_order_variables(pricing: _PricingPhase) -> dict[str, pywr
     return delta_p
 
 
-def deactivate_surplus_constraints(pricing: _PricingPhase) -> None:
+def relax_surplus_constraints(pricing: _PricingPhase) -> None:
     """Relax the positive surplus of the linked orders, the parent-child groups and the accepted orders,
     which the paradoxical delta-P penalties replace."""
     relaxable = pricing.relaxable
@@ -102,7 +102,7 @@ def deactivate_surplus_constraints(pricing: _PricingPhase) -> None:
         pricing.model.deactivate_constraint(constraint_name)
 
 
-def create_paradoxical_delta_price_order_constraints(pricing: _PricingPhase, paradox: ParadoxVariables) -> None:
+def create_order_delta_p_constraints(pricing: _PricingPhase, paradox: ParadoxVariables) -> None:
     for order in pricing.standalone_orders():
         if order.requires_status_variable is not None and order.parent_child_id is None:
             if pricing.is_accepted(order) and order.group_index is not None:
@@ -112,7 +112,7 @@ def create_paradoxical_delta_price_order_constraints(pricing: _PricingPhase, par
                 )
 
 
-def create_paradoxical_delta_price_pc_constraints(
+def create_parent_child_delta_p_constraints(
     pricing: _PricingPhase, paradox: ParadoxVariables, opposite_delta_p_dict: dict[int, float | None]
 ) -> None:
     for index_pc, delta_p in paradox.parent_child.items():
@@ -122,8 +122,8 @@ def create_paradoxical_delta_price_pc_constraints(
         )
 
 
-def create_paradoxical_delta_price_lo_constraints(pricing: _PricingPhase, paradox: ParadoxVariables) -> None:
-    for index_lo, orders in pricing.dict_linked_orders.items():
+def create_linked_orders_delta_p_constraints(pricing: _PricingPhase, paradox: ParadoxVariables) -> None:
+    for index_lo, orders in pricing.linked_orders.items():
         opposite_delta_p = sum(
             _opposite_delta_p(pricing, order)
             for order in orders
