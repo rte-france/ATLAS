@@ -22,6 +22,7 @@ import plotly.graph_objects
 import polars as pl
 from pydantic_core import core_schema
 
+from atlas.math.copying import deepcopy_sharing_frames
 from atlas.timing import build_datetime, generate_datetimes, get_duration
 
 
@@ -38,6 +39,12 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
     frequency: pendulum.Duration
     timeseries: TBackend
     _epoch_lookup_cache: dict[int, float] | None
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        """Deep copy sharing the underlying frame, see :func:`deepcopy_sharing_frames`."""
+        copied = deepcopy_sharing_frames(self, memo, skip={"_epoch_lookup_cache"})
+        copied._invalidate_cache()
+        return copied
 
     @abstractmethod
     def _get_data(self) -> TBackend:
