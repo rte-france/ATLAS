@@ -30,45 +30,13 @@ import pendulum
 
 
 # Clearing model
-# Variables
-def border_exchange_variable_name(border_name: str, time: pendulum.DateTime) -> str:
-    return f"exchange_on_{border_name}_at_{time}"
-
-
-def border_pos_exchange_variable_name(border_name: str, time: pendulum.DateTime) -> str:
-    return f"positive_exchange_on_{border_name}_at_{time}"
-
-
-def border_neg_exchange_variable_name(border_name: str, time: pendulum.DateTime) -> str:
-    return f"negative_exchange_on_{border_name}_at_{time}"
-
-
-def local_balance_variable_name(market_area_name: str, time: pendulum.DateTime) -> str:
-    return f"balance_on_{market_area_name}_at_{time}"
-
-
+# Variables (time-indexed variables are TemporalVariable families, named where they are created)
 def accepted_power_variable_name(market_area_name: str, order_name: str) -> str:
     return f"qo_{market_area_name}_{order_name}"
 
 
 def order_status_variable_name(market_area_name: str, order_name: str) -> str:
     return f"status_{market_area_name}_{order_name}"
-
-
-def border_import_variable_name(border_name: str, time: pendulum.DateTime) -> str:
-    return f"import_on_{border_name}_at_{time}"
-
-
-def border_export_variable_name(border_name: str, time: pendulum.DateTime) -> str:
-    return f"export_on_{border_name}_at_{time}"
-
-
-def border_xsis_variable_name(border_name: str, time: pendulum.DateTime) -> str:
-    return f"xsi_on_{border_name}_at_{time}"
-
-
-def border_nus_variable_name(border_name: str, time: pendulum.DateTime) -> str:
-    return f"nu_on_{border_name}_at_{time}"
 
 
 # Constraints
