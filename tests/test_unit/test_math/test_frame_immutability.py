@@ -8,6 +8,7 @@ frame instead of duplicating it.
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable
 from datetime import datetime
 from typing import Any
@@ -122,3 +123,26 @@ def test_forecasting_matrix_set_date_format_leaves_previous_frame_untouched():
     matrix = ForecastingMatrix(_matrix_frame(FORECAST_INDEXES, lazy=False))
 
     _assert_previous_frame_untouched(matrix, lambda m: m.set_date_format("YYYY/MM/DD HH:mm:ss"))
+
+
+COVERED_OPERATIONS = {
+    Timeseries: TIMESERIES_OPERATIONS.keys(),
+    LazyTimeseries: TIMESERIES_OPERATIONS.keys(),
+    ScenarioMatrix: SCENARIO_OPERATIONS.keys(),
+    LazyScenarioMatrix: SCENARIO_OPERATIONS.keys(),
+    ForecastingMatrix: FORECAST_OPERATIONS.keys() | {"set_date_format"},
+    LazyForecastingMatrix: FORECAST_OPERATIONS.keys(),
+}
+
+
+@pytest.mark.parametrize(
+    ("math_class", "covered"), COVERED_OPERATIONS.items(), ids=[cls.__name__ for cls in COVERED_OPERATIONS]
+)
+def test_every_inplace_operation_is_covered(math_class, covered):
+    inplace_operations = {
+        name
+        for name, method in inspect.getmembers(math_class, inspect.isfunction)
+        if not name.startswith("_") and "inplace" in inspect.signature(method).parameters
+    }
+
+    assert inplace_operations - set(covered) == set(), "add the missing operations to the tests above"
