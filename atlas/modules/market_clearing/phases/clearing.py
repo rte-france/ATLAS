@@ -169,7 +169,7 @@ class Clearing:
                         accepted_powers.append(order.production_sign * self.accepted_power[order.name])
                 self.model.add_constraint(
                     sum(accepted_powers) == self.local_balance[market_area.name][time],
-                    constants.constraint_3_2_1_constraint_name(market_area.name, time),
+                    f"Constraint_3_2_1_t_{time}_mkt_{market_area.name}",
                 )
 
     def create_exchanges_and_local_balances_equality_constraints(self) -> None:
@@ -193,7 +193,7 @@ class Clearing:
                         exchanges_sum.append(border_sign * self.exchange[border_name][time])
                 self.model.add_constraint(
                     self.local_balance[market_area_name][time] == sum(exchanges_sum),
-                    constants.constraint_3_2_2_constraint_name(market_area_name, time),
+                    f"Constraint_3_2_2_t_{time}_mkt_{market_area_name}",
                 )
 
     def create_control_blocks_constraints(self) -> None:
@@ -209,11 +209,11 @@ class Clearing:
                 )
                 self.model.add_constraint(
                     tso_sold_power <= max_tso_sold_power,
-                    constants.constraint_3_5_sold_constraint_name(control_block_name, time),
+                    f"Constraint_3_5_t_{time}_cblock_{control_block_name}_sold_TSO_powers",
                 )
                 self.model.add_constraint(
                     tso_bought_power <= max_tso_bought_power,
-                    constants.constraint_3_5_bought_constraint_name(control_block_name, time),
+                    f"Constraint_3_5_t_{time}_cblock_{control_block_name}_bought_TSO_powers",
                 )
 
     def create_exchange_across_border_constraints(self) -> None:
@@ -254,7 +254,7 @@ class Clearing:
 
                 self.model.add_constraint(
                     exchange == 0.5 * (_import + _export),
-                    constants.constraint_3_6_1b_constraint_name(border_name, time),
+                    f"Constraint_3_6_1b_t_{time}_mkt_border_{border_name}",
                 )
 
                 import_after_losses = ((1.0 - loss_factor) - 1.0 / (1.0 - loss_factor)) * xsis + _export / (
@@ -262,30 +262,28 @@ class Clearing:
                 )
                 self.model.add_constraint(
                     _import == import_after_losses,
-                    constants.constraint_3_6_1c_constraint_name(border_name, time),
+                    f"Constraint_3_6_1c_t_{time}_mkt_border_{border_name}",
                 )
-                self.model.add_constraint(
-                    xsis >= 0.5 * _export, constants.constraint_3_6_1d_constraint_name(border_name, time)
-                )
+                self.model.add_constraint(xsis >= 0.5 * _export, f"Constraint_3_6_1d_t_{time}_mkt_border_{border_name}")
 
                 if min_flow:
                     self.model.add_constraint(
                         nus * min_flow <= xsis,
-                        constants.constraint_3_6_1f_min_constraint_name(border_name, time),
+                        f"Constraint_3_6_1f_min_t_{time}_mkt_border_{border_name}",
                     )
                     self.model.add_constraint(
                         (1 - nus) * min_flow >= _export - xsis,
-                        constants.constraint_3_6_1g_min_constraint_name(border_name, time),
+                        f"Constraint_3_6_1g_min_t_{time}_mkt_border_{border_name}",
                     )
 
                 if max_flow:
                     self.model.add_constraint(
                         nus * max_flow <= xsis,
-                        constants.constraint_3_6_1f_max_constraint_name(border_name, time),
+                        f"Constraint_3_6_1f_max_t_{time}_mkt_border_{border_name}",
                     )
                     self.model.add_constraint(
                         (1 - nus) * max_flow >= _export - xsis,
-                        constants.constraint_3_6_1g_max_constraint_name(border_name, time),
+                        f"Constraint_3_6_1g_max_t_{time}_mkt_border_{border_name}",
                     )
 
     def create_absolute_exchange_constraints(self, absolute: AbsoluteExchanges) -> None:
@@ -294,7 +292,7 @@ class Clearing:
                 border_exchange = self.exchange[border_name][time]
                 border_pos_exchange = absolute.positive[border_name][time]
                 border_neg_exchange = absolute.negative[border_name][time]
-                absolute_exchange_constraint_name = constants.absolute_exchange_constraint_name(border_name, time)
+                absolute_exchange_constraint_name = f"Pos_neg_def_t_{time}_mkt_border_{border_name}"
                 self.model.add_constraint(
                     border_pos_exchange + border_neg_exchange == border_exchange, absolute_exchange_constraint_name
                 )
@@ -316,7 +314,7 @@ class Clearing:
                     branch_load.append(da_ptdf.get_value(time) * relative_balance)
                 self.model.add_constraint(
                     sum(branch_load) <= max_flow.get_value(time),
-                    constants.constraint_3_6_2_constraint_name(critical_branch_name, time),
+                    constants.critical_branch_constraint_name(critical_branch_name, time),
                 )
 
     def create_limited_accepted_power_constraints(self) -> None:
@@ -346,12 +344,12 @@ class Clearing:
         if bound == "min":
             self.model.add_constraint(
                 order_status * max(self.parameters.allowed_round_off_error, power) <= accepted_power,
-                constants.min_accepted_power_constraint_name(market_area_name, order_name),
+                f"Constraint_3_4_min_mkt_{market_area_name}_o_{order_name}",
             )
         else:
             self.model.add_constraint(
                 order_status * power >= accepted_power,
-                constants.max_accepted_power_constraint_name(market_area_name, order_name),
+                f"Constraint_3_4_max_mkt_{market_area_name}_o_{order_name}",
             )
 
     def create_order_couplings_constraints(self) -> None:
@@ -372,7 +370,7 @@ class Clearing:
         for prev_order, order in itertools.pairwise(order_coupling.orders):
             self.model.add_constraint(
                 self.accepted_power[order.name] == self.accepted_power[prev_order.name],
-                constants.identical_volume_order_coupling_constraint_name(order_coupling.name, order.name),
+                f"Constraint_3_8_id_volume_o_n_{order.name}_group_n_{order_coupling.name}",
             )
 
     def create_complement_order_coupling_constraints(self, order_coupling: OrderCouplingMC) -> None:
@@ -392,7 +390,7 @@ class Clearing:
         aggregated_proportion_accepted_power = (
             sum(aggregated_accepted_power) * self.parameters.temporal.timestep.total_minutes() / 60
         )
-        constraint_name = constants.constraint_3_9_constraint_name(order_coupling.name)
+        constraint_name = f"C_3_9_compl_o_group_{order_coupling.name}"
         if order_coupling.complement_direction == ComplementDirection.EqualTo:
             self.model.add_constraint(
                 aggregated_proportion_accepted_power == order_coupling.complement_energy, constraint_name
@@ -409,7 +407,7 @@ class Clearing:
     def create_exclusion_order_coupling_constraints(self, order_coupling: OrderCouplingMC) -> None:
         self.model.add_constraint(
             sum(self.status[order.name] for order in order_coupling.orders) <= 1,
-            constants.exclusion_order_coupling_constraint_name(order_coupling.name),
+            f"Constraint_3_10_exclusive_o_g_number_{order_coupling.name}",
         )
 
     def create_parent_children_order_coupling_constraints(self, order_coupling: OrderCouplingMC) -> None:
@@ -417,7 +415,7 @@ class Clearing:
         for order in order_coupling.orders[1:]:
             self.model.add_constraint(
                 self.status[order.name] <= parent_order_status,
-                constants.parent_child_order_coupling_constraint_name(order_coupling.name, order.market_area.name),
+                f"Constraint_parent_child_on_child_{order.market_area.name}_on_group{order_coupling.name}",
             )
 
     def create_identical_ratio_order_coupling_constraints(self, order_coupling: OrderCouplingMC) -> None:
@@ -435,7 +433,7 @@ class Clearing:
 
             self.model.add_constraint(
                 ratio == prev_ratio,
-                constants.identical_ratio_order_coupling_constraint_name(order_coupling.name, order.name),
+                f"Constraint_3_8_1_id_ratio_o_n_{order.name}_group_n_{order_coupling.name}",
             )
 
     ##################################
@@ -536,7 +534,7 @@ class Clearing:
         for time in self.input_dataset.times:
             for critical_branch_name in self.input_dataset.critical_branches:
                 critical_branch_saturation = self.model.get_constraint_slack_value(
-                    constants.constraint_3_6_2_constraint_name(critical_branch_name, time)
+                    constants.critical_branch_constraint_name(critical_branch_name, time)
                 )
                 saturated_critical_branch[critical_branch_name, time] = critical_branch_saturation
         return saturated_critical_branch

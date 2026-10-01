@@ -8,7 +8,6 @@ to the accepted-orders-only range, then relaxes the marginal-order surplus const
 penalizing the worst rejected sale/buy instead of forcing it to zero.
 """
 
-import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
 from atlas.modules.market_clearing.phases._helpers import times_by_group
 from atlas.modules.market_clearing.phases.pricing._types import PricingAttempt, RejectionVariables, _PricingPhase
@@ -96,7 +95,7 @@ def create_min_surplus_rejected_sale_constraints(pricing: _PricingPhase, rejecti
             min_rejected_sale = rejection.worst_rejected_sale[price_group.id][time]
             pricing.model.add_constraint(
                 min_rejected_sale - (current_price - price_group.min_rejected_sale) >= 0.0,
-                constants.pos_min_rej_sale_group_constraint_name(price_group.id, time),
+                f"pos_min_rej_sale_group_{price_group.id}_at_{time}",
             )
 
 
@@ -109,7 +108,7 @@ def create_max_surplus_rejected_buy_constraints(pricing: _PricingPhase, rejectio
             max_rejected_buy = rejection.worst_rejected_buy[price_group.id][time]
             pricing.model.add_constraint(
                 max_rejected_buy - (price_group.max_rejected_buy - current_price) >= 0.0,
-                constants.pos_max_rej_buy_group_constraint_name(price_group.id, time),
+                f"pos_max_rej_buy_group_{price_group.id}_at_{time}",
             )
 
 

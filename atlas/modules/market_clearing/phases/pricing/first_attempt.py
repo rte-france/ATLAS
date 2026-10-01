@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING
 
 import pendulum
 
-import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
 from atlas.modules.market_clearing.data_classes import PriceGroup
 from atlas.modules.market_clearing.input_objects.order import OrderMC
@@ -108,7 +107,7 @@ def create_link_child_to_pc_variables(pricing: _PricingPhase) -> dict[str, pywra
         accepted_children = [child_order for child_order in child_orders if pricing.is_accepted(child_order)]
         for index_child, child_order in enumerate(accepted_children):
             link_surplus[child_order.name] = pricing.model.add_continuous_variable(
-                constants.link_child_to_pc(index_child, index_pc), 0, float("inf")
+                f"link_s_child_{index_child}_PC_{index_pc}", 0, float("inf")
             )
     return link_surplus
 
@@ -208,7 +207,7 @@ def create_linked_bid_surplus_constraints(pricing: _PricingPhase) -> list[str]:
     for index_lo, orders in pricing.dict_linked_orders.items():
         logger.debug(f"Surplus for : {index_lo}")
         surplus = sum(_surplus(pricing, order) for order in _accepted_priced(pricing, orders))
-        constraint_name = constants.linked_bids_surplus_constraint_name(index_lo)
+        constraint_name = f"positive_surplus_LO_{index_lo}"
         pricing.model.add_constraint(surplus >= 0.0, constraint_name)
         constraint_names.append(constraint_name)
     return constraint_names
@@ -222,9 +221,7 @@ def create_parent_child_surplus_constraints(pricing: _PricingPhase) -> list[str]
         logger.debug(f"Surplus for PC {index_pc}")
         accepted_children = _accepted_priced(pricing, child_orders)
         for index_child, child_order in enumerate(accepted_children):
-            constraint_name = constants.positive_parent_child_surplus_constraint_name(
-                index_child, index_pc, child_order.start_date
-            )
+            constraint_name = f"pos_surplus_child_{index_child}_PC_{index_pc}_t_{child_order.start_date}"
             link_surplus = pricing.variables.child_link_surplus[child_order.name]
             pricing.model.add_constraint(_surplus(pricing, child_order) - link_surplus >= 0.0, constraint_name)
             constraint_names.append(constraint_name)
@@ -234,7 +231,7 @@ def create_parent_child_surplus_constraints(pricing: _PricingPhase) -> list[str]
             children_link_surplus = sum(
                 pricing.variables.child_link_surplus[child_order.name] for child_order in accepted_children
             )
-            constraint_name = constants.negative_parent_child_surplus_constraint_name(index_pc)
+            constraint_name = f"neg_surplus_parent_PC_{index_pc}"
             pricing.model.add_constraint(surplus + children_link_surplus >= 0.0, constraint_name)
             constraint_names.append(constraint_name)
     return constraint_names
@@ -245,8 +242,8 @@ def create_pos_surplus_order_constraints(pricing: _PricingPhase) -> list[str]:
     constraint_names = []
     for order in _accepted_priced(pricing, pricing.standalone_orders()):
         equipment_name = order.equipment.name if order.equipment else "NA"
-        constraint_name = constants.pos_surplus_order_constraint_name(
-            order.name, equipment_name, order.market_area.name, order.start_date
+        constraint_name = (
+            f"pos_surplus_order_{order.name}_area_{order.market_area.name}_eqpt_{equipment_name}_t_{order.start_date}"
         )
         pricing.model.add_constraint(_surplus(pricing, order) >= 0.0, constraint_name)
         constraint_names.append(constraint_name)
@@ -263,9 +260,7 @@ def create_null_marginal_order_constraints(pricing: _PricingPhase) -> list[str]:
         if order.is_linked or not is_marginal:
             continue
         equipment_name = order.equipment.name if order.equipment else "NA"
-        constraint_name = constants.null_marginal_order_constraint_name(
-            order.name, equipment_name, order.market_area.name, order.start_date
-        )
+        constraint_name = f"s_null_marginal_order_{order.name}_area_{order.market_area.name}_eqpt_{equipment_name}_t_{order.start_date}"
         pricing.model.add_constraint(_surplus(pricing, order) == 0.0, constraint_name)
         constraint_names.append(constraint_name)
     return constraint_names
@@ -279,7 +274,7 @@ def create_shadow_price_constraints(pricing: _PricingPhase) -> None:
             if saturated_critical_branch > pricing.parameters.allowed_round_off_error:
                 pricing.model.add_constraint(
                     saturated_critical_branch * shadow_price == 0.0,
-                    constants.shadow_price_constraint_name(critical_branch_name, time),
+                    f"Complementarity_shadow_price_t_{time}_cb_{critical_branch_name}",
                 )
 
 
@@ -299,12 +294,12 @@ def create_adverse_flow_constraint(pricing: _PricingPhase) -> None:
             if price_in and not price_out:
                 pricing.model.add_constraint(
                     -border_exchange * price_in >= 0.0,
-                    constants.adverse_flow_constraint_name(border_name, time),
+                    f"prevent_adv_flow_on_{border_name}_at_{time}",
                 )
             elif price_out and not price_in:
                 pricing.model.add_constraint(
                     border_exchange * price_out >= 0.0,
-                    constants.adverse_flow_constraint_name(border_name, time),
+                    f"prevent_adv_flow_on_{border_name}_at_{time}",
                 )
 
 
@@ -316,7 +311,7 @@ def create_absolute_price_group_constraint(pricing: _PricingPhase) -> None:
             price = pricing.variables.price[price_group.id][time]
             pricing.model.add_constraint(
                 positive_price + negative_price - price == 0.0,
-                constants.absolute_price_group_constraint_name(price_group.id, time),
+                f"Price_pos_neg_group_{price_group.id}_t_{time}",
             )
 
 
@@ -349,7 +344,7 @@ def create_branch_load_constraint(pricing: _PricingPhase) -> None:
 
             pricing.model.add_constraint(
                 branch_load == 0.0,
-                constants.price_ptdf_constraint_name(group_i.id, group_j.id, time),
+                f"price_ptdf_time_{time}_areas_{group_i.id}-{group_j.id}",
             )
 
 
@@ -366,7 +361,7 @@ def create_add_price_difference_constraint(pricing: _PricingPhase) -> None:
 
             pricing.model.add_constraint(
                 positive_price_diff + negative_price_diff == price - other_price,
-                constants.price_difference_constraint_name(group_i.id, group_j.id, time),
+                f"def_price_diff_groups_{group_i.id}_and_{group_j.id}_at_{time}",
             )
 
 
