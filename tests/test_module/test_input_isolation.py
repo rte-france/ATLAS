@@ -8,6 +8,8 @@ the change sets of the module.
 
 from __future__ import annotations
 
+from datetime import date, datetime, time, timedelta
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +19,7 @@ import pytest
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.math.timeseries import Timeseries
 from atlas.objects.business_model import BusinessModel
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
@@ -28,8 +31,17 @@ WORKFLOW_CONFIGS = [
 ]
 
 
+IMMUTABLE_TYPES = (type(None), bool, int, float, str, Enum, date, time, timedelta)
+
+
 def _fingerprint(value: Any) -> Any:
-    """Comparable view of a value: business objects by identity, everything else by content."""
+    """Comparable view of a value: business objects by identity, everything else by content.
+
+    Unknown types are rejected: keeping them as is would compare an object with itself, so an
+    in-place mutation would go unnoticed.
+    """
+    if isinstance(value, IMMUTABLE_TYPES):
+        return value
     if isinstance(value, BusinessModel):
         return ("ref", id(value))
     if isinstance(value, (AbstractTimeseries, AbstractScenarioMatrix)):
@@ -43,7 +55,7 @@ def _fingerprint(value: Any) -> Any:
         return [_fingerprint(item) for item in value]
     if isinstance(value, dict):
         return {key: _fingerprint(item) for key, item in value.items()}
-    return value
+    raise TypeError(f"No fingerprint for {type(value).__name__}: add it to _fingerprint")
 
 
 def _dataset_fingerprint(dataset: AtlasDataset) -> dict[tuple[str, str], Any]:
@@ -65,6 +77,27 @@ def _differences(before: dict[tuple[str, str], Any], after: dict[tuple[str, str]
             f"{key}.{field} modified" for field in fields_before if fields_before[field] != fields_after[field]
         ]
     return sorted(differences)
+
+
+def test_fingerprint_rejects_unknown_types():
+    with pytest.raises(TypeError, match="set"):
+        _fingerprint({1, 2})
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        pytest.param(lambda values: values.append(4.0), id="list"),
+        pytest.param(lambda values: values[0].set_value(datetime(2025, 1, 1), 99.0), id="timeseries"),
+    ],
+)
+def test_fingerprint_detects_in_place_mutations(mutate):
+    values: list[Any] = [Timeseries(pl.DataFrame({"time": [datetime(2025, 1, 1)], "value": [1.0]}))]
+    before = _fingerprint(values)
+
+    mutate(values)
+
+    assert _fingerprint(values) != before
 
 
 @pytest.mark.parametrize("workflow_config", WORKFLOW_CONFIGS)
