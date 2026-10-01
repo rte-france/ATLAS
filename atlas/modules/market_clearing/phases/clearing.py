@@ -109,14 +109,14 @@ class Clearing:
         self.create_limited_accepted_power_constraints()
         self.create_order_couplings_constraints()
         self.create_local_balances_constraints()
-        self.create_exchanges_and_local_balances_equality_constraints()
+        self.create_balance_exchange_constraints()
         if self.parameters.activate_constrained_tso_quantity:
             self.create_control_blocks_constraints()
-        self.create_exchange_across_border_constraints()
-        self.create_import_export_constraints()
+        self.create_resolution_block_constraints()
+        self.create_loss_constraints()
 
         if not self.input_dataset.is_atc:
-            self.create_constraint_3_6_2_constraints()
+            self.create_critical_branch_constraints()
         if self.absolute is not None:
             self.create_absolute_exchange_constraints(self.absolute)
 
@@ -125,7 +125,7 @@ class Clearing:
         self.model.set_direction("maximize")
         self.add_accepted_powers_objective(self.parameters.price_modifier_lambda_1)
         if self.absolute is not None:
-            self.add_global_exchanges_objective(self.absolute, self.parameters.flow_penalty_lambda_2)
+            self.add_absolute_exchanges_objective(self.absolute, self.parameters.flow_penalty_lambda_2)
         if self.input_dataset.is_atc:
             self.add_exchanges_objective(self.parameters.flow_penalty_lambda_3, self.parameters.flow_penalty_lambda_4)
 
@@ -172,7 +172,7 @@ class Clearing:
                     f"Constraint_3_2_1_t_{time}_mkt_{market_area.name}",
                 )
 
-    def create_exchanges_and_local_balances_equality_constraints(self) -> None:
+    def create_balance_exchange_constraints(self) -> None:
         for time in self.input_dataset.times:
             for market_area_name in self.input_dataset.market_areas:
                 exchanges_sum = []
@@ -216,7 +216,7 @@ class Clearing:
                     f"Constraint_3_5_t_{time}_cblock_{control_block_name}_bought_TSO_powers",
                 )
 
-    def create_exchange_across_border_constraints(self) -> None:
+    def create_resolution_block_constraints(self) -> None:
         """Hold a border's exchange constant over each of its resolution blocks.
 
         A border coarser than the clearing timestep can only carry one exchange value per resolution
@@ -238,14 +238,14 @@ class Clearing:
                     constants.exchange_across_border_constraint_name(border_name, time),
                 )
 
-    def create_import_export_constraints(self) -> None:
+    def create_loss_constraints(self) -> None:
         for time in self.input_dataset.times:
             for border_name, losses in self.losses.items():
                 border = self.input_dataset.market_borders[border_name]
                 loss_factor = border.loss_factor or 0.0
                 exchange = self.exchange[border_name][time]
-                _import = losses.imports[time]
-                _export = losses.exports[time]
+                imports = losses.imports[time]
+                exports = losses.exports[time]
                 xsis = losses.xsis[time]
                 nus = losses.nus[time]
                 # Loss variables only exist in ATC, where the exchange is bounded by the border flow limits
@@ -253,18 +253,18 @@ class Clearing:
                 max_flow = border.max_flow.get_value(time)
 
                 self.model.add_constraint(
-                    exchange == 0.5 * (_import + _export),
+                    exchange == 0.5 * (imports + exports),
                     f"Constraint_3_6_1b_t_{time}_mkt_border_{border_name}",
                 )
 
-                import_after_losses = ((1.0 - loss_factor) - 1.0 / (1.0 - loss_factor)) * xsis + _export / (
+                import_after_losses = ((1.0 - loss_factor) - 1.0 / (1.0 - loss_factor)) * xsis + exports / (
                     1.0 - loss_factor
                 )
                 self.model.add_constraint(
-                    _import == import_after_losses,
+                    imports == import_after_losses,
                     f"Constraint_3_6_1c_t_{time}_mkt_border_{border_name}",
                 )
-                self.model.add_constraint(xsis >= 0.5 * _export, f"Constraint_3_6_1d_t_{time}_mkt_border_{border_name}")
+                self.model.add_constraint(xsis >= 0.5 * exports, f"Constraint_3_6_1d_t_{time}_mkt_border_{border_name}")
 
                 if min_flow:
                     self.model.add_constraint(
@@ -272,7 +272,7 @@ class Clearing:
                         f"Constraint_3_6_1f_min_t_{time}_mkt_border_{border_name}",
                     )
                     self.model.add_constraint(
-                        (1 - nus) * min_flow >= _export - xsis,
+                        (1 - nus) * min_flow >= exports - xsis,
                         f"Constraint_3_6_1g_min_t_{time}_mkt_border_{border_name}",
                     )
 
@@ -282,7 +282,7 @@ class Clearing:
                         f"Constraint_3_6_1f_max_t_{time}_mkt_border_{border_name}",
                     )
                     self.model.add_constraint(
-                        (1 - nus) * max_flow >= _export - xsis,
+                        (1 - nus) * max_flow >= exports - xsis,
                         f"Constraint_3_6_1g_max_t_{time}_mkt_border_{border_name}",
                     )
 
@@ -297,7 +297,7 @@ class Clearing:
                     border_pos_exchange + border_neg_exchange == border_exchange, absolute_exchange_constraint_name
                 )
 
-    def create_constraint_3_6_2_constraints(self) -> None:
+    def create_critical_branch_constraints(self) -> None:
         for time in self.input_dataset.times:
             for critical_branch_name, critical_branch in self.input_dataset.critical_branches.items():
                 max_flow = critical_branch.max_flow
@@ -450,7 +450,7 @@ class Clearing:
                 )
         self.model.add_objective(sum(objective))
 
-    def add_global_exchanges_objective(self, absolute: AbsoluteExchanges, lambda2: float) -> None:
+    def add_absolute_exchanges_objective(self, absolute: AbsoluteExchanges, lambda2: float) -> None:
         objective = []
         for time in self.input_dataset.times:
             for border_name in self.input_dataset.market_borders.keys():

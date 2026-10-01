@@ -52,7 +52,7 @@ class _PricingAlgorithms:
         self.clearing_border_exchanges = clearing_border_exchanges or {}
         self.clearing_accepted_powers = clearing_accepted_powers or {}
         self.saturated_critical_branch = {}
-        self.dict_linked_orders: dict = {}
+        self.linked_orders: dict = {}
         self.full_link_id_by_order: dict = {}
         self.model = OptimisationModel("GLOP")
 
@@ -88,8 +88,8 @@ class _PricingAlgorithms:
     def compute_opposite_delta_p(self):
         return third_attempt.compute_opposite_delta_p(self)  # type: ignore[arg-type]
 
-    def create_delta_price_pc_variables(self, opposite_delta_p_dict):
-        return third_attempt.create_delta_price_pc_variables(self, opposite_delta_p_dict)  # type: ignore[arg-type]
+    def create_parent_child_delta_p_variables(self, opposite_delta_p_dict):
+        return third_attempt.create_parent_child_delta_p_variables(self, opposite_delta_p_dict)  # type: ignore[arg-type]
 
 
 class _FakeInputDataset:
@@ -570,8 +570,8 @@ class TestCreateOppositeDeltaP:
         )
         pricing = _PricingAlgorithms(input_dataset, parameters, clearing_accepted_powers=accepted_powers)
         order_links = OrderLinkResolver(input_dataset.orders, input_dataset.order_couplings).resolve()
-        pricing.dict_linked_orders = order_links.linked_orders
-        pricing.dict_parent_child_orders = order_links.parent_child_orders
+        pricing.linked_orders = order_links.linked_orders
+        pricing.parent_child_orders = order_links.parent_child_orders
         pricing.full_link_id_by_order = order_links.full_link_id_by_order
         # Both orders belong to price group 0, the only group of the single time step
         pricing.price_groups = {times[0]: [PriceGroup(id=0, time=times[0], market_area_names=["ma_a"])]}
@@ -596,9 +596,9 @@ class TestCreateOppositeDeltaP:
         pricing = self._build_parent_child_pricing(parameters, {("ma_a", "parent"): 10.0, ("ma_a", "child"): 0.0})
         opposite_delta_p_dict = pricing.compute_opposite_delta_p()
 
-        pricing.create_delta_price_pc_variables(opposite_delta_p_dict)
+        pricing.create_parent_child_delta_p_variables(opposite_delta_p_dict)
 
-        assert constants.delta_p_pc(next(iter(pricing.dict_parent_child_orders))) in pricing.model.variables
+        assert constants.delta_p_pc(next(iter(pricing.parent_child_orders))) in pricing.model.variables
 
 
 class _ClearingAlgorithms:
@@ -620,12 +620,12 @@ class _ClearingAlgorithms:
         (block_start,) = [time for time, coefficient in coefficients.items() if coefficient == -1.0]
         return tied, block_start
 
-    def create_exchange_across_border_constraints(self):
-        return Clearing.create_exchange_across_border_constraints(self)  # type: ignore[arg-type]
+    def create_resolution_block_constraints(self):
+        return Clearing.create_resolution_block_constraints(self)  # type: ignore[arg-type]
 
 
 class TestExchangeAcrossBorderConstraints:
-    """`Clearing.create_exchange_across_border_constraints` — a border coarser than the clearing
+    """`Clearing.create_resolution_block_constraints` — a border coarser than the clearing
     timestep carries a single exchange per resolution block, so every timestep inside a block is
     tied back to the timestep opening it."""
 
@@ -644,7 +644,7 @@ class TestExchangeAcrossBorderConstraints:
     def test_border_at_the_clearing_resolution_is_left_free(self, parameters: MarketClearingParameters) -> None:
         clearing, _ = self._build(parameters, time_resolution=0.0)
 
-        clearing.create_exchange_across_border_constraints()
+        clearing.create_resolution_block_constraints()
 
         assert clearing.model.constraints == set()
 
@@ -653,7 +653,7 @@ class TestExchangeAcrossBorderConstraints:
     ) -> None:
         clearing, times = self._build(parameters, time_resolution=120.0)
 
-        clearing.create_exchange_across_border_constraints()
+        clearing.create_resolution_block_constraints()
 
         # Blocks are [t0, t1] and [t2, t3]: only the second hour of each block is constrained.
         assert set(clearing.model.constraints) == {
@@ -672,7 +672,7 @@ class TestExchangeAcrossBorderConstraints:
     def test_four_hour_border_ties_every_later_hour_to_the_first(self, parameters: MarketClearingParameters) -> None:
         clearing, times = self._build(parameters, time_resolution=240.0)
 
-        clearing.create_exchange_across_border_constraints()
+        clearing.create_resolution_block_constraints()
 
         for time in times[1:]:
             assert clearing.tied_exchanges(constants.exchange_across_border_constraint_name("ab", time)) == (

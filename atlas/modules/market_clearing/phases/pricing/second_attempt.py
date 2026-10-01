@@ -15,22 +15,22 @@ from atlas.modules.market_clearing.phases.pricing._types import PricingAttempt, 
 
 def build_variables(pricing: _PricingPhase) -> RejectionVariables:
     """Create all variables for the second pricing phase model"""
-    return create_surplus_rejected_variables(pricing)
+    return create_worst_rejected_variables(pricing)
 
 
 def build_constraints(pricing: _PricingPhase, rejection: RejectionVariables) -> None:
     """Create all constraints for the second pricing phase model"""
-    deactivate_null_marginal_order_constraint(pricing)
-    create_min_surplus_rejected_sale_constraints(pricing, rejection)
-    create_max_surplus_rejected_buy_constraints(pricing, rejection)
+    relax_null_marginal_order_constraints(pricing)
+    create_worst_rejected_sale_constraints(pricing, rejection)
+    create_worst_rejected_buy_constraints(pricing, rejection)
 
 
 def build_objective(pricing: _PricingPhase, rejection: RejectionVariables) -> None:
     """Create objective function for the second pricing phase model"""
-    create_surplus_objective(pricing, rejection)
+    create_worst_rejected_objective(pricing, rejection)
 
 
-def update_price_bound(pricing: _PricingPhase) -> None:
+def tighten_price_bounds(pricing: _PricingPhase) -> None:
     for price_group_list in pricing.price_groups.values():
         for price_group in price_group_list:
             price_group.max_price = float("inf")
@@ -45,7 +45,7 @@ def update_price_bound(pricing: _PricingPhase) -> None:
             )
 
 
-def compute_min_max_rejected_sale_buy(pricing: _PricingPhase) -> None:
+def compute_worst_rejected_prices(pricing: _PricingPhase) -> None:
     for time, price_groups in pricing.price_groups.items():
         for price_group in price_groups:
             price_group.min_rejected_sale = float("inf")
@@ -67,7 +67,7 @@ def compute_min_max_rejected_sale_buy(pricing: _PricingPhase) -> None:
             logger.debug(f"Worst rejected : {price_group.min_rejected_sale}, {price_group.max_rejected_buy}")
 
 
-def create_surplus_rejected_variables(pricing: _PricingPhase) -> RejectionVariables:
+def create_worst_rejected_variables(pricing: _PricingPhase) -> RejectionVariables:
     group_times = times_by_group(pricing.price_groups)
     return RejectionVariables(
         worst_rejected_sale={
@@ -81,12 +81,12 @@ def create_surplus_rejected_variables(pricing: _PricingPhase) -> RejectionVariab
     )
 
 
-def deactivate_null_marginal_order_constraint(pricing: _PricingPhase) -> None:
+def relax_null_marginal_order_constraints(pricing: _PricingPhase) -> None:
     for constraint_name in pricing.relaxable.null_marginal_order:
         pricing.model.deactivate_constraint(constraint_name)
 
 
-def create_min_surplus_rejected_sale_constraints(pricing: _PricingPhase, rejection: RejectionVariables) -> None:
+def create_worst_rejected_sale_constraints(pricing: _PricingPhase, rejection: RejectionVariables) -> None:
     for time, price_groups in pricing.price_groups.items():
         for price_group in price_groups:
             current_price = pricing.variables.price[price_group.id][time]
@@ -99,7 +99,7 @@ def create_min_surplus_rejected_sale_constraints(pricing: _PricingPhase, rejecti
             )
 
 
-def create_max_surplus_rejected_buy_constraints(pricing: _PricingPhase, rejection: RejectionVariables) -> None:
+def create_worst_rejected_buy_constraints(pricing: _PricingPhase, rejection: RejectionVariables) -> None:
     for time, price_groups in pricing.price_groups.items():
         for price_group in price_groups:
             current_price = pricing.variables.price[price_group.id][time]
@@ -112,7 +112,7 @@ def create_max_surplus_rejected_buy_constraints(pricing: _PricingPhase, rejectio
             )
 
 
-def create_surplus_objective(pricing: _PricingPhase, rejection: RejectionVariables) -> None:
+def create_worst_rejected_objective(pricing: _PricingPhase, rejection: RejectionVariables) -> None:
     objective = []
     for price_groups in pricing.price_groups.values():
         for price_group in price_groups:

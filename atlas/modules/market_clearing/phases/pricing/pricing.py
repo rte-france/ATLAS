@@ -54,8 +54,8 @@ class Pricing:
         self.clearing_accepted_powers = clearing_outputs.accepted_powers
         self.price_groups = self.create_price_groups()
         order_links = OrderLinkResolver(self.input_dataset.orders, self.input_dataset.order_couplings).resolve()
-        self.dict_linked_orders = order_links.linked_orders
-        self.dict_parent_child_orders = order_links.parent_child_orders
+        self.linked_orders = order_links.linked_orders
+        self.parent_child_orders = order_links.parent_child_orders
         self.full_link_id_by_order = order_links.full_link_id_by_order
 
         # Variables only depend on the clearing outputs and the price groups: they are declared here
@@ -119,8 +119,8 @@ class Pricing:
 
     def build_second(self) -> None:
         # Update PriceGroup
-        second_attempt.update_price_bound(self)
-        second_attempt.compute_min_max_rejected_sale_buy(self)
+        second_attempt.tighten_price_bounds(self)
+        second_attempt.compute_worst_rejected_prices(self)
         rejection = second_attempt.build_variables(self)
         # Relax the null surplus of the marginally accepted orders, penalize the worst rejected ones instead
         second_attempt.build_constraints(self, rejection)
