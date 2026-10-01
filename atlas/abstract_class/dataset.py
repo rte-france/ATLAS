@@ -16,7 +16,9 @@ class AbstractDataset[P](ABC):  # noqa: B024
     """Placeholder abstract class for input datasets."""
 
 
-class AbstractModuleOutput[P](AbstractDataset[P]):
+class ModuleResult[P](AbstractDataset[P]):
+    """In-memory object a module returns, carrying the change sets it produced."""
+
     change_sets: list[ChangeSet] = []
 
     @abstractmethod
@@ -26,4 +28,4 @@ class AbstractModuleOutput[P](AbstractDataset[P]):
 
 # Kept for backwards compatibility — imported by test_abstract_module.py
 ID = TypeVar("ID", bound=AbstractDataset)
-OD = TypeVar("OD", bound=AbstractModuleOutput)
+R = TypeVar("R", bound=ModuleResult)

@@ -76,7 +76,7 @@ def _create_hydraulic_equipment(
     """Create a Hydraulic equipment for an area."""
 
     maximum_power_ts = Timeseries.from_values(
-        parameters.start_date, frequency="1d", values=area.hydro.get_maxpower()[parameters.output.hydro_max_power]
+        parameters.start_date, frequency="1d", values=area.hydro.get_maxpower()[parameters.columns.hydro_max_power]
     )
 
     fragment = parameters.hydro.get_fragment(area.id)
@@ -87,7 +87,7 @@ def _create_hydraulic_equipment(
         portfolio=get_portfolio(atlas_dataset, parameters, area.id),
         maximum_power=maximum_power_ts,
         minimum_power=Timeseries.from_values(
-            parameters.start_date, frequency="1d", values=area.hydro.get_maxpower()[parameters.output.hydro_min_power]
+            parameters.start_date, frequency="1d", values=area.hydro.get_maxpower()[parameters.columns.hydro_min_power]
         ),
         maximum_energy=Timeseries.from_index(
             start_date=parameters.start_date,
@@ -144,7 +144,7 @@ def _create_hydraulic_equipment(
         frequency="1h",
         values=study_output.get_mc_ind_area(
             mc_year=scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.id
-        )[(parameters.output.stor_column, "MWh")],
+        )[(parameters.columns.stor_column, "MWh")],
     ).groupby("1d", agg="sum")
 
     hydro.minimum_daily_energy = daily_energy * parameters.hydro.min_energy_coeff

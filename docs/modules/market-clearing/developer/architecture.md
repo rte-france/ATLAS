@@ -15,7 +15,7 @@ market_clearing/
 ├── market_clearing_constants.py         # Global constants
 ├── market_clearing_parameters.py        # Configuration parameters
 ├── market_clearing_input_dataset.py     # Input data aggregation
-├── market_clearing_output_dataset.py    # Output data aggregation
+├── result.py                            # MarketClearingResult (builds change sets)
 ├── marker_clearing_module.py            # Core clearing module
 ├── price_group.py                       # group of market area with the same price for every timestep
 └── input_objects/                             # Market Clearing models
@@ -43,7 +43,7 @@ Implements `AbstractModule` with methods:
 - `get_parameters_class()`: Returns `MarketClearingParameters`
 - `import_data()`: Creates `MarketClearingInputDataset`
 - `validate_data()`: Nothing is done
-- `execute()`: Run every step of the Market Clearing. Returns `MarketClearingOutputDataset`
+- `execute()`: Run every step of the Market Clearing. Returns `MarketClearingResult`
 - `validates_results()`: Nothing is done
 - `export_results()`: Run `MarketClearingResults`
 
@@ -55,7 +55,7 @@ Pydantic model inheriting from `AbstractModuleParameters`. Defines all configura
 
 - Converts business models to market-clearing-specific models (more information below on the section about them)
 - Filter to input to keep only useful data
-### MarketClearingOutputDataset
+### MarketClearingResult
 
 Update dataset with the result of MarketClearing : All modification of attributes are write in docstring of MarketClearingOutput
 

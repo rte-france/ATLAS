@@ -14,15 +14,22 @@ import pytest
 from pendulum import DateTime, Duration
 
 from atlas import Workflow
-from atlas.orchestrator.module_registry import ModuleRegistry
-from tests.test_unit.test_orchestrator.orchestrator_factory import MockJobBuilder, MockTaskBuilder, ConcreteTaskGenerator, MockModuleBuilder, OrchestratorConfigBuilder, ModuleConfigBuilder
-
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import ContextParameters
+from atlas.custom_errors import UseContextError
 from atlas.orchestrator.actionplan.action_plan import ActionPlan
 from atlas.orchestrator.actionplan.job import ActionPlanJob
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, TaskModule, TaskWorkflow
+from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.timing import build_datetime
+from tests.test_unit.test_orchestrator.orchestrator_factory import (
+    ConcreteTaskGenerator,
+    MockJobBuilder,
+    MockModuleBuilder,
+    MockTaskBuilder,
+    ModuleConfigBuilder,
+    OrchestratorConfigBuilder,
+)
 
 
 class ActionPlanMockFactory:
@@ -77,14 +84,14 @@ class TestActionPlanAddTask:
     def test_add_task_module(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
         task = TaskModule(
-                module="PortfolioOptimisation",
-                parameters=ModuleConfigBuilder().build(tmp_path),
-                priority=1,
-                from_=DateTime(2000, 1, 1),
-                until=DateTime(2000, 1, 1),
-                frequency=Duration(days=1),
-                offset_start_date=Duration(days=1),
-                offset_end_date=Duration(days=2),
+            module="PortfolioOptimisation",
+            parameters=ModuleConfigBuilder().build(tmp_path),
+            priority=1,
+            from_=DateTime(2000, 1, 1),
+            until=DateTime(2000, 1, 1),
+            frequency=Duration(days=1),
+            offset_start_date=Duration(days=1),
+            offset_end_date=Duration(days=2),
         )
         ap.add_task(task)
         assert len(ap._task_job_generators) == 1
@@ -95,13 +102,13 @@ class TestActionPlanAddTask:
         workflow_config = OrchestratorConfigBuilder().build_workflow_config(tmp_path)
         workflow = Workflow.from_file(workflow_config)
         task = TaskWorkflow(
-                workflow=workflow,
-                priority=1,
-                from_=DateTime(2000, 1, 1),
-                until=DateTime(2000, 1, 1),
-                frequency=Duration(days=1),
-                offset_start_date=Duration(days=1),
-                offset_end_date=Duration(days=2),
+            workflow=workflow,
+            priority=1,
+            from_=DateTime(2000, 1, 1),
+            until=DateTime(2000, 1, 1),
+            frequency=Duration(days=1),
+            offset_start_date=Duration(days=1),
+            offset_end_date=Duration(days=2),
         )
         ap.add_task(task)
         assert len(ap._task_job_generators) == 1
@@ -112,13 +119,13 @@ class TestActionPlanAddTask:
         workflow_config = OrchestratorConfigBuilder().build_workflow_config(tmp_path)
         workflow = Workflow.from_file(workflow_config)
         task = TaskWorkflow(
-                workflow=workflow,
-                priority=1,
-                from_=DateTime(2000, 1, 1),
-                until=DateTime(2000, 1, 1),
-                frequency=Duration(days=1),
-                offset_start_date=Duration(days=1),
-                offset_end_date=Duration(days=2),
+            workflow=workflow,
+            priority=1,
+            from_=DateTime(2000, 1, 1),
+            until=DateTime(2000, 1, 1),
+            frequency=Duration(days=1),
+            offset_start_date=Duration(days=1),
+            offset_end_date=Duration(days=2),
         )
         ap.add_task(task)
         assert len(ap._task_job_generators) == 1
@@ -126,7 +133,8 @@ class TestActionPlanAddTask:
 
     def test_add_various_task(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        ap.add_task(TaskModule(
+        ap.add_task(
+            TaskModule(
                 name="1",
                 module="PortfolioOptimisation",
                 parameters=ModuleConfigBuilder().build(tmp_path),
@@ -136,8 +144,10 @@ class TestActionPlanAddTask:
                 frequency=Duration(days=1),
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
-        ))
-        ap.add_task(TaskModule(
+            )
+        )
+        ap.add_task(
+            TaskModule(
                 name="2",
                 module="PortfolioOptimisation",
                 parameters=ModuleConfigBuilder().build(tmp_path),
@@ -147,8 +157,10 @@ class TestActionPlanAddTask:
                 frequency=Duration(days=1),
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
-        ))
-        ap.add_task(TaskModule(
+            )
+        )
+        ap.add_task(
+            TaskModule(
                 name="3",
                 module="PortfolioOptimisation",
                 parameters=ModuleConfigBuilder().build(tmp_path),
@@ -158,17 +170,17 @@ class TestActionPlanAddTask:
                 frequency=Duration(days=1),
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
-        ))
+            )
+        )
         assert ap.jobs_count == 3
-        expected_job_order = ["task '1' iteration 1",
-                              "task '2' iteration 1",
-                              "task '3' iteration 1"]
+        expected_job_order = ["task '1' iteration 1", "task '2' iteration 1", "task '3' iteration 1"]
         for idx, job in enumerate(ap.jobs):
             assert job.name == expected_job_order[idx]
 
     def test_add_various_task_with_multiple_date(self, tmp_path):
         ap = ActionPlanMockFactory.make_minimal_action_plan(tmp_path)
-        ap.add_task(TaskModule(
+        ap.add_task(
+            TaskModule(
                 name="1",
                 module="PortfolioOptimisation",
                 parameters=ModuleConfigBuilder().build(tmp_path),
@@ -178,8 +190,10 @@ class TestActionPlanAddTask:
                 frequency=Duration(days=3),
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
-        ))
-        ap.add_task(TaskModule(
+            )
+        )
+        ap.add_task(
+            TaskModule(
                 name="2",
                 module="PortfolioOptimisation",
                 parameters=ModuleConfigBuilder().build(tmp_path),
@@ -189,15 +203,18 @@ class TestActionPlanAddTask:
                 frequency=Duration(days=5),
                 offset_start_date=Duration(days=1),
                 offset_end_date=Duration(days=2),
-        ))
+            )
+        )
         assert ap.jobs_count == 7
-        expected_job_order = ["task '1' iteration 1",
-                              "task '2' iteration 1",
-                              "task '1' iteration 2",
-                              "task '2' iteration 2",
-                              "task '1' iteration 3",
-                              "task '1' iteration 4",
-                              "task '2' iteration 3"]
+        expected_job_order = [
+            "task '1' iteration 1",
+            "task '2' iteration 1",
+            "task '1' iteration 2",
+            "task '2' iteration 2",
+            "task '1' iteration 3",
+            "task '1' iteration 4",
+            "task '2' iteration 3",
+        ]
         for idx, job in enumerate(ap.jobs):
             assert job.name == expected_job_order[idx]
 
@@ -334,13 +351,15 @@ class TestActionPlanContextParameters:
         )
 
         overriding_context = ContextParameters(
-            default = {
-            "foo": "default_value_overriding",
-            "override_exclusive": "default_value_override_exclusive",
-        }, forced = {
-            "foo": "forced_value_overriding",
-            "override_exclusive": "forced_value_override_exclusive",
-        })
+            default={
+                "foo": "default_value_overriding",
+                "override_exclusive": "default_value_override_exclusive",
+            },
+            forced={
+                "foo": "forced_value_overriding",
+                "override_exclusive": "forced_value_override_exclusive",
+            },
+        )
 
         action_plan = ActionPlan.from_file(
             TestActionPlanContextParameters.create_config(tmp_path, context_file), overriding_context
@@ -397,7 +416,9 @@ class TestActionPlanContextParameters:
             "      execution_date: '2028-09-26 12:00:00'\n"
         )
         module_parameters = "temporal:\n  start_date: '2028-09-27 00:00:00'\n  end_date: '2028-09-28 00:00:00'\n"
-        action_plan = ActionPlan.from_file(TestActionPlanContextParameters.create_config(tmp_path, context, module_parameters))
+        action_plan = ActionPlan.from_file(
+            TestActionPlanContextParameters.create_config(tmp_path, context, module_parameters)
+        )
 
         job = next(action_plan.jobs)
         assert job.parameters.temporal.start_date == build_datetime("2028-09-27 00:00:00")
@@ -413,7 +434,9 @@ class TestActionPlanContextParameters:
             "      execution_date: '2028-09-26 12:00:00'\n"
         )
         module_parameters = "temporal:\n  start_date: 'wrong-date'\n  end_date: '2028-09-28 00:00:00'\n"
-        action_plan = ActionPlan.from_file(TestActionPlanContextParameters.create_config(tmp_path, context, module_parameters))
+        action_plan = ActionPlan.from_file(
+            TestActionPlanContextParameters.create_config(tmp_path, context, module_parameters)
+        )
 
         job = next(action_plan.jobs)
         assert job.parameters.temporal.start_date == build_datetime("2028-09-27 00:00:00")
@@ -433,7 +456,9 @@ class TestActionPlanContextParameters:
             "      end_date: '2028-09-28 00:00:00'\n"
         )
         module_parameters = "temporal:\n  start_date: 'wrong-date'\n  end_date: 'wrong-date'\n"
-        action_plan = ActionPlan.from_file(TestActionPlanContextParameters.create_config(tmp_path, context, module_parameters))
+        action_plan = ActionPlan.from_file(
+            TestActionPlanContextParameters.create_config(tmp_path, context, module_parameters)
+        )
 
         job = next(action_plan.jobs)
         assert job.parameters.temporal.start_date == build_datetime("2028-09-27 00:00:00")
@@ -776,7 +801,7 @@ class TestActionPlanPathFromActionPlan:
             action_plan.execute()
             mock_from_dir.assert_called_once_with(dataset_dir)
 
-    def test_step_output_dir_resolved_relative_to_action_plan(self, tmp_path):
+    def test_step_run_dir_resolved_relative_to_action_plan(self, tmp_path):
         dataset_dir = tmp_path / "dataset"
         dataset_dir.mkdir()
         output_dir = tmp_path / "output"
@@ -810,4 +835,90 @@ class TestActionPlanPathFromActionPlan:
         action_plan = ActionPlan.from_file(config)
         step = next(action_plan.jobs)
 
-        assert step.parameters.output.output_dir == Path(tmp_path / 'results' / 'MarketClearing' / '2028-01-01T00:00:00+00:00')
+        assert step.parameters.export.run_dir == Path(tmp_path / 'results' / 'MarketClearing' / '2028-01-01T00:00:00+00:00')
+
+
+class TestActionPlanUseContext:
+    """Note: Any task parameters is resolved with the context when the ActionPlan is built.
+    We want to ensure that use_context() re-resolve tasks already built, not just update
+    parameters.context while leaving previously-resolved task parameters stale."""
+
+    @staticmethod
+    def _build_action_plan(tmp_path) -> ActionPlan:
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("solver:\n  solver_name: GLOP\n")
+
+        config = tmp_path / "action_plan.yaml"
+        config.write_text(
+            f"name: test_action_plan\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"output_dataset_path: {output_dir}\n"
+            f"tasks:\n"
+            f"  - module: MarketClearing\n"
+            f"    parameters: {params_file}\n"
+            f"    from_: '2028-01-01 00:00:00'\n"
+            f"    until: '2028-01-01 00:00:00'\n"
+            f"    frequency: '1d'\n"
+        )
+        return ActionPlan.from_file(config)
+
+    def test_use_context_re_resolves_already_built_tasks(self, tmp_path):
+        action_plan = self._build_action_plan(tmp_path)
+        assert next(action_plan.jobs).parameters.solver.solver_name == "GLOP"
+
+        action_plan.use_context(ContextParameters(forced={"solver": {"solver_name": "CBC"}}))
+
+        assert next(action_plan.jobs).parameters.solver.solver_name == "CBC"
+
+    def test_use_context_re_resolves_tasks_added_after_construction(self, tmp_path):
+        """A task added via add_task() must also be re-resolved."""
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        params = ActionPlanMockFactory.make_minimal_parameters(tmp_path, dataset_path=dataset_dir, output_path=output_dir)
+        action_plan = ActionPlan(params)
+        action_plan.add_task(
+            TaskModule(
+                module="MarketClearing",
+                parameters={"solver": {"solver_name": "GLOP"}},
+                from_=DateTime(2028, 1, 1),
+                until=DateTime(2028, 1, 1),
+                frequency=Duration(days=1),
+            )
+        )
+        assert next(action_plan.jobs).parameters.solver.solver_name == "GLOP"
+
+        action_plan.use_context(ContextParameters(forced={"solver": {"solver_name": "CBC"}}))
+
+        assert next(action_plan.jobs).parameters.solver.solver_name == "CBC"
+
+    def test_use_context_raises_and_leaves_action_plan_unchanged_if_resolution_breaks(self, tmp_path):
+        action_plan = self._build_action_plan(tmp_path)
+        context_before = action_plan.parameters.context
+        job_before = next(action_plan.jobs)
+        attempted_context = ContextParameters(forced={"solver": {"solver_name": "NOT_A_REAL_SOLVER"}})
+
+        with pytest.raises(UseContextError) as exc_info:
+            action_plan.use_context(attempted_context)
+
+        error = exc_info.value
+        assert error.job_name == "MarketClearing"
+        assert error.previous_context == context_before
+        assert error.attempted_context == attempted_context
+        assert isinstance(error.original_error, Exception)
+
+        assert action_plan.parameters.context == context_before
+        job_after = next(action_plan.jobs)
+        assert job_after.parameters.solver.solver_name == job_before.parameters.solver.solver_name
+
+    def test_use_context_merges_context_on_success(self, tmp_path):
+        action_plan = self._build_action_plan(tmp_path)
+
+        action_plan.use_context(ContextParameters(default={"added": 1}))
+
+        assert action_plan.parameters.context.default["added"] == 1
