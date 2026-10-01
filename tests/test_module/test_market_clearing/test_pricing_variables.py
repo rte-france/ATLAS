@@ -17,7 +17,7 @@ from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases._helpers import times_by_group, times_by_group_pair
 from atlas.modules.market_clearing.phases.clearing import Clearing
 from atlas.modules.market_clearing.phases.exchanges_fixing import ExchangesFixing
-from atlas.modules.market_clearing.phases.pricing import Pricing
+from atlas.modules.market_clearing.phases.pricing import Pricing, second_attempt
 
 T0 = pendulum.datetime(2028, 9, 27)
 T1 = T0.add(hours=1)
@@ -71,7 +71,24 @@ def pricing(
     return pricing
 
 
+def _is_relaxed(pricing: Pricing, constraint_name: str) -> bool:
+    bounds = pricing.model.get_constraint_bounds(constraint_name)
+    return (bounds.lower_bound, bounds.upper_bound) == (float("-inf"), float("inf"))
+
+
 class TestFirstAttempt:
+    def test_records_the_constraints_the_later_attempts_relax(self, pricing: Pricing) -> None:
+        relaxable = pricing.relaxable
+
+        for constraint_name in (
+            relaxable.null_marginal_order
+            + relaxable.linked_orders_surplus
+            + relaxable.parent_child_surplus
+            + relaxable.order_surplus
+        ):
+            assert constraint_name in pricing.model.constraints
+            assert not _is_relaxed(pricing, constraint_name)
+
     def test_every_price_group_gets_a_price_at_its_time(self, pricing: Pricing) -> None:
         for time, price_groups in pricing.price_groups.items():
             for price_group in price_groups:
@@ -89,18 +106,34 @@ class TestSecondAttempt:
             assert (price.lb(), price.ub()) == (price_group.min_price, price_group.max_price)
 
     def test_worst_rejected_orders_follow_the_price_groups(self, pricing: Pricing) -> None:
-        pricing.build_second()
+        rejection = second_attempt.build_variables(pricing)
 
         group_times = times_by_group(pricing.price_groups)
-        assert {group_id: family.model_times for group_id, family in pricing.variables.worst_rejected_sale.items()} == (
+        assert {group_id: family.model_times for group_id, family in rejection.worst_rejected_sale.items()} == (
             group_times
         )
-        assert {group_id: family.model_times for group_id, family in pricing.variables.worst_rejected_buy.items()} == (
+        assert {group_id: family.model_times for group_id, family in rejection.worst_rejected_buy.items()} == (
             group_times
         )
+
+    def test_relaxes_the_null_surplus_of_the_marginal_orders(self, pricing: Pricing) -> None:
+        pricing.build_second()
+
+        for constraint_name in pricing.relaxable.null_marginal_order:
+            assert _is_relaxed(pricing, constraint_name)
 
 
 class TestThirdAttempt:
+    def test_relaxes_every_recorded_surplus_constraint(self, pricing: Pricing) -> None:
+        pricing.build_second()
+        pricing.build_third()
+
+        relaxable = pricing.relaxable
+        surplus_constraints = relaxable.linked_orders_surplus + relaxable.parent_child_surplus + relaxable.order_surplus
+        assert surplus_constraints
+        for constraint_name in surplus_constraints:
+            assert _is_relaxed(pricing, constraint_name)
+
     def test_relaxed_model_prices_every_market_area(self, pricing: Pricing) -> None:
         pricing.build_second()
         pricing.build_third()

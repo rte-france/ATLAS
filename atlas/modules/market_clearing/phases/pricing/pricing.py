@@ -18,7 +18,11 @@ from atlas.modules.market_clearing.order_links import OrderLinkResolver
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases._helpers import count_saturated
 from atlas.modules.market_clearing.phases.pricing import first_attempt, second_attempt, third_attempt
-from atlas.modules.market_clearing.phases.pricing._types import PricingAttempt, PricingVariables
+from atlas.modules.market_clearing.phases.pricing._types import (
+    PricingAttempt,
+    PricingVariables,
+    RelaxableConstraints,
+)
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -33,7 +37,6 @@ class Pricing:
         solver_options = SolverOptions(presolve=parameters.solver.use_presolve)
 
         self.model = OptimisationModel(parameters.solver.solver_name, options=solver_options, name="Pricing")
-        self.variables = PricingVariables()
         self.input_dataset = input_dataset
         self.parameters = parameters
         self.saturated_critical_branch = clearing_outputs.saturated_critical_branch
@@ -45,6 +48,11 @@ class Pricing:
         self.dict_linked_orders = order_links.linked_orders
         self.dict_parent_child_orders = order_links.parent_child_orders
         self._full_link_id_by_order = order_links.full_link_id_by_order
+
+        # Variables only depend on the clearing outputs and the price groups: they are declared here
+        # so that the attempts always find them. Nothing is relaxable until the first attempt is built.
+        self.variables: PricingVariables = first_attempt.build_variables(self)
+        self.relaxable = RelaxableConstraints()
 
     def compute(self):
         """Price the cleared market, relaxing the model over up to three attempts.
@@ -95,22 +103,21 @@ class Pricing:
                     f,
                 )
 
-    def build_first(self):
+    def build_first(self) -> None:
         first_attempt.instantiate_order_group_index(self)
-        first_attempt.build_variables(self)
-        first_attempt.build_constraints(self)
+        self.relaxable = first_attempt.build_constraints(self)
         first_attempt.build_objective(self)
 
-    def build_second(self):
+    def build_second(self) -> None:
         # Update PriceGroup
         second_attempt.update_price_bound(self)
         second_attempt.compute_min_max_rejected_sale_buy(self)
-        second_attempt.build_variables(self)
-        # If the order is accepted, check if it is partially accepted. If so, delete the marginal surplus constraint.
-        second_attempt.build_constraints(self)
-        second_attempt.build_objective(self)
+        rejection = second_attempt.build_variables(self)
+        # Relax the null surplus of the marginally accepted orders, penalize the worst rejected ones instead
+        second_attempt.build_constraints(self, rejection)
+        second_attempt.build_objective(self, rejection)
 
-    def build_third(self):
+    def build_third(self) -> None:
         opposite_delta_p_dict = third_attempt.compute_opposite_delta_p(self)
         third_attempt.build_variables(self, opposite_delta_p_dict)
         third_attempt.build_constraints(self, opposite_delta_p_dict)

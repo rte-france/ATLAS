@@ -15,30 +15,41 @@ import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
 from atlas.modules.market_clearing.data_classes import PriceGroup
 from atlas.modules.market_clearing.phases._helpers import (
+    GroupPair,
     count_saturated,
     iter_group_pairs,
     times_by_group,
     times_by_group_pair,
 )
-from atlas.modules.market_clearing.phases.pricing._types import _PricingPhase
+from atlas.modules.market_clearing.phases.pricing._types import PricingVariables, RelaxableConstraints, _PricingPhase
+from atlas.solver.temporal_variable import TemporalVariable
 
 
-def build_variables(pricing: _PricingPhase) -> None:
-    """Create all variables for the first pricing phase model"""
-    create_price_variables(pricing)
-    create_positive_price_variables(pricing)
-    create_negative_price_variables(pricing)
-    create_positive_diff_price_variables(pricing)
-    create_negative_diff_price_variables(pricing)
-    if pricing.parameters.fb_branch_load_slack_penalty:
-        create_positive_slack_branch_load_variables(pricing)
-        create_negative_slack_branch_load_variables(pricing)
-    create_shadow_price_variables(pricing)
+def build_variables(pricing: _PricingPhase) -> PricingVariables:
+    """Create all variables for the first pricing phase model
+
+    :return: The temporal variables, which the later attempts build upon
+    """
+    with_slack = bool(pricing.parameters.fb_branch_load_slack_penalty)
+    variables = PricingVariables(
+        price=create_price_variables(pricing),
+        positive_price=create_positive_price_variables(pricing),
+        negative_price=create_negative_price_variables(pricing),
+        positive_price_diff=create_positive_diff_price_variables(pricing),
+        negative_price_diff=create_negative_diff_price_variables(pricing),
+        positive_branch_load_slack=create_positive_slack_branch_load_variables(pricing) if with_slack else {},
+        negative_branch_load_slack=create_negative_slack_branch_load_variables(pricing) if with_slack else {},
+        shadow_price=create_shadow_price_variables(pricing),
+    )
     create_link_child_to_pc_variables(pricing)
+    return variables
 
 
-def build_constraints(pricing: _PricingPhase) -> None:
-    """Create all constraints for the first pricing phase model"""
+def build_constraints(pricing: _PricingPhase) -> RelaxableConstraints:
+    """Create all constraints for the first pricing phase model
+
+    :return: The names of the constraints that the later attempts may relax
+    """
     if pricing.parameters.prevent_adverse_flows:
         create_adverse_flow_constraint(pricing)
     if pricing.parameters.market_price_penalty_beta:
@@ -47,10 +58,12 @@ def build_constraints(pricing: _PricingPhase) -> None:
         create_branch_load_constraint(pricing)
     create_add_price_difference_constraint(pricing)
     create_shadow_price_constraints(pricing)
-    create_linked_bid_surplus_constraints(pricing)
-    create_parent_child_surplus_constraints(pricing)
-    create_pos_surplus_order_constraints(pricing)
-    create_null_marginal_order_constraints(pricing)
+    return RelaxableConstraints(
+        linked_orders_surplus=create_linked_bid_surplus_constraints(pricing),
+        parent_child_surplus=create_parent_child_surplus_constraints(pricing),
+        order_surplus=create_pos_surplus_order_constraints(pricing),
+        null_marginal_order=create_null_marginal_order_constraints(pricing),
+    )
 
 
 def build_objective(pricing: _PricingPhase) -> None:
@@ -90,29 +103,29 @@ def create_link_child_to_pc_variables(pricing: _PricingPhase) -> None:
                 index_child += 1
 
 
-def create_price_variables(pricing: _PricingPhase) -> None:
-    pricing.variables.price = {
+def create_price_variables(pricing: _PricingPhase) -> dict[int, TemporalVariable]:
+    return {
         group_id: pricing.model.add_temporal_variable(f"price_on_group_{group_id}", times)
         for group_id, times in times_by_group(pricing.price_groups).items()
     }
 
 
-def create_positive_price_variables(pricing: _PricingPhase) -> None:
-    pricing.variables.positive_price = {
+def create_positive_price_variables(pricing: _PricingPhase) -> dict[int, TemporalVariable]:
+    return {
         group_id: pricing.model.add_temporal_variable(f"positive_price_on_group_{group_id}", times, lower_bound=0.0)
         for group_id, times in times_by_group(pricing.price_groups).items()
     }
 
 
-def create_negative_price_variables(pricing: _PricingPhase) -> None:
-    pricing.variables.negative_price = {
+def create_negative_price_variables(pricing: _PricingPhase) -> dict[int, TemporalVariable]:
+    return {
         group_id: pricing.model.add_temporal_variable(f"negative_price_on_group_{group_id}", times, upper_bound=0.0)
         for group_id, times in times_by_group(pricing.price_groups).items()
     }
 
 
-def create_positive_diff_price_variables(pricing: _PricingPhase) -> None:
-    pricing.variables.positive_price_diff = {
+def create_positive_diff_price_variables(pricing: _PricingPhase) -> dict[GroupPair, TemporalVariable]:
+    return {
         (group_id, other_group_id): pricing.model.add_temporal_variable(
             f"positive_price_diff_of_groups_{group_id}_and_{other_group_id}", times, lower_bound=0.0
         )
@@ -120,8 +133,8 @@ def create_positive_diff_price_variables(pricing: _PricingPhase) -> None:
     }
 
 
-def create_negative_diff_price_variables(pricing: _PricingPhase) -> None:
-    pricing.variables.negative_price_diff = {
+def create_negative_diff_price_variables(pricing: _PricingPhase) -> dict[GroupPair, TemporalVariable]:
+    return {
         (group_id, other_group_id): pricing.model.add_temporal_variable(
             f"negative_price_diff_of_groups_{group_id}_and_{other_group_id}", times, upper_bound=0.0
         )
@@ -129,8 +142,8 @@ def create_negative_diff_price_variables(pricing: _PricingPhase) -> None:
     }
 
 
-def create_shadow_price_variables(pricing: _PricingPhase) -> None:
-    pricing.variables.shadow_price = {
+def create_shadow_price_variables(pricing: _PricingPhase) -> dict[str, TemporalVariable]:
+    return {
         critical_branch_name: pricing.model.add_temporal_variable(
             f"shadow_price_on_cb_{critical_branch_name}", pricing.input_dataset.times, upper_bound=0.0
         )
@@ -147,8 +160,8 @@ def _unsaturated_price_groups(pricing: _PricingPhase) -> dict[pendulum.DateTime,
     }
 
 
-def create_positive_slack_branch_load_variables(pricing: _PricingPhase) -> None:
-    pricing.variables.positive_branch_load_slack = {
+def create_positive_slack_branch_load_variables(pricing: _PricingPhase) -> dict[GroupPair, TemporalVariable]:
+    return {
         (group_id, other_group_id): pricing.model.add_temporal_variable(
             f"Pos_slack_branch_load_btw_{group_id}_{other_group_id}", times, lower_bound=0.0
         )
@@ -156,8 +169,8 @@ def create_positive_slack_branch_load_variables(pricing: _PricingPhase) -> None:
     }
 
 
-def create_negative_slack_branch_load_variables(pricing: _PricingPhase) -> None:
-    pricing.variables.negative_branch_load_slack = {
+def create_negative_slack_branch_load_variables(pricing: _PricingPhase) -> dict[GroupPair, TemporalVariable]:
+    return {
         (group_id, other_group_id): pricing.model.add_temporal_variable(
             f"Neg_slack_branch_load_btw_{group_id}_{other_group_id}", times, upper_bound=0.0
         )
@@ -168,7 +181,8 @@ def create_negative_slack_branch_load_variables(pricing: _PricingPhase) -> None:
 ##################################
 # Constraints
 ##################################
-def create_linked_bid_surplus_constraints(pricing: _PricingPhase) -> None:
+def create_linked_bid_surplus_constraints(pricing: _PricingPhase) -> list[str]:
+    constraint_names = []
     for index_lo, orders in pricing.dict_linked_orders.items():
         logger.debug(f"Surplus for : {index_lo}")
         surplus = 0.0
@@ -183,14 +197,15 @@ def create_linked_bid_surplus_constraints(pricing: _PricingPhase) -> None:
             if local_cleared_power > pricing.parameters.allowed_round_off_error:
                 surplus += coeff_sale * local_cleared_power * (local_price - order.price)
 
-        pricing.model.add_constraint(
-            surplus >= 0.0,
-            constants.linked_bids_surplus_constraint_name(index_lo),
-        )
+        constraint_name = constants.linked_bids_surplus_constraint_name(index_lo)
+        pricing.model.add_constraint(surplus >= 0.0, constraint_name)
+        constraint_names.append(constraint_name)
+    return constraint_names
 
 
 # Global parent_child bids' surplus
-def create_parent_child_surplus_constraints(pricing: _PricingPhase) -> None:
+def create_parent_child_surplus_constraints(pricing: _PricingPhase) -> list[str]:
+    constraint_names = []
     for index_pc, (parent_orders, child_orders) in pricing.dict_parent_child_orders.items():
         index_child = 0
         logger.debug(f"Surplus for PC {index_pc}")
@@ -210,12 +225,14 @@ def create_parent_child_surplus_constraints(pricing: _PricingPhase) -> None:
                 link_surplus = pricing.model.get_variable(constants.link_child_to_pc(index_child, index_pc))
                 sum_children_link_surplus += link_surplus
                 logger.debug(f"surplus child {index_child} PC {index_pc}")
+                constraint_name = constants.positive_parent_child_surplus_constraint_name(
+                    index_child, index_pc, child_order.start_date
+                )
                 pricing.model.add_constraint(
                     (coeff_sale * local_cleared_power * (local_price - child_order.price) - link_surplus) >= 0.0,
-                    constants.positive_parent_child_surplus_constraint_name(
-                        index_child, index_pc, child_order.start_date
-                    ),
+                    constraint_name,
                 )
+                constraint_names.append(constraint_name)
                 index_child += 1
 
         # Then set global constraint on parents
@@ -233,13 +250,14 @@ def create_parent_child_surplus_constraints(pricing: _PricingPhase) -> None:
                 surplus += coeff_sale * local_cleared_power * (local_price - parent_order.price)
         logger.debug(f"Surplus parent PC {index_pc}")
         if surplus:
-            pricing.model.add_constraint(
-                surplus + sum_children_link_surplus >= 0.0,
-                constants.negative_parent_child_surplus_constraint_name(index_pc),
-            )
+            constraint_name = constants.negative_parent_child_surplus_constraint_name(index_pc)
+            pricing.model.add_constraint(surplus + sum_children_link_surplus >= 0.0, constraint_name)
+            constraint_names.append(constraint_name)
+    return constraint_names
 
 
-def create_pos_surplus_order_constraints(pricing: _PricingPhase) -> None:
+def create_pos_surplus_order_constraints(pricing: _PricingPhase) -> list[str]:
+    constraint_names = []
     for order in pricing.input_dataset.orders.values():
         if order.name not in pricing._full_link_id_by_order and order.parent_child_id is None:
             if order.group_index is None:
@@ -251,15 +269,18 @@ def create_pos_surplus_order_constraints(pricing: _PricingPhase) -> None:
             if local_cleared_power > pricing.parameters.allowed_round_off_error:
                 coeff_sale = order.production_sign
                 equipment_name = order.equipment.name if order.equipment else "NA"
-                pricing.model.add_constraint(
-                    coeff_sale * local_cleared_power * (local_price - order.price) >= 0.0,
-                    constants.pos_surplus_order_constraint_name(
-                        order.name, equipment_name, order.market_area.name, order.start_date
-                    ),
+                constraint_name = constants.pos_surplus_order_constraint_name(
+                    order.name, equipment_name, order.market_area.name, order.start_date
                 )
+                pricing.model.add_constraint(
+                    coeff_sale * local_cleared_power * (local_price - order.price) >= 0.0, constraint_name
+                )
+                constraint_names.append(constraint_name)
+    return constraint_names
 
 
-def create_null_marginal_order_constraints(pricing: _PricingPhase) -> None:
+def create_null_marginal_order_constraints(pricing: _PricingPhase) -> list[str]:
+    constraint_names = []
     for order in pricing.input_dataset.orders.values():
         if order.name not in pricing._full_link_id_by_order and order.parent_child_id is None:
             if order.group_index is None:
@@ -284,6 +305,8 @@ def create_null_marginal_order_constraints(pricing: _PricingPhase) -> None:
                             coeff_sale * local_cleared_power * (local_price - order.price) == 0.0,
                             constraint_name,
                         )
+                        constraint_names.append(constraint_name)
+    return constraint_names
 
 
 def create_shadow_price_constraints(pricing: _PricingPhase) -> None:
