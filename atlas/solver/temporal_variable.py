@@ -183,6 +183,23 @@ class TemporalVariable:
         self._check_undefined(t)
         self._fixed[t] = value
 
+    def set_bounds(self, t: DateTime, lower_bound: float, upper_bound: float) -> None:
+        """
+        Change the bounds of the solver variable at *t*, typically to tighten a model before a new solve.
+
+        :param t: Timestamp of the variable
+        :type t: DateTime
+        :param lower_bound: New lower bound
+        :type lower_bound: float
+        :param upper_bound: New upper bound
+        :type upper_bound: float
+        :raises ValueError: If *t* holds a fixed value
+        :raises KeyError: If *t* was never added
+        """
+        if t in self._fixed:
+            raise ValueError(f"Temporal variable '{self._name}' holds a fixed value at {t}, it has no bounds")
+        self._get_variable(t).SetBounds(lower_bound, upper_bound)
+
     def is_fixed(self, t: DateTime) -> bool:
         """
         Tell whether *t* holds a fixed value.

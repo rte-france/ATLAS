@@ -229,6 +229,29 @@ class TestFix:
             var.fix(START, 2.0)
 
 
+class TestSetBounds:
+    def test_set_bounds_updates_solver_variable(self, model):
+        var = model.add_temporal_variable("price", TIMES)
+
+        var.set_bounds(TIMES[1], -5.0, 10.0)
+
+        assert (var[TIMES[1]].lb(), var[TIMES[1]].ub()) == (-5.0, 10.0)
+        assert (var[TIMES[0]].lb(), var[TIMES[0]].ub()) == (float("-inf"), float("inf"))
+
+    def test_set_bounds_on_fixed_raises(self, model):
+        var = model.add_temporal_variable("price")
+        var.fix(START, 1.0)
+
+        with pytest.raises(ValueError, match="holds a fixed value"):
+            var.set_bounds(START, 0.0, 1.0)
+
+    def test_set_bounds_on_missing_timestamp_raises(self, model):
+        var = model.add_temporal_variable("price")
+
+        with pytest.raises(KeyError, match="is not defined"):
+            var.set_bounds(START, 0.0, 1.0)
+
+
 class TestAccess:
     def test_missing_timestamp_raises_key_error(self, model):
         var = model.add_temporal_variable("power")
