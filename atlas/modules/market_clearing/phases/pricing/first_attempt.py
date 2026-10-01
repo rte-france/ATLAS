@@ -9,11 +9,17 @@ relaxes the rejected-orders surplus constraints, and `third_attempt` further rel
 accepted/rejected orders.
 """
 
+from __future__ import annotations
+
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
+
 import pendulum
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
 from atlas.modules.market_clearing.data_classes import PriceGroup
+from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.phases._helpers import (
     GroupPair,
     count_saturated,
@@ -23,6 +29,10 @@ from atlas.modules.market_clearing.phases._helpers import (
 )
 from atlas.modules.market_clearing.phases.pricing._types import PricingVariables, RelaxableConstraints, _PricingPhase
 from atlas.solver.temporal_variable import TemporalVariable
+
+if TYPE_CHECKING:
+    # ortools-stubs does not ship pywraplp (see the solver_interface mypy override)
+    from ortools.linear_solver import pywraplp  # type: ignore[attr-defined]
 
 
 def build_variables(pricing: _PricingPhase) -> PricingVariables:
@@ -40,8 +50,8 @@ def build_variables(pricing: _PricingPhase) -> PricingVariables:
         positive_branch_load_slack=create_positive_slack_branch_load_variables(pricing) if with_slack else {},
         negative_branch_load_slack=create_negative_slack_branch_load_variables(pricing) if with_slack else {},
         shadow_price=create_shadow_price_variables(pricing),
+        child_link_surplus=create_link_child_to_pc_variables(pricing),
     )
-    create_link_child_to_pc_variables(pricing)
     return variables
 
 
@@ -91,16 +101,16 @@ def instantiate_order_group_index(pricing: _PricingPhase) -> None:
 ##################################
 # Variables
 ##################################
-def create_link_child_to_pc_variables(pricing: _PricingPhase) -> None:
+def create_link_child_to_pc_variables(pricing: _PricingPhase) -> dict[str, pywraplp.Variable]:
+    """Create the surplus each accepted child order gives to its parent-child group, keyed by child order name."""
+    link_surplus = {}
     for index_pc, (_, child_orders) in pricing.dict_parent_child_orders.items():
-        index_child = 0
-        for child_order in child_orders:
-            local_cleared_power = pricing.clearing_accepted_powers[child_order.market_area.name, child_order.name]
-            if local_cleared_power > pricing.parameters.allowed_round_off_error:
-                pricing.model.add_continuous_variable(
-                    constants.link_child_to_pc(index_child, index_pc), 0, float("inf")
-                )
-                index_child += 1
+        accepted_children = [child_order for child_order in child_orders if pricing.is_accepted(child_order)]
+        for index_child, child_order in enumerate(accepted_children):
+            link_surplus[child_order.name] = pricing.model.add_continuous_variable(
+                constants.link_child_to_pc(index_child, index_pc), 0, float("inf")
+            )
+    return link_surplus
 
 
 def create_price_variables(pricing: _PricingPhase) -> dict[int, TemporalVariable]:
@@ -181,131 +191,83 @@ def create_negative_slack_branch_load_variables(pricing: _PricingPhase) -> dict[
 ##################################
 # Constraints
 ##################################
+def _surplus(pricing: _PricingPhase, order: OrderMC) -> pywraplp.LinearExpr:
+    """Surplus of an order at the price of its group, positive when the order gains from being accepted."""
+    cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
+    return order.production_sign * cleared_power * (pricing.order_price(order) - order.price)
+
+
+def _accepted_priced(pricing: _PricingPhase, orders: Iterable[OrderMC]) -> list[OrderMC]:
+    """Keep the accepted orders that belong to a price group, the only ones with a surplus to constrain."""
+    return [order for order in orders if order.group_index is not None and pricing.is_accepted(order)]
+
+
 def create_linked_bid_surplus_constraints(pricing: _PricingPhase) -> list[str]:
+    """Keep the overall surplus of each group of linked orders positive."""
     constraint_names = []
     for index_lo, orders in pricing.dict_linked_orders.items():
         logger.debug(f"Surplus for : {index_lo}")
-        surplus = 0.0
-        for order in orders:
-            if order.group_index is None:
-                continue
-            local_price = pricing.variables.price[order.group_index][order.start_date]
-            local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
-            coeff_sale = order.production_sign
-
-            # If order is accepted, add its surplus to the overall surplus of this group of linked orders
-            if local_cleared_power > pricing.parameters.allowed_round_off_error:
-                surplus += coeff_sale * local_cleared_power * (local_price - order.price)
-
+        surplus = sum(_surplus(pricing, order) for order in _accepted_priced(pricing, orders))
         constraint_name = constants.linked_bids_surplus_constraint_name(index_lo)
         pricing.model.add_constraint(surplus >= 0.0, constraint_name)
         constraint_names.append(constraint_name)
     return constraint_names
 
 
-# Global parent_child bids' surplus
 def create_parent_child_surplus_constraints(pricing: _PricingPhase) -> list[str]:
+    """Keep positive the surplus of each accepted child order net of what it gives to its group, and the
+    surplus of the parent orders once given what their children give."""
     constraint_names = []
     for index_pc, (parent_orders, child_orders) in pricing.dict_parent_child_orders.items():
-        index_child = 0
         logger.debug(f"Surplus for PC {index_pc}")
+        accepted_children = _accepted_priced(pricing, child_orders)
+        for index_child, child_order in enumerate(accepted_children):
+            constraint_name = constants.positive_parent_child_surplus_constraint_name(
+                index_child, index_pc, child_order.start_date
+            )
+            link_surplus = pricing.variables.child_link_surplus[child_order.name]
+            pricing.model.add_constraint(_surplus(pricing, child_order) - link_surplus >= 0.0, constraint_name)
+            constraint_names.append(constraint_name)
 
-        sum_children_link_surplus = 0
-
-        # Setting constraints individually for child orders
-        for child_order in child_orders:
-            if child_order.group_index is None:
-                continue
-
-            local_price = pricing.variables.price[child_order.group_index][child_order.start_date]
-            local_cleared_power = pricing.clearing_accepted_powers[child_order.market_area.name, child_order.name]
-            coeff_sale = child_order.production_sign
-
-            if local_cleared_power > pricing.parameters.allowed_round_off_error:
-                link_surplus = pricing.model.get_variable(constants.link_child_to_pc(index_child, index_pc))
-                sum_children_link_surplus += link_surplus
-                logger.debug(f"surplus child {index_child} PC {index_pc}")
-                constraint_name = constants.positive_parent_child_surplus_constraint_name(
-                    index_child, index_pc, child_order.start_date
-                )
-                pricing.model.add_constraint(
-                    (coeff_sale * local_cleared_power * (local_price - child_order.price) - link_surplus) >= 0.0,
-                    constraint_name,
-                )
-                constraint_names.append(constraint_name)
-                index_child += 1
-
-        # Then set global constraint on parents
-        surplus = 0.0
-        for parent_order in parent_orders:
-            if parent_order.group_index is None:
-                continue
-
-            local_price = pricing.variables.price[parent_order.group_index][parent_order.start_date]
-            local_cleared_power = pricing.clearing_accepted_powers[parent_order.market_area.name, parent_order.name]
-            coeff_sale = parent_order.production_sign
-
-            # If order is accepted, add its surplus to the overall surplus of this group of linked orders
-            if local_cleared_power > pricing.parameters.allowed_round_off_error:
-                surplus += coeff_sale * local_cleared_power * (local_price - parent_order.price)
-        logger.debug(f"Surplus parent PC {index_pc}")
+        surplus = sum(_surplus(pricing, parent_order) for parent_order in _accepted_priced(pricing, parent_orders))
         if surplus:
+            children_link_surplus = sum(
+                pricing.variables.child_link_surplus[child_order.name] for child_order in accepted_children
+            )
             constraint_name = constants.negative_parent_child_surplus_constraint_name(index_pc)
-            pricing.model.add_constraint(surplus + sum_children_link_surplus >= 0.0, constraint_name)
+            pricing.model.add_constraint(surplus + children_link_surplus >= 0.0, constraint_name)
             constraint_names.append(constraint_name)
     return constraint_names
 
 
 def create_pos_surplus_order_constraints(pricing: _PricingPhase) -> list[str]:
+    """Keep the surplus of each accepted standalone order positive."""
     constraint_names = []
-    for order in pricing.input_dataset.orders.values():
-        if order.name not in pricing._full_link_id_by_order and order.parent_child_id is None:
-            if order.group_index is None:
-                continue
-
-            local_price = pricing.variables.price[order.group_index][order.start_date]
-            local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
-
-            if local_cleared_power > pricing.parameters.allowed_round_off_error:
-                coeff_sale = order.production_sign
-                equipment_name = order.equipment.name if order.equipment else "NA"
-                constraint_name = constants.pos_surplus_order_constraint_name(
-                    order.name, equipment_name, order.market_area.name, order.start_date
-                )
-                pricing.model.add_constraint(
-                    coeff_sale * local_cleared_power * (local_price - order.price) >= 0.0, constraint_name
-                )
-                constraint_names.append(constraint_name)
+    for order in _accepted_priced(pricing, pricing.standalone_orders()):
+        equipment_name = order.equipment.name if order.equipment else "NA"
+        constraint_name = constants.pos_surplus_order_constraint_name(
+            order.name, equipment_name, order.market_area.name, order.start_date
+        )
+        pricing.model.add_constraint(_surplus(pricing, order) >= 0.0, constraint_name)
+        constraint_names.append(constraint_name)
     return constraint_names
 
 
 def create_null_marginal_order_constraints(pricing: _PricingPhase) -> list[str]:
+    """Cancel the surplus of each standalone order accepted strictly between its minimum and maximum power."""
+    tolerance = pricing.parameters.allowed_round_off_error
     constraint_names = []
-    for order in pricing.input_dataset.orders.values():
-        if order.name not in pricing._full_link_id_by_order and order.parent_child_id is None:
-            if order.group_index is None:
-                continue
-
-            local_price = pricing.variables.price[order.group_index][order.start_date]
-            local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
-
-            if local_cleared_power > pricing.parameters.allowed_round_off_error:
-                coeff_sale = order.production_sign
-                equipment_name = order.equipment.name if order.equipment else "NA"
-                # MARGINAL SURPLUS: if the bid is not linked and marginally accepted, its surplus should be null
-                if not order.is_linked:
-                    if (
-                        abs(local_cleared_power - order.qmin) >= pricing.parameters.allowed_round_off_error
-                        and abs(local_cleared_power - order.qmax) >= pricing.parameters.allowed_round_off_error
-                    ):
-                        constraint_name = constants.null_marginal_order_constraint_name(
-                            order.name, equipment_name, order.market_area.name, order.start_date
-                        )
-                        pricing.model.add_constraint(
-                            coeff_sale * local_cleared_power * (local_price - order.price) == 0.0,
-                            constraint_name,
-                        )
-                        constraint_names.append(constraint_name)
+    for order in _accepted_priced(pricing, pricing.standalone_orders()):
+        cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
+        is_marginal = abs(cleared_power - order.qmin) >= tolerance and abs(cleared_power - order.qmax) >= tolerance
+        if order.is_linked or not is_marginal:
+            continue
+        equipment_name = order.equipment.name if order.equipment else "NA"
+        constraint_name = constants.null_marginal_order_constraint_name(
+            order.name, equipment_name, order.market_area.name, order.start_date
+        )
+        pricing.model.add_constraint(_surplus(pricing, order) == 0.0, constraint_name)
+        constraint_names.append(constraint_name)
     return constraint_names
 
 

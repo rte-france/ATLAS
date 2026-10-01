@@ -30,15 +30,6 @@ import pendulum
 
 
 # Clearing model
-# Variables (time-indexed variables are TemporalVariable families, named where they are created)
-def accepted_power_variable_name(market_area_name: str, order_name: str) -> str:
-    return f"qo_{market_area_name}_{order_name}"
-
-
-def order_status_variable_name(market_area_name: str, order_name: str) -> str:
-    return f"status_{market_area_name}_{order_name}"
-
-
 # Constraints
 def min_accepted_power_constraint_name(market_area_name: str, order_name: str) -> str:
     return f"Constraint_3_4_min_mkt_{market_area_name}_o_{order_name}"
