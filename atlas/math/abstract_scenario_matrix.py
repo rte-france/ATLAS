@@ -19,6 +19,8 @@ import plotly.graph_objects as go
 import polars as pl
 from pydantic_core import core_schema
 
+from atlas.math.copying import deepcopy_sharing_frames
+
 
 class AbstractScenarioMatrix[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
     """
@@ -31,6 +33,10 @@ class AbstractScenarioMatrix[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
     timezone: str
     indexes: list[str]
     matrix: TBackend
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        """Deep copy sharing the underlying frame, see :func:`deepcopy_sharing_frames`."""
+        return deepcopy_sharing_frames(self, memo)
 
     @abstractmethod
     def _get_data(self) -> TBackend:
