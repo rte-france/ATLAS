@@ -23,8 +23,7 @@ from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases._border_variables import add_exchange_variables
 from atlas.modules.market_clearing.phases.clearing import Clearing
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
-from atlas.modules.market_clearing.phases.pricing import Pricing, third_attempt
-from atlas.modules.market_clearing.phases.pricing._types import PricingVariables
+from atlas.modules.market_clearing.phases.pricing import Pricing, first_attempt, third_attempt
 from atlas.solver.solver_interface import OptimisationModel
 from tests.test_module.test_market_clearing.factories import (
     make_market_area,
@@ -56,7 +55,6 @@ class _PricingAlgorithms:
         self.dict_linked_orders: dict = {}
         self._full_link_id_by_order: dict = {}
         self.model = OptimisationModel("GLOP")
-        self.variables = PricingVariables()
 
     # Each wrapper below calls the real, unbound `Pricing` method (or, for the third pricing attempt,
     # the plain `third_attempt` function it now delegates to) against this stand-in — mypy doesn't
@@ -96,6 +94,7 @@ class _FakeInputDataset:
         self.market_borders = market_borders or {}
         self.orders = orders or {}
         self.order_couplings = order_couplings or {}
+        self.critical_branches: dict = {}
 
 
 class TestOrderIsFeasible:
@@ -566,7 +565,8 @@ class TestCreateOppositeDeltaP:
         pricing.dict_parent_child_orders = order_links.parent_child_orders
         pricing._full_link_id_by_order = order_links.full_link_id_by_order
         # Both orders belong to price group 0, the only group of the single time step
-        pricing.variables.price = {0: pricing.model.add_temporal_variable("price_on_group_0", times)}
+        pricing.price_groups = {times[0]: [PriceGroup(id=0, time=times[0], market_area_names=["ma_a"])]}
+        pricing.variables = first_attempt.build_variables(pricing)  # type: ignore[arg-type]
         return pricing
 
     def test_no_accepted_order_gives_the_none_sentinel(self, parameters: MarketClearingParameters) -> None:

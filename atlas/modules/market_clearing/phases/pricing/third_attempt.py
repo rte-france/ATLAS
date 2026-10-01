@@ -9,7 +9,6 @@ its opposite delta-P (the gap between its own price and the clearing price it ac
 """
 
 import atlas.modules.market_clearing.constants as constants
-from atlas.config import logger
 from atlas.modules.market_clearing.phases.pricing._types import _PricingPhase
 
 
@@ -22,10 +21,7 @@ def build_variables(pricing: _PricingPhase, opposite_delta_p_dict: dict[int, flo
 
 def build_constraints(pricing: _PricingPhase, opposite_delta_p_dict: dict[int, float | None]) -> None:
     """Create all constraints for the third pricing phase model"""
-    deactivate_positive_surplus_lo_constraints(pricing)
-    deactivate_negative_surplus_pc_constraints(pricing)
-    deactivate_positive_surplus_pc_constraints(pricing)
-    deactivate_positive_surplus_order_constraints(pricing)
+    deactivate_surplus_constraints(pricing)
     create_paradoxical_delta_price_lo_constraints(pricing)
     create_paradoxical_delta_price_pc_constraints(pricing, opposite_delta_p_dict)
     create_paradoxical_delta_price_order_constraints(pricing)
@@ -81,50 +77,12 @@ def create_delta_price_order_variables(pricing: _PricingPhase) -> None:
                 )
 
 
-def deactivate_positive_surplus_lo_constraints(pricing: _PricingPhase) -> None:
-    for index_lo in pricing.dict_linked_orders:
-        constraint_name = constants.linked_bids_surplus_constraint_name(index_lo)
-        if constraint_name:
-            pricing.model.deactivate_constraint(constraint_name)
-
-
-def deactivate_negative_surplus_pc_constraints(pricing: _PricingPhase) -> None:
-    for index_pc in pricing.dict_parent_child_orders:
-        constraint_name = constants.negative_parent_child_surplus_constraint_name(index_pc)
-        if constraint_name:
-            # If there is surplus
-            if constraint_name in pricing.model.constraints:
-                pricing.model.deactivate_constraint(constraint_name)
-            else:
-                logger.debug(f"No surplus for {index_pc}")
-
-
-def deactivate_positive_surplus_pc_constraints(pricing: _PricingPhase) -> None:
-    for index_pc, (_, children_orders) in pricing.dict_parent_child_orders.items():
-        index_child = 0
-        for order in children_orders:
-            local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
-            if local_cleared_power > pricing.parameters.allowed_round_off_error:
-                constraint_name = constants.positive_parent_child_surplus_constraint_name(
-                    index_child, index_pc, order.start_date
-                )
-                pricing.model.deactivate_constraint(constraint_name)
-                index_child += 1
-
-
-def deactivate_positive_surplus_order_constraints(pricing: _PricingPhase) -> None:
-    for order in pricing.input_dataset.orders.values():
-        if order.name not in pricing._full_link_id_by_order and order.parent_child_id is None:
-            if order.requires_status_variable is not None and order.parent_child_id is None:
-                local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
-
-                if local_cleared_power > pricing.parameters.allowed_round_off_error:
-                    equipment_name = order.equipment.name if order.equipment else "NA"
-                    constraint_name = constants.pos_surplus_order_constraint_name(
-                        order.name, equipment_name, order.market_area.name, order.start_date
-                    )
-                    if constraint_name:
-                        pricing.model.deactivate_constraint(constraint_name)
+def deactivate_surplus_constraints(pricing: _PricingPhase) -> None:
+    """Relax the positive surplus of the linked orders, the parent-child groups and the accepted orders,
+    which the paradoxical delta-P penalties replace."""
+    relaxable = pricing.relaxable
+    for constraint_name in relaxable.linked_orders_surplus + relaxable.parent_child_surplus + relaxable.order_surplus:
+        pricing.model.deactivate_constraint(constraint_name)
 
 
 def create_paradoxical_delta_price_order_constraints(pricing: _PricingPhase) -> None:
