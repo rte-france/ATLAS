@@ -8,7 +8,6 @@ import json
 
 import pendulum
 
-import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
 from atlas.custom_errors import SolverError
 from atlas.modules.market_clearing.data_classes import ClearingOutputs, PriceGroup
@@ -19,7 +18,7 @@ from atlas.modules.market_clearing.order_links import OrderLinkResolver
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases._helpers import count_saturated
 from atlas.modules.market_clearing.phases.pricing import first_attempt, second_attempt, third_attempt
-from atlas.modules.market_clearing.phases.pricing._types import PricingAttempt
+from atlas.modules.market_clearing.phases.pricing._types import PricingAttempt, PricingVariables
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -34,6 +33,7 @@ class Pricing:
         solver_options = SolverOptions(presolve=parameters.solver.use_presolve)
 
         self.model = OptimisationModel(parameters.solver.solver_name, options=solver_options, name="Pricing")
+        self.variables = PricingVariables()
         self.input_dataset = input_dataset
         self.parameters = parameters
         self.saturated_critical_branch = clearing_outputs.saturated_critical_branch
@@ -309,7 +309,7 @@ class Pricing:
         market_prices = {}
         for time, price_groups in self.price_groups.items():
             for price_group in price_groups:
+                price = self.variables.price[price_group.id].solution_value(time)
                 for market_area_name in price_group.market_area_names:
-                    market_price_name = constants.price_on_group_variable_name(price_group.id, time)
-                    market_prices[market_area_name, time] = self.model.get_variable_value(market_price_name)
+                    market_prices[market_area_name, time] = price
         return market_prices

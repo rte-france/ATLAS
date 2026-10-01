@@ -181,33 +181,7 @@ def border_exchanges_constraint_name(border_name: str, time: pendulum.DateTime) 
 
 
 # First Pricing model
-# Variables
-
-
-def price_on_group_variable_name(id: int, time: pendulum.DateTime) -> str:
-    return f"price_on_group_{id}_at_{time}"
-
-
-def positive_price_on_group_variable_name(id: int, time: pendulum.DateTime) -> str:
-    return f"positive_price_on_group_{id}_at_{time}"
-
-
-def negative_price_on_group_variable_name(id: int, time: pendulum.DateTime) -> str:
-    return f"negative_price_on_group_{id}_at_{time}"
-
-
-def shadow_price_variable_name(critical_branch_name: str, time: pendulum.DateTime) -> str:
-    return f"shadow_price_on_cb_{critical_branch_name}_at_{time}"
-
-
-def positive_price_diff_on_group_variable_name(id: int, other_id: int, time: pendulum.DateTime) -> str:
-    return f"positive_price_diff_of_groups_{id}_and_{other_id}_at_{time}"
-
-
-def negative_price_diff_on_group_variable_name(id: int, other_id: int, time: pendulum.DateTime) -> str:
-    return f"negative_price_diff_of_groups_{id}_and_{other_id}_at_{time}"
-
-
+# Variables (time-indexed variables are TemporalVariable families, named where they are created)
 def link_child_to_pc(index_child: int, index_pc: int):
     return f"link_s_child_{index_child}_PC_{index_pc}"
 
@@ -223,14 +197,6 @@ def adverse_flow_constraint_name(border_name: str, time: pendulum.DateTime) -> s
 
 def absolute_price_group_constraint_name(id: int, time: pendulum.DateTime) -> str:
     return f"Price_pos_neg_group_{id}_t_{time}"
-
-
-def positive_slack_branch_load_variable_name(id: int, other_id: int, time: pendulum.DateTime) -> str:
-    return f"Pos_slack_branch_load_btw_{id}_{other_id}_at_{time}"
-
-
-def negative_slack_branch_load_variable_name(id: int, other_id: int, time: pendulum.DateTime) -> str:
-    return f"Neg_slack_branch_load_btw_{id}_{other_id}_at_{time}"
 
 
 def price_ptdf_constraint_name(id: int, other_id: int, time: pendulum.DateTime) -> str:
@@ -266,15 +232,6 @@ def null_marginal_order_constraint_name(
 
 
 # Second Pricing model
-# Variables
-def worst_rej_sale_group(current_index: int, time: pendulum.DateTime) -> str:
-    return f"worst_rej_sale_group_{current_index}_at_{time}"
-
-
-def worst_rej_buy_group(current_index: int, time: pendulum.DateTime) -> str:
-    return f"worst_rej_buy_group_{current_index}_at_{time}"
-
-
 # Constraints
 def pos_min_rej_sale_group_constraint_name(current_index: int, time: pendulum.DateTime) -> str:
     return f"pos_min_rej_sale_group_{current_index}_at_{time}"

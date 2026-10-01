@@ -9,9 +9,17 @@ relaxes the rejected-orders surplus constraints, and `third_attempt` further rel
 accepted/rejected orders.
 """
 
+import pendulum
+
 import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
-from atlas.modules.market_clearing.phases._helpers import count_saturated, iter_group_pairs
+from atlas.modules.market_clearing.data_classes import PriceGroup
+from atlas.modules.market_clearing.phases._helpers import (
+    count_saturated,
+    iter_group_pairs,
+    times_by_group,
+    times_by_group_pair,
+)
 from atlas.modules.market_clearing.phases.pricing._types import _PricingPhase
 
 
@@ -83,91 +91,78 @@ def create_link_child_to_pc_variables(pricing: _PricingPhase) -> None:
 
 
 def create_price_variables(pricing: _PricingPhase) -> None:
-    for time in pricing.input_dataset.times:
-        for price_group in pricing.price_groups[time]:
-            pricing.model.add_continuous_variable(
-                constants.price_on_group_variable_name(price_group.id, time),
-                -float("inf"),
-                float("inf"),
-            )
+    pricing.variables.price = {
+        group_id: pricing.model.add_temporal_variable(f"price_on_group_{group_id}", times)
+        for group_id, times in times_by_group(pricing.price_groups).items()
+    }
 
 
 def create_positive_price_variables(pricing: _PricingPhase) -> None:
-    for time in pricing.input_dataset.times:
-        for price_group in pricing.price_groups[time]:
-            pricing.model.add_continuous_variable(
-                constants.positive_price_on_group_variable_name(price_group.id, time),
-                0.0,
-                float("inf"),
-            )
+    pricing.variables.positive_price = {
+        group_id: pricing.model.add_temporal_variable(f"positive_price_on_group_{group_id}", times, lower_bound=0.0)
+        for group_id, times in times_by_group(pricing.price_groups).items()
+    }
 
 
 def create_negative_price_variables(pricing: _PricingPhase) -> None:
-    for time in pricing.input_dataset.times:
-        for price_group in pricing.price_groups[time]:
-            pricing.model.add_continuous_variable(
-                constants.negative_price_on_group_variable_name(price_group.id, time),
-                -float("inf"),
-                0.0,
-            )
+    pricing.variables.negative_price = {
+        group_id: pricing.model.add_temporal_variable(f"negative_price_on_group_{group_id}", times, upper_bound=0.0)
+        for group_id, times in times_by_group(pricing.price_groups).items()
+    }
 
 
 def create_positive_diff_price_variables(pricing: _PricingPhase) -> None:
-    for time in pricing.input_dataset.times:
-        price_groups = pricing.price_groups[time]
-        for group_i, group_j in iter_group_pairs(price_groups):
-            pricing.model.add_continuous_variable(
-                constants.positive_price_diff_on_group_variable_name(group_i.id, group_j.id, time),
-                0.0,
-                float("inf"),
-            )
+    pricing.variables.positive_price_diff = {
+        (group_id, other_group_id): pricing.model.add_temporal_variable(
+            f"positive_price_diff_of_groups_{group_id}_and_{other_group_id}", times, lower_bound=0.0
+        )
+        for (group_id, other_group_id), times in times_by_group_pair(pricing.price_groups).items()
+    }
 
 
 def create_negative_diff_price_variables(pricing: _PricingPhase) -> None:
-    for time in pricing.input_dataset.times:
-        price_groups = pricing.price_groups[time]
-        for group_i, group_j in iter_group_pairs(price_groups):
-            pricing.model.add_continuous_variable(
-                constants.negative_price_diff_on_group_variable_name(group_i.id, group_j.id, time),
-                -float("inf"),
-                0.0,
-            )
+    pricing.variables.negative_price_diff = {
+        (group_id, other_group_id): pricing.model.add_temporal_variable(
+            f"negative_price_diff_of_groups_{group_id}_and_{other_group_id}", times, upper_bound=0.0
+        )
+        for (group_id, other_group_id), times in times_by_group_pair(pricing.price_groups).items()
+    }
 
 
 def create_shadow_price_variables(pricing: _PricingPhase) -> None:
-    for time in pricing.input_dataset.times:
-        for critical_branch_name in pricing.input_dataset.critical_branches:
-            pricing.model.add_continuous_variable(
-                constants.shadow_price_variable_name(critical_branch_name, time),
-                -float("inf"),
-                0.0,
-            )
+    pricing.variables.shadow_price = {
+        critical_branch_name: pricing.model.add_temporal_variable(
+            f"shadow_price_on_cb_{critical_branch_name}", pricing.input_dataset.times, upper_bound=0.0
+        )
+        for critical_branch_name in pricing.input_dataset.critical_branches
+    }
+
+
+def _unsaturated_price_groups(pricing: _PricingPhase) -> dict[pendulum.DateTime, list[PriceGroup]]:
+    """Price groups of the time steps without any saturated critical branch, where branch loads get a slack."""
+    return {
+        time: price_groups
+        for time, price_groups in pricing.price_groups.items()
+        if count_saturated(pricing.saturated_critical_branch, time, pricing.parameters.allowed_round_off_error) == 0
+    }
 
 
 def create_positive_slack_branch_load_variables(pricing: _PricingPhase) -> None:
-    for time in pricing.input_dataset.times:
-        price_groups = pricing.price_groups[time]
-        if count_saturated(pricing.saturated_critical_branch, time, pricing.parameters.allowed_round_off_error) != 0:
-            continue
-        for group_i, group_j in iter_group_pairs(price_groups):
-            pricing.model.add_continuous_variable(
-                constants.positive_slack_branch_load_variable_name(group_i.id, group_j.id, time),
-                0.0,
-                float("inf"),
-            )
+    pricing.variables.positive_branch_load_slack = {
+        (group_id, other_group_id): pricing.model.add_temporal_variable(
+            f"Pos_slack_branch_load_btw_{group_id}_{other_group_id}", times, lower_bound=0.0
+        )
+        for (group_id, other_group_id), times in times_by_group_pair(_unsaturated_price_groups(pricing)).items()
+    }
 
 
 def create_negative_slack_branch_load_variables(pricing: _PricingPhase) -> None:
-    for time in pricing.input_dataset.times:
-        price_groups = pricing.price_groups[time]
-        if count_saturated(pricing.saturated_critical_branch, time, pricing.parameters.allowed_round_off_error) != 0:
-            continue
-        for group_i, group_j in iter_group_pairs(price_groups):
-            pricing.model.add_continuous_variable(
-                constants.negative_slack_branch_load_variable_name(group_i.id, group_j.id, time),
-                -float("inf"),
-                0.0,
-            )
+    pricing.variables.negative_branch_load_slack = {
+        (group_id, other_group_id): pricing.model.add_temporal_variable(
+            f"Neg_slack_branch_load_btw_{group_id}_{other_group_id}", times, upper_bound=0.0
+        )
+        for (group_id, other_group_id), times in times_by_group_pair(_unsaturated_price_groups(pricing)).items()
+    }
 
 
 ##################################
@@ -176,13 +171,11 @@ def create_negative_slack_branch_load_variables(pricing: _PricingPhase) -> None:
 def create_linked_bid_surplus_constraints(pricing: _PricingPhase) -> None:
     for index_lo, orders in pricing.dict_linked_orders.items():
         logger.debug(f"Surplus for : {index_lo}")
-        surplus = 0
+        surplus = 0.0
         for order in orders:
             if order.group_index is None:
                 continue
-            local_price = pricing.model.get_variable(
-                constants.price_on_group_variable_name(order.group_index, order.start_date)
-            )
+            local_price = pricing.variables.price[order.group_index][order.start_date]
             local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
             coeff_sale = order.production_sign
 
@@ -209,9 +202,7 @@ def create_parent_child_surplus_constraints(pricing: _PricingPhase) -> None:
             if child_order.group_index is None:
                 continue
 
-            local_price = pricing.model.get_variable(
-                constants.price_on_group_variable_name(child_order.group_index, child_order.start_date)
-            )
+            local_price = pricing.variables.price[child_order.group_index][child_order.start_date]
             local_cleared_power = pricing.clearing_accepted_powers[child_order.market_area.name, child_order.name]
             coeff_sale = child_order.production_sign
 
@@ -228,14 +219,12 @@ def create_parent_child_surplus_constraints(pricing: _PricingPhase) -> None:
                 index_child += 1
 
         # Then set global constraint on parents
-        surplus = 0
+        surplus = 0.0
         for parent_order in parent_orders:
             if parent_order.group_index is None:
                 continue
 
-            local_price = pricing.model.get_variable(
-                constants.price_on_group_variable_name(parent_order.group_index, parent_order.start_date)
-            )
+            local_price = pricing.variables.price[parent_order.group_index][parent_order.start_date]
             local_cleared_power = pricing.clearing_accepted_powers[parent_order.market_area.name, parent_order.name]
             coeff_sale = parent_order.production_sign
 
@@ -256,9 +245,7 @@ def create_pos_surplus_order_constraints(pricing: _PricingPhase) -> None:
             if order.group_index is None:
                 continue
 
-            local_price = pricing.model.get_variable(
-                constants.price_on_group_variable_name(order.group_index, order.start_date)
-            )
+            local_price = pricing.variables.price[order.group_index][order.start_date]
             local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
 
             if local_cleared_power > pricing.parameters.allowed_round_off_error:
@@ -278,9 +265,7 @@ def create_null_marginal_order_constraints(pricing: _PricingPhase) -> None:
             if order.group_index is None:
                 continue
 
-            local_price = pricing.model.get_variable(
-                constants.price_on_group_variable_name(order.group_index, order.start_date)
-            )
+            local_price = pricing.variables.price[order.group_index][order.start_date]
             local_cleared_power = pricing.clearing_accepted_powers[order.market_area.name, order.name]
 
             if local_cleared_power > pricing.parameters.allowed_round_off_error:
@@ -304,7 +289,7 @@ def create_null_marginal_order_constraints(pricing: _PricingPhase) -> None:
 def create_shadow_price_constraints(pricing: _PricingPhase) -> None:
     for time in pricing.input_dataset.times:
         for critical_branch_name in pricing.input_dataset.critical_branches:
-            shadow_price = pricing.model.get_variable(constants.shadow_price_variable_name(critical_branch_name, time))
+            shadow_price = pricing.variables.shadow_price[critical_branch_name][time]
             saturated_critical_branch = pricing.saturated_critical_branch[critical_branch_name, time]
             if saturated_critical_branch > pricing.parameters.allowed_round_off_error:
                 pricing.model.add_constraint(
@@ -322,9 +307,9 @@ def create_adverse_flow_constraint(pricing: _PricingPhase) -> None:
             price_in, price_out = None, None
             for price_group in pricing.price_groups[time]:
                 if border.uphill_market_area.name in price_group.market_area_names:
-                    price_in = pricing.model.get_variable(constants.price_on_group_variable_name(price_group.id, time))
+                    price_in = pricing.variables.price[price_group.id][time]
                 if border.downhill_market_area.name in price_group.market_area_names:
-                    price_out = pricing.model.get_variable(constants.price_on_group_variable_name(price_group.id, time))
+                    price_out = pricing.variables.price[price_group.id][time]
 
             if price_in and not price_out:
                 pricing.model.add_constraint(
@@ -341,13 +326,9 @@ def create_adverse_flow_constraint(pricing: _PricingPhase) -> None:
 def create_absolute_price_group_constraint(pricing: _PricingPhase) -> None:
     for time in pricing.input_dataset.times:
         for price_group in pricing.price_groups[time]:
-            positive_price = pricing.model.get_variable(
-                constants.positive_price_on_group_variable_name(price_group.id, time)
-            )
-            negative_price = pricing.model.get_variable(
-                constants.negative_price_on_group_variable_name(price_group.id, time)
-            )
-            price = pricing.model.get_variable(constants.price_on_group_variable_name(price_group.id, time))
+            positive_price = pricing.variables.positive_price[price_group.id][time]
+            negative_price = pricing.variables.negative_price[price_group.id][time]
+            price = pricing.variables.price[price_group.id][time]
             pricing.model.add_constraint(
                 positive_price + negative_price - price == 0.0,
                 constants.absolute_price_group_constraint_name(price_group.id, time),
@@ -360,16 +341,12 @@ def create_branch_load_constraint(pricing: _PricingPhase) -> None:
         if count_saturated(pricing.saturated_critical_branch, time, pricing.parameters.allowed_round_off_error) != 0:
             continue
         for group_i, group_j in iter_group_pairs(price_groups):
-            price = pricing.model.get_variable(constants.price_on_group_variable_name(group_i.id, time))
-            other_price = pricing.model.get_variable(constants.price_on_group_variable_name(group_j.id, time))
+            price = pricing.variables.price[group_i.id][time]
+            other_price = pricing.variables.price[group_j.id][time]
             branch_load = price - other_price
             if pricing.parameters.fb_branch_load_slack_penalty:
-                positive_slack = pricing.model.get_variable(
-                    constants.positive_slack_branch_load_variable_name(group_i.id, group_j.id, time)
-                )
-                negative_slack = pricing.model.get_variable(
-                    constants.negative_slack_branch_load_variable_name(group_i.id, group_j.id, time)
-                )
+                positive_slack = pricing.variables.positive_branch_load_slack[(group_i.id, group_j.id)][time]
+                negative_slack = pricing.variables.negative_branch_load_slack[(group_i.id, group_j.id)][time]
                 branch_load += positive_slack + negative_slack
             for critical_branch_name, _ in pricing.input_dataset.critical_branches.items():
                 for market_area_name in pricing.input_dataset.market_areas:
@@ -382,9 +359,7 @@ def create_branch_load_constraint(pricing: _PricingPhase) -> None:
 
                     if market_area_name in pricing.input_dataset.market_area_ptdfs:
                         mc_market_area_ptdf = pricing.input_dataset.market_area_ptdfs[market_area_name]
-                        shadow_prices_fb = pricing.model.get_variable(
-                            constants.shadow_price_variable_name(critical_branch_name, time)
-                        )
+                        shadow_prices_fb = pricing.variables.shadow_price[critical_branch_name][time]
                         branch_load += coeff * mc_market_area_ptdf.day_ahead_ptdf.get_value(time) * shadow_prices_fb
 
             pricing.model.add_constraint(
@@ -399,14 +374,10 @@ def create_add_price_difference_constraint(pricing: _PricingPhase) -> None:
         for group_i, group_j in iter_group_pairs(price_groups):
             if not pricing.is_neighbour(group_i, group_j):
                 continue
-            price = pricing.model.get_variable(constants.price_on_group_variable_name(group_i.id, time))
-            other_price = pricing.model.get_variable(constants.price_on_group_variable_name(group_j.id, time))
-            positive_price_diff = pricing.model.get_variable(
-                constants.positive_price_diff_on_group_variable_name(group_i.id, group_j.id, time)
-            )
-            negative_price_diff = pricing.model.get_variable(
-                constants.negative_price_diff_on_group_variable_name(group_i.id, group_j.id, time)
-            )
+            price = pricing.variables.price[group_i.id][time]
+            other_price = pricing.variables.price[group_j.id][time]
+            positive_price_diff = pricing.variables.positive_price_diff[(group_i.id, group_j.id)][time]
+            negative_price_diff = pricing.variables.negative_price_diff[(group_i.id, group_j.id)][time]
 
             pricing.model.add_constraint(
                 positive_price_diff + negative_price_diff == price - other_price,
@@ -418,7 +389,7 @@ def create_groups_prices_objective(pricing: _PricingPhase) -> None:
     objective = []
     for time in pricing.input_dataset.times:
         for price_group in pricing.price_groups[time]:
-            price = pricing.model.get_variable(constants.price_on_group_variable_name(price_group.id, time))
+            price = pricing.variables.price[price_group.id][time]
             objective.append(pricing.parameters.market_price_penalty_alpha * price)
     pricing.model.add_objective(sum(objective))
 
@@ -427,12 +398,8 @@ def create_absolute_price_objective(pricing: _PricingPhase) -> None:
     objective = []
     for time in pricing.input_dataset.times:
         for price_group in pricing.price_groups[time]:
-            positive_price = pricing.model.get_variable(
-                constants.positive_price_on_group_variable_name(price_group.id, time)
-            )
-            negative_price = pricing.model.get_variable(
-                constants.negative_price_on_group_variable_name(price_group.id, time)
-            )
+            positive_price = pricing.variables.positive_price[price_group.id][time]
+            negative_price = pricing.variables.negative_price[price_group.id][time]
             objective.append(pricing.parameters.market_price_penalty_beta * (positive_price - negative_price))
     pricing.model.add_objective(sum(objective))
 
@@ -444,12 +411,8 @@ def create_branch_load_objective(pricing: _PricingPhase) -> None:
             continue
         price_groups = pricing.price_groups[time]
         for group_i, group_j in iter_group_pairs(price_groups):
-            positive_load_slack = pricing.model.get_variable(
-                constants.positive_slack_branch_load_variable_name(group_i.id, group_j.id, time)
-            )
-            negative_load_slack = pricing.model.get_variable(
-                constants.negative_slack_branch_load_variable_name(group_i.id, group_j.id, time)
-            )
+            positive_load_slack = pricing.variables.positive_branch_load_slack[(group_i.id, group_j.id)][time]
+            negative_load_slack = pricing.variables.negative_branch_load_slack[(group_i.id, group_j.id)][time]
             objective.append(
                 pricing.parameters.fb_branch_load_slack_penalty * (positive_load_slack - negative_load_slack)
             )
@@ -463,12 +426,8 @@ def create_groups_price_diff_objective(pricing: _PricingPhase) -> None:
         for group_i, group_j in iter_group_pairs(price_groups):
             if not pricing.is_neighbour(group_i, group_j):
                 continue
-            positive_price_diff = pricing.model.get_variable(
-                constants.positive_price_diff_on_group_variable_name(group_i.id, group_j.id, time)
-            )
-            negative_price_diff = pricing.model.get_variable(
-                constants.negative_price_diff_on_group_variable_name(group_i.id, group_j.id, time)
-            )
+            positive_price_diff = pricing.variables.positive_price_diff[(group_i.id, group_j.id)][time]
+            negative_price_diff = pricing.variables.negative_price_diff[(group_i.id, group_j.id)][time]
             objective.append(
                 pricing.parameters.fb_branch_load_slack_penalty * (positive_price_diff - negative_price_diff)
             )

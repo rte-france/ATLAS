@@ -10,6 +10,7 @@ penalizing the worst rejected sale/buy instead of forcing it to zero.
 
 import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
+from atlas.modules.market_clearing.phases._helpers import times_by_group
 from atlas.modules.market_clearing.phases.pricing._types import PricingAttempt, _PricingPhase
 
 
@@ -40,11 +41,9 @@ def update_price_bound(pricing: _PricingPhase) -> None:
                 f"Updating price variables for group {(price_group.time, price_group.id)} with bounds "
                 f"{price_group.min_price} and {price_group.max_price}"
             )
-            price_group_variable = pricing.model.get_variable(
-                constants.price_on_group_variable_name(price_group.id, price_group.time)
+            pricing.variables.price[price_group.id].set_bounds(
+                price_group.time, price_group.min_price, price_group.max_price
             )
-            price_group_variable.SetLb(price_group.min_price)
-            price_group_variable.SetUb(price_group.max_price)
 
 
 def compute_min_max_rejected_sale_buy(pricing: _PricingPhase) -> None:
@@ -70,18 +69,15 @@ def compute_min_max_rejected_sale_buy(pricing: _PricingPhase) -> None:
 
 
 def create_surplus_rejected_variables(pricing: _PricingPhase) -> None:
-    for price_group_list in pricing.price_groups.values():
-        for price_group in price_group_list:
-            pricing.model.add_continuous_variable(
-                constants.worst_rej_sale_group(price_group.id, price_group.time),
-                0.0,
-                float("inf"),
-            )
-            pricing.model.add_continuous_variable(
-                constants.worst_rej_buy_group(price_group.id, price_group.time),
-                0.0,
-                float("inf"),
-            )
+    group_times = times_by_group(pricing.price_groups)
+    pricing.variables.worst_rejected_sale = {
+        group_id: pricing.model.add_temporal_variable(f"worst_rej_sale_group_{group_id}", times, lower_bound=0.0)
+        for group_id, times in group_times.items()
+    }
+    pricing.variables.worst_rejected_buy = {
+        group_id: pricing.model.add_temporal_variable(f"worst_rej_buy_group_{group_id}", times, lower_bound=0.0)
+        for group_id, times in group_times.items()
+    }
 
 
 def deactivate_null_marginal_order_constraint(pricing: _PricingPhase) -> None:
@@ -106,10 +102,10 @@ def deactivate_null_marginal_order_constraint(pricing: _PricingPhase) -> None:
 def create_min_surplus_rejected_sale_constraints(pricing: _PricingPhase) -> None:
     for time, price_groups in pricing.price_groups.items():
         for price_group in price_groups:
-            current_price = pricing.model.get_variable(constants.price_on_group_variable_name(price_group.id, time))
+            current_price = pricing.variables.price[price_group.id][time]
 
-            logger.debug(f"New bounds : {current_price.lb()}, {current_price.ub()}")
-            min_rejected_sale = pricing.model.get_variable(constants.worst_rej_sale_group(price_group.id, time))
+            logger.debug(f"New bounds : {price_group.min_price}, {price_group.max_price}")
+            min_rejected_sale = pricing.variables.worst_rejected_sale[price_group.id][time]
             pricing.model.add_constraint(
                 min_rejected_sale - (current_price - price_group.min_rejected_sale) >= 0.0,
                 constants.pos_min_rej_sale_group_constraint_name(price_group.id, time),
@@ -119,10 +115,10 @@ def create_min_surplus_rejected_sale_constraints(pricing: _PricingPhase) -> None
 def create_max_surplus_rejected_buy_constraints(pricing: _PricingPhase) -> None:
     for time, price_groups in pricing.price_groups.items():
         for price_group in price_groups:
-            current_price = pricing.model.get_variable(constants.price_on_group_variable_name(price_group.id, time))
+            current_price = pricing.variables.price[price_group.id][time]
 
-            logger.debug(f"New bounds : {current_price.lb()}, {current_price.ub()}")
-            max_rejected_buy = pricing.model.get_variable(constants.worst_rej_buy_group(price_group.id, time))
+            logger.debug(f"New bounds : {price_group.min_price}, {price_group.max_price}")
+            max_rejected_buy = pricing.variables.worst_rejected_buy[price_group.id][time]
             pricing.model.add_constraint(
                 max_rejected_buy - (price_group.max_rejected_buy - current_price) >= 0.0,
                 constants.pos_max_rej_buy_group_constraint_name(price_group.id, time),
@@ -133,11 +129,7 @@ def create_surplus_objective(pricing: _PricingPhase) -> None:
     objective = []
     for price_groups in pricing.price_groups.values():
         for price_group in price_groups:
-            max_rejected_buy = pricing.model.get_variable(
-                constants.worst_rej_buy_group(price_group.id, price_group.time)
-            )
-            min_rejected_sale = pricing.model.get_variable(
-                constants.worst_rej_sale_group(price_group.id, price_group.time)
-            )
+            max_rejected_buy = pricing.variables.worst_rejected_buy[price_group.id][price_group.time]
+            min_rejected_sale = pricing.variables.worst_rejected_sale[price_group.id][price_group.time]
             objective.append(pricing.parameters.paradoxically_rejected_penalty * (min_rejected_sale + max_rejected_buy))
     pricing.model.add_objective(sum(objective))
