@@ -222,8 +222,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :rtype: bool
         """
         try:
-            dt = build_datetime(item).in_tz(self.timezone)
-            return self.timeseries.filter(pl.col("time") == dt).height > 0
+            return epoch_key(item, timezone=self.timezone) in self._get_epoch_lookup()
         except Exception:
             return False
 
