@@ -7,9 +7,12 @@ Structural type shared by the first/second/third pricing attempt modules, so the
 type-checked against `Pricing` without importing it back (`Pricing` imports the attempt modules).
 """
 
+from __future__ import annotations
+
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import pendulum
 
@@ -20,6 +23,10 @@ from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases._helpers import GroupPair
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.solver.temporal_variable import TemporalVariable
+
+if TYPE_CHECKING:
+    # ortools-stubs does not ship pywraplp (see the solver_interface mypy override)
+    from ortools.linear_solver import pywraplp  # type: ignore[attr-defined]
 
 
 class PricingAttempt(IntEnum):
@@ -33,23 +40,15 @@ class PricingAttempt(IntEnum):
 
 @dataclass(frozen=True)
 class PricingVariables:
-    """Temporal variables of the first pricing attempt, which the later attempts build upon.
+    """Variables of the first pricing attempt, which the later attempts build upon.
 
     Price groups are rebuilt at every time step and a group id is the index of the market area that
     opens the group: the same id may gather different areas at different times, and only exists at
     some of them (see :func:`~atlas.modules.market_clearing.phases._helpers.times_by_group`). Pair
     families are keyed by the ids of both groups, in the order given by
-    :func:`~atlas.modules.market_clearing.phases._helpers.iter_group_pairs`.
-
-    :param price: Price of each group
-    :param positive_price: Positive part of the price of each group
-    :param negative_price: Negative part of the price of each group
-    :param positive_price_diff: Positive part of the price difference of each pair of groups
-    :param negative_price_diff: Negative part of the price difference of each pair of groups
-    :param positive_branch_load_slack: Positive slack of the branch load of each pair of groups, only
-        at the time steps without any saturated critical branch. Empty without a slack penalty.
-    :param negative_branch_load_slack: Negative counterpart of *positive_branch_load_slack*
-    :param shadow_price: Shadow price of each critical branch, keyed by branch name
+    :func:`~atlas.modules.market_clearing.phases._helpers.iter_group_pairs`. Branch load slacks only
+    exist at the time steps without any saturated critical branch, and are empty without a slack penalty.
+    Each accepted child order of a parent-child group gives it a surplus, keyed by child order name.
     """
 
     price: dict[int, TemporalVariable]
@@ -60,6 +59,7 @@ class PricingVariables:
     positive_branch_load_slack: dict[GroupPair, TemporalVariable]
     negative_branch_load_slack: dict[GroupPair, TemporalVariable]
     shadow_price: dict[str, TemporalVariable]
+    child_link_surplus: dict[str, pywraplp.Variable]
 
 
 @dataclass(frozen=True)
@@ -68,6 +68,16 @@ class RejectionVariables:
 
     worst_rejected_sale: dict[int, TemporalVariable]
     worst_rejected_buy: dict[int, TemporalVariable]
+
+
+@dataclass(frozen=True)
+class ParadoxVariables:
+    """Variables of the third pricing attempt: the paradoxical delta-P of the linked order groups, of the
+    parent-child groups with an accepted order, and of the accepted standalone orders."""
+
+    linked_orders: dict[int, pywraplp.Variable]
+    parent_child: dict[int, pywraplp.Variable]
+    orders: dict[str, pywraplp.Variable]
 
 
 @dataclass(frozen=True)
@@ -104,7 +114,13 @@ class _PricingPhase(Protocol):
     clearing_accepted_powers: dict[tuple[str, str], float]
     dict_linked_orders: dict[int, list[OrderMC]]
     dict_parent_child_orders: dict[int, tuple[list[OrderMC], list[OrderMC]]]
-    _full_link_id_by_order: dict[str, int]
+    full_link_id_by_order: dict[str, int]
+
+    def is_accepted(self, order: OrderMC) -> bool: ...
+
+    def order_price(self, order: OrderMC) -> pywraplp.Variable: ...
+
+    def standalone_orders(self) -> Iterator[OrderMC]: ...
 
     def is_neighbour(self, price_group: PriceGroup, other_price_group: PriceGroup) -> bool: ...
 

@@ -4,10 +4,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from __future__ import annotations
+
 import itertools
 import json
 from collections.abc import Callable
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import pendulum
 
@@ -29,6 +31,10 @@ from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.solver.temporal_variable import TemporalVariable
+
+if TYPE_CHECKING:
+    # ortools-stubs does not ship pywraplp (see the solver_interface mypy override)
+    from ortools.linear_solver import pywraplp  # type: ignore[attr-defined]
 
 
 def _sum_tso_orders(
@@ -71,8 +77,8 @@ class Clearing:
             market_area_name: self.model.add_temporal_variable(f"balance_on_{market_area_name}", input_dataset.times)
             for market_area_name in input_dataset.market_areas
         }
-        self.create_accepted_powers()
-        self.create_orders_status()
+        self.accepted_power = self.create_accepted_powers()
+        self.status = self.create_orders_status()
 
     def compute(self) -> None:
         self.build()
@@ -126,26 +132,29 @@ class Clearing:
     ##################################
     # Variables
     ##################################
-    def create_accepted_powers(self) -> None:
-        for market_area in self.input_dataset.market_areas.values():
-            for order in market_area.orders.values():
-                if not order.qmin:
-                    max_power = order.qmax
-                    self.model.add_continuous_variable(
-                        constants.accepted_power_variable_name(order.market_area.name, order.name), 0.0, max_power
-                    )
-                else:
-                    self.model.add_continuous_variable(
-                        constants.accepted_power_variable_name(order.market_area.name, order.name),
-                        -float("inf"),
-                        float("inf"),
-                    )
+    def create_accepted_powers(self) -> dict[str, pywraplp.Variable]:
+        """Create the accepted power of each order, keyed by order name.
 
-    def create_orders_status(self) -> None:
+        Only an order without a minimum power is bounded here, by its maximum power: the others are
+        left free, the status variable of those that have one bounds them (3.4).
+        """
+        accepted_power = {}
         for market_area in self.input_dataset.market_areas.values():
             for order in market_area.orders.values():
-                if order.requires_status_variable:
-                    self.model.add_boolean_variable(constants.order_status_variable_name(market_area.name, order.name))
+                lower_bound, upper_bound = (-float("inf"), float("inf")) if order.qmin else (0.0, order.qmax)
+                accepted_power[order.name] = self.model.add_continuous_variable(
+                    f"qo_{market_area.name}_{order.name}", lower_bound, upper_bound
+                )
+        return accepted_power
+
+    def create_orders_status(self) -> dict[str, pywraplp.Variable]:
+        """Create the acceptance status of each order that requires one, keyed by order name."""
+        return {
+            order.name: self.model.add_boolean_variable(f"status_{market_area.name}_{order.name}")
+            for market_area in self.input_dataset.market_areas.values()
+            for order in market_area.orders.values()
+            if order.requires_status_variable
+        }
 
     ##################################
     # Constraints
@@ -157,10 +166,7 @@ class Clearing:
                 for order in market_area.orders.values():
                     # Focus on orders comprising the current time in their duration:
                     if order.start_date <= time < order.end_date_processed:
-                        accepted_power = self.model.get_variable(
-                            constants.accepted_power_variable_name(order.market_area.name, order.name)
-                        )
-                        accepted_powers.append(order.production_sign * accepted_power)
+                        accepted_powers.append(order.production_sign * self.accepted_power[order.name])
                 self.model.add_constraint(
                     sum(accepted_powers) == self.local_balance[market_area.name][time],
                     constants.constraint_3_2_1_constraint_name(market_area.name, time),
@@ -319,12 +325,8 @@ class Clearing:
                 # Compute the constraints limiting the accepted powers of combined,
                 # indivisible and/or mutually excluding orders and linked orders (3.4):
                 if order.requires_status_variable:
-                    order_status = self.model.get_variable(
-                        constants.order_status_variable_name(market_area.name, order.name)
-                    )
-                    accepted_power = self.model.get_variable(
-                        constants.accepted_power_variable_name(order.market_area.name, order.name)
-                    )
+                    order_status = self.status[order.name]
+                    accepted_power = self.accepted_power[order.name]
                     self.create_accepted_power_constraint(
                         market_area.name, order.name, order_status, "min", order.qmin, accepted_power
                     )
@@ -368,15 +370,8 @@ class Clearing:
 
     def create_identical_volume_order_coupling_constraints(self, order_coupling: OrderCouplingMC) -> None:
         for prev_order, order in itertools.pairwise(order_coupling.orders):
-            prev_accepted_power = self.model.get_variable(
-                constants.accepted_power_variable_name(prev_order.market_area.name, prev_order.name)
-            )
-            accepted_power = self.model.get_variable(
-                constants.accepted_power_variable_name(order.market_area.name, order.name)
-            )
-
             self.model.add_constraint(
-                accepted_power == prev_accepted_power,
+                self.accepted_power[order.name] == self.accepted_power[prev_order.name],
                 constants.identical_volume_order_coupling_constraint_name(order_coupling.name, order.name),
             )
 
@@ -389,9 +384,7 @@ class Clearing:
             return
         aggregated_accepted_power = []
         for order in order_coupling.orders:
-            accepted_power = self.model.get_variable(
-                constants.accepted_power_variable_name(order.market_area.name, order.name)
-            )
+            accepted_power = self.accepted_power[order.name]
             if order.order_type == OrderType.Sell:
                 aggregated_accepted_power.append(-accepted_power)
             else:
@@ -414,38 +407,23 @@ class Clearing:
             )
 
     def create_exclusion_order_coupling_constraints(self, order_coupling: OrderCouplingMC) -> None:
-        aggregated_status = []
-        for order in order_coupling.orders:
-            order_status = self.model.get_variable(
-                constants.order_status_variable_name(order.market_area.name, order.name)
-            )
-            aggregated_status.append(order_status)
         self.model.add_constraint(
-            sum(aggregated_status) <= 1, constants.exclusion_order_coupling_constraint_name(order_coupling.name)
+            sum(self.status[order.name] for order in order_coupling.orders) <= 1,
+            constants.exclusion_order_coupling_constraint_name(order_coupling.name),
         )
 
     def create_parent_children_order_coupling_constraints(self, order_coupling: OrderCouplingMC) -> None:
-        parent_order = order_coupling.orders[0]
-        parent_order_status = self.model.get_variable(
-            constants.order_status_variable_name(parent_order.market_area.name, parent_order.name)
-        )
+        parent_order_status = self.status[order_coupling.orders[0].name]
         for order in order_coupling.orders[1:]:
-            order_status = self.model.get_variable(
-                constants.order_status_variable_name(order.market_area.name, order.name)
-            )
             self.model.add_constraint(
-                order_status <= parent_order_status,
+                self.status[order.name] <= parent_order_status,
                 constants.parent_child_order_coupling_constraint_name(order_coupling.name, order.market_area.name),
             )
 
     def create_identical_ratio_order_coupling_constraints(self, order_coupling: OrderCouplingMC) -> None:
         for prev_order, order in itertools.pairwise(order_coupling.orders):
-            prev_accepted_power = self.model.get_variable(
-                constants.accepted_power_variable_name(prev_order.market_area.name, prev_order.name)
-            )
-            accepted_power = self.model.get_variable(
-                constants.accepted_power_variable_name(order.market_area.name, order.name)
-            )
+            prev_accepted_power = self.accepted_power[prev_order.name]
+            accepted_power = self.accepted_power[order.name]
             if prev_order.qmin == prev_order.qmax:
                 prev_ratio = prev_accepted_power / prev_order.qmax
             else:
@@ -467,9 +445,7 @@ class Clearing:
         objective = []
         for market_area in self.input_dataset.market_areas.values():
             for order in market_area.orders.values():
-                accepted_power = self.model.get_variable(
-                    constants.accepted_power_variable_name(order.market_area.name, order.name)
-                )
+                accepted_power = self.accepted_power[order.name]
                 altered_price = order.price - order.production_sign * lambda1
                 objective.append(
                     -order.production_sign * altered_price * order.duration.total_minutes() * accepted_power / 60
@@ -504,9 +480,7 @@ class Clearing:
             self.input_dataset.market_areas,
             time,
             OrderType.Buy,
-            lambda order: self.model.get_variable(
-                constants.accepted_power_variable_name(order.market_area.name, order.name)
-            ),
+            lambda order: self.accepted_power[order.name],
         )
 
     def get_tso_bought_power(self, time: pendulum.DateTime, control_block: ControlBlock) -> Any:
@@ -515,9 +489,7 @@ class Clearing:
             self.input_dataset.market_areas,
             time,
             OrderType.Sell,
-            lambda order: self.model.get_variable(
-                constants.accepted_power_variable_name(order.market_area.name, order.name)
-            ),
+            lambda order: self.accepted_power[order.name],
         )
 
     @staticmethod
@@ -548,12 +520,12 @@ class Clearing:
 
         :rtype: dict[tuple[str, str], float]
         """
-        accepted_powers = {}
-        for market_area in self.input_dataset.market_areas.values():
-            for order in market_area.orders.values():
-                accepted_power_name = constants.accepted_power_variable_name(order.market_area.name, order.name)
-                accepted_powers[order.market_area.name, order.name] = self.model.get_variable_value(accepted_power_name)
-        return accepted_powers
+        self.model.require_solution()
+        return {
+            (order.market_area.name, order.name): self.accepted_power[order.name].solution_value()
+            for market_area in self.input_dataset.market_areas.values()
+            for order in market_area.orders.values()
+        }
 
     def get_saturated_critical_branch(self) -> dict[tuple[str, pendulum.DateTime], float]:
         """Retrieve the slack value of each critical branch at each timestep

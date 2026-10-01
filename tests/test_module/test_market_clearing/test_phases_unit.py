@@ -53,7 +53,7 @@ class _PricingAlgorithms:
         self.clearing_accepted_powers = clearing_accepted_powers or {}
         self.saturated_critical_branch = {}
         self.dict_linked_orders: dict = {}
-        self._full_link_id_by_order: dict = {}
+        self.full_link_id_by_order: dict = {}
         self.model = OptimisationModel("GLOP")
 
     # Each wrapper below calls the real, unbound `Pricing` method (or, for the third pricing attempt,
@@ -75,6 +75,15 @@ class _PricingAlgorithms:
 
     def compute_price_bounds(self, price_group, pricing_type):
         return Pricing.compute_price_bounds(self, price_group, pricing_type)  # type: ignore[arg-type]
+
+    def is_accepted(self, order):
+        return Pricing.is_accepted(self, order)  # type: ignore[arg-type]
+
+    def order_price(self, order):
+        return Pricing.order_price(self, order)  # type: ignore[arg-type]
+
+    def standalone_orders(self):
+        return Pricing.standalone_orders(self)  # type: ignore[arg-type]
 
     def compute_opposite_delta_p(self):
         return third_attempt.compute_opposite_delta_p(self)  # type: ignore[arg-type]
@@ -563,7 +572,7 @@ class TestCreateOppositeDeltaP:
         order_links = OrderLinkResolver(input_dataset.orders, input_dataset.order_couplings).resolve()
         pricing.dict_linked_orders = order_links.linked_orders
         pricing.dict_parent_child_orders = order_links.parent_child_orders
-        pricing._full_link_id_by_order = order_links.full_link_id_by_order
+        pricing.full_link_id_by_order = order_links.full_link_id_by_order
         # Both orders belong to price group 0, the only group of the single time step
         pricing.price_groups = {times[0]: [PriceGroup(id=0, time=times[0], market_area_names=["ma_a"])]}
         pricing.variables = first_attempt.build_variables(pricing)  # type: ignore[arg-type]
