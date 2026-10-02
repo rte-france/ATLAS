@@ -69,6 +69,7 @@ Python API:
 - 🧹 Introduced `RunPaths`, which owns the `results/`, `output_dataset/` and `lp_export/` layout of a run directory. On-disk names are unchanged.
 - 🐛 Fixed `AttributeError` in the profiling workflow when `export_dataset` was enabled (an unfinished refactor left `job.parameters.get_`).
 - 📚 Fixed the `export_final_state` docstring, which described a path instead of a boolean.
+- 🐛 `ChangeSetHandler` now resolves list references (`BusinessModelListRef`, e.g. `OrderCoupling.orders`) to the objects of the `CurrentInputState`, given as instances or names. Couplings no longer keep module-side copies of their orders, and `UpdateObject` with a list of names no longer fails validation (#425).
 
 ---
 

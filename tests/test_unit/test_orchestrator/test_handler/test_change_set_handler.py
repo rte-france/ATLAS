@@ -4,6 +4,7 @@ from pydantic_core._pydantic_core import ValidationError
 from atlas import MarketArea
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
 from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.orchestrator.change_set import AddObject, DeleteObject, UpdateObject
 from atlas.orchestrator.current_input_state import CurrentInputState
@@ -87,6 +88,87 @@ class TestChangeSetSharedBehavior:
 
         with pytest.raises(ValidationError):
             ChangeSetHandler._fill_object(order, {"price": "invalid"})
+
+
+@pytest.fixture
+def cis_with_orders(cis_with_order):
+    """CIS with two Orders, to be referenced by an OrderCoupling."""
+    ma = cis_with_order.data.market_area.get("ma1")
+    cis_with_order.data.order.add(Order(name="order_2", price=20.0, market_area=ma))
+    return cis_with_order
+
+
+class TestResolveListReference:
+    def test_resolve_list_of_names(self, cis_with_orders):
+        data = {"orders": ["order_1", "order_2"]}
+
+        ChangeSetHandler._resolve_reference(data, cis_with_orders, model_class=OrderCoupling)
+
+        assert data["orders"][0] is cis_with_orders.data.order.get("order_1")
+        assert data["orders"][1] is cis_with_orders.data.order.get("order_2")
+
+    def test_resolve_list_of_instances(self, cis_with_orders):
+        ma = cis_with_orders.data.market_area.get("ma1")
+        copies = [Order(name="order_1", market_area=ma), Order(name="order_2", market_area=ma)]
+        data = {"orders": copies}
+
+        ChangeSetHandler._resolve_reference(data, cis_with_orders, model_class=OrderCoupling)
+
+        assert data["orders"][0] is cis_with_orders.data.order.get("order_1")
+        assert data["orders"][1] is cis_with_orders.data.order.get("order_2")
+
+    def test_resolve_list_of_subclass_instances(self, cis_with_orders):
+        class SubOrder(Order):
+            extra: int = 0
+
+        ma = cis_with_orders.data.market_area.get("ma1")
+        data = {"orders": [SubOrder(name="order_1", market_area=ma), SubOrder(name="order_2", market_area=ma)]}
+
+        ChangeSetHandler._resolve_reference(data, cis_with_orders, model_class=OrderCoupling)
+
+        assert data["orders"][0] is cis_with_orders.data.order.get("order_1")
+        assert data["orders"][1] is cis_with_orders.data.order.get("order_2")
+
+    def test_resolve_joined_names(self, cis_with_orders):
+        data = {"orders": "order_1|order_2"}
+
+        ChangeSetHandler._resolve_reference(data, cis_with_orders, model_class=OrderCoupling)
+
+        assert [order.name for order in data["orders"]] == ["order_1", "order_2"]
+        assert data["orders"][1] is cis_with_orders.data.order.get("order_2")
+
+    def test_resolve_empty_list(self, cis_with_orders):
+        data = {"orders": []}
+
+        ChangeSetHandler._resolve_reference(data, cis_with_orders, model_class=OrderCoupling)
+
+        assert data["orders"] == []
+
+    def test_resolve_list_missing_item_raises(self, cis_with_orders):
+        data = {"orders": ["order_1", "missing"]}
+
+        with pytest.raises(ValueError, match="missing"):
+            ChangeSetHandler._resolve_reference(data, cis_with_orders, model_class=OrderCoupling)
+
+    def test_add_coupling_references_cis_orders(self, cis_with_orders):
+        ma = cis_with_orders.data.market_area.get("ma1")
+        copies = [Order(name="order_1", market_area=ma), Order(name="order_2", market_area=ma)]
+        ChangeSetHandler.apply(AddObject({"name": "c1", "orders": copies}, model_type=OrderCoupling), cis_with_orders)
+
+        coupling = cis_with_orders.data.order_coupling.get("c1")
+        for order in coupling.orders:
+            assert order is cis_with_orders.data.order.get(order.name)
+
+    def test_update_coupling_with_list_of_names(self, cis_with_orders):
+        order_1 = cis_with_orders.data.order.get("order_1")
+        cis_with_orders.data.order_coupling.add(OrderCoupling(name="c1", orders=[order_1]))
+
+        update = UpdateObject({"name": "c1", "orders": ["order_1", "order_2"]}, OrderCoupling)
+        ChangeSetHandler.apply(update, cis_with_orders)
+
+        coupling = cis_with_orders.data.order_coupling.get("c1")
+        assert coupling.orders[0] is order_1
+        assert coupling.orders[1] is cis_with_orders.data.order.get("order_2")
 
 
 class TestAddChangeSetHandler:
