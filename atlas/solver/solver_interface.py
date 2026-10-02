@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 Module that implements OR-Tools optimisation interface.
 """
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal
 
@@ -64,6 +64,7 @@ class OptimisationModel:
         self._variables_name: set[str] = set()
         self._constraints_name: set[str] = set()
         self._temporal_variables: dict[str, TemporalVariable] = {}
+        self._time_axes: dict[tuple[str, tuple[DateTime, ...]], Timeseries] = {}
         self._objective: Any | None = None
         self._objective_direction: Literal["maximize", "minimize"] | None = None
         self._objective_pending: bool = False
@@ -292,10 +293,33 @@ class OptimisationModel:
             raise RuntimeError("Optimisation model has not been solved yet")
 
         return {
-            name: temporal_variable.solution(include_fixed)
+            name: temporal_variable.solution(include_fixed=include_fixed)
             for name, temporal_variable in self._temporal_variables.items()
             if (temporal_variable.times if include_fixed else temporal_variable.model_times)
         }
+
+    def _shared_time_axis(self, times: Sequence[DateTime]) -> Timeseries:
+        """
+        Get a timeseries of zeros indexed by *times*, built once per model.
+
+        Internal to :class:`~atlas.solver.temporal_variable.TemporalVariable`: the temporal variables
+        of a model are mostly declared over the same timestamps, so reading their solution only
+        fills in the values of this index with :meth:`~atlas.math.timeseries.Timeseries.with_values`.
+        The index is shared: it must never be modified in place.
+
+        :param times: Sorted timestamps, without duplicates, at least one
+        :type times: Sequence[DateTime]
+        :return: The shared index
+        :rtype: Timeseries
+        """
+        timezone = times[0].timezone_name or "UTC"
+        # equal instants in different timezones compare equal: the timezone is part of the key
+        key = (timezone, tuple(times))
+        axis = self._time_axes.get(key)
+        if axis is None:
+            axis = Timeseries({"time": list(times), "value": [0.0] * len(times)}, timezone=timezone)
+            self._time_axes[key] = axis
+        return axis
 
     def get_variable(self, name: str) -> Any:
         """
@@ -622,6 +646,7 @@ class OptimisationModel:
         self._variables_name.clear()
         self._constraints_name.clear()
         self._temporal_variables.clear()
+        self._time_axes.clear()
         self._solution_info = None
         self._objective = None
         self._objective_direction = None

@@ -327,6 +327,76 @@ class TestSolution:
 
         assert pickle.loads(pickle.dumps(solution)) == solution
 
+    def test_solution_matches_a_timeseries_built_from_scratch(self, solved):
+        expected = Timeseries({"time": TIMES, "value": [solved.solution_value(t) for t in TIMES]})
+
+        assert solved.solution() == expected
+
+    def test_solution_restricted_to_times_in_any_order(self, solved):
+        solution = solved.solution([TIMES[2], TIMES[1]])
+
+        assert [pendulum.instance(t) for t in solution.index] == TIMES[1:]
+        assert solution.values == pytest.approx([10.0, 20.0])
+
+    def test_solution_restricted_to_times_reads_fixed_values_like_solution_value(self, solved):
+        solution = solved.solution([START - TIMESTEP, START])
+
+        assert solution.values == pytest.approx([5.0, 0.0])
+
+    def test_solution_restricted_to_times_rejects_include_fixed(self, solved):
+        with pytest.raises(ValueError, match="include_fixed only applies without times"):
+            solved.solution([START], include_fixed=True)
+
+    def test_solution_restricted_to_an_unknown_time_raises(self, solved):
+        with pytest.raises(KeyError, match="'power' is not defined at"):
+            solved.solution([START + 10 * TIMESTEP])
+
+    def test_solution_restricted_to_duplicate_times_raises(self, solved):
+        with pytest.raises(ValueError, match="duplicate timestamps"):
+            solved.solution([START, START])
+
+    def test_solution_follows_timestamps_added_after_a_first_read(self, model, solved):
+        solved.solution()
+        later = START + 3 * TIMESTEP
+        solved.add(later)
+        model.solve()
+
+        assert [pendulum.instance(t) for t in solved.solution().index] == [*TIMES, later]
+        assert solved.times == [START - TIMESTEP, *TIMES, later]
+
+    def test_times_returns_a_copy(self, solved):
+        solved.model_times.clear()
+        solved.times.clear()
+
+        assert solved.model_times == TIMES
+        assert len(solved.times) == 4
+
+    def test_solution_values_default_to_sorted_model_times(self, solved):
+        assert solved.solution_values() == pytest.approx([0.0, 10.0, 20.0])
+
+    def test_solution_values_follow_the_order_of_times(self, solved):
+        assert solved.solution_values([TIMES[2], TIMES[0]]) == pytest.approx([20.0, 0.0])
+
+    def test_solution_values_can_include_fixed(self, solved):
+        assert solved.solution_values(include_fixed=True) == pytest.approx([5.0, 0.0, 10.0, 20.0])
+
+    def test_solution_values_of_explicit_times_read_fixed_values(self, solved):
+        assert solved.solution_values([START - TIMESTEP, START]) == pytest.approx([5.0, 0.0])
+
+    def test_solution_values_of_explicit_times_reject_include_fixed(self, solved):
+        with pytest.raises(ValueError, match="include_fixed only applies without times"):
+            solved.solution_values([START], include_fixed=True)
+
+    def test_solution_values_of_an_unknown_time_raise(self, solved):
+        with pytest.raises(KeyError, match="'power' is not defined at"):
+            solved.solution_values([START + 10 * TIMESTEP])
+
+    def test_solution_values_before_solve_raises(self, model):
+        var = model.add_temporal_variable("power", times=TIMES)
+
+        with pytest.raises(RuntimeError, match="not been solved"):
+            var.solution_values()
+
 
 class TestPickling:
     def test_pickling_is_forbidden(self, model):
