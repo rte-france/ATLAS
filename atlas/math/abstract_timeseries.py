@@ -207,6 +207,27 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         """
         ...
 
+    @abstractmethod
+    def with_values(self, values: Sequence[float] | pl.Series) -> Self:
+        """
+        Return a new timeseries on the same index, holding *values*.
+
+        The index is reused as it is: nothing is sorted, cast or inferred again. This is the cheap
+        way to build several series sharing a known index.
+
+        **Example**
+
+            index = Timeseries.from_values("2025-01-01 00:00:00", "1h", [0.0, 0.0, 0.0])
+            index.with_values([1.0, 2.0, 3.0]).values  # [1.0, 2.0, 3.0]
+
+        :param values: One value per timestamp, in index order
+        :type values: Sequence[float] | pl.Series
+        :return: A new timeseries, the current one is left unchanged
+        :rtype: Self
+        :raises ValueError: If the number of values differs from the length of the timeseries
+        """
+        ...
+
     @property
     @abstractmethod
     def dataframe(self) -> pl.DataFrame | pl.LazyFrame:
