@@ -10,6 +10,7 @@ from __future__ import annotations
 from enum import Enum
 
 from atlas.abstract_class.module import AbstractModule
+from atlas.modules.balancing_market_bsp_orders.module import BSPBalancingOrdersModule
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.modules.intraday_orders.module import IntradayOrdersModule
 from atlas.modules.intraday_price_forecast.module import IntradayPriceForecastModule
@@ -24,6 +25,7 @@ class ModuleRegistry(Enum):
     PortfolioOptimisation = PortfolioOptimisationModule
     DayAheadOrders = DayAheadOrdersModule
     IntradayPriceForecast = IntradayPriceForecastModule
+    BSPBalancingOrders = BSPBalancingOrdersModule
     IntradayOrders = IntradayOrdersModule
 
     @classmethod
