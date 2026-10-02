@@ -286,10 +286,10 @@ class OptimisationModel:
         :type include_fixed: bool
         :return: Solved values keyed by temporal variable name
         :rtype: dict[str, Timeseries]
-        :raises RuntimeError: If the model hasn't been solved
+        :raises ModelNotSolvedError: If the model hasn't been solved
+        :raises UnsuccessfulSolveError: If the last solve did not produce a solution
         """
-        if not self._solution_info:
-            raise RuntimeError("Optimisation model has not been solved yet")
+        self.require_solution()
 
         return {
             name: temporal_variable.solution(include_fixed)

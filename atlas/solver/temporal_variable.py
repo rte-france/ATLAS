@@ -183,6 +183,23 @@ class TemporalVariable:
         self._check_undefined(t)
         self._fixed[t] = value
 
+    def set_bounds(self, t: DateTime, lower_bound: float, upper_bound: float) -> None:
+        """
+        Change the bounds of the solver variable at *t*, typically to tighten a model before a new solve.
+
+        :param t: Timestamp of the variable
+        :type t: DateTime
+        :param lower_bound: New lower bound
+        :type lower_bound: float
+        :param upper_bound: New upper bound
+        :type upper_bound: float
+        :raises ValueError: If *t* holds a fixed value
+        :raises KeyError: If *t* was never added
+        """
+        if t in self._fixed:
+            raise ValueError(f"Temporal variable '{self._name}' holds a fixed value at {t}, it has no bounds")
+        self._get_variable(t).SetBounds(lower_bound, upper_bound)
+
     def is_fixed(self, t: DateTime) -> bool:
         """
         Tell whether *t* holds a fixed value.
@@ -202,7 +219,8 @@ class TemporalVariable:
         :type t: DateTime
         :return: The value at *t*
         :rtype: float
-        :raises RuntimeError: If *t* holds a solver variable and the model has not been solved
+        :raises ModelNotSolvedError: If *t* holds a solver variable and the model has not been solved
+        :raises UnsuccessfulSolveError: If the last solve did not produce a solution
         :raises KeyError: If *t* was never added
         """
         if t in self._fixed:
@@ -219,7 +237,8 @@ class TemporalVariable:
         :type include_fixed: bool
         :return: Values indexed by timestamp
         :rtype: Timeseries
-        :raises RuntimeError: If the model has not been solved
+        :raises ModelNotSolvedError: If the model has not been solved
+        :raises UnsuccessfulSolveError: If the last solve did not produce a solution
         :raises ValueError: If there is no value to return
         """
         self._check_solved()
@@ -298,8 +317,7 @@ class TemporalVariable:
             raise ValueError(f"Temporal variable '{self._name}' already holds a fixed value at {min(clash)}")
 
     def _check_solved(self) -> None:
-        if self._model.solution_info is None:
-            raise RuntimeError(f"Optimisation model has not been solved yet, cannot read '{self._name}'")
+        self._model.require_solution()
 
 
 def _resolve(bound: Bound, t: DateTime) -> float:
