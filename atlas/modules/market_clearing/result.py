@@ -16,13 +16,13 @@ from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.data_classes import ClearingOutputs
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.objects.equipment.equipment import Equipment
 from atlas.objects.market.critical_branch import CriticalBranch
 from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market.market_border import MarketBorder
 from atlas.objects.market.order import Order
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.orchestrator.change_set import ChangeSet, UpdateObject
-from atlas.timing import generate_datetimes
 
 
 class MarketClearingResult(ModuleResult[MarketClearingParameters]):
@@ -132,28 +132,13 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
 
     def update_orders(self) -> list[ChangeSet]:
         change_sets: list[ChangeSet] = []
-        # If accepted power is too small then change it to 0
-        # Update individual spread price for order
-        for order_name, order in self.input_dataset.orders.items():
-            updated_values: dict[str, Any] = {"name": order_name}
-            accepted_power = self.accepted_powers[order.market_area.name, order_name]
-            # At this point, unaccepted orders can be skipped:
-            if abs(accepted_power) <= self.input_dataset.parameters.allowed_round_off_error:
-                continue
-            updated_values["accepted_power"] = accepted_power
-            # The surplus of an order is the gain made by its emitter computed from the present spot price:
-            spot_price = self.market_prices[order.market_area.name].get_value(order.start_date)
-            if order.is_sale:
-                updated_values["individual_spread"] = spot_price - order.price
-            else:
-                updated_values["individual_spread"] = order.price - spot_price
-
-            # Update the Order
-            change_sets.append(UpdateObject(updated_values, Order))
-
-        # Create accepted power TS for equipment and portfolio
-        equipments_ts, portfolios_ts = {}, {}
-        equipments_mapping, portfolios_mapping = {}, {}
+        times = self.input_dataset.times
+        timestep = self.input_dataset.parameters.temporal.timestep
+        position = {time: index for index, time in enumerate(times)}
+        # Power sold by each equipment and portfolio at each timestep, summed as plain lists and turned into
+        # timeseries once: a timeseries operation per order is far too slow
+        equipments_sold: dict[str, tuple[Equipment, list[float]]] = {}
+        portfolios_sold: dict[str, tuple[Portfolio, list[float]]] = {}
 
         if self.input_dataset.parameters.market == Product.DayAhead:
             for equipment in self.input_dataset.input_data.iter_by_equipments():
@@ -162,51 +147,38 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
                     continue
                 if portfolio.market_area.name not in self.input_dataset.market_areas:
                     continue
-                equipments_ts[equipment.name] = self.zero_timeseries()
-                equipments_mapping[equipment.name] = equipment
-                if portfolio.name not in portfolios_ts:
-                    portfolios_ts[portfolio.name] = self.zero_timeseries()
-                    portfolios_mapping[portfolio.name] = portfolio
+                equipments_sold[equipment.name] = (equipment, [0.0] * len(times))
+                portfolios_sold.setdefault(portfolio.name, (portfolio, [0.0] * len(times)))
 
         for order_name, order in self.input_dataset.orders.items():
             accepted_power = self.accepted_powers[order.market_area.name, order_name]
             # At this point, unaccepted orders can be skipped:
             if abs(accepted_power) <= self.input_dataset.parameters.allowed_round_off_error:
                 continue
-            if not order.is_agent_tso and order.equipment is not None:
-                equipment = order.equipment
-                if equipment is None:
-                    continue
-                portfolio = equipment.portfolio
-                if portfolio is None:
-                    continue
-                if equipment.name not in equipments_ts:
-                    equipments_ts[equipment.name] = self.zero_timeseries()
-                    equipments_mapping[equipment.name] = equipment
-                if portfolio.name not in portfolios_ts:
-                    portfolios_ts[portfolio.name] = self.zero_timeseries()
-                    portfolios_mapping[portfolio.name] = portfolio
+            # The surplus of an order is the gain made by its emitter computed from the present spot price:
+            spot_price = self.market_prices[order.market_area.name].get_value(order.start_date)
+            individual_spread = spot_price - order.price if order.is_sale else order.price - spot_price
+            updated_values: dict[str, Any] = {
+                "name": order_name,
+                "accepted_power": accepted_power,
+                "individual_spread": individual_spread,
+            }
+            change_sets.append(UpdateObject(updated_values, Order))
 
-                indexes = generate_datetimes(
-                    order.start_date,
-                    order.end_date_processed - self.input_dataset.parameters.temporal.timestep,
-                    self.input_dataset.parameters.temporal.timestep,
-                )
-                values_sold = [accepted_power * order.production_sign for _ in range(len(indexes))]
+            equipment = order.equipment
+            if order.is_agent_tso or equipment is None or equipment.portfolio is None:
+                continue
+            portfolio = equipment.portfolio
+            _, equipment_sold = equipments_sold.setdefault(equipment.name, (equipment, [0.0] * len(times)))
+            _, portfolio_sold = portfolios_sold.setdefault(portfolio.name, (portfolio, [0.0] * len(times)))
+            power_sold = accepted_power * order.production_sign
+            for index in range(position[order.start_date], position[order.end_date_processed - timestep] + 1):
+                equipment_sold[index] += power_sold
+                portfolio_sold[index] += power_sold
 
-                if len(values_sold) == 1:
-                    equipments_ts[equipment.name].sum_value_at(order.start_date, values_sold[0])
-                    portfolios_ts[portfolio.name].sum_value_at(order.start_date, values_sold[0])
-                else:
-                    value_sold_ts = Timeseries.from_values(
-                        order.start_date, self.input_dataset.parameters.temporal.timestep, values_sold
-                    )
-                    equipments_ts[equipment.name] += value_sold_ts
-                    portfolios_ts[portfolio.name] += value_sold_ts
-
-        for equipment_name, equipment_ts in equipments_ts.items():
-            equipment = equipments_mapping[equipment_name]
-            updated_values = {"name": equipment_name}
+        for equipment_name, (equipment, values) in equipments_sold.items():
+            equipment_ts = self.horizon_timeseries(values)
+            updated_values: dict[str, Any] = {"name": equipment_name}
             match self.input_dataset.parameters.market:
                 case Product.DayAhead:
                     updated_values["da_cleared_quantity"] = self.add_indexes(
@@ -254,9 +226,9 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
             # Update the Equipment
             change_sets.append(UpdateObject(updated_values, type(equipment)))
 
-        for portfolio_name, portfolio_ts in portfolios_ts.items():
-            portfolio = portfolios_mapping[portfolio_name]
-            updated_values = {"name": portfolio_name}
+        for portfolio_name, (portfolio, values) in portfolios_sold.items():
+            portfolio_ts = self.horizon_timeseries(values)
+            updated_values: dict[str, Any] = {"name": portfolio_name}
             match self.input_dataset.parameters.market:
                 case Product.DayAhead:
                     updated_values["da_cleared_quantity"] = self.add_indexes(
@@ -408,7 +380,7 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
 
         for critical_branch in self.input_dataset.critical_branches.values():
             updated_values: dict[str, Any] = {"name": critical_branch.name}
-            flow = self.zero_timeseries()
+            flow = self.horizon_timeseries([0.0] * len(self.input_dataset.times))
             for market_area_ptdf in critical_branch.market_area_ptdf:
                 da_ptdf = market_area_ptdf.da_ptdf.set_frequency(
                     self.input_dataset.parameters.temporal.timestep, False
@@ -429,19 +401,17 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
             change_sets.append(UpdateObject(updated_values, CriticalBranch))
         return change_sets
 
-    def zero_timeseries(self) -> Timeseries:
+    def horizon_timeseries(self, values: list[float]) -> Timeseries:
         """
-        Build a zero filled Timeseries covering the whole clearing horizon.
+        Build a Timeseries over the clearing horizon.
 
-        :return: Timeseries of 0.0 on every timestep of the clearing
+        :param values: One value per timestep of the clearing
+        :type values: list[float]
+        :return: The values indexed by the timesteps of the clearing
         :rtype: Timeseries
         """
-        return Timeseries.from_index(
-            self.input_dataset.times[0],
-            self.input_dataset.parameters.temporal.timestep,
-            self.input_dataset.times[-1],
-            0.0,
-        )
+        times = self.input_dataset.times
+        return Timeseries({"time": times, "value": values}, timezone=times[0].timezone_name or "UTC")
 
     def add_indexes(self, ts_obj: AbstractTimeseries | None, other: AbstractTimeseries) -> AbstractTimeseries:
         if ts_obj is None:
@@ -468,7 +438,7 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
         elif other.timestep > ts_obj.timestep:
             other.upsample(ts_obj.timestep)
         if other.index[0] not in ts_obj:
-            return self.add_indexes(ts_obj, self.zero_timeseries())
+            return self.add_indexes(ts_obj, self.horizon_timeseries([0.0] * len(self.input_dataset.times)))
         else:
             ts_obj += other
             return ts_obj
