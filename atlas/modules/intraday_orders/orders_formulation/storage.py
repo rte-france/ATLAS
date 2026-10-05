@@ -144,7 +144,7 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
                 continue
 
             if q_order > parameters.allowed_round_off_error:
-                order_name = f"id_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}_{equipment.name}_{t.format('DD_MM_YYYY_HH_mm_ss')}"
+                order_name = f"id_{parameters.temporal.execution_date}_{equipment.name}_{t}"
                 order = build_intraday_order(
                     equipment, order_name, price, 0.0, q_order, order_type, t, parameters, is_agent_tso=None
                 )
