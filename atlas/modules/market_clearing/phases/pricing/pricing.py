@@ -14,6 +14,7 @@ import pendulum
 
 from atlas.config import logger
 from atlas.custom_errors import SolverError
+from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.data_classes import ClearingOutputs, PriceGroup
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
@@ -106,7 +107,8 @@ class Pricing:
                 json.dump(
                     [
                         [market_area_name, str(time), val]
-                        for (market_area_name, time), val in self.get_market_prices().items()
+                        for market_area_name, prices in self.get_market_prices().items()
+                        for time, val in prices.iter_rows()
                     ],
                     f,
                 )
@@ -341,14 +343,23 @@ class Pricing:
                 price_group.min_price = max(price_group.min_price, max_accepted_sale_price)
                 price_group.max_price = min(price_group.max_price, min_accepted_purchase_price)
 
-    def get_market_prices(self) -> dict[tuple[str, pendulum.DateTime], float]:
+    def get_market_prices(self) -> dict[str, Timeseries]:
+        """Retrieve the price of each market area over the clearing horizon
+
+        Price groups are rebuilt at every timestep: at each one, an area takes the price of the
+        group it belongs to.
+
+        :rtype: dict[str, Timeseries]
         """
-        :rtype: dict[tuple[str, pendulum.DateTime], float]
-        """
-        market_prices = {}
-        for time, price_groups in self.price_groups.items():
-            for price_group in price_groups:
+        area_prices: dict[str, list[float]] = {name: [] for name in self.input_dataset.market_areas}
+        for time in self.input_dataset.times:
+            for price_group in self.price_groups[time]:
                 price = self.variables.price[price_group.id].solution_value(time)
                 for market_area_name in price_group.market_area_names:
-                    market_prices[market_area_name, time] = price
-        return market_prices
+                    area_prices[market_area_name].append(price)
+        times = self.input_dataset.times
+        timezone = times[0].timezone_name or "UTC"
+        return {
+            name: Timeseries({"time": times, "value": prices}, timezone=timezone)
+            for name, prices in area_prices.items()
+        }

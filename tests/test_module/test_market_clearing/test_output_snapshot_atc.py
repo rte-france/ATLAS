@@ -32,7 +32,7 @@ def _dump_snapshot(result: MarketClearingResult) -> dict[str, list]:
         "border_exchanges": [
             [b, str(t), v] for b, ts in sorted(result.border_exchanges.items()) for t, v in ts.iter_rows()
         ],
-        "market_prices": [[a, str(t), v] for (a, t), v in sorted(result.market_prices.items())],
+        "market_prices": [[a, str(t), v] for a, ts in sorted(result.market_prices.items()) for t, v in ts.iter_rows()],
     }
 
 

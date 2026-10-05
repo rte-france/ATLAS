@@ -141,8 +141,7 @@ class TestThirdAttempt:
         pricing.model.solve()
 
         assert pricing.model.has_solution
-        assert set(pricing.get_market_prices()) == {
-            (market_area_name, time)
-            for market_area_name in pricing.input_dataset.market_areas
-            for time in pricing.input_dataset.times
-        }
+        market_prices = pricing.get_market_prices()
+        assert market_prices.keys() == pricing.input_dataset.market_areas.keys()
+        for prices in market_prices.values():
+            assert prices.index == pricing.input_dataset.times

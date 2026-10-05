@@ -6,8 +6,6 @@ This file is part of the ATLAS project.
 
 from typing import Any
 
-import pendulum
-
 import atlas.config as cfg
 from atlas.abstract_class.dataset import ModuleResult
 from atlas.enums import Product
@@ -118,7 +116,7 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
         self,
         input_dataset: MarketClearingInputDataset,
         clearing_outputs: ClearingOutputs,
-        market_prices: dict[tuple[str, pendulum.DateTime], float],
+        market_prices: dict[str, Timeseries],
     ):
         self.input_dataset = input_dataset
         self.accepted_powers = clearing_outputs.accepted_powers
@@ -144,7 +142,7 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
                 continue
             updated_values["accepted_power"] = accepted_power
             # The surplus of an order is the gain made by its emitter computed from the present spot price:
-            spot_price = self.market_prices[order.market_area.name, order.start_date]
+            spot_price = self.market_prices[order.market_area.name].get_value(order.start_date)
             if order.is_sale:
                 updated_values["individual_spread"] = spot_price - order.price
             else:
@@ -300,12 +298,7 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
         for market_area_name, market_area in self.input_dataset.market_areas.items():
             updated_values: dict[str, Any] = {"name": market_area_name}
             values_bal = self.local_balances[market_area_name]
-            price_values = [self.market_prices[market_area_name, time] for time in self.input_dataset.times]
-            values_price = Timeseries.from_values(
-                self.input_dataset.parameters.temporal.start_date,
-                self.input_dataset.parameters.temporal.timestep,
-                price_values,
-            )
+            values_price = self.market_prices[market_area_name]
 
             match self.input_dataset.parameters.market:
                 case Product.DayAhead:
@@ -349,15 +342,9 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
         for market_border_name, market_border in self.input_dataset.market_borders.items():
             updated_values: dict[str, Any] = {"name": market_border_name}
             flow = self.border_exchanges[market_border_name]
-            shadow_price_values = [
-                self.market_prices[market_border.uphill_market_area.name, time]
-                - self.market_prices[market_border.downhill_market_area.name, time]
-                for time in self.input_dataset.times
-            ]
-            shadow_price = Timeseries.from_values(
-                self.input_dataset.parameters.temporal.start_date,
-                self.input_dataset.parameters.temporal.timestep,
-                shadow_price_values,
+            shadow_price = (
+                self.market_prices[market_border.uphill_market_area.name]
+                - self.market_prices[market_border.downhill_market_area.name]
             )
             match self.input_dataset.parameters.market:
                 case Product.DayAhead:

@@ -45,13 +45,14 @@ class TestOutputShape:
         for balance in result[0].local_balances.values():
             assert balance.index == input_dataset.times
 
-    def test_one_market_price_per_market_area_and_time(
+    def test_one_market_price_per_market_area_over_the_horizon(
         self,
         input_dataset: MarketClearingInputDataset,
         result: tuple[MarketClearingResult, float],
     ) -> None:
-        expected_keys = {(area_name, time) for area_name in input_dataset.market_areas for time in input_dataset.times}
-        assert set(result[0].market_prices) == expected_keys
+        assert result[0].market_prices.keys() == input_dataset.market_areas.keys()
+        for price in result[0].market_prices.values():
+            assert price.index == input_dataset.times
 
     def test_one_border_exchange_per_border_over_the_horizon(
         self,
@@ -75,11 +76,9 @@ class TestOutputShape:
 
 class TestOutputValues:
     def test_all_output_values_are_finite(self, result: tuple[MarketClearingResult, float]) -> None:
-        for outputs in (result[0].local_balances, result[0].border_exchanges):
+        for outputs in (result[0].local_balances, result[0].market_prices, result[0].border_exchanges):
             for ts in outputs.values():
                 assert all(_is_finite(value) for value in ts.values)
-        for value in result[0].market_prices.values():
-            assert _is_finite(value)
         for value in result[0].accepted_powers.values():
             assert _is_finite(value)
 
@@ -101,10 +100,11 @@ class TestOutputValues:
         result: tuple[MarketClearingResult, float],
     ) -> None:
         tolerance = input_dataset.parameters.allowed_round_off_error
-        for (area_name, time), price in result[0].market_prices.items():
+        for area_name, prices in result[0].market_prices.items():
             market_area = input_dataset.market_areas[area_name]
-            assert price <= market_area.max_price.get_value(time) + tolerance
-            assert price >= market_area.min_price.get_value(time) - tolerance
+            for time, price in prices.iter_rows():
+                assert price <= market_area.max_price.get_value(time) + tolerance
+                assert price >= market_area.min_price.get_value(time) - tolerance
 
 
 class TestChangeSets:
