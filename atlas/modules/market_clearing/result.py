@@ -4,6 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from enum import Enum, auto
 from typing import Any
 
 import atlas.config as cfg
@@ -22,6 +23,85 @@ from atlas.objects.market.market_border import MarketBorder
 from atlas.objects.market.order import Order
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.orchestrator.change_set import ChangeSet, UpdateObject
+
+
+class Merge(Enum):
+    """How the values cleared over the horizon are merged into an attribute."""
+
+    APPEND = auto()  # timeseries history, followed by the window
+    CUMULATE = auto()  # timeseries total over the successive clearings
+    FORECAST = auto()  # forecasting matrix, the window indexed by the execution date
+
+
+APPEND, CUMULATE, FORECAST = Merge.APPEND, Merge.CUMULATE, Merge.FORECAST
+
+# Attributes updated for each market, by object and by cleared series
+type Fields = dict[Product, dict[str, Merge]]
+
+EQUIPMENT_FIELDS: Fields = {
+    Product.DayAhead: {"da_cleared_quantity": APPEND},
+    Product.Intraday: {"total_id_cleared_quantity": CUMULATE, "id_cleared_quantity": FORECAST},
+    Product.AFRRUpProcurement: {"afrr_up_procured": FORECAST},
+    Product.AFRRDownProcurement: {"afrr_down_procured": FORECAST},
+    Product.MFRRUpProcurement: {"mfrr_up_procured": FORECAST},
+    Product.MFRRDownProcurement: {"mfrr_down_procured": FORECAST},
+    Product.RRUpProcurement: {"rr_up_procured": FORECAST},
+    Product.RRDownProcurement: {"rr_down_procured": FORECAST},
+    Product.AFRRActivation: {"afrr_activated": APPEND},
+    Product.MFRRActivation: {"mfrr_activated": APPEND},
+    Product.RRActivation: {"rr_activated": APPEND},
+    Product.FCRActivation: {"fcr_activated": APPEND},
+}
+PORTFOLIO_FIELDS: Fields = {
+    Product.DayAhead: {"da_cleared_quantity": APPEND},
+    Product.Intraday: {"total_id_cleared_quantity": CUMULATE, "id_cleared_quantity": FORECAST},
+    Product.AFRRUpProcurement: {"afrr_up_procured": APPEND},
+    Product.AFRRDownProcurement: {"afrr_down_procured": APPEND},
+    Product.MFRRUpProcurement: {"mfrr_up_procured": APPEND},
+    Product.MFRRDownProcurement: {"mfrr_down_procured": APPEND},
+    Product.RRUpProcurement: {"rr_up_procured": APPEND},
+    Product.RRDownProcurement: {"rr_down_procured": APPEND},
+    Product.AFRRActivation: {"afrr_activated": APPEND},
+    Product.MFRRActivation: {"mfrr_activated": APPEND},
+    Product.RRActivation: {"rr_activated": APPEND},
+    Product.FCRActivation: {"fcr_activated": APPEND},
+}
+MARKET_AREA_PRICE_FIELDS: Fields = {
+    Product.DayAhead: {"da_price": APPEND},
+    Product.Intraday: {"id_price": FORECAST},
+    Product.AFRRActivation: {"afrr_activation_price": APPEND},
+    Product.MFRRActivation: {"mfrr_activation_price": APPEND},
+    Product.RRActivation: {"rr_activation_price": APPEND},
+    Product.FCRActivation: {"fcr_activation_price": APPEND},
+}
+MARKET_AREA_BALANCE_FIELDS: Fields = {
+    Product.DayAhead: {"da_balance": APPEND},
+    Product.Intraday: {"total_id_balance": CUMULATE, "id_balance": FORECAST},
+    Product.MFRRActivation: {"mfrr_activation_balance": APPEND},
+    Product.RRActivation: {"rr_activation_balance": APPEND},
+}
+MARKET_BORDER_FLOW_FIELDS: Fields = {
+    Product.DayAhead: {"da_flow": APPEND},
+    Product.Intraday: {"total_id_flow": APPEND, "id_flow": FORECAST},
+    Product.AFRRUpProcurement: {"afrr_up_procured": FORECAST},
+    Product.AFRRDownProcurement: {"afrr_down_procured": FORECAST},
+    Product.MFRRUpProcurement: {"mfrr_up_procured": FORECAST},
+    Product.MFRRDownProcurement: {"mfrr_down_procured": FORECAST},
+    Product.RRUpProcurement: {"rr_up_procured": FORECAST},
+    Product.RRDownProcurement: {"rr_down_procured": FORECAST},
+    Product.AFRRActivation: {"afrr_activated": APPEND},
+    Product.MFRRActivation: {"mfrr_activated": APPEND},
+    Product.RRActivation: {"rr_activated": APPEND},
+    Product.FCRActivation: {"fcr_activated": APPEND},
+}
+MARKET_BORDER_SHADOW_PRICE_FIELDS: Fields = {
+    Product.DayAhead: {"da_shadow_price": APPEND},
+    Product.Intraday: {"id_shadow_price": FORECAST},
+}
+CRITICAL_BRANCH_FLOW_FIELDS: Fields = {
+    Product.DayAhead: {"da_flow": APPEND},
+    Product.Intraday: {"total_id_flow": CUMULATE, "id_flow": FORECAST},
+}
 
 
 class MarketClearingResult(ModuleResult[MarketClearingParameters]):
@@ -157,7 +237,7 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
             # The surplus of an order is the gain made by its emitter computed from the present spot price:
             spot_price = self.market_prices[order.market_area.name].get_value(order.start_date)
             individual_spread = spot_price - order.price if order.is_sale else order.price - spot_price
-            updated_values: dict[str, Any] = {
+            updated_values = {
                 "name": order_name,
                 "accepted_power": accepted_power,
                 "individual_spread": individual_spread,
@@ -176,195 +256,47 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
                 portfolio_sold[index] += power_sold
 
         for equipment_name, (equipment, values) in equipments_sold.items():
-            equipment_ts = self.horizon_timeseries(values)
-            updated_values: dict[str, Any] = {"name": equipment_name}
-            match self.input_dataset.parameters.market:
-                case Product.DayAhead:
-                    updated_values["da_cleared_quantity"] = self.add_indexes(
-                        equipment.da_cleared_quantity, equipment_ts
-                    )
-                case Product.AFRRUpProcurement:
-                    updated_values["afrr_up_procured"] = self.add_timeseries_to_forecast(
-                        equipment.afrr_up_procured, equipment_ts
-                    )
-                case Product.AFRRDownProcurement:
-                    updated_values["afrr_down_procured"] = self.add_timeseries_to_forecast(
-                        equipment.afrr_down_procured, equipment_ts
-                    )
-                case Product.MFRRUpProcurement:
-                    updated_values["mfrr_up_procured"] = self.add_timeseries_to_forecast(
-                        equipment.mfrr_up_procured, equipment_ts
-                    )
-                case Product.MFRRDownProcurement:
-                    updated_values["mfrr_down_procured"] = self.add_timeseries_to_forecast(
-                        equipment.mfrr_down_procured, equipment_ts
-                    )
-                case Product.RRUpProcurement:
-                    updated_values["rr_up_procured"] = self.add_timeseries_to_forecast(
-                        equipment.rr_up_procured, equipment_ts
-                    )
-                case Product.RRDownProcurement:
-                    updated_values["rr_down_procured"] = self.add_timeseries_to_forecast(
-                        equipment.rr_down_procured, equipment_ts
-                    )
-                case Product.AFRRActivation:
-                    updated_values["afrr_activated"] = self.add_indexes(equipment.afrr_activated, equipment_ts)
-                case Product.MFRRActivation:
-                    updated_values["mfrr_activated"] = self.add_indexes(equipment.mfrr_activated, equipment_ts)
-                case Product.RRActivation:
-                    updated_values["rr_activated"] = self.add_indexes(equipment.rr_activated, equipment_ts)
-                case Product.FCRActivation:
-                    updated_values["fcr_activated"] = self.add_indexes(equipment.fcr_activated, equipment_ts)
-                case Product.Intraday:
-                    updated_values["total_id_cleared_quantity"] = self.add_indexes_or_sum(
-                        equipment.total_id_cleared_quantity, equipment_ts
-                    )
-                    updated_values["id_cleared_quantity"] = self.add_timeseries_to_forecast(
-                        equipment.id_cleared_quantity, equipment_ts
-                    )
-            # Update the Equipment
+            updated_values = {
+                "name": equipment_name,
+                **self.merged(equipment, EQUIPMENT_FIELDS, self.horizon_timeseries(values)),
+            }
             change_sets.append(UpdateObject(updated_values, type(equipment)))
 
         for portfolio_name, (portfolio, values) in portfolios_sold.items():
-            portfolio_ts = self.horizon_timeseries(values)
-            updated_values: dict[str, Any] = {"name": portfolio_name}
-            match self.input_dataset.parameters.market:
-                case Product.DayAhead:
-                    updated_values["da_cleared_quantity"] = self.add_indexes(
-                        portfolio.da_cleared_quantity, portfolio_ts
-                    )
-                case Product.AFRRUpProcurement:
-                    updated_values["afrr_up_procured"] = self.add_indexes(portfolio.afrr_up_procured, portfolio_ts)
-                case Product.AFRRDownProcurement:
-                    updated_values["afrr_down_procured"] = self.add_indexes(portfolio.afrr_down_procured, portfolio_ts)
-                case Product.MFRRUpProcurement:
-                    updated_values["mfrr_up_procured"] = self.add_indexes(portfolio.mfrr_up_procured, portfolio_ts)
-                case Product.MFRRDownProcurement:
-                    updated_values["mfrr_down_procured"] = self.add_indexes(portfolio.mfrr_down_procured, portfolio_ts)
-                case Product.RRUpProcurement:
-                    updated_values["rr_up_procured"] = self.add_indexes(portfolio.rr_up_procured, portfolio_ts)
-                case Product.RRDownProcurement:
-                    updated_values["rr_down_procured"] = self.add_indexes(portfolio.rr_down_procured, portfolio_ts)
-                case Product.AFRRActivation:
-                    updated_values["afrr_activated"] = self.add_indexes(portfolio.afrr_activated, portfolio_ts)
-                case Product.MFRRActivation:
-                    updated_values["mfrr_activated"] = self.add_indexes(portfolio.mfrr_activated, portfolio_ts)
-                case Product.RRActivation:
-                    updated_values["rr_activated"] = self.add_indexes(portfolio.rr_activated, portfolio_ts)
-                case Product.FCRActivation:
-                    updated_values["fcr_activated"] = self.add_indexes(portfolio.fcr_activated, portfolio_ts)
-                case Product.Intraday:
-                    updated_values["total_id_cleared_quantity"] = self.add_indexes_or_sum(
-                        portfolio.total_id_cleared_quantity, portfolio_ts
-                    )
-                    updated_values["id_cleared_quantity"] = self.add_timeseries_to_forecast(
-                        portfolio.id_cleared_quantity, portfolio_ts
-                    )
-            # Update the Portfolio
+            updated_values = {
+                "name": portfolio_name,
+                **self.merged(portfolio, PORTFOLIO_FIELDS, self.horizon_timeseries(values)),
+            }
             change_sets.append(UpdateObject(updated_values, Portfolio))
         return change_sets
 
     def update_market_area(self) -> list[ChangeSet]:
         change_sets: list[ChangeSet] = []
         for market_area_name, market_area in self.input_dataset.market_areas.items():
-            updated_values: dict[str, Any] = {"name": market_area_name}
-            values_bal = self.local_balances[market_area_name]
-            values_price = self.market_prices[market_area_name]
-
-            match self.input_dataset.parameters.market:
-                case Product.DayAhead:
-                    updated_values["da_price"] = self.add_indexes(market_area.da_price, values_price)
-                    updated_values["da_balance"] = self.add_indexes(market_area.da_balance, values_bal)
-                case Product.Intraday:
-                    updated_values["total_id_balance"] = self.add_indexes_or_sum(
-                        market_area.total_id_balance, values_bal
-                    )
-                    updated_values["id_price"] = self.add_timeseries_to_forecast(market_area.id_price, values_price)
-                    updated_values["id_balance"] = self.add_timeseries_to_forecast(market_area.id_balance, values_bal)
-                case Product.RRActivation:
-                    updated_values["rr_activation_price"] = self.add_indexes(
-                        market_area.rr_activation_price, values_price
-                    )
-                    updated_values["rr_activation_balance"] = self.add_indexes(
-                        market_area.rr_activation_balance, values_bal
-                    )
-                case Product.MFRRActivation:
-                    updated_values["mfrr_activation_price"] = self.add_indexes(
-                        market_area.mfrr_activation_price, values_price
-                    )
-                    updated_values["mfrr_activation_balance"] = self.add_indexes(
-                        market_area.mfrr_activation_balance, values_bal
-                    )
-                case Product.AFRRActivation:
-                    updated_values["afrr_activation_price"] = self.add_indexes(
-                        market_area.afrr_activation_price, values_price
-                    )
-                case Product.FCRActivation:
-                    updated_values["fcr_activation_price"] = self.add_indexes(
-                        market_area.fcr_activation_price, values_price
-                    )
-
-            # Update the Market Area
+            updated_values = {
+                "name": market_area_name,
+                **self.merged(market_area, MARKET_AREA_PRICE_FIELDS, self.market_prices[market_area_name]),
+                **self.merged(market_area, MARKET_AREA_BALANCE_FIELDS, self.local_balances[market_area_name]),
+            }
             change_sets.append(UpdateObject(updated_values, MarketArea))
         return change_sets
 
     def update_market_border(self) -> list[ChangeSet]:
         change_sets: list[ChangeSet] = []
         for market_border_name, market_border in self.input_dataset.market_borders.items():
-            updated_values: dict[str, Any] = {"name": market_border_name}
             flow = self.border_exchanges[market_border_name]
             shadow_price = (
                 self.market_prices[market_border.uphill_market_area.name]
                 - self.market_prices[market_border.downhill_market_area.name]
             )
-            match self.input_dataset.parameters.market:
-                case Product.DayAhead:
-                    updated_values["da_flow"] = self.add_indexes(market_border.da_flow, flow)
-                    updated_values["da_shadow_price"] = self.add_indexes(market_border.da_shadow_price, shadow_price)
-                case Product.Intraday:
-                    updated_values["total_id_flow"] = self.add_indexes(market_border.total_id_flow, flow)
-                    updated_values["id_flow"] = self.add_timeseries_to_forecast(market_border.id_flow, flow)
-                    updated_values["id_shadow_price"] = self.add_timeseries_to_forecast(
-                        market_border.id_shadow_price, shadow_price
-                    )
-                case Product.MFRRUpProcurement:
-                    updated_values["mfrr_up_procured"] = self.add_timeseries_to_forecast(
-                        market_border.mfrr_up_procured, flow
-                    )
-                case Product.MFRRDownProcurement:
-                    updated_values["mfrr_down_procured"] = self.add_timeseries_to_forecast(
-                        market_border.mfrr_down_procured, flow
-                    )
-                case Product.AFRRUpProcurement:
-                    updated_values["afrr_up_procured"] = self.add_timeseries_to_forecast(
-                        market_border.afrr_up_procured, flow
-                    )
-                case Product.AFRRDownProcurement:
-                    updated_values["afrr_down_procured"] = self.add_timeseries_to_forecast(
-                        market_border.afrr_down_procured, flow
-                    )
-                case Product.RRUpProcurement:
-                    updated_values["rr_up_procured"] = self.add_timeseries_to_forecast(
-                        market_border.rr_up_procured, flow
-                    )
-                case Product.RRDownProcurement:
-                    updated_values["rr_down_procured"] = self.add_timeseries_to_forecast(
-                        market_border.rr_down_procured, flow
-                    )
-                case Product.RRActivation:
-                    updated_values["rr_activated"] = self.add_indexes(market_border.rr_activated, flow)
-                case Product.MFRRActivation:
-                    updated_values["mfrr_activated"] = self.add_indexes(market_border.mfrr_activated, flow)
-                case Product.AFRRActivation:
-                    updated_values["afrr_activated"] = self.add_indexes(market_border.afrr_activated, flow)
-                case Product.FCRActivation:
-                    updated_values["fcr_activated"] = self.add_indexes(market_border.fcr_activated, flow)
-
-            # Update ReferenceFlow, otherwise the flow can be out of bounds for future markets
-            updated_values["reference_flow"] = self.add_indexes_or_sum(market_border.reference_flow, flow)
-
+            updated_values = {
+                "name": market_border_name,
+                **self.merged(market_border, MARKET_BORDER_FLOW_FIELDS, flow),
+                **self.merged(market_border, MARKET_BORDER_SHADOW_PRICE_FIELDS, shadow_price),
+                # Update ReferenceFlow, otherwise the flow can be out of bounds for future markets
+                "reference_flow": self.add_indexes_or_sum(market_border.reference_flow, flow),
+            }
             # Remark : Flow markets are not yet taken into account.
-            # Update the Market Border
             change_sets.append(UpdateObject(updated_values, MarketBorder))
         return change_sets
 
@@ -378,7 +310,7 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
                 ) - market_area.ref_balance.get_value(time)
 
         for critical_branch in self.input_dataset.critical_branches.values():
-            updated_values: dict[str, Any] = {"name": critical_branch.name}
+            updated_values = {"name": critical_branch.name}
             flow = self.horizon_timeseries([0.0] * len(self.input_dataset.times))
             for market_area_ptdf in critical_branch.market_area_ptdf:
                 da_ptdf = market_area_ptdf.da_ptdf.set_frequency(
@@ -386,19 +318,39 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
                 ).filter(self.input_dataset.times)  # type: ignore[arg-type]
                 flow += da_ptdf
 
-            match self.input_dataset.parameters.market:
-                case Product.DayAhead:
-                    updated_values["da_flow"] = self.add_indexes(critical_branch.da_flow, flow)
-                case Product.Intraday:
-                    updated_values["total_id_flow"] = self.add_indexes_or_sum(critical_branch.total_id_flow, flow)
-                    updated_values["id_flow"] = self.add_timeseries_to_forecast(critical_branch.id_flow, flow)
-                case _:
-                    cfg.logger.info(
-                        "ATLAS 1.3 does not support exports on critical branches for this market. "
-                        "This should be corrected in future versions"
-                    )
+            if self.input_dataset.parameters.market not in CRITICAL_BRANCH_FLOW_FIELDS:
+                cfg.logger.info(
+                    "ATLAS 1.3 does not support exports on critical branches for this market. "
+                    "This should be corrected in future versions"
+                )
+            updated_values |= self.merged(critical_branch, CRITICAL_BRANCH_FLOW_FIELDS, flow)
             change_sets.append(UpdateObject(updated_values, CriticalBranch))
         return change_sets
+
+    def merged(self, obj: Any, fields: Fields, window: Timeseries) -> dict[str, Any]:
+        """
+        Merge the window cleared over the horizon into each attribute of *obj* updated by the market.
+
+        :param obj: Object holding the attributes
+        :type obj: Any
+        :param fields: Attributes updated for each market, and how they are merged
+        :type fields: Fields
+        :param window: Values cleared over the horizon
+        :type window: Timeseries
+        :return: The new value of each attribute updated by the market
+        :rtype: dict[str, Any]
+        """
+        updated_values: dict[str, Any] = {}
+        for attribute, merge in fields.get(self.input_dataset.parameters.market, {}).items():
+            history = getattr(obj, attribute)
+            match merge:
+                case Merge.APPEND:
+                    updated_values[attribute] = self.add_indexes(history, window)
+                case Merge.CUMULATE:
+                    updated_values[attribute] = self.add_indexes_or_sum(history, window)
+                case Merge.FORECAST:
+                    updated_values[attribute] = self.add_timeseries_to_forecast(history, window)
+        return updated_values
 
     def horizon_timeseries(self, values: list[float]) -> Timeseries:
         """
