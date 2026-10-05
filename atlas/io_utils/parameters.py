@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Self, TypeVar
 
@@ -135,10 +136,55 @@ class MultiProcessingParameters(FrozenBaseModel):
     max_workers: int | None = None
 
 
-class OutputParameters(FrozenBaseModel):
-    export_result: bool = False
-    export_output_dataset: bool = False
-    output_dir: Path = Path("output")
+@dataclass(frozen=True)
+class RunPaths:
+    """Directory layout produced by a single module execution.
+
+    Owns the sub-directory names of a run tree so that no call site has to spell
+    them out. ``root`` is expected to be already resolved by the caller.
+
+    :param root: Root directory of the run.
+    :type root: pathlib.Path
+
+    Example::
+
+        >>> paths = RunPaths(Path("output"))
+        >>> paths.results
+        PosixPath('output/results')
+    """
+
+    root: Path
+
+    @property
+    def results(self) -> Path:
+        """Directory holding the business CSVs produced by the module."""
+        return self.root / "results"
+
+    @property
+    def dataset(self) -> Path:
+        """Directory holding the serialized dataset produced by the module."""
+        return self.root / "output_dataset"
+
+    @property
+    def lp_export(self) -> Path:
+        """Directory holding the LP files exported by the solver."""
+        return self.root / "lp_export"
+
+
+class ExportParameters(FrozenBaseModel):
+    """What a module writes to disk, and where.
+
+    :param export_results: If True, write the module's business CSVs.
+    :type export_results: bool
+    :param export_dataset: If True, serialize the dataset produced by the module.
+    :type export_dataset: bool
+    :param run_dir: Root directory of the run tree for this module execution.
+    :type run_dir: pathlib.Path
+    """
+
+    export_results: bool = False
+    export_dataset: bool = False
+    run_dir: Path = Path("output")
 
 
 PT = TypeVar("PT", bound=Parameters)

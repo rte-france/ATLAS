@@ -28,9 +28,9 @@ temporal:
   end_date: "2024-01-02 00:00:00"
   execution_date: "2024-01-01 12:00:00"
   timestep: "PT1H"
-output:
-  export_result: true
-  export_output_dataset: true
+export:
+  export_results: true
+  export_dataset: true
 intraday_negative_price_cap: -500
 intraday_positive_price_cap: 4000
 execution_date_day_ahead: "2024-01-01 06:00:00"

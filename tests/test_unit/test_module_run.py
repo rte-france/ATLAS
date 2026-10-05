@@ -13,13 +13,13 @@ from atlas.modules.module_run import ModuleRun
 
 
 def _make_module(change_sets=None, run_return=None):
-    """Return a mock AbstractModule whose run() returns an output_dataset with change_sets."""
-    output_dataset = MagicMock()
-    output_dataset.change_sets = change_sets or []
+    """Return a mock AbstractModule whose run() returns an result with change_sets."""
+    result = MagicMock()
+    result.change_sets = change_sets or []
     if run_return is not None:
-        output_dataset = run_return
+        result = run_return
     module = MagicMock()
-    module.run.return_value = output_dataset
+    module.run.return_value = result
     return module
 
 

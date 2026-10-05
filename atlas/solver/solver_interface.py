@@ -7,20 +7,30 @@ This file is part of the ATLAS project.
 Module that implements OR-Tools optimisation interface.
 """
 
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Literal
 
 from ortools.linear_solver import pywraplp
+from pendulum import DateTime
 
 from atlas.config import logger
-from atlas.enums import SolverEnum, SolverStatus
-from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions
+from atlas.custom_errors import ModelNotSolvedError, UnsuccessfulSolveError
+from atlas.enums import SolverEnum, SolverStatus, VariableType
+from atlas.math.timeseries import Timeseries
+from atlas.solver.models import (
+    SUCCESSFUL_SOLVER_STATUSES,
+    ConstraintBounds,
+    SolutionInfo,
+    SolverOptions,
+)
 from atlas.solver.solver_parameters import (
     GenericParameterBuilder,
     SCIPParameterBuilder,
     SolverParameterBuilder,
     XPRESSParameterBuilder,
 )
+from atlas.solver.temporal_variable import Bound, TemporalVariable
 from atlas.timing import timer
 
 
@@ -53,6 +63,7 @@ class OptimisationModel:
         self._solver = None
         self._variables_name: set[str] = set()
         self._constraints_name: set[str] = set()
+        self._temporal_variables: dict[str, TemporalVariable] = {}
         self._objective: Any | None = None
         self._objective_direction: Literal["maximize", "minimize"] | None = None
         self._objective_pending: bool = False
@@ -114,6 +125,40 @@ class OptimisationModel:
     def options(self) -> SolverOptions:
         """Return the current solver options."""
         return self._options
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether the model has been solved and holds a readable solution.
+
+        Use it to branch on a failed solve; use :meth:`require_solution` to fail on one.
+
+        :return: True if the last solve finished on ``OPTIMAL`` or ``FEASIBLE``
+        :rtype: bool
+        """
+        return self._solution_info is not None and self._solution_info.is_successful
+
+    def require_solution(self) -> None:
+        """Raise if the model does not hold a solution that can be read back.
+
+        Every solution accessor calls this first, so that a failed solve surfaces as an error
+        instead of OR-Tools' default ``0.0`` values. Call it directly before reading variable
+        objects through :meth:`get_variable`, which is also used to build the model and therefore
+        cannot check the status itself.
+
+        **Example**
+
+            model.solve()
+            model.require_solution()
+            value = model.get_variable("x").solution_value()
+
+        :raises ModelNotSolvedError: If the model has not been solved yet
+        :raises UnsuccessfulSolveError: If the last solve did not produce a solution
+        """
+        if self._solution_info is None:
+            raise ModelNotSolvedError("Optimisation model has not been solved yet")
+
+        if not self._solution_info.is_successful:
+            raise UnsuccessfulSolveError(self._solution_info.status, self.name)
 
     def add_continuous_variable(
         self,
@@ -184,6 +229,74 @@ class OptimisationModel:
         self._variables_name.add(name)
         return var
 
+    def add_temporal_variable(
+        self,
+        name: str,
+        times: Iterable[DateTime] | None = None,
+        variable_type: VariableType = VariableType.CONTINUOUS,
+        lower_bound: Bound | None = None,
+        upper_bound: Bound | None = None,
+    ) -> TemporalVariable:
+        """
+        Declare a family of variables indexed by time and register it in the model.
+
+        This is the only way to create a :class:`~atlas.solver.temporal_variable.TemporalVariable`:
+        registration is what makes it part of :meth:`solution`. Keep the returned object to build
+        constraints, the model does not expose temporal variables by name.
+
+        **Example**
+
+            power = model.add_temporal_variable("unit_power", time_window, lower_bound=0, upper_bound=max_power)
+            power.fix(start - timestep, 50.0)
+            model.solve()
+            model.solution()["unit_power"]
+
+        :param name: Name of the family, used as prefix of each solver variable name
+        :type name: str
+        :param times: Timestamps for which solver variables are created immediately
+        :type times: Iterable[DateTime] | None
+        :param variable_type: Type of the solver variables, defaults to continuous
+        :type variable_type: VariableType
+        :param lower_bound: Lower bound: a constant, a timeseries or a function of time. A timeseries
+            is read for all *times* in one lookup, prefer it over a function such as ``ts.get_value``.
+        :type lower_bound: float | AbstractTimeseries | Callable[[DateTime], float] | None
+        :param upper_bound: Upper bound, same forms as *lower_bound*
+        :type upper_bound: float | AbstractTimeseries | Callable[[DateTime], float] | None
+        :return: The registered temporal variable
+        :rtype: TemporalVariable
+        :raises ValueError: If a temporal variable with the same name already exists, or if bounds
+            are given for a boolean variable
+        """
+        if name in self._temporal_variables:
+            raise ValueError(f"Temporal variable '{name}' already exists")
+
+        logger.debug(f"Adding {variable_type.value} temporal variable '{name}'")
+        temporal_variable = TemporalVariable(self, name, times, variable_type, lower_bound, upper_bound)
+        self._temporal_variables[name] = temporal_variable
+        return temporal_variable
+
+    def solution(self, include_fixed: bool = False) -> dict[str, Timeseries]:
+        """
+        Get the solved values of every temporal variable, as picklable timeseries.
+
+        Temporal variables without any value to return are skipped. This is the result to send
+        back from a worker process, instead of the model or the temporal variables themselves.
+
+        :param include_fixed: Also include fixed values, defaults to False
+        :type include_fixed: bool
+        :return: Solved values keyed by temporal variable name
+        :rtype: dict[str, Timeseries]
+        :raises RuntimeError: If the model hasn't been solved
+        """
+        if not self._solution_info:
+            raise RuntimeError("Optimisation model has not been solved yet")
+
+        return {
+            name: temporal_variable.solution(include_fixed)
+            for name, temporal_variable in self._temporal_variables.items()
+            if (temporal_variable.times if include_fixed else temporal_variable.model_times)
+        }
+
     def get_variable(self, name: str) -> Any:
         """
         Get a variable object by name for use in expressions.
@@ -193,6 +306,11 @@ class OptimisationModel:
         :return: OR-Tools variable object
         :rtype: pywraplp.Variable
         :raises ValueError: If variable doesn't exist
+
+        .. warning::
+            This returns the variable object itself, for use in expressions while the model is
+            being built, so it cannot check the solve status. To read a solved value, use
+            :meth:`get_variable_value`, or call :meth:`require_solution` first.
         """
         if name not in self._variables_name:
             raise ValueError(f"Variable '{name}' not found")
@@ -359,6 +477,10 @@ class OptimisationModel:
         """
         Solve the optimization problem.
 
+        A failed solve is reported through the returned status, not raised, so that callers can
+        retry with a relaxed model. Reading the solution afterwards raises: see
+        :meth:`require_solution`.
+
         :return: Solution information
         :rtype: SolutionInfo
         """
@@ -383,10 +505,12 @@ class OptimisationModel:
         }
 
         mapped_status = status_map.get(status, SolverStatus.NOT_SOLVED)
-        if not self.name:
-            logger.info(f"Optimisation finished in {solve_time} with status: {mapped_status.name}")
+        prefix = f"{self.name} optimisation" if self.name else "Optimisation"
+        message = f"{prefix} finished in {solve_time} with status: {mapped_status.name}"
+        if mapped_status in SUCCESSFUL_SOLVER_STATUSES:
+            logger.info(message)
         else:
-            logger.info(f"{self.name} optimisation finished in {solve_time} with status: {mapped_status.name}")
+            logger.error(message)
 
         objective_value = None
 
@@ -413,11 +537,11 @@ class OptimisationModel:
         :type name: str
         :return: Variable value
         :rtype: float
-        :raises RuntimeError: If model hasn't been solved
+        :raises ModelNotSolvedError: If model hasn't been solved
+        :raises UnsuccessfulSolveError: If the last solve did not produce a solution
         :raises ValueError: If variable hasn't been added
         """
-        if not self._solution_info:
-            raise RuntimeError("Optimisation model has not been solved yet")
+        self.require_solution()
 
         if name not in self._variables_name:
             raise ValueError(f"Variable '{name}' not found in solution")
@@ -432,11 +556,11 @@ class OptimisationModel:
         :type name: str
         :return: Slack value of the constraint
         :rtype: float
-        :raises RuntimeError: If model hasn't been solved
+        :raises ModelNotSolvedError: If model hasn't been solved
+        :raises UnsuccessfulSolveError: If the last solve did not produce a solution
         :raises ValueError: If constraint hasn't been added
         """
-        if not self._solution_info:
-            raise RuntimeError("Optimisation model has not been solved yet")
+        self.require_solution()
 
         if name not in self._constraints_name:
             raise ValueError(f"Constraint '{name}' not found in model")
@@ -490,9 +614,14 @@ class OptimisationModel:
         return self._solver.SetSolverSpecificParametersAsString(params)
 
     def clear(self) -> None:
-        """Clear the model and reset all variables and constraints."""
+        """
+        Clear the model and reset all variables and constraints.
+
+        Temporal variables obtained before clearing reference the previous solver and must not be reused.
+        """
         self._variables_name.clear()
         self._constraints_name.clear()
+        self._temporal_variables.clear()
         self._solution_info = None
         self._objective = None
         self._objective_direction = None
