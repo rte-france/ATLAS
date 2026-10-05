@@ -42,9 +42,7 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
 
     def __deepcopy__(self, memo: dict[int, Any]) -> Self:
         """Deep copy sharing the underlying frame, see :func:`deepcopy_sharing_frames`."""
-        copied = deepcopy_sharing_frames(self, memo, skip={"_epoch_lookup_cache"})
-        copied._invalidate_cache()
-        return copied
+        return deepcopy_sharing_frames(self, memo, reset={"_epoch_lookup_cache"})
 
     @abstractmethod
     def _get_data(self) -> TBackend:

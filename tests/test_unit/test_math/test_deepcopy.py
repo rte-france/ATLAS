@@ -53,12 +53,15 @@ def test_deepcopy_shares_frames_and_copies_every_mutable_attribute(build):
 
     assert type(copied) is type(original)
     assert copied is not original
-    assert vars(copied).keys() >= vars(original).keys()
+    assert vars(copied).keys() == vars(original).keys()
     for name, value in vars(original).items():
         if isinstance(value, (pl.DataFrame, pl.LazyFrame)):
             assert vars(copied)[name] is value, f"{name} should be shared"
         elif not isinstance(value, IMMUTABLE_TYPES):
             assert vars(copied)[name] is not value, f"{name} should be copied"
+            # Caches start empty in the copy, see the dedicated tests below
+            if not name.endswith("_cache"):
+                assert vars(copied)[name] == value, f"{name} should be equal"
 
 
 @pytest.mark.parametrize("build", MATH_OBJECTS)

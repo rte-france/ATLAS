@@ -16,7 +16,7 @@ from typing import Any
 import polars as pl
 
 
-def deepcopy_sharing_frames[T](obj: T, memo: dict[int, Any], skip: Container[str] = ()) -> T:
+def deepcopy_sharing_frames[T](obj: T, memo: dict[int, Any], reset: Container[str] = ()) -> T:
     """Deep copy a math object, sharing its polars frames with the original.
 
     Polars frames are never mutated in place: an ``inplace=True`` operation rebinds the object to a
@@ -26,8 +26,8 @@ def deepcopy_sharing_frames[T](obj: T, memo: dict[int, Any], skip: Container[str
     :type obj: T
     :param memo: Memo dictionary of the ongoing :func:`copy.deepcopy`
     :type memo: dict[int, Any]
-    :param skip: Attributes left out of the copy, typically caches the caller resets afterwards
-    :type skip: Container[str]
+    :param reset: Attributes set to ``None`` in the copy instead of being copied, typically caches
+    :type reset: Container[str]
     :return: An independent object holding the same frames
     :rtype: T
 
@@ -43,7 +43,8 @@ def deepcopy_sharing_frames[T](obj: T, memo: dict[int, Any], skip: Container[str
     copied = object.__new__(type(obj))
     memo[id(obj)] = copied
     for name, value in vars(obj).items():
-        if name in skip:
+        if name in reset:
+            setattr(copied, name, None)
             continue
         shared = isinstance(value, (pl.DataFrame, pl.LazyFrame))
         setattr(copied, name, value if shared else copy.deepcopy(value, memo))
