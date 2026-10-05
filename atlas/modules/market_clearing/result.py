@@ -11,7 +11,6 @@ from atlas.abstract_class.dataset import ModuleResult
 from atlas.enums import Product
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.data_classes import ClearingOutputs
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
@@ -413,45 +412,54 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
         times = self.input_dataset.times
         return Timeseries({"time": times, "value": values}, timezone=times[0].timezone_name or "UTC")
 
-    def add_indexes(self, ts_obj: AbstractTimeseries | None, other: AbstractTimeseries) -> AbstractTimeseries:
-        if ts_obj is None:
-            return other
-        if isinstance(ts_obj, LazyTimeseries):
-            ts_obj = ts_obj.collect()
-        if ts_obj.shape[0] < 2:
-            return other
-        if ts_obj.timestep > other.timestep:
-            ts_obj.upsample(other.timestep)
-        elif other.timestep > ts_obj.timestep:
-            other.upsample(ts_obj.timestep)
-        return ts_obj.add_indexes(other, inplace=False)
+    def add_indexes(self, history: AbstractTimeseries | None, window: AbstractTimeseries) -> AbstractTimeseries:
+        """
+        Append the cleared window to the history of an attribute.
 
-    def add_indexes_or_sum(self, ts_obj: AbstractTimeseries | None, other: Timeseries) -> AbstractTimeseries:
-        if ts_obj is None:
-            return other
-        if isinstance(ts_obj, LazyTimeseries):
-            ts_obj = ts_obj.collect()
-        if ts_obj.timeseries.shape[0] < 2:
-            return other
-        if ts_obj.timestep > other.timestep:
-            ts_obj.upsample(other.timestep)
-        elif other.timestep > ts_obj.timestep:
-            other.upsample(ts_obj.timestep)
-        if other.index[0] not in ts_obj:
-            return self.add_indexes(ts_obj, self.horizon_timeseries([0.0] * len(self.input_dataset.times)))
-        else:
-            ts_obj += other
-            return ts_obj
+        A history of less than two timesteps has no frequency to check the window against: it is replaced.
+
+        :param history: Current value of the attribute
+        :type history: AbstractTimeseries | None
+        :param window: Values cleared over the horizon
+        :type window: AbstractTimeseries
+        :return: The history followed by the window
+        :rtype: AbstractTimeseries
+        """
+        if history is None or len(history) < 2:
+            return window
+        return history.add_indexes(window, inplace=False)
+
+    def add_indexes_or_sum(self, history: AbstractTimeseries | None, window: AbstractTimeseries) -> AbstractTimeseries:
+        """
+        Add the cleared window to a total cumulated over the successive clearings.
+
+        :param history: Current value of the attribute
+        :type history: AbstractTimeseries | None
+        :param window: Values cleared over the horizon
+        :type window: AbstractTimeseries
+        :return: The sum of both if the window is already in the history, the history extended otherwise
+        :rtype: AbstractTimeseries
+        """
+        if history is None or len(history) < 2:
+            return window
+        if window.index[0] in history:
+            return history + window
+        # ponytail: zeros are appended instead of the window, see issue #448
+        return self.add_indexes(history, self.horizon_timeseries([0.0] * len(self.input_dataset.times)))
 
     def add_timeseries_to_forecast(
-        self, forecast_obj: ForecastingMatrix | LazyForecastingMatrix | None, other: Timeseries
+        self, forecast: ForecastingMatrix | LazyForecastingMatrix | None, window: Timeseries
     ) -> ForecastingMatrix | LazyForecastingMatrix:
-        if forecast_obj is None:
-            new_forecast_obj = ForecastingMatrix()
-            new_forecast_obj.add(other, self.input_dataset.parameters.temporal.execution_date)
-            return new_forecast_obj
-        else:
-            if isinstance(forecast_obj, LazyForecastingMatrix):
-                forecast_obj = forecast_obj.collect()
-            forecast_obj.add(other, self.input_dataset.parameters.temporal.execution_date)
-            return forecast_obj
+        """
+        Add the cleared window to a forecasting matrix, indexed by the execution date.
+
+        :param forecast: Current value of the attribute
+        :type forecast: ForecastingMatrix | LazyForecastingMatrix | None
+        :param window: Values cleared over the horizon
+        :type window: Timeseries
+        :return: The matrix holding the window
+        :rtype: ForecastingMatrix | LazyForecastingMatrix
+        """
+        if forecast is None:
+            forecast = ForecastingMatrix()
+        return forecast.add(window, self.input_dataset.parameters.temporal.execution_date)

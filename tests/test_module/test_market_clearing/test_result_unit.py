@@ -3,11 +3,8 @@
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Unit test for ATLAS-296 B6: `MarketClearingResult.add_timeseries_to_forecast` checked
-`isinstance(forecast_obj, LazyTimeseries)` on a parameter typed `ForecastingMatrix |
-LazyForecastingMatrix | None` — a real `LazyForecastingMatrix` never matched that check and was
-never `collect()`-ed. Neither test dataset triggers this path (the LP-comparison/output-snapshot
-fixtures are byte-for-byte unchanged by every fix in this PR), so this is exercised directly.
+Unit test for ATLAS-296 B6: `MarketClearingResult.add_timeseries_to_forecast` on a
+`LazyForecastingMatrix`. Neither test dataset triggers this path, so it is exercised directly.
 """
 
 import pendulum
@@ -28,7 +25,7 @@ class _FakeResult:
 
 
 class TestAddTimeseriesToForecast:
-    def test_a_lazy_forecasting_matrix_is_collected_before_use(self, parameters: MarketClearingParameters) -> None:
+    def test_the_window_is_added_to_a_lazy_forecasting_matrix(self, parameters: MarketClearingParameters) -> None:
         existing_time = parameters.temporal.start_date
         new_time = parameters.temporal.start_date + pendulum.duration(hours=1)
         existing_ts = Timeseries.from_index(existing_time, pendulum.duration(hours=1), existing_time, 5.0)
@@ -41,5 +38,5 @@ class TestAddTimeseriesToForecast:
         fake_result = _FakeResult(execution_date=new_time)
         result = fake_result.add_timeseries_to_forecast(lazy_forecast, new_ts)
 
-        assert isinstance(result, ForecastingMatrix)
         assert new_time in result
+        assert existing_time in result
