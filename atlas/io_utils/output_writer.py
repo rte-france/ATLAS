@@ -49,7 +49,7 @@ def save_to_directory(
     :raises DataValidationError: If data validation fails
     """
     try:
-        cfg.logger.info(f"Exporting Atlas output to directory: {directory_path}")
+        cfg.logger.debug(f"Exporting Atlas output to directory: {directory_path}")
 
         config = OutputGeneratorConfig(
             directory_path=directory_path,
