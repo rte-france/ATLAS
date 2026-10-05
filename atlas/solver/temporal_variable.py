@@ -33,6 +33,84 @@ _DEFAULT_BOUNDS: dict[VariableType, tuple[float, float]] = {
 }
 
 
+class TemporalVariableRegistry:
+    """
+    Temporal variables of an optimisation model, and the solution indexes they share.
+
+    Internal to :class:`~atlas.solver.solver_interface.OptimisationModel`, which creates its temporal
+    variables through :meth:`add`. Temporal variables are mostly declared over the same timestamps:
+    the index of their solution is built once here and only the values are read for each one.
+    """
+
+    def __init__(self) -> None:
+        self._variables: dict[str, TemporalVariable] = {}
+        self._time_axes: dict[tuple[str, tuple[DateTime, ...]], Timeseries] = {}
+
+    def add(
+        self,
+        model: OptimisationModel,
+        name: str,
+        times: Iterable[DateTime] | None = None,
+        variable_type: VariableType = VariableType.CONTINUOUS,
+        lower_bound: Bound | None = None,
+        upper_bound: Bound | None = None,
+    ) -> TemporalVariable:
+        """
+        Create a temporal variable in *model* and register it.
+
+        :return: The registered temporal variable
+        :rtype: TemporalVariable
+        :raises ValueError: If a temporal variable with the same name already exists, or if bounds
+            are given for a boolean variable
+        """
+        if name in self._variables:
+            raise ValueError(f"Temporal variable '{name}' already exists")
+        temporal_variable = TemporalVariable(model, self, name, times, variable_type, lower_bound, upper_bound)
+        self._variables[name] = temporal_variable
+        return temporal_variable
+
+    def solution(self, include_fixed: bool = False) -> dict[str, Timeseries]:
+        """
+        Get the solved values of every temporal variable having values to return.
+
+        :param include_fixed: Also include fixed values, defaults to False
+        :type include_fixed: bool
+        :return: Solved values keyed by temporal variable name
+        :rtype: dict[str, Timeseries]
+        """
+        return {
+            name: temporal_variable.solution(include_fixed=include_fixed)
+            for name, temporal_variable in self._variables.items()
+            if (temporal_variable.times if include_fixed else temporal_variable.model_times)
+        }
+
+    def time_axis(self, times: Sequence[DateTime]) -> Timeseries:
+        """
+        Get a timeseries of zeros indexed by *times*, built once per registry.
+
+        The index is shared: fill it with :meth:`~atlas.math.abstract_timeseries.AbstractTimeseries.with_values`,
+        never modify it in place.
+
+        :param times: Sorted timestamps, without duplicates, at least one
+        :type times: Sequence[DateTime]
+        :return: The shared index
+        :rtype: Timeseries
+        """
+        timezone = times[0].timezone_name or "UTC"
+        # equal instants in different timezones compare equal: the timezone is part of the key
+        key = (timezone, tuple(times))
+        axis = self._time_axes.get(key)
+        if axis is None:
+            axis = Timeseries({"time": list(times), "value": [0.0] * len(times)}, timezone=timezone)
+            self._time_axes[key] = axis
+        return axis
+
+    def clear(self) -> None:
+        """Forget every temporal variable and shared index."""
+        self._variables.clear()
+        self._time_axes.clear()
+
+
 class TemporalVariable:
     """
     Family of optimisation variables sharing a name and indexed by :class:`~pendulum.DateTime`.
@@ -60,6 +138,8 @@ class TemporalVariable:
 
     :param model: Optimisation model in which variables are created
     :type model: OptimisationModel
+    :param registry: Registry of the model, sharing the solution indexes between temporal variables
+    :type registry: TemporalVariableRegistry
     :param name: Name of the family, used as prefix of each solver variable name
     :type name: str
     :param times: Timestamps for which solver variables are created immediately
@@ -78,6 +158,7 @@ class TemporalVariable:
     def __init__(
         self,
         model: OptimisationModel,
+        registry: TemporalVariableRegistry,
         name: str,
         times: Iterable[DateTime] | None = None,
         variable_type: VariableType = VariableType.CONTINUOUS,
@@ -88,6 +169,7 @@ class TemporalVariable:
             raise ValueError(f"Boolean temporal variable '{name}' does not accept bounds")
 
         self._model = model
+        self._registry = registry
         self._name = name
         self._variable_type = variable_type
         default_lower, default_upper = _DEFAULT_BOUNDS.get(variable_type, (0.0, 1.0))
@@ -361,7 +443,7 @@ class TemporalVariable:
 
     def _default_axis(self, include_fixed: bool) -> Timeseries:
         if include_fixed not in self._axes:
-            self._axes[include_fixed] = self._model._shared_time_axis(self._default_times(include_fixed))
+            self._axes[include_fixed] = self._registry.time_axis(self._default_times(include_fixed))
         return self._axes[include_fixed]
 
     def _invalidate_sorted_times(self) -> None:

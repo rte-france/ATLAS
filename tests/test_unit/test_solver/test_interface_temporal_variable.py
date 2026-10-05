@@ -123,7 +123,7 @@ class TestSolution:
 
     def test_variables_over_the_same_times_share_one_index(self, solved):
         """Only the values are read per variable: the index is converted once for power and on."""
-        with patch("atlas.solver.solver_interface.Timeseries", wraps=Timeseries) as constructor:
+        with patch("atlas.solver.temporal_variable.Timeseries", wraps=Timeseries) as constructor:
             solution = solved.solution()
 
         assert constructor.call_count == 1
@@ -132,7 +132,7 @@ class TestSolution:
     def test_the_shared_index_is_built_once_per_model(self, solved):
         solved.solution()
 
-        with patch("atlas.solver.solver_interface.Timeseries", wraps=Timeseries) as constructor:
+        with patch("atlas.solver.temporal_variable.Timeseries", wraps=Timeseries) as constructor:
             solved.solution()
 
         assert constructor.call_count == 0
@@ -159,7 +159,7 @@ class TestSolution:
         solved.set_direction("minimize")
         solved.solve()
 
-        with patch("atlas.solver.solver_interface.Timeseries", wraps=Timeseries) as constructor:
+        with patch("atlas.solver.temporal_variable.Timeseries", wraps=Timeseries) as constructor:
             power.solution()
 
         assert constructor.call_count == 1
