@@ -135,6 +135,7 @@ class TestResolveListReference:
         ChangeSetHandler._resolve_reference(data, cis_with_orders, model_class=OrderCoupling)
 
         assert [order.name for order in data["orders"]] == ["order_1", "order_2"]
+        assert data["orders"][0] is cis_with_orders.data.order.get("order_1")
         assert data["orders"][1] is cis_with_orders.data.order.get("order_2")
 
     def test_resolve_empty_list(self, cis_with_orders):
