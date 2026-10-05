@@ -9,8 +9,7 @@ This module provides LazyTimeseries.
 
 from __future__ import annotations
 
-import copy
-from collections.abc import Generator, Sequence
+from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
@@ -221,16 +220,6 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
             return cls(pl.from_pandas(dataframe), timezone)
         else:
             raise TypeError("Input has to be a dataframe-like object.")
-
-    def with_values(self, values: Sequence[float] | pl.Series) -> LazyTimeseries:
-        if len(values) != len(self):
-            raise ValueError(f"Expected {len(self)} values to match the index, got {len(values)}")
-
-        # the index is already sorted and typed: skip the checks and conversions of __init__
-        result = copy.copy(self)
-        result.timeseries = self.timeseries.with_columns(pl.lit(pl.Series("value", values, dtype=pl.Float64)))
-        result._invalidate_cache()
-        return result
 
     def to_frame(
         self,

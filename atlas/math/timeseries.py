@@ -9,9 +9,8 @@ This module provides a Timeseries class for handling Timeseries data using Polar
 
 from __future__ import annotations
 
-import copy
 import pickle
-from collections.abc import Generator, Sequence
+from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -121,16 +120,6 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
             raise TypeError("Input has to be a dataframe-like object.")
 
         return cls(dataframe, timezone)
-
-    def with_values(self, values: Sequence[float] | pl.Series) -> Timeseries:
-        if len(values) != len(self.timeseries):
-            raise ValueError(f"Expected {len(self.timeseries)} values to match the index, got {len(values)}")
-
-        # the index is already sorted and typed: skip the checks and conversions of __init__
-        result = copy.copy(self)
-        result.timeseries = self.timeseries.with_columns(pl.Series("value", values, dtype=pl.Float64))
-        result._invalidate_cache()
-        return result
 
     def describe(self) -> dict[str, Any]:
         """
