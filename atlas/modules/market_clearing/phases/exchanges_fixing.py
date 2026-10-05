@@ -9,6 +9,7 @@ from typing import Any
 
 import pendulum
 
+from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases._border_variables import (
@@ -33,7 +34,7 @@ class ExchangesFixing:
         self.absolute = add_absolute_exchanges(self.model, input_dataset)
         self.losses = add_loss_variables(self.model, input_dataset, only_borders_with_losses=False)
 
-    def compute(self, clearing_local_balances: dict[tuple[str, pendulum.DateTime], float]) -> None:
+    def compute(self, clearing_local_balances: dict[str, Timeseries]) -> None:
         self.build(clearing_local_balances)
         self.model.solve()
         if self.parameters.solver.export_lp:
@@ -43,15 +44,19 @@ class ExchangesFixing:
 
             with open(output_path / "exchanges_fixing_border_exchanges.json", "w") as f:
                 json.dump(
-                    [[b, str(t), val] for (b, t), val in self.get_border_exchanges().items()],
+                    [
+                        [b, str(t), val]
+                        for b, exchange in self.get_border_exchanges().items()
+                        for t, val in exchange.iter_rows()
+                    ],
                     f,
                 )
 
-    def build(self, clearing_local_balances: dict[tuple[str, pendulum.DateTime], float]) -> None:
+    def build(self, clearing_local_balances: dict[str, Timeseries]) -> None:
         self.build_constraints(clearing_local_balances)
         self.build_objective()
 
-    def build_constraints(self, clearing_local_balances: dict[tuple[str, pendulum.DateTime], float]) -> None:
+    def build_constraints(self, clearing_local_balances: dict[str, Timeseries]) -> None:
         """Create all constraints for the exchange fixing phase model"""
         is_atc = self.input_dataset.is_atc
         self.create_balance_exchange_constraints(is_atc, clearing_local_balances)
@@ -73,9 +78,7 @@ class ExchangesFixing:
     ##################################
     # Constraints
     ##################################
-    def create_balance_exchange_constraints(
-        self, is_atc: bool, clearing_local_balances: dict[tuple[str, pendulum.DateTime], float]
-    ) -> None:
+    def create_balance_exchange_constraints(self, is_atc: bool, clearing_local_balances: dict[str, Timeseries]) -> None:
         for time in self.input_dataset.times:
             for market_area_name in self.input_dataset.market_areas:
                 net_export = (
@@ -84,7 +87,7 @@ class ExchangesFixing:
                     else self.fb_net_export(market_area_name, time)
                 )
                 self.model.add_constraint(
-                    clearing_local_balances[market_area_name, time] == net_export,
+                    clearing_local_balances[market_area_name].get_value(time) == net_export,
                     f"Constraint_4.2_at_time_{time}_on_market_area_{market_area_name}",
                 )
 
@@ -209,12 +212,9 @@ class ExchangesFixing:
                             f"Constraint_4.5_at_time_{time}_on_market_border_{border_name}",
                         )
 
-    def get_border_exchanges(self) -> dict[tuple[str, pendulum.DateTime], float]:
+    def get_border_exchanges(self) -> dict[str, Timeseries]:
+        """Retrieve the exchange on each market border over the clearing horizon
+
+        :rtype: dict[str, Timeseries]
         """
-        :rtype: dict[tuple[str, str], float]
-        """
-        return {
-            (border_name, time): exchange.solution_value(time)
-            for time in self.input_dataset.times
-            for border_name, exchange in self.exchange.items()
-        }
+        return {border_name: exchange.solution() for border_name, exchange in self.exchange.items()}

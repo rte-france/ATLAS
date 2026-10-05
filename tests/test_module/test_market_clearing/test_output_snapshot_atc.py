@@ -26,8 +26,12 @@ def _dump_snapshot(result: MarketClearingResult) -> dict[str, list]:
     """Render the outputs as JSON-comparable rows, with each timestep as its datetime string."""
     return {
         "accepted_powers": [[a, o, v] for (a, o), v in sorted(result.accepted_powers.items())],
-        "local_balances": [[a, str(t), v] for (a, t), v in sorted(result.local_balances.items())],
-        "border_exchanges": [[b, str(t), v] for (b, t), v in sorted(result.border_exchanges.items())],
+        "local_balances": [
+            [a, str(t), v] for a, ts in sorted(result.local_balances.items()) for t, v in ts.iter_rows()
+        ],
+        "border_exchanges": [
+            [b, str(t), v] for b, ts in sorted(result.border_exchanges.items()) for t, v in ts.iter_rows()
+        ],
         "market_prices": [[a, str(t), v] for (a, t), v in sorted(result.market_prices.items())],
     }
 

@@ -50,7 +50,6 @@ class Pricing:
         self.parameters = parameters
         self.saturated_critical_branch = clearing_outputs.saturated_critical_branch
         self.clearing_border_exchanges = clearing_outputs.border_exchanges
-        self.clearing_local_balances = clearing_outputs.local_balances
         self.clearing_accepted_powers = clearing_outputs.accepted_powers
         self.price_groups = self.create_price_groups()
         order_links = OrderLinkResolver(self.input_dataset.orders, self.input_dataset.order_couplings).resolve()
@@ -192,7 +191,7 @@ class Pricing:
         for border, neighbour_market_area_name in self.get_market_area_neighbours(market_area.name):
             if neighbour_market_area_name in price_group.market_area_names:
                 continue
-            flow = self.clearing_border_exchanges[border.name, time]
+            flow = self.clearing_border_exchanges[border.name].get_value(time)
             relative_max_flow = border.max_flow.get_value(time)
             relative_min_flow = border.min_flow.get_value(time)
             if (

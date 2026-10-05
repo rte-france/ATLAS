@@ -281,7 +281,7 @@ def create_shadow_price_constraints(pricing: _PricingPhase) -> None:
 def create_adverse_flow_constraints(pricing: _PricingPhase) -> None:
     for time in pricing.input_dataset.times:
         for border_name, border in pricing.input_dataset.market_borders.items():
-            border_exchange = pricing.clearing_border_exchanges[border_name, time]
+            border_exchange = pricing.clearing_border_exchanges[border_name].get_value(time)
             if abs(border_exchange) < pricing.parameters.allowed_round_off_error:
                 continue
             price_in, price_out = None, None

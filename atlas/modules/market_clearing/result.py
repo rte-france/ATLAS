@@ -299,14 +299,8 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
         change_sets: list[ChangeSet] = []
         for market_area_name, market_area in self.input_dataset.market_areas.items():
             updated_values: dict[str, Any] = {"name": market_area_name}
-            balance_values = [self.local_balances[market_area_name, time] for time in self.input_dataset.times]
+            values_bal = self.local_balances[market_area_name]
             price_values = [self.market_prices[market_area_name, time] for time in self.input_dataset.times]
-
-            values_bal = Timeseries.from_values(
-                self.input_dataset.parameters.temporal.start_date,
-                self.input_dataset.parameters.temporal.timestep,
-                balance_values,
-            )
             values_price = Timeseries.from_values(
                 self.input_dataset.parameters.temporal.start_date,
                 self.input_dataset.parameters.temporal.timestep,
@@ -354,18 +348,12 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
         change_sets: list[ChangeSet] = []
         for market_border_name, market_border in self.input_dataset.market_borders.items():
             updated_values: dict[str, Any] = {"name": market_border_name}
-            flow_values = [self.border_exchanges[market_border_name, time] for time in self.input_dataset.times]
+            flow = self.border_exchanges[market_border_name]
             shadow_price_values = [
                 self.market_prices[market_border.uphill_market_area.name, time]
                 - self.market_prices[market_border.downhill_market_area.name, time]
                 for time in self.input_dataset.times
             ]
-
-            flow = Timeseries.from_values(
-                self.input_dataset.parameters.temporal.start_date,
-                self.input_dataset.parameters.temporal.timestep,
-                flow_values,
-            )
             shadow_price = Timeseries.from_values(
                 self.input_dataset.parameters.temporal.start_date,
                 self.input_dataset.parameters.temporal.timestep,
@@ -427,9 +415,9 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
         relative_balances = {}
         for market_area_name, market_area in self.input_dataset.market_areas.items():
             for time in self.input_dataset.times:
-                relative_balances[market_area_name, time] = self.local_balances[
-                    market_area_name, time
-                ] - market_area.ref_balance.get_value(time)
+                relative_balances[market_area_name, time] = self.local_balances[market_area_name].get_value(
+                    time
+                ) - market_area.ref_balance.get_value(time)
 
         for critical_branch in self.input_dataset.critical_branches.values():
             updated_values: dict[str, Any] = {"name": critical_branch.name}

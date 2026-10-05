@@ -277,7 +277,10 @@ class TestCreatePriceGroups:
             market_areas={"ma_a": area_a, "ma_b": area_b, "ma_c": area_c},
             market_borders={"ab": border_ab, "bc": border_bc},
         )
-        exchanges = {("ab", times[0]): ab_flow, ("bc", times[0]): bc_flow}
+        exchanges = {
+            "ab": Timeseries.from_values(times[0], ONE_HOUR, [ab_flow]),
+            "bc": Timeseries.from_values(times[0], ONE_HOUR, [bc_flow]),
+        }
         return input_dataset, exchanges
 
     def test_areas_merge_across_an_unsaturated_border_and_split_at_a_saturated_one(

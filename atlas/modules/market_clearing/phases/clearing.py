@@ -16,6 +16,7 @@ import pendulum
 import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
 from atlas.enums import ComplementDirection, CouplingType, OrderType
+from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
 from atlas.modules.market_clearing.input_objects.order import OrderMC
@@ -91,7 +92,11 @@ class Clearing:
                 json.dump([[ma, o, val] for (ma, o), val in self.get_accepted_powers().items()], f)
             with open(output_path / "clearing_local_balances.json", "w") as f:
                 json.dump(
-                    [[ma, str(t), val] for (ma, t), val in self.get_local_balances().items()],
+                    [
+                        [ma, str(t), val]
+                        for ma, balance in self.get_local_balances().items()
+                        for t, val in balance.iter_rows()
+                    ],
                     f,
                 )
             with open(output_path / "clearing_saturated_critical_branches.json", "w") as f:
@@ -502,15 +507,13 @@ class Clearing:
     ) -> float:
         return _sum_tso_orders(control_block, market_areas, time, OrderType.Sell, lambda order: order.qmax)
 
-    def get_local_balances(self) -> dict[tuple[str, pendulum.DateTime], float]:
-        """Retrieve the power balance for each market area at each timestep
+    def get_local_balances(self) -> dict[str, Timeseries]:
+        """Retrieve the power balance of each market area over the clearing horizon
 
-        :rtype: dict[tuple[str, str], float]
+        :rtype: dict[str, Timeseries]
         """
         return {
-            (market_area_name, time): local_balance.solution_value(time)
-            for market_area_name, local_balance in self.local_balance.items()
-            for time in self.input_dataset.times
+            market_area_name: local_balance.solution() for market_area_name, local_balance in self.local_balance.items()
         }
 
     def get_accepted_powers(self) -> dict[tuple[str, str], float]:

@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Protocol
 
 import pendulum
 
+from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.data_classes import PriceGroup
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.input_objects.order import OrderMC
@@ -110,7 +111,7 @@ class _PricingPhase(Protocol):
     input_dataset: MarketClearingInputDataset
     price_groups: dict[pendulum.DateTime, list[PriceGroup]]
     saturated_critical_branch: dict[tuple[str, pendulum.DateTime], float]
-    clearing_border_exchanges: dict[tuple[str, pendulum.DateTime], float]
+    clearing_border_exchanges: dict[str, Timeseries]
     clearing_accepted_powers: dict[tuple[str, str], float]
     linked_orders: dict[int, list[OrderMC]]
     parent_child_orders: dict[int, tuple[list[OrderMC], list[OrderMC]]]
