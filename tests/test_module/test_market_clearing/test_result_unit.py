@@ -23,6 +23,9 @@ class _FakeResult:
     def add_timeseries_to_forecast(self, forecast_obj, other):
         return MarketClearingResult.add_timeseries_to_forecast(self, forecast_obj, other)  # type: ignore[arg-type]
 
+    def cumulate(self, history, window):
+        return MarketClearingResult.cumulate(self, history, window)  # type: ignore[arg-type]
+
 
 class TestAddTimeseriesToForecast:
     def test_the_window_is_added_to_a_lazy_forecasting_matrix(self, parameters: MarketClearingParameters) -> None:
@@ -40,3 +43,44 @@ class TestAddTimeseriesToForecast:
 
         assert new_time in result
         assert existing_time in result
+
+
+class TestCumulate:
+    """`MarketClearingResult.cumulate` — totals over the successive intraday sessions (issue #448)."""
+
+    START = pendulum.datetime(2028, 1, 1)
+    HOUR = pendulum.duration(hours=1)
+
+    def cumulate(self, history, window):
+        return _FakeResult(execution_date=self.START).cumulate(history, window)
+
+    def test_a_window_inside_the_history_is_summed(self) -> None:
+        history = Timeseries.from_values(self.START, self.HOUR, [1.0, 2.0, 3.0])
+        window = Timeseries.from_values(self.START + self.HOUR, self.HOUR, [10.0, 20.0])
+
+        assert self.cumulate(history, window).values == [1.0, 12.0, 23.0]
+
+    def test_a_window_after_the_history_extends_it_with_its_values(self) -> None:
+        history = Timeseries.from_values(self.START, self.HOUR, [1.0, 2.0])
+        window = Timeseries.from_values(self.START + 2 * self.HOUR, self.HOUR, [10.0, 20.0])
+
+        assert self.cumulate(history, window).values == [1.0, 2.0, 10.0, 20.0]
+
+    def test_a_window_overlapping_the_end_of_the_history_is_summed_then_extends_it(self) -> None:
+        history = Timeseries.from_values(self.START, self.HOUR, [1.0, 2.0])
+        window = Timeseries.from_values(self.START + self.HOUR, self.HOUR, [10.0, 20.0])
+
+        assert self.cumulate(history, window).values == [1.0, 12.0, 20.0]
+
+    def test_the_history_is_left_unchanged(self) -> None:
+        history = Timeseries.from_values(self.START, self.HOUR, [1.0, 2.0])
+        window = Timeseries.from_values(self.START, self.HOUR, [10.0, 20.0])
+
+        self.cumulate(history, window)
+
+        assert history.values == [1.0, 2.0]
+
+    def test_a_missing_history_is_replaced_by_the_window(self) -> None:
+        window = Timeseries.from_values(self.START, self.HOUR, [10.0, 20.0])
+
+        assert self.cumulate(None, window) is window

@@ -294,7 +294,7 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
                 **self.merged(market_border, MARKET_BORDER_FLOW_FIELDS, flow),
                 **self.merged(market_border, MARKET_BORDER_SHADOW_PRICE_FIELDS, shadow_price),
                 # Update ReferenceFlow, otherwise the flow can be out of bounds for future markets
-                "reference_flow": self.add_indexes_or_sum(market_border.reference_flow, flow),
+                "reference_flow": self.cumulate(market_border.reference_flow, flow),
             }
             # Remark : Flow markets are not yet taken into account.
             change_sets.append(UpdateObject(updated_values, MarketBorder))
@@ -347,7 +347,7 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
                 case Merge.APPEND:
                     updated_values[attribute] = self.add_indexes(history, window)
                 case Merge.CUMULATE:
-                    updated_values[attribute] = self.add_indexes_or_sum(history, window)
+                    updated_values[attribute] = self.cumulate(history, window)
                 case Merge.FORECAST:
                     updated_values[attribute] = self.add_timeseries_to_forecast(history, window)
         return updated_values
@@ -381,23 +381,24 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
             return window
         return history.add_indexes(window, inplace=False)
 
-    def add_indexes_or_sum(self, history: AbstractTimeseries | None, window: AbstractTimeseries) -> AbstractTimeseries:
+    def cumulate(self, history: AbstractTimeseries | None, window: AbstractTimeseries) -> AbstractTimeseries:
         """
         Add the cleared window to a total cumulated over the successive clearings.
+
+        Timesteps on one side only count as 0: the window is summed where the history already
+        has values, and extends it elsewhere.
 
         :param history: Current value of the attribute
         :type history: AbstractTimeseries | None
         :param window: Values cleared over the horizon
         :type window: AbstractTimeseries
-        :return: The sum of both if the window is already in the history, the history extended otherwise
+        :return: The sum of both over the union of their timesteps
         :rtype: AbstractTimeseries
+        :raises ValueError: If the window leaves a gap after the history
         """
         if history is None or len(history) < 2:
             return window
-        if window.index[0] in history:
-            return history + window
-        # ponytail: zeros are appended instead of the window, see issue #448
-        return self.add_indexes(history, self.horizon_timeseries([0.0] * len(self.input_dataset.times)))
+        return history.add_on_union(window, inplace=False)
 
     def add_timeseries_to_forecast(
         self, forecast: ForecastingMatrix | LazyForecastingMatrix | None, window: Timeseries
