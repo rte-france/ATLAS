@@ -10,8 +10,7 @@ from typing import Any
 import atlas.config as cfg
 from atlas.abstract_class.dataset import ModuleResult
 from atlas.enums import Product
-from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.data_classes import ClearingOutputs
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
@@ -105,91 +104,7 @@ CRITICAL_BRANCH_FLOW_FIELDS: Fields = {
 
 
 class MarketClearingResult(ModuleResult[MarketClearingParameters]):
-    """Output dataset for Market Clearing module
-    What to we need from MarketClearing result :
-      - accepted_powers
-      - local_balances
-      - border_exchanges
-      - market_prices
-
-    Updated values are :
-    - MarketArea :
-      - DABalance
-      - DAPrice
-      - TotalIDBalance
-      - IDBalance
-      - IDPrice
-      - RRActivationPrice
-      - RRActivationBalance
-      - MFRRActivationPrice
-      - MFRRActivationBalance
-      - AFRRActivationPrice
-      - FCRActivationPrice
-    - MarketBorder :
-      - DAFlow
-      - DAShadowPrice
-      - TotalIDFlow
-      - IDFlow
-      - IDShadowPrice
-      - MFRRUpProcurement
-      - MFRRDownProcurement
-      - AFRRUpProcurement
-      - AFRRDownProcurement
-      - RRUpProcurement
-      - RRDownProcurement
-      - RRActivated
-      - MFRRActivated
-      - AFRRActivated
-      - FCRActivated
-      - ReferenceFlow
-    - CriticalBranch :
-      - DAFlow
-      - DAShadowPrice
-      - TotalIDFlow
-      - IDFlow
-      - IDShadowPrice
-      - MFRRUpProcurement
-      - MFRRDownProcurement
-      - AFRRUpProcurement
-      - AFRRDownProcurement
-      - RRUpProcurement
-      - RRDownProcurement
-      - RRActivated
-      - MFRRActivated
-      - AFRRActivated
-      - FCRActivated
-      - ReferenceFlow
-    - Order :
-      - accepted_power
-      - IndividualSpread
-    - Equipment :
-      - DAClearedQuantity
-      - TotalIDClearedQuantity
-      - IDClearedQuantity
-      - AFRRUpProcured
-      - AFRRDownProcured
-      - MFRRUpProcured
-      - MFRRDownProcured
-      - RRUpProcured
-      - RRDownProcured
-      - RRActivated
-      - MFRRActivated
-      - AFRRActivated
-      - FCRActivated
-    - Portfolio :
-      - DAClearedQuantity
-      - AFRRUpProcured
-      - AFRRDownProcured
-      - MFRRUpProcured
-      - MFRRDownProcured
-      - RRUpProcured
-      - RRDownProcured
-      - RRActivated
-      - MFRRActivated
-      - AFRRActivated
-      - FCRActivated
-
-    """
+    """Output dataset for Market Clearing module"""
 
     def __init__(
         self,
@@ -294,7 +209,7 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
                 **self.merged(market_border, MARKET_BORDER_FLOW_FIELDS, flow),
                 **self.merged(market_border, MARKET_BORDER_SHADOW_PRICE_FIELDS, shadow_price),
                 # Update ReferenceFlow, otherwise the flow can be out of bounds for future markets
-                "reference_flow": self.cumulate(market_border.reference_flow, flow),
+                "reference_flow": self.merge(market_border.reference_flow, flow, Merge.CUMULATE),
             }
             # Remark : Flow markets are not yet taken into account.
             change_sets.append(UpdateObject(updated_values, MarketBorder))
@@ -340,17 +255,36 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
         :return: The new value of each attribute updated by the market
         :rtype: dict[str, Any]
         """
-        updated_values: dict[str, Any] = {}
-        for attribute, merge in fields.get(self.input_dataset.parameters.market, {}).items():
-            history = getattr(obj, attribute)
-            match merge:
-                case Merge.APPEND:
-                    updated_values[attribute] = self.add_indexes(history, window)
-                case Merge.CUMULATE:
-                    updated_values[attribute] = self.cumulate(history, window)
-                case Merge.FORECAST:
-                    updated_values[attribute] = self.add_timeseries_to_forecast(history, window)
-        return updated_values
+        return {
+            attribute: self.merge(getattr(obj, attribute), window, how)
+            for attribute, how in fields.get(self.input_dataset.parameters.market, {}).items()
+        }
+
+    def merge(self, history: Any, window: Timeseries, how: Merge) -> Any:
+        """
+        Merge the window cleared over the horizon into the current value of an attribute.
+
+        A timeseries history of less than two timesteps has no frequency to check the window
+        against: it is replaced by the window.
+
+        :param history: Current value of the attribute, a timeseries or a forecasting matrix
+        :type history: AbstractTimeseries | ForecastingMatrix | LazyForecastingMatrix | None
+        :param window: Values cleared over the horizon
+        :type window: Timeseries
+        :param how: How the window is merged
+        :type how: Merge
+        :return: The new value of the attribute
+        :rtype: AbstractTimeseries | ForecastingMatrix | LazyForecastingMatrix
+        :raises ValueError: If the window leaves a gap after the history, or overlaps it when appended
+        """
+        if how == Merge.FORECAST:
+            forecast = ForecastingMatrix() if history is None else history
+            return forecast.add(window, self.input_dataset.parameters.temporal.execution_date)
+        if history is None or len(history) < 2:
+            return window
+        if how == Merge.APPEND:
+            return history.add_indexes(window, inplace=False)
+        return history.add_on_union(window, inplace=False)
 
     def horizon_timeseries(self, values: list[float]) -> Timeseries:
         """
@@ -363,56 +297,3 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
         """
         times = self.input_dataset.times
         return Timeseries({"time": times, "value": values}, timezone=times[0].timezone_name or "UTC")
-
-    def add_indexes(self, history: AbstractTimeseries | None, window: AbstractTimeseries) -> AbstractTimeseries:
-        """
-        Append the cleared window to the history of an attribute.
-
-        A history of less than two timesteps has no frequency to check the window against: it is replaced.
-
-        :param history: Current value of the attribute
-        :type history: AbstractTimeseries | None
-        :param window: Values cleared over the horizon
-        :type window: AbstractTimeseries
-        :return: The history followed by the window
-        :rtype: AbstractTimeseries
-        """
-        if history is None or len(history) < 2:
-            return window
-        return history.add_indexes(window, inplace=False)
-
-    def cumulate(self, history: AbstractTimeseries | None, window: AbstractTimeseries) -> AbstractTimeseries:
-        """
-        Add the cleared window to a total cumulated over the successive clearings.
-
-        Timesteps on one side only count as 0: the window is summed where the history already
-        has values, and extends it elsewhere.
-
-        :param history: Current value of the attribute
-        :type history: AbstractTimeseries | None
-        :param window: Values cleared over the horizon
-        :type window: AbstractTimeseries
-        :return: The sum of both over the union of their timesteps
-        :rtype: AbstractTimeseries
-        :raises ValueError: If the window leaves a gap after the history
-        """
-        if history is None or len(history) < 2:
-            return window
-        return history.add_on_union(window, inplace=False)
-
-    def add_timeseries_to_forecast(
-        self, forecast: ForecastingMatrix | LazyForecastingMatrix | None, window: Timeseries
-    ) -> ForecastingMatrix | LazyForecastingMatrix:
-        """
-        Add the cleared window to a forecasting matrix, indexed by the execution date.
-
-        :param forecast: Current value of the attribute
-        :type forecast: ForecastingMatrix | LazyForecastingMatrix | None
-        :param window: Values cleared over the horizon
-        :type window: Timeseries
-        :return: The matrix holding the window
-        :rtype: ForecastingMatrix | LazyForecastingMatrix
-        """
-        if forecast is None:
-            forecast = ForecastingMatrix()
-        return forecast.add(window, self.input_dataset.parameters.temporal.execution_date)

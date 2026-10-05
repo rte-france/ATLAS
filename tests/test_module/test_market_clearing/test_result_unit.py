@@ -3,7 +3,7 @@
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Unit test for ATLAS-296 B6: `MarketClearingResult.add_timeseries_to_forecast` on a
+Unit test for ATLAS-296 B6: `MarketClearingResult.merge` into a
 `LazyForecastingMatrix`. Neither test dataset triggers this path, so it is exercised directly.
 """
 
@@ -12,7 +12,7 @@ import pendulum
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
-from atlas.modules.market_clearing.result import MarketClearingResult
+from atlas.modules.market_clearing.result import MarketClearingResult, Merge
 
 
 class _FakeResult:
@@ -20,14 +20,11 @@ class _FakeResult:
         self.input_dataset = type("_FakeInputDataset", (), {"parameters": type("_FakeParams", (), {})()})()
         self.input_dataset.parameters.temporal = type("_FakeTemporal", (), {"execution_date": execution_date})()
 
-    def add_timeseries_to_forecast(self, forecast_obj, other):
-        return MarketClearingResult.add_timeseries_to_forecast(self, forecast_obj, other)  # type: ignore[arg-type]
-
-    def cumulate(self, history, window):
-        return MarketClearingResult.cumulate(self, history, window)  # type: ignore[arg-type]
+    def merge(self, history, window, how):
+        return MarketClearingResult.merge(self, history, window, how)  # type: ignore[arg-type]
 
 
-class TestAddTimeseriesToForecast:
+class TestMergeIntoForecast:
     def test_the_window_is_added_to_a_lazy_forecasting_matrix(self, parameters: MarketClearingParameters) -> None:
         existing_time = parameters.temporal.start_date
         new_time = parameters.temporal.start_date + pendulum.duration(hours=1)
@@ -39,20 +36,20 @@ class TestAddTimeseriesToForecast:
         lazy_forecast = LazyForecastingMatrix(forecast)
 
         fake_result = _FakeResult(execution_date=new_time)
-        result = fake_result.add_timeseries_to_forecast(lazy_forecast, new_ts)
+        result = fake_result.merge(lazy_forecast, new_ts, Merge.FORECAST)
 
         assert new_time in result
         assert existing_time in result
 
 
 class TestCumulate:
-    """`MarketClearingResult.cumulate` — totals over the successive intraday sessions (issue #448)."""
+    """`MarketClearingResult.merge` with `Merge.CUMULATE` — totals over the successive intraday sessions (issue #448)."""
 
     START = pendulum.datetime(2028, 1, 1)
     HOUR = pendulum.duration(hours=1)
 
     def cumulate(self, history, window):
-        return _FakeResult(execution_date=self.START).cumulate(history, window)
+        return _FakeResult(execution_date=self.START).merge(history, window, Merge.CUMULATE)
 
     def test_a_window_inside_the_history_is_summed(self) -> None:
         history = Timeseries.from_values(self.START, self.HOUR, [1.0, 2.0, 3.0])
