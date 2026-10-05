@@ -85,6 +85,15 @@ nav = [
                 { "Results" = "modules/intraday-orders/user-guide/results.md" },
             ]},
         ]},
+        { "BSP Balancing Orders" = [
+            { "Overview" = "modules/balancing-market-bsp-orders/index.md" },
+            { "User Guide" = [
+                { "Overview" = "modules/balancing-market-bsp-orders/user-guide/overview.md" },
+                { "Parameters" = "modules/balancing-market-bsp-orders/user-guide/parameters.md" },
+                { "Input Objects" = "modules/balancing-market-bsp-orders/user-guide/input-objects.md" },
+                { "Results" = "modules/balancing-market-bsp-orders/user-guide/results.md" },
+            ]},
+        ]},
     ]},
     { "Developer Guide" = [
         { "Architecture" = [
@@ -100,6 +109,7 @@ nav = [
                 { "Portfolio Optimisation" = "modules/portfolio-optimisation/developer/architecture.md" },
                 { "Intraday Price Forecast" = "modules/intraday-price-forecast/developer/architecture.md" },
                 { "Intraday Orders" = "modules/intraday-orders/developer/architecture.md" },
+                { "BSP Balancing Orders" = "modules/balancing-market-bsp-orders/developer/architecture.md" },
             ]},
         ]},
         { "Contributing" = [
