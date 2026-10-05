@@ -64,6 +64,10 @@ Python API:
 
 `AbstractModuleParameters.relative_src` and `get_path()` are removed. `relative_src` was never assigned anywhere in Atlas, so `get_path()` was the identity; a module parameter file setting `relative_src` had its run directory silently prefixed by a mechanism nothing else used. Relative run directories are resolved by the orchestrator, through `path_from_orchestrator` and `orchestrator_path`.
 
+### Math objects
+
+- 🔄 `t in timeseries` now looks the instant up in the cache already used by `get_value`, instead of filtering the whole series on every call: 135 µs to 3 µs per call on a one-year hourly series. `LazyTimeseries` is unchanged.
+
 ### Orchestrator
 
 - 🧹 Introduced `RunPaths`, which owns the `results/`, `output_dataset/` and `lp_export/` layout of a run directory. On-disk names are unchanged.
