@@ -4,14 +4,6 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## Versioning
-
-- `MAJOR` version when you make incompatible API changes,
-- `MINOR` version when you add functionality in a backwards compatible manner,
-- `PATCH` version when you make backwards compatible bug fixes.
-
----
-
 ## Release History Legend
 
 - ✨ Feature
@@ -19,17 +11,19 @@ All notable changes to this project will be documented in this file.
 - 🔄 Change
 - 🧹 Refactor
 - 📚 Docs
-- 🔒 Security
+- ⚡ Performance
 
 ---
 
-## Unreleased
+## 0.1.2
 
 ### Solver interface
 
 - 🐛 Reading a solution from a model whose solve did not succeed now raises `UnsuccessfulSolveError` instead of returning OR-Tools' default `0.0` for every variable. A failed solve is also logged as an error rather than an info.
 - 🐛 Market clearing pricing now fails when none of its three attempts finds a solution, instead of reporting zero prices.
-- 
+- ✨ Added `TemporalVariable`, a family of solver variables indexed by timestamp, each holding either a solver variable or a fixed value. Created through `OptimisationModel.add_temporal_variable()`; `OptimisationModel.solution()` returns the values of every family as a picklable `dict[str, Timeseries]`. `ModelVar` is unchanged.
+- ⚡ `TemporalVariable` bounds accept a `float`, a timeseries or a function of time. A timeseries bound is read with a single `get_values` call when variables are created in bulk, and `add_all` validates the whole request before creating anything. On 40,000 variables, building the model is about 2 times faster than with `ModelVar` (14 µs to 6.8 µs per variable), as long as the timeseries itself is passed as the bound rather than `ts.get_value`.
+
 ### Breaking changes
 
 The word `output` named at least six unrelated concepts. One word now stands for one concept: `run_dir` for the per-execution root directory, `export` for booleans, `result` for what a module returns, `columns` for Antares column-name configuration.
@@ -66,16 +60,38 @@ Python API:
 
 ### Math objects
 
-- 🔄 `t in timeseries` now looks the instant up in the cache already used by `get_value`, instead of filtering the whole series on every call: 135 µs to 3 µs per call on a one-year hourly series. `LazyTimeseries` is unchanged.
+- ✨ Added `AbstractTimeseries.get_values(datetimes)`, the bulk version of `get_value`: reads many timestamps in one lookup, in the requested order. Aware datetimes are matched on the instant they represent, whatever their timezone.
+- ⚡ `t in timeseries` now looks the instant up in the cache already used by `get_value`, instead of filtering the whole series on every call: 135 µs to 3 µs per call on a one-year hourly series. `LazyTimeseries` is unchanged.
+- ⚡ `Timeseries.get_value` now reads from a lookup keyed by epoch microseconds instead of a `{datetime: value}` dict: building the lookup goes from 4.9 ms to 0.36 ms and a warm `get_value` from 3.3 µs to 0.7 µs on a one-year hourly series. Aware datetimes now match on their instant, whatever their timezone.
+- ⚡ `ForecastingMatrix.get_forecast` and `LazyForecastingMatrix.get_forecast` now resolve the forecast once over the whole matrix and slice the requested window from it, instead of resolving it from scratch on every call. On a one-year 15 min matrix with 30 forecasts, a point query goes from 1.1 ms to 0.07 ms (eager) and from 4.5 ms to 0.07 ms (lazy). An `execution_date` in another timezone than the matrix no longer raises a `SchemaError`.
+- 🐛 `LazyTimeseries` lookup cache is now invalidated on in-place mutations (`set_value`, `add_index`, `set_timezone`, ...), and `ForecastingMatrix` caches are reset whenever the matrix changes: `get_forecast` no longer fails after `set_date_format` or returns gaps after `set_frequency` or `abs`.
+- 🔄 Removed `AbstractTimeseries.to_lookup_dict()`, which had no caller and exposed the internal cache.
 
 ### Orchestrator
 
 - 🧹 Introduced `RunPaths`, which owns the `results/`, `output_dataset/` and `lp_export/` layout of a run directory. On-disk names are unchanged.
 - 🐛 Fixed `AttributeError` in the profiling workflow when `export_dataset` was enabled (an unfinished refactor left `job.parameters.get_`).
 - 📚 Fixed the `export_final_state` docstring, which described a path instead of a boolean.
-- 🔄 Deep copying a timeseries or a matrix now shares its polars frame instead of duplicating it, since frames are never mutated in place. The copy of the Current Input State given to each job is about 7 times faster on the day-ahead workflow (104 ms to 15 ms).
+- ⚡ Deep copying a timeseries or a matrix now shares its polars frame instead of duplicating it, since frames are never mutated in place. The copy of the Current Input State given to each job is about 7 times faster on the day-ahead workflow (104 ms to 15 ms).
 - ✨ Added a test checking that no module modifies the Current Input State through the copy it is given.
 - 🐛 `ChangeSetHandler` now resolves list references (`BusinessModelListRef`, e.g. `OrderCoupling.orders`) to the objects of the `CurrentInputState`, given as instances or names. Couplings no longer keep module-side copies of their orders, and `UpdateObject` with a list of names no longer fails validation (#425).
+- 🐛 `use_context()` called after a `Workflow` or `ActionPlan` is built now re-resolves its steps and tasks, instead of leaving them on the parameters resolved by the constructor (#396).
+- 🐛 `ActionPlan` module parameter files (for a `TaskModule` and for the steps of a `TaskWorkflow`) no longer need placeholder `start_date`/`end_date`/`execution_date` in `temporal`: Atlas overwrites them on every iteration, so only `timestep` is required (#392).
+- 🐛 `ActionPlan.jobs_count` and the `n/total` progress counter now count jobs instead of iterations, so a `TaskWorkflow` with several steps no longer makes the counter run past the total (#394).
+- ✨ `ActionPlan` is now exported at the top level of the package (`from atlas import ActionPlan`) (#393).
+
+### CLI
+
+- ✨ Added `atlas action-plan run` and `atlas action-plan list` to run an action plan from the command line (#348).
+
+### I/O
+
+- ✨ `AtlasDataset` can now be filtered: `include_equipments`, `exclude_equipments`, `exclude_technologies`, and `include_zones`, which keeps the control blocks given and, optionally, their external borders. Also added `get_container_by_type`.
+
+### CI
+
+- ✨ Added Dependabot, lock file checks, and cancellation of running CI jobs when a new commit is pushed.
+- ✨ Added benchmarks for the intraday orders and intraday price forecast modules, run in parallel with the tests, with timings published as a markdown artifact. Thresholds recalibrated.
 
 ---
 
