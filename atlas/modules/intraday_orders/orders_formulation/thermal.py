@@ -11,6 +11,7 @@ from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.enums import CouplingType, OrderType, ThermalStrategy
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_orders.input_objects.thermal import ThermalIDO
 from atlas.modules.intraday_orders.models.enums import InflexibleChaining, PlanningDelta, WindowType
@@ -60,7 +61,11 @@ _WINDOW_CONFIGS: dict[WindowType, _WindowConfig] = {
 
 
 def compute_planning_delta(
-    equipment: ThermalIDO, orders_timestamps: list[DateTime], parameters: IntradayOrdersParameters
+    equipment: ThermalIDO,
+    cleared_engagement: AbstractTimeseries,
+    target_planning: AbstractTimeseries,
+    orders_timestamps: list[DateTime],
+    parameters: IntradayOrdersParameters,
 ) -> Timeseries:
     """Compare the cleared engagement (DA + prior ID sessions) to the new intraday planning.
 
@@ -68,23 +73,19 @@ def compute_planning_delta(
     the unit needs to start up, shut down, modulate up/down, or stay put.
 
     :param equipment: Thermal unit to evaluate.
+    :param cleared_engagement: Cleared engagement over the order window, from :func:`engaged_quantity`.
+    :param target_planning: New intraday planning over the order window.
     :param orders_timestamps: Timestamps for which orders will be formulated.
     :param parameters: Intraday orders parameters.
     :return: Timeseries of integer PlanningDelta codes over the order window.
     """
-    cleared_engagement = engaged_quantity(equipment, parameters)
-    target_planning = equipment.id_po_for_orders.get_forecast(
-        parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
-    )
-
-    planning_delta = Timeseries.from_index(
-        parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, 0.0
-    )
-    for t in orders_timestamps:
-        cleared_power = cleared_engagement.get_value(t)
-        target_power = target_planning.get_value(t)
-        pmin = equipment.minimum_power.get_value(t)
-
+    codes: list[float] = []
+    for cleared_power, target_power, pmin in zip(
+        cleared_engagement.get_values(orders_timestamps),
+        target_planning.get_values(orders_timestamps),
+        equipment.minimum_power.get_values(orders_timestamps),
+        strict=True,
+    ):
         if target_power > cleared_power:
             if cleared_power >= pmin:
                 code = PlanningDelta.MODULATION_UP
@@ -102,13 +103,19 @@ def compute_planning_delta(
         else:
             code = PlanningDelta.NO_CHANGE
 
-        planning_delta.set_value(t, code)
+        codes.append(code)
 
-    return planning_delta
+    return Timeseries.from_index(
+        parameters.temporal.start_date, parameters.temporal.timestep, parameters.penultimate_date, codes
+    )
 
 
 def build_order_windows(
-    equipment: ThermalIDO, planning_delta: Timeseries, orders_time: list[DateTime], parameters: IntradayOrdersParameters
+    equipment: ThermalIDO,
+    planning_delta: Timeseries,
+    cleared_engagement: AbstractTimeseries,
+    orders_time: list[DateTime],
+    parameters: IntradayOrdersParameters,
 ) -> list[ThermalOrderWindow]:
     """Group consecutive timesteps sharing the same PlanningDelta code into labelled order windows.
 
@@ -118,12 +125,11 @@ def build_order_windows(
 
     :param equipment: Thermal unit being processed.
     :param planning_delta: Timeseries of PlanningDelta codes from :func:`compute_planning_delta`.
+    :param cleared_engagement: Cleared engagement over the order window, from :func:`engaged_quantity`.
     :param orders_time: Ordered list of timestamps spanning the order window.
     :param parameters: Intraday orders parameters.
     :return: List of classified ThermalOrderWindows ready for order formulation.
     """
-    cleared_engagement = engaged_quantity(equipment, parameters)
-
     if len(orders_time) > 2:
         for k in range(1, len(orders_time) - 1):
             if orders_time[k].add(seconds=-parameters.temporal.timestep.in_seconds()) != orders_time[k - 1]:
@@ -249,12 +255,15 @@ class ThermalOrdersFormulator(AbstractOrdersFormulator[ThermalIDO]):
         buy_values: list[float] = [0.0] * len(orders_timestamps)
         t_to_idx: dict = {t: i for i, t in enumerate(orders_timestamps)}
 
-        planning_delta = compute_planning_delta(equipment, orders_timestamps, parameters)
-        order_windows = build_order_windows(equipment, planning_delta, orders_timestamps, parameters)
-
         cleared_engagement = engaged_quantity(equipment, parameters)
         target_planning = equipment.id_po_for_orders.get_forecast(
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
+        )
+        planning_delta = compute_planning_delta(
+            equipment, cleared_engagement, target_planning, orders_timestamps, parameters
+        )
+        order_windows = build_order_windows(
+            equipment, planning_delta, cleared_engagement, orders_timestamps, parameters
         )
 
         for window in order_windows:

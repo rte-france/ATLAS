@@ -9,6 +9,7 @@ from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.enums import OrderType
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_orders.input_objects.storage import StorageIDO
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders import AbstractOrdersFormulator
@@ -19,7 +20,11 @@ from atlas.objects.market.order_coupling import OrderCoupling
 
 
 def compute_efficiency_adjusted_prices(
-    equipment: StorageIDO, orders_timestamps: list[DateTime], parameters: IntradayOrdersParameters
+    equipment: StorageIDO,
+    cleared_engagement: AbstractTimeseries,
+    target_planning: AbstractTimeseries,
+    orders_timestamps: list[DateTime],
+    parameters: IntradayOrdersParameters,
 ) -> tuple[float, float]:
     """Compute sell and buy prices adjusted for round-trip storage efficiency.
 
@@ -29,6 +34,8 @@ def compute_efficiency_adjusted_prices(
     the further apart sell and buy prices are, the smaller ``a`` becomes, compressing both
     prices toward the market midpoint.
 
+    :param cleared_engagement: Cleared engagement over the order window, from :func:`engaged_quantity`.
+    :param target_planning: New intraday planning over the order window.
     :return: ``(sell_price, buy_price)`` to use for all orders in this session.
     """
     min_sell_price = float("inf")
@@ -42,16 +49,15 @@ def compute_efficiency_adjusted_prices(
         parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
     )
 
-    target_planning = equipment.id_po_for_orders.get_forecast(
-        parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
-    )
-    cleared_engagement = engaged_quantity(equipment, parameters)
-    planning_delta = target_planning - cleared_engagement
-
     sell_timestamps: list[DateTime] = []
     buy_timestamps: list[DateTime] = []
-    for t in orders_timestamps:
-        delta = planning_delta.get_value(t)
+    for t, target, cleared in zip(
+        orders_timestamps,
+        target_planning.get_values(orders_timestamps),
+        cleared_engagement.get_values(orders_timestamps),
+        strict=True,
+    ):
+        delta = target - cleared
         if delta > parameters.allowed_round_off_error:
             sell_timestamps.append(t)
         elif delta < -parameters.allowed_round_off_error:
@@ -105,12 +111,13 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[StorageIDO]):
             )
             return [], [], zero, zero
 
-        sell_price, buy_price = compute_efficiency_adjusted_prices(equipment, orders_timestamps, parameters)
-
         target_planning = equipment.id_po_for_orders.get_forecast(
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.penultimate_date
         )
         cleared_engagement = engaged_quantity(equipment, parameters)
+        sell_price, buy_price = compute_efficiency_adjusted_prices(
+            equipment, cleared_engagement, target_planning, orders_timestamps, parameters
+        )
 
         orders: list[Order] = []
         couplings: list[OrderCoupling] = []
