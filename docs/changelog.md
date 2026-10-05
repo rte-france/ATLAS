@@ -64,6 +64,10 @@ Python API:
 
 `AbstractModuleParameters.relative_src` and `get_path()` are removed. `relative_src` was never assigned anywhere in Atlas, so `get_path()` was the identity; a module parameter file setting `relative_src` had its run directory silently prefixed by a mechanism nothing else used. Relative run directories are resolved by the orchestrator, through `path_from_orchestrator` and `orchestrator_path`.
 
+### Math objects
+
+- 🔄 `t in timeseries` now looks the instant up in the cache already used by `get_value`, instead of filtering the whole series on every call: 135 µs to 3 µs per call on a one-year hourly series. `LazyTimeseries` is unchanged.
+
 ### Orchestrator
 
 - 🧹 Introduced `RunPaths`, which owns the `results/`, `output_dataset/` and `lp_export/` layout of a run directory. On-disk names are unchanged.
@@ -71,6 +75,7 @@ Python API:
 - 📚 Fixed the `export_final_state` docstring, which described a path instead of a boolean.
 - 🔄 Deep copying a timeseries or a matrix now shares its polars frame instead of duplicating it, since frames are never mutated in place. The copy of the Current Input State given to each job is about 7 times faster on the day-ahead workflow (104 ms to 15 ms).
 - ✨ Added a test checking that no module modifies the Current Input State through the copy it is given.
+- 🐛 `ChangeSetHandler` now resolves list references (`BusinessModelListRef`, e.g. `OrderCoupling.orders`) to the objects of the `CurrentInputState`, given as instances or names. Couplings no longer keep module-side copies of their orders, and `UpdateObject` with a list of names no longer fails validation (#425).
 
 ---
 
