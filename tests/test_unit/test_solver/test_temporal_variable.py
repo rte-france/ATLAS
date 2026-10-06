@@ -411,3 +411,53 @@ def test_repr(model):
     var.fix(START - TIMESTEP, 0)
 
     assert repr(var) == "TemporalVariable(name=on, type=boolean, variables=3, fixed=1)"
+
+
+def _coefficients(model, name, variables):
+    constraint = model.get_constraint(name)
+    return [constraint.GetCoefficient(v) for v in variables], (constraint.lb(), constraint.ub())
+
+
+class TestSum:
+    def test_sums_model_times_by_default(self, model):
+        var = model.add_temporal_variable("power", TIMES)
+        var.fix(START - TIMESTEP, 5.0)
+
+        model.add_constraint(var.sum() <= 10, "total")
+
+        assert _coefficients(model, "total", [var[t] for t in TIMES]) == ([1.0] * 3, (float("-inf"), 10.0))
+
+    def test_explicit_times_include_fixed_values(self, model):
+        var = model.add_temporal_variable("power", TIMES)
+        var.fix(START - TIMESTEP, 5.0)
+
+        model.add_constraint(var.sum([START - TIMESTEP, TIMES[0]]) <= 10, "total")
+
+        assert _coefficients(model, "total", [var[TIMES[0]], var[TIMES[1]]]) == ([1.0, 0.0], (float("-inf"), 5.0))
+
+    @pytest.mark.parametrize(
+        "weights",
+        [
+            pytest.param(Timeseries({"time": TIMES, "value": [1.0, 2.0, 3.0]}), id="timeseries"),
+            pytest.param(lambda t: float(t.hour + 1), id="callable"),
+        ],
+    )
+    def test_time_dependent_weights(self, model, weights):
+        var = model.add_temporal_variable("power", TIMES)
+
+        model.add_constraint(var.sum(weights=weights) <= 10, "total")
+
+        assert _coefficients(model, "total", [var[t] for t in TIMES])[0] == [1.0, 2.0, 3.0]
+
+    def test_constant_weight(self, model):
+        var = model.add_temporal_variable("power", TIMES)
+
+        model.add_constraint(var.sum(weights=0.5) <= 10, "total")
+
+        assert _coefficients(model, "total", [var[t] for t in TIMES])[0] == [0.5] * 3
+
+    def test_unknown_time_raises(self, model):
+        var = model.add_temporal_variable("power", TIMES)
+
+        with pytest.raises(KeyError, match="is not defined at"):
+            var.sum([START - TIMESTEP])

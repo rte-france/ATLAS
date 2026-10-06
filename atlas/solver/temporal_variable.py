@@ -258,6 +258,34 @@ class TemporalVariable:
         for t, lower, upper in zip(times, lowers, uppers, strict=True):
             self._variables[t] = create(f"{self._name}_{label(t)}", lower, upper)
 
+    def sum(self, times: Iterable[DateTime] | None = None, weights: Bound = 1.0) -> pywraplp.LinearExpr:
+        """
+        Build the weighted sum of the family as one linear expression.
+
+        Fixed values are summed like solver variables. Much faster than the builtin ``sum`` over
+        ``self[t]``, which nests one expression per term.
+
+        **Example**
+
+            model.add_constraint(sell.sum(window, weights=dt_h) <= energy, "energy")
+
+        :param times: Timestamps to sum, defaults to every timestamp holding a solver variable
+        :type times: Iterable[DateTime] | None
+        :param weights: Weight of each term, same forms as the bounds, defaults to 1
+        :type weights: float | AbstractTimeseries | Callable[[DateTime], float]
+        :return: The linear expression
+        :rtype: pywraplp.LinearExpr
+        :raises KeyError: If one of *times* was never added, or if a timeseries weight has no value at it
+        """
+        selected = self._default_times(include_fixed=False) if times is None else list(times)
+        terms = [self[t] for t in selected]
+        if isinstance(weights, int | float):
+            total = self._model.solver.Sum(terms)
+            return total if weights == 1 else weights * total
+        return self._model.solver.Sum(
+            [w * term for w, term in zip(_resolve_all(weights, selected), terms, strict=True)]
+        )
+
     def fix(self, t: DateTime, value: float) -> None:
         """
         Set a fixed value at *t*, typically an initial condition outside the optimisation horizon.
