@@ -287,6 +287,38 @@ class TestWorkflowTaskIterator:
         assert generated_parameters.temporal.start_date == build_datetime("2000-01-01 12:00:00")
         assert generated_parameters.temporal.end_date == build_datetime("2000-01-02 00:00:00")
 
+    def test_build_jobs_writes_under_action_plan_run_dir(self, tmp_path):
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text(
+            "temporal:\n"
+            "  start_date: '2028-09-27 00:00:00'\n"
+            "  end_date: '2028-09-28 00:00:00'\n"
+            "  execution_date: '2028-09-26 12:00:00'\n"
+            "solver:\n"
+            "  solver_name: GLOP\n"
+        )
+        config = (
+            OrchestratorConfigBuilder()
+            .with_any(f"steps:\n  - module: MarketClearing\n    parameters: {params_file}\n")
+            .build(tmp_path)
+        )
+        workflow = Workflow.from_file(config)
+        task = TaskWorkflow(
+            workflow=workflow,
+            priority=1,
+            from_=build_datetime("2000-01-01 00:00:00"),
+            until=build_datetime("2000-01-02 00:00:00"),
+            frequency=Duration(days=1),
+        )
+        root_run_dir = tmp_path / "action_plan_out" / "my_task"
+
+        itr = WorkflowTaskJobsGenerator(task, workflow.parameters, root_run_dir)
+        iteration_dir = root_run_dir / build_datetime("2000-01-01 00:00:00").isoformat()
+        jobs = itr.build_jobs(1)
+        assert jobs
+        for job in jobs:
+            assert job.parameters.export.run_dir == iteration_dir / "MarketClearing"
+
     def test_iterator_len(self, tmp_path):
         date = DateTime(2000, 1, 1)
         module_parameters = (

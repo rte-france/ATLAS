@@ -405,7 +405,7 @@ class TestWorkflowPathFromWorkflow:
 
         assert step.parameters.export.run_dir == tmp_path / "results" / "MarketClearing"
 
-    def test_step_run_dir_includes_job_name_prefix(self, tmp_path):
+    def test_step_run_dir_excludes_job_name_prefix(self, tmp_path):
         dataset_dir = tmp_path / "dataset"
         dataset_dir.mkdir()
         output_dir = tmp_path / "output"
@@ -435,7 +435,8 @@ class TestWorkflowPathFromWorkflow:
         workflow = Workflow(WorkflowParameters.from_file(config), prefix)
         step = next(workflow.jobs)
 
-        assert step.parameters.export.run_dir == tmp_path / "results" / f"{prefix} MarketClearing"
+        assert step.name == repr(f"{prefix} MarketClearing")
+        assert step.parameters.export.run_dir == tmp_path / "results" / "MarketClearing"
 
 
 class TestWorkflowUseContext:
