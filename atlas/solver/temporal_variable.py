@@ -300,6 +300,28 @@ class TemporalVariable:
         self._invalidate_sorted_times()
         self._fixed[t] = value
 
+    def fix_all(self, times: Iterable[DateTime], values: Sequence[float] | AbstractTimeseries) -> None:
+        """
+        Set one fixed value per timestamp in *times*, the counterpart of :meth:`add_all`.
+
+        All timestamps are checked before any value is set, and a timeseries is read in one lookup.
+
+        :param times: Timestamps of the values
+        :type times: Iterable[DateTime]
+        :param values: One value per timestamp, in the order of *times*, or a timeseries read at *times*
+        :type values: Sequence[float] | AbstractTimeseries
+        :raises ValueError: If *values* and *times* differ in length, if *times* contains duplicates, or if
+            a timestamp already holds a solver variable or a fixed value
+        :raises KeyError: If a timeseries has no value at one of the timestamps
+        """
+        times = list(times)
+        values = values.get_values(times) if isinstance(values, AbstractTimeseries) else values
+        if len(values) != len(times):
+            raise ValueError(f"Temporal variable '{self._name}' got {len(values)} values for {len(times)} timestamps")
+        self._check_all_undefined(times)
+        self._invalidate_sorted_times()
+        self._fixed.update(zip(times, values, strict=True))
+
     def is_fixed(self, t: DateTime) -> bool:
         """
         Tell whether *t* holds a fixed value.

@@ -461,3 +461,39 @@ class TestSum:
 
         with pytest.raises(KeyError, match="is not defined at"):
             var.sum([START - TIMESTEP])
+
+
+class TestFixAll:
+    def test_fixes_a_sequence(self, model):
+        var = model.add_temporal_variable("power")
+
+        var.fix_all(TIMES, [1.0, 2.0, 3.0])
+
+        assert [var[t] for t in TIMES] == [1.0, 2.0, 3.0]
+        assert model.variables == set()
+
+    def test_reads_a_timeseries_in_one_lookup(self, model):
+        values = Timeseries({"time": TIMES, "value": [1.0, 2.0, 3.0]})
+        var = model.add_temporal_variable("power")
+
+        with patch.object(Timeseries, "get_values", autospec=True, side_effect=Timeseries.get_values) as get_values:
+            var.fix_all(TIMES, values)
+
+        assert get_values.call_count == 1
+        assert var.times == TIMES
+
+    def test_length_mismatch_raises_before_fixing(self, model):
+        var = model.add_temporal_variable("power")
+
+        with pytest.raises(ValueError, match="got 2 values for 3 timestamps"):
+            var.fix_all(TIMES, [1.0, 2.0])
+
+        assert len(var) == 0
+
+    def test_clash_raises_before_fixing(self, model):
+        var = model.add_temporal_variable("power", [TIMES[2]])
+
+        with pytest.raises(ValueError, match="already holds a solver variable"):
+            var.fix_all(TIMES, [1.0, 2.0, 3.0])
+
+        assert var.times == [TIMES[2]]
