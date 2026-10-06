@@ -31,9 +31,9 @@ own file does not provide one.
 
 The same `context` block works identically in a [workflow](workflow.md) and an [action plan](action-plan.md).
 
-!!! note Merging is **deep**
-        a context touching `temporal.execution_date` leaves `temporal.start_date` alone.
-        Nested mappings are merged key by key rather than replaced wholesale.
+!!! note "Merging is **deep**"
+    a context touching `temporal.execution_date` leaves `temporal.start_date` alone.
+    Nested mappings are merged key by key rather than replaced wholesale.
 ---
 
 ## Precedence

@@ -219,8 +219,8 @@ parameters = ActionPlanParameters(
 action_plan = ActionPlan(parameters=parameters)
 cis = action_plan.execute()
 ```
-!!! note field `from` is `from_` in code
-        `from` is a Python keyword, so the field is `from_` in code (the YAML key remains `from`, and `from_` is accepted there too).
+!!! note "field `from` is `from_` in code"
+    `from` is a Python keyword, so the field is `from_` in code (the YAML key remains `from`, and `from_` is accepted there too).
 
 Tasks can also be added after construction with `add_task`, which raises a `ValueError` if the new task is
 concurrent with one already present:

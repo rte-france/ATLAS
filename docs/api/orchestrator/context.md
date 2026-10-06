@@ -10,9 +10,9 @@ blocks:
 
 Overall precedence is `forced > module parameters > default`.
 
-!!! note Merging is **deep**
-        a context touching `temporal.execution_date` leaves `temporal.start_date` alone.
-        Nested mappings are merged key by key rather than replaced wholesale.
+!!! note "Merging is **deep**"
+    a context touching `temporal.execution_date` leaves `temporal.start_date` alone.
+    Nested mappings are merged key by key rather than replaced wholesale.
 
 See [Context](../../modules/context.md) for the conceptual guide, worked examples, and the caveat about
 `use_context()` after construction.
