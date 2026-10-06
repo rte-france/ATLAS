@@ -78,11 +78,11 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
         :raises ValueError: if the step's parameters cannot be resolved.
         """
-        # Rename before resolving: the step output directory is derived from step.name, and iterations of a same
-        # action plan task only differ by this prefix.
+        # The prefix only names the job: the step output directory keeps the raw step name, iterations of a same
+        # action plan task being already separated by the workflow's output_dir.
         named_step = step.model_copy(update={"name": f"{prefix_job_name} {step.name}"}) if prefix_job_name else step
         try:
-            resolved_parameters = self._build_step_parameters(named_step)
+            resolved_parameters = self._build_step_parameters(step)
         except Exception as exc:
             raise ValueError(f"Step {named_step.name!r}: unable to resolve parameters ({exc})") from exc
 
