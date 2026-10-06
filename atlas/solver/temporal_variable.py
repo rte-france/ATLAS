@@ -258,6 +258,43 @@ class TemporalVariable:
         for t, lower, upper in zip(times, lowers, uppers, strict=True):
             self._variables[t] = create(f"{self._name}_{label(t)}", lower, upper)
 
+    def set_bounds(
+        self,
+        times: DateTime | Iterable[DateTime] | None = None,
+        lower_bound: Bound | None = None,
+        upper_bound: Bound | None = None,
+    ) -> None:
+        """
+        Change the bounds of solver variables, typically to tighten a model before a new solve.
+
+        Every timestamp is checked and every bound resolved before any variable is changed. The bounds
+        given at declaration are left unchanged: they still apply to variables added afterwards.
+
+        **Example**
+
+            power.set_bounds(t, 0.0, 10.0)                       # one timestamp
+            power.set_bounds(horizon, upper_bound=max_power)     # lower bounds kept
+
+        :param times: One timestamp or several, defaults to every timestamp holding a solver variable
+        :type times: DateTime | Iterable[DateTime] | None
+        :param lower_bound: New lower bound, same forms as at declaration. None keeps the current one.
+        :type lower_bound: float | AbstractTimeseries | Callable[[DateTime], float] | None
+        :param upper_bound: New upper bound, same forms and default as *lower_bound*
+        :type upper_bound: float | AbstractTimeseries | Callable[[DateTime], float] | None
+        :raises ValueError: If one of *times* holds a fixed value
+        :raises KeyError: If one of *times* was never added, or if a timeseries bound has no value at it
+        """
+        if isinstance(times, DateTime):
+            times = [times]
+        selected = list(self._default_times(include_fixed=False) if times is None else times)
+        if fixed := [t for t in selected if t in self._fixed]:
+            raise ValueError(f"Temporal variable '{self._name}' holds a fixed value at {min(fixed)}, it has no bounds")
+        variables = [self._get_variable(t) for t in selected]
+        lowers = [v.lb() for v in variables] if lower_bound is None else _resolve_all(lower_bound, selected)
+        uppers = [v.ub() for v in variables] if upper_bound is None else _resolve_all(upper_bound, selected)
+        for variable, lower, upper in zip(variables, lowers, uppers, strict=True):
+            variable.SetBounds(lower, upper)
+
     def sum(self, times: Iterable[DateTime] | None = None, weights: Bound = 1.0) -> pywraplp.LinearExpr:
         """
         Build the weighted sum of the family as one linear expression.

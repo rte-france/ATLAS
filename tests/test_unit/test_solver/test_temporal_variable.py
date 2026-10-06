@@ -497,3 +497,44 @@ class TestFixAll:
             var.fix_all(TIMES, [1.0, 2.0, 3.0])
 
         assert var.times == [TIMES[2]]
+
+
+class TestSetBounds:
+    def test_single_timestamp(self, model):
+        var = model.add_temporal_variable("power", TIMES)
+
+        var.set_bounds(TIMES[1], 1.0, 2.0)
+
+        assert (var[TIMES[1]].lb(), var[TIMES[1]].ub()) == (1.0, 2.0)
+        assert var[TIMES[0]].ub() == float("inf")
+
+    def test_defaults_to_model_times_and_keeps_omitted_bound(self, model):
+        var = model.add_temporal_variable("power", TIMES, lower_bound=-5.0, upper_bound=5.0)
+
+        var.set_bounds(upper_bound=Timeseries({"time": TIMES, "value": [1.0, 2.0, 3.0]}))
+
+        assert [(var[t].lb(), var[t].ub()) for t in TIMES] == [(-5.0, 1.0), (-5.0, 2.0), (-5.0, 3.0)]
+
+    def test_declaration_bounds_still_apply_to_later_variables(self, model):
+        var = model.add_temporal_variable("power", TIMES, upper_bound=5.0)
+
+        var.set_bounds(upper_bound=1.0)
+
+        assert var.add(TIMES[-1] + TIMESTEP).ub() == 5.0
+
+    def test_fixed_timestamp_raises_before_changing_bounds(self, model):
+        var = model.add_temporal_variable("power", TIMES)
+        var.fix(START - TIMESTEP, 0.0)
+
+        with pytest.raises(ValueError, match="holds a fixed value"):
+            var.set_bounds([TIMES[0], START - TIMESTEP], 1.0, 2.0)
+
+        assert var[TIMES[0]].lb() == float("-inf")
+
+    def test_unknown_timestamp_raises_before_changing_bounds(self, model):
+        var = model.add_temporal_variable("power", TIMES)
+
+        with pytest.raises(KeyError, match="is not defined at"):
+            var.set_bounds([TIMES[0], START - TIMESTEP], 1.0, 2.0)
+
+        assert var[TIMES[0]].lb() == float("-inf")
