@@ -16,7 +16,7 @@ from atlas.enums import SolverStatus, VariableType
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.solver.solver_interface import OptimisationModel
-from atlas.solver.temporal_variable import TemporalVariable
+from atlas.solver.temporal_variable import TemporalVariable, TemporalVariableRegistry
 
 START = pendulum.datetime(2025, 1, 1)
 TIMESTEP = pendulum.duration(hours=1)
@@ -26,6 +26,17 @@ TIMES = [START + k * TIMESTEP for k in range(3)]
 @pytest.fixture
 def model() -> OptimisationModel:
     return OptimisationModel("SCIP", "test_model")
+
+
+class TestTimeLabel:
+    def test_repeated_hour_at_end_of_daylight_saving_time_keeps_its_offset(self):
+        registry = TemporalVariableRegistry()
+        summer = pendulum.datetime(2026, 10, 25, 2, tz="Europe/Paris", fold=0)
+        winter = pendulum.datetime(2026, 10, 25, 2, tz="Europe/Paris", fold=1)
+
+        assert summer == winter
+        assert registry.time_label(summer) == "2026-10-25 02:00:00+02:00"
+        assert registry.time_label(winter) == "2026-10-25 02:00:00+01:00"
 
 
 class TestDeclaration:

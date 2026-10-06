@@ -45,6 +45,7 @@ class TemporalVariableRegistry:
     def __init__(self) -> None:
         self._variables: dict[str, TemporalVariable] = {}
         self._time_axes: dict[tuple[str, tuple[DateTime, ...]], Timeseries] = {}
+        self._time_labels: tuple[dict[DateTime, str], dict[DateTime, str]] = ({}, {})
 
     def add(
         self,
@@ -104,6 +105,22 @@ class TemporalVariableRegistry:
             axis = Timeseries({"time": list(times), "value": [0.0] * len(times)}, timezone=timezone)
             self._time_axes[key] = axis
         return axis
+
+    def time_label(self, t: DateTime) -> str:
+        """
+        Get ``str(t)``, computed once per model: formatting a :class:`~pendulum.DateTime` is slow.
+
+        :param t: Timestamp
+        :type t: DateTime
+        :return: The label of *t*, used in the names of solver variables
+        :rtype: str
+        """
+        # both occurrences of an hour repeated at the end of daylight saving time are equal: split by fold
+        labels = self._time_labels[t.fold]
+        label = labels.get(t)
+        if label is None:
+            label = labels[t] = str(t)
+        return label
 
     def clear(self) -> None:
         """Forget every temporal variable and shared index."""
@@ -220,7 +237,7 @@ class TemporalVariable:
         """
         self._check_undefined(t)
         self._invalidate_sorted_times()
-        name = f"{self._name}_{self._model.time_label(t)}"
+        name = f"{self._name}_{self._registry.time_label(t)}"
         if self._variable_type == VariableType.BOOLEAN:
             variable = self._model.add_boolean_variable(name)
         else:
@@ -246,7 +263,7 @@ class TemporalVariable:
         self._check_all_undefined(times)
         self._invalidate_sorted_times()
 
-        label = self._model.time_label
+        label = self._registry.time_label
         if self._variable_type == VariableType.BOOLEAN:
             for t in times:
                 self._variables[t] = self._model.add_boolean_variable(f"{self._name}_{label(t)}")

@@ -64,7 +64,6 @@ class OptimisationModel:
         self._variables_name: set[str] = set()
         self._constraints_name: set[str] = set()
         self._temporal_variables = TemporalVariableRegistry()
-        self._time_labels: tuple[dict[DateTime, str], dict[DateTime, str]] = ({}, {})
         self._objective: Any | None = None
         self._objective_direction: Literal["maximize", "minimize"] | None = None
         self._objective_pending: bool = False
@@ -270,24 +269,6 @@ class OptimisationModel:
         """
         logger.debug("Adding {} temporal variable '{}'", variable_type.value, name)
         return self._temporal_variables.add(self, name, times, variable_type, lower_bound, upper_bound)
-
-    def time_label(self, t: DateTime) -> str:
-        """
-        Get ``str(t)``, computed once per model: formatting a :class:`~pendulum.DateTime` is slow.
-
-        Used for the names of temporal variables, use it as well for constraint names in time loops.
-
-        :param t: Timestamp
-        :type t: DateTime
-        :return: The label of *t*
-        :rtype: str
-        """
-        # both occurrences of an hour repeated at the end of daylight saving time are equal: split by fold
-        labels = self._time_labels[t.fold]
-        label = labels.get(t)
-        if label is None:
-            label = labels[t] = str(t)
-        return label
 
     def solution(self, include_fixed: bool = False) -> dict[str, Timeseries]:
         """
