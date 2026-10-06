@@ -535,13 +535,10 @@ class TemporalVariable:
             raise ValueError(f"Temporal variable '{self._name}' already holds a fixed value at {t}")
 
     def _check_all_undefined(self, times: list[DateTime]) -> None:
-        unique = set(times)
-        if len(unique) != len(times):
+        if len(set(times)) != len(times):
             raise ValueError(f"Temporal variable '{self._name}' got duplicate timestamps")
-        if clash := unique & self._variables.keys():
-            raise ValueError(f"Temporal variable '{self._name}' already holds a solver variable at {min(clash)}")
-        if clash := unique & self._fixed.keys():
-            raise ValueError(f"Temporal variable '{self._name}' already holds a fixed value at {min(clash)}")
+        for t in times:
+            self._check_undefined(t)
 
     def _default_times(self, include_fixed: bool) -> tuple[DateTime, ...]:
         if include_fixed not in self._sorted:
