@@ -166,7 +166,7 @@ class TestAddAllChecks:
     def test_duplicates_in_request_raise_before_creating_variables(self, model):
         var = model.add_temporal_variable("power")
 
-        with pytest.raises(ValueError, match="cannot add duplicate timestamps at once"):
+        with pytest.raises(ValueError, match="'power' got duplicate timestamps"):
             var.add_all([TIMES[0], TIMES[1], TIMES[0]])
 
         assert len(var) == 0
@@ -498,6 +498,14 @@ class TestFixAll:
 
         assert var.times == [TIMES[2]]
 
+    def test_duplicates_raise_before_fixing(self, model):
+        var = model.add_temporal_variable("power")
+
+        with pytest.raises(ValueError, match="'power' got duplicate timestamps"):
+            var.fix_all([TIMES[0], TIMES[0]], [1.0, 2.0])
+
+        assert len(var) == 0
+
 
 class TestSetBounds:
     def test_single_timestamp(self, model):
@@ -521,6 +529,14 @@ class TestSetBounds:
         var.set_bounds(upper_bound=1.0)
 
         assert var.add(TIMES[-1] + TIMESTEP).ub() == 5.0
+
+    def test_defaults_skip_fixed_timestamps(self, model):
+        var = model.add_temporal_variable("power", TIMES)
+        var.fix(START - TIMESTEP, 0.0)
+
+        var.set_bounds(upper_bound=1.0)
+
+        assert [var[t].ub() for t in TIMES] == [1.0, 1.0, 1.0]
 
     def test_fixed_timestamp_raises_before_changing_bounds(self, model):
         var = model.add_temporal_variable("power", TIMES)

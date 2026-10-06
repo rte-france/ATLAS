@@ -284,11 +284,14 @@ class TemporalVariable:
         :raises ValueError: If one of *times* holds a fixed value
         :raises KeyError: If one of *times* was never added, or if a timeseries bound has no value at it
         """
-        if isinstance(times, DateTime):
-            times = [times]
-        selected = list(self._default_times(include_fixed=False) if times is None else times)
-        if fixed := [t for t in selected if t in self._fixed]:
-            raise ValueError(f"Temporal variable '{self._name}' holds a fixed value at {min(fixed)}, it has no bounds")
+        if times is None:
+            selected = list(self._default_times(include_fixed=False))
+        else:
+            selected = [times] if isinstance(times, DateTime) else list(times)
+            if fixed := [t for t in selected if t in self._fixed]:
+                raise ValueError(
+                    f"Temporal variable '{self._name}' holds a fixed value at {min(fixed)}, it has no bounds"
+                )
         variables = [self._get_variable(t) for t in selected]
         lowers = [v.lb() for v in variables] if lower_bound is None else _resolve_all(lower_bound, selected)
         uppers = [v.ub() for v in variables] if upper_bound is None else _resolve_all(upper_bound, selected)
@@ -517,7 +520,7 @@ class TemporalVariable:
     def _check_all_undefined(self, times: list[DateTime]) -> None:
         unique = set(times)
         if len(unique) != len(times):
-            raise ValueError(f"Temporal variable '{self._name}' cannot add duplicate timestamps at once")
+            raise ValueError(f"Temporal variable '{self._name}' got duplicate timestamps")
         if clash := unique & self._variables.keys():
             raise ValueError(f"Temporal variable '{self._name}' already holds a solver variable at {min(clash)}")
         if clash := unique & self._fixed.keys():
