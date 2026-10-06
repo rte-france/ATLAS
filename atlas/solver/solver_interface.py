@@ -326,6 +326,32 @@ class OptimisationModel:
             raise ValueError(f"Variable '{name}' not found")
         return self._solver.LookupVariable(name)
 
+    def set_variable_bounds(
+        self, name: str, lower_bound: float | None = None, upper_bound: float | None = None
+    ) -> None:
+        """
+        Change the bounds of a variable by name, typically to tighten a model before a new solve.
+
+        For temporal variables, use :meth:`~atlas.solver.temporal_variable.TemporalVariable.set_bounds`.
+
+        **Example**
+
+            model.set_variable_bounds("price", upper_bound=3000.0)   # lower bound kept
+
+        :param name: Variable name
+        :type name: str
+        :param lower_bound: New lower bound, None keeps the current one
+        :type lower_bound: float | None
+        :param upper_bound: New upper bound, None keeps the current one
+        :type upper_bound: float | None
+        :raises ValueError: If variable doesn't exist
+        """
+        variable = self.get_variable(name)
+        variable.SetBounds(
+            variable.lb() if lower_bound is None else lower_bound,
+            variable.ub() if upper_bound is None else upper_bound,
+        )
+
     def get_constraint(self, name: str) -> Any:
         """
         Get a constraint object by name for use in expressions.
