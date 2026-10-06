@@ -178,7 +178,7 @@ class OptimisationModel:
         :return: OR-Tools variable object that can be used in expressions
         :rtype: pywraplp.Variable
         """
-        logger.debug(f"Adding continuous variable '{name}' with bounds [{lower_bound}, {upper_bound}]")
+        logger.debug("Adding continuous variable '{}' with bounds [{}, {}]", name, lower_bound, upper_bound)
         if name in self._variables_name:
             raise ValueError(f"Variable '{name}' already exists")
 
@@ -204,7 +204,7 @@ class OptimisationModel:
         :return: OR-Tools variable object that can be used in expressions
         :rtype: pywraplp.Variable
         """
-        logger.debug(f"Adding integer variable '{name}' with bounds [{lower_bound}, {upper_bound}]")
+        logger.debug("Adding integer variable '{}' with bounds [{}, {}]", name, lower_bound, upper_bound)
         if name in self._variables_name:
             raise ValueError(f"Variable '{name}' already exists")
 
@@ -221,7 +221,7 @@ class OptimisationModel:
         :return: OR-Tools variable object that can be used in expressions
         :rtype: pywraplp.Variable
         """
-        logger.debug(f"Adding boolean variable '{name}'")
+        logger.debug("Adding boolean variable '{}'", name)
         if name in self._variables_name:
             raise ValueError(f"Variable '{name}' already exists")
 
@@ -267,7 +267,7 @@ class OptimisationModel:
         :raises ValueError: If a temporal variable with the same name already exists, or if bounds
             are given for a boolean variable
         """
-        logger.debug(f"Adding {variable_type.value} temporal variable '{name}'")
+        logger.debug("Adding {} temporal variable '{}'", variable_type.value, name)
         return self._temporal_variables.add(self, name, times, variable_type, lower_bound, upper_bound)
 
     def solution(self, include_fixed: bool = False) -> dict[str, Timeseries]:
@@ -357,7 +357,7 @@ class OptimisationModel:
         if name in self._constraints_name:
             raise ValueError(f"Constraint '{name}' already exists")
 
-        logger.debug(f"Adding constraint: {name}")
+        logger.debug("Adding constraint: {}", name)
 
         self._solver.Add(constraint_expr, name)
         self._constraints_name.add(name)
