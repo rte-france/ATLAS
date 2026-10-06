@@ -19,11 +19,11 @@ class AbstractDataset[P](ABC):  # noqa: B024
 class ModuleResult[P](AbstractDataset[P]):
     """In-memory object a module returns, carrying the change sets it produced."""
 
-    change_sets: list[ChangeSet] = []
+    change_sets: list[ChangeSet]
 
     @abstractmethod
-    def build_change_sets(self) -> None:
-        """Populate self.change_sets with the ChangeSet objects produced by this module."""
+    def build_change_sets(self) -> list[ChangeSet]:
+        """Return the ChangeSet objects produced by this module."""
 
 
 # Kept for backwards compatibility — imported by test_abstract_module.py

@@ -90,8 +90,7 @@ class AbstractModule[P: AbstractModuleParameters, ID: AbstractDataset, R: Module
             raise AssertionError("Input Data/Parameters validation has not passed")
 
         result = self.execute(params, input_dataset)
-        result.change_sets = []
-        result.build_change_sets()
+        result.change_sets = result.build_change_sets()
 
         validates_results_ok = self.validates_results(params, input_dataset, result)
         if not validates_results_ok:
