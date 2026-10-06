@@ -220,7 +220,7 @@ class TemporalVariable:
         """
         self._check_undefined(t)
         self._invalidate_sorted_times()
-        name = f"{self._name}_{t}"
+        name = f"{self._name}_{self._model.time_label(t)}"
         if self._variable_type == VariableType.BOOLEAN:
             variable = self._model.add_boolean_variable(name)
         else:
@@ -246,16 +246,17 @@ class TemporalVariable:
         self._check_all_undefined(times)
         self._invalidate_sorted_times()
 
+        label = self._model.time_label
         if self._variable_type == VariableType.BOOLEAN:
             for t in times:
-                self._variables[t] = self._model.add_boolean_variable(f"{self._name}_{t}")
+                self._variables[t] = self._model.add_boolean_variable(f"{self._name}_{label(t)}")
             return
 
         lowers = _resolve_all(self._lower_bound, times)
         uppers = _resolve_all(self._upper_bound, times)
         create = self._create_bounded()
         for t, lower, upper in zip(times, lowers, uppers, strict=True):
-            self._variables[t] = create(f"{self._name}_{t}", lower, upper)
+            self._variables[t] = create(f"{self._name}_{label(t)}", lower, upper)
 
     def fix(self, t: DateTime, value: float) -> None:
         """
