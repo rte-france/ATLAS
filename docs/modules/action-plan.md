@@ -35,12 +35,12 @@ tasks:
 Three different types of parameters exist:
 
 - **Top-level parameters** define global information (such as the action plan name).
-- **Task parameters** define a task, the module to exectue and  when.
+- **Task parameters** define a task, the module and parameters to exectue and its scheduling.
 - (optional) **Context parameters** define values to apply to *every* task's parameters.
 
 ### Top-level Parameters
 
-Every action plan inherits the [common orchestrator parameters](orchestrator.md#orchestrator-parameters)  and add to it the `tasks` parameters::
+Every action plan inherits the [common orchestrator parameters](orchestrator.md#orchestrator-parameters)  and add to it the `tasks` parameters:
 
 | Parameter | Required | Default | Description |
 |---|---|---|---|
@@ -94,8 +94,8 @@ For iteration *n*, the [`temporal` parameters](./common-parameters.md#structure)
     If `until − from` is not an exact multiple of `frequency`, the last execution date falls before `until`
     and Atlas emits a `DataQualityWarning` telling you what the real last execution date is. 
 
-!!! note `start_date`/`end_date`/`execution_date` set by user is disregarded
-        Any context temporal entry on `start_date`/`end_date`/`execution_date` or set by yourself in parameters is overwritten by the action plan's scheduling dates. Timestep is untouched.
+!!! note "`start_date`/`end_date`/`execution_date` set by user is disregarded"
+    Any context temporal entry on `start_date`/`end_date`/`execution_date` or set by yourself in parameters is overwritten by the action plan's scheduling dates. Timestep is untouched.
 
 ### Exclusive parameters
 
@@ -286,7 +286,7 @@ for order in dataset.order.all():
     print(f"{order.name}: {order.accepted_power} MW")
 ```
 
-!!! note last task last **module output**
+!!! note "last task last **module output**"
     This result is obtained by using `action_plan.get_output_dataset()` and carries the last executed module's own results and its list of [ChangeSets](../api/orchestrator/change_set.md). It returns
     `None` if the action plan has not been executed to the end.
 

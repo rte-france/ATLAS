@@ -199,7 +199,7 @@ for order in dataset.order.all():
     print(f"{order.name}: {order.accepted_power} MW")
 ```
 
-!!! note last step **module output**
+!!! note "last step **module output**"
     This result is obtained by using `workflow.get_output_dataset()` and carries the last executed module's own results and its list of [ChangeSets](../api/orchestrator/change_set.md). It returns
     `None` if the workflow has not been executed to the end.
 
