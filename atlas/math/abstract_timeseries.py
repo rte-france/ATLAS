@@ -9,6 +9,7 @@ This module provides AbstractTimeseries base class for Timeseries and LazyTimese
 
 from __future__ import annotations
 
+import copy
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Sequence
 from datetime import datetime, timedelta
@@ -211,6 +212,33 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         :rtype: Self
         """
         ...
+
+    def with_values(self, values: Sequence[float] | pl.Series) -> Self:
+        """
+        Return a new timeseries on the same index, holding *values*.
+
+        The index is reused as it is: nothing is sorted, cast or inferred again. This is the cheap
+        way to build several series sharing a known index.
+
+        **Example**
+
+            index = Timeseries.from_values("2025-01-01 00:00:00", "1h", [0.0, 0.0, 0.0])
+            index.with_values([1.0, 2.0, 3.0]).values  # [1.0, 2.0, 3.0]
+
+        :param values: One value per timestamp, in index order
+        :type values: Sequence[float] | pl.Series
+        :return: A new timeseries, the current one is left unchanged
+        :rtype: Self
+        :raises ValueError: If the number of values differs from the length of the timeseries
+        """
+        if len(values) != len(self):
+            raise ValueError(f"Expected {len(self)} values to match the index, got {len(values)}")
+
+        # the index is already sorted and typed: skip the checks and conversions of __init__
+        result = copy.copy(self)
+        result.timeseries = self.timeseries.with_columns(pl.lit(pl.Series("value", values, dtype=pl.Float64)))
+        result._invalidate_cache()
+        return result
 
     @property
     @abstractmethod

@@ -30,7 +30,7 @@ from atlas.solver.solver_parameters import (
     SolverParameterBuilder,
     XPRESSParameterBuilder,
 )
-from atlas.solver.temporal_variable import Bound, TemporalVariable
+from atlas.solver.temporal_variable import Bound, TemporalVariable, TemporalVariableRegistry
 from atlas.timing import timer
 
 
@@ -63,7 +63,7 @@ class OptimisationModel:
         self._solver = None
         self._variables_name: set[str] = set()
         self._constraints_name: set[str] = set()
-        self._temporal_variables: dict[str, TemporalVariable] = {}
+        self._temporal_variables = TemporalVariableRegistry()
         self._objective: Any | None = None
         self._objective_direction: Literal["maximize", "minimize"] | None = None
         self._objective_pending: bool = False
@@ -267,13 +267,8 @@ class OptimisationModel:
         :raises ValueError: If a temporal variable with the same name already exists, or if bounds
             are given for a boolean variable
         """
-        if name in self._temporal_variables:
-            raise ValueError(f"Temporal variable '{name}' already exists")
-
         logger.debug(f"Adding {variable_type.value} temporal variable '{name}'")
-        temporal_variable = TemporalVariable(self, name, times, variable_type, lower_bound, upper_bound)
-        self._temporal_variables[name] = temporal_variable
-        return temporal_variable
+        return self._temporal_variables.add(self, name, times, variable_type, lower_bound, upper_bound)
 
     def solution(self, include_fixed: bool = False) -> dict[str, Timeseries]:
         """
@@ -291,11 +286,7 @@ class OptimisationModel:
         if not self._solution_info:
             raise RuntimeError("Optimisation model has not been solved yet")
 
-        return {
-            name: temporal_variable.solution(include_fixed)
-            for name, temporal_variable in self._temporal_variables.items()
-            if (temporal_variable.times if include_fixed else temporal_variable.model_times)
-        }
+        return self._temporal_variables.solution(include_fixed)
 
     def get_variable(self, name: str) -> Any:
         """
