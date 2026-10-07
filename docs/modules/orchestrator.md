@@ -202,11 +202,6 @@ output = orchestrator.get_output_dataset()           # last job's module output,
 | `get_output_dataset()` | The **last executed job's** module output (with its ChangeSets), or `None` |
 | `jobs` / `jobs_count` | The job iterator and the expected job count |
 
-!!! warning "`use_context` after construction is usually too late"
-    A `Workflow` resolves each step's parameters against the context in its **constructor**, and an `ActionPlan`
-    does the same for each task. Calling `use_context()` afterwards updates `parameters.context` but does not
-    re-resolve jobs already built. Pass the context to `from_file`, or put it in the configuration file.
-
 ---
 
 ## See Also
