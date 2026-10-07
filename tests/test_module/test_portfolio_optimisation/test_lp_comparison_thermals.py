@@ -70,7 +70,8 @@ class TestThermalCombinationLPComparison:
     """Tests for comparing generated LP files against reference LP files."""
 
     @pytest.fixture(scope="class")
-    def executed_po_module(self, thermal_combination_number, base_parameters_dict):
+    @classmethod
+    def executed_po_module(cls, thermal_combination_number, base_parameters_dict):
         _combination_num, combination_name, combination_dir, reference_lp = thermal_combination_number
 
         with tempfile.TemporaryDirectory() as tmpdir:
