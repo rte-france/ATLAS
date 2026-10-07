@@ -61,7 +61,7 @@ def convert_system_structure(
         try:
             marginal_price = study_output.get_mc_ind_area(
                 parameters.scenario, frequency=Frequency.HOURLY, data_type=MCIndAreasDataType.VALUES, area=area.id
-            )[(parameters.output.marginal_price_column, "Euro")]
+            )[(parameters.columns.marginal_price_column, "Euro")]
         except Exception as e:
             logger.warning(
                 f"Could not get marginal price for area {area_name} (scenario {parameters.scenario}): {e}. Skipping area."

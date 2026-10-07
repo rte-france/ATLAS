@@ -6,7 +6,7 @@ import pytest
 
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.workflow.workflow import Workflow
-from tests.utils import load_threshold
+from tests.utils import check_execution_time
 
 DAY_AHEAD_WORKFLOW_CONFIG = Path("tests/dataset/parameters/day_ahead/workflow.yml")
 INTRADAY_WORKFLOW_CONFIG = Path("tests/dataset/parameters/intraday/workflow.yml")
@@ -47,7 +47,7 @@ class TestWorkflowIntegration:
     def test_workflow_produce_output(self, executed_workflow):
         workflow, _, _, _, _ = executed_workflow
         workflow = cast(Workflow, workflow)
-        assert workflow.get_output_dataset() is not None
+        assert workflow.final_result is not None
 
     def test_workflow_cis_is_modified_after_execution(self, executed_workflow):
         _, initial_cis, final_cis, _, _ = executed_workflow
@@ -56,9 +56,8 @@ class TestWorkflowIntegration:
             "CIS was not modified after workflow execution"
         )
 
+    @pytest.mark.perf
     def test_workflow_execution_time_within_threshold(self, executed_workflow):
         _, _, _, elapsed, workflow_config = executed_workflow
-        threshold = load_threshold(workflow_config)
-        if threshold is None:
-            pytest.skip("No performance threshold defined for this workflow config")
-        assert elapsed <= threshold, f"Workflow took {elapsed:.2f}s, expected <= {threshold}s"
+        key = workflow_config.parent.name
+        check_execution_time(f"workflow[{key}]", elapsed, key, field="workflow_execution_max_seconds")

@@ -25,9 +25,9 @@ temporal:
   end_date: "2028-09-28 00:00:00"
   execution_date: "2028-09-26 22:00:00"
   timestep: "PT1H"
-output:
-  export_result: true
-  export_output_dataset: true
+export:
+  export_results: true
+  export_dataset: true
 load_price: 3000.0
 large_imbalance_penalty: 0.2
 hydraulic_minimal_fragment_size: 150.0

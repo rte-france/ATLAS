@@ -425,7 +425,7 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
                     elif file_format_lower == "parquet":
                         existing_df = pl.read_parquet(path_str)
 
-                    df_to_write = pl.concat([existing_df, df_to_write])
+                    df_to_write = pl.concat([existing_df, df_to_write], how="diagonal_relaxed")
                 except Exception as e:
                     raise ValueError(f"Could not read existing file for concatenation: {e}") from e
 

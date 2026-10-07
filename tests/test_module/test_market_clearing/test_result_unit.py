@@ -3,7 +3,7 @@
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Unit test for ATLAS-296 B6: `MarketClearingOutputDataset.add_timeseries_to_forecast` checked
+Unit test for ATLAS-296 B6: `MarketClearingResult.add_timeseries_to_forecast` checked
 `isinstance(forecast_obj, LazyTimeseries)` on a parameter typed `ForecastingMatrix |
 LazyForecastingMatrix | None` — a real `LazyForecastingMatrix` never matched that check and was
 never `collect()`-ed. Neither test dataset triggers this path (the LP-comparison/output-snapshot
@@ -14,17 +14,17 @@ import pendulum
 
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
+from atlas.modules.market_clearing.result import MarketClearingResult
 
 
-class _FakeOutputDataset:
+class _FakeResult:
     def __init__(self, execution_date):
         self.input_dataset = type("_FakeInputDataset", (), {"parameters": type("_FakeParams", (), {})()})()
         self.input_dataset.parameters.temporal = type("_FakeTemporal", (), {"execution_date": execution_date})()
 
     def add_timeseries_to_forecast(self, forecast_obj, other):
-        return MarketClearingOutputDataset.add_timeseries_to_forecast(self, forecast_obj, other)  # type: ignore[arg-type]
+        return MarketClearingResult.add_timeseries_to_forecast(self, forecast_obj, other)  # type: ignore[arg-type]
 
 
 class TestAddTimeseriesToForecast:
@@ -38,8 +38,8 @@ class TestAddTimeseriesToForecast:
         forecast.add(existing_ts, existing_time)
         lazy_forecast = LazyForecastingMatrix(forecast)
 
-        fake_output_dataset = _FakeOutputDataset(execution_date=new_time)
-        result = fake_output_dataset.add_timeseries_to_forecast(lazy_forecast, new_ts)
+        fake_result = _FakeResult(execution_date=new_time)
+        result = fake_result.add_timeseries_to_forecast(lazy_forecast, new_ts)
 
         assert isinstance(result, ForecastingMatrix)
         assert new_time in result

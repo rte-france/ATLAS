@@ -354,7 +354,7 @@ class TestStorageDispatchCycleBalanceSolved:
         )
 
         # 9 / 0.9 = 10 MWh drawn from the stock, so 10 / 0.9 = 11.11 MW must be bought back
-        buy = model.get_variable(f"{battery_equipment.name}_power_level_buy_{time_window[0]}").solution_value()
+        buy = model.get_variable_value(f"{battery_equipment.name}_power_level_buy_{time_window[0]}")
         assert buy == pytest.approx(-10.0 / 0.9)
 
     def test_displacement_delta_must_be_bought_back(self, ev_equipment, model, parameters, start_date, timestep):
@@ -383,7 +383,7 @@ class TestStorageDispatchCycleBalanceSolved:
         )
 
         # nothing was sold, so Σ (−buy) × charge_efficiency must supply the +10 MWh driven
-        buy = model.get_variable(f"{ev_equipment.name}_power_level_buy_{time_window[0]}").solution_value()
+        buy = model.get_variable_value(f"{ev_equipment.name}_power_level_buy_{time_window[0]}")
         assert buy == pytest.approx(-10.0 / 0.95)
 
     def test_displacement_delta_is_energy_not_power(self, ev_half_hourly, model, half_hourly_parameters, start_date):
@@ -406,7 +406,7 @@ class TestStorageDispatchCycleBalanceSolved:
             pinned_buy={time_window[1]: 0.0},
         )
 
-        buy = model.get_variable(f"{ev_half_hourly.name}_power_level_buy_{time_window[0]}").solution_value()
+        buy = model.get_variable_value(f"{ev_half_hourly.name}_power_level_buy_{time_window[0]}")
         assert buy == pytest.approx(-20.0 / 0.95)
 
     def test_level_returns_to_initial_stock_when_driving(self, ev_equipment, model, parameters, start_date, timestep):
@@ -438,7 +438,7 @@ class TestStorageDispatchCycleBalanceSolved:
         self._pin_and_solve(d, model, time_window, pinned_sell={}, pinned_buy={})
 
         # storage_initial_level (0.3) × maximum_energy (100)
-        stored = model.get_variable(f"{ev_equipment.name}_stored_energy_{time_window[-1]}").solution_value()
+        stored = model.get_variable_value(f"{ev_equipment.name}_stored_energy_{time_window[-1]}")
         assert stored == pytest.approx(30.0)
 
 
@@ -520,7 +520,7 @@ class TestStorageDispatchLevelEvolutionSolved:
         model.set_objective(d.stored_energy_var.get_value(t0) * 0)
         assert model.solve().status == SolverStatus.OPTIMAL
 
-        return model.get_variable(f"{equipment.name}_stored_energy_{t0}").solution_value()
+        return model.get_variable_value(f"{equipment.name}_stored_energy_{t0}")
 
     def test_discharging_divides_by_discharge_efficiency(self, battery_equipment, model, parameters, time_window):
         # initial stock 50 (= 0.5 * 100); selling 9 MW for 1 h draws 9 / 0.9 = 10 MWh
@@ -619,7 +619,7 @@ class TestStorageDispatchDisplacementEnergy:
         assert model.solve().status == SolverStatus.OPTIMAL
 
         # initial stock 30 (= 0.3 * 100), displacement delta +5 → 35
-        stock = model.get_variable(f"{ev_equipment.name}_stored_energy_{t0}").solution_value()
+        stock = model.get_variable_value(f"{ev_equipment.name}_stored_energy_{t0}")
         assert stock == pytest.approx(25.0)
 
 

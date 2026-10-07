@@ -9,6 +9,7 @@ This module provides AbstractTimeseries base class for Timeseries and LazyTimese
 
 from __future__ import annotations
 
+import copy
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Sequence
 from datetime import datetime, timedelta
@@ -22,6 +23,7 @@ import plotly.graph_objects
 import polars as pl
 from pydantic_core import core_schema
 
+from atlas.math.copying import deepcopy_sharing_frames
 from atlas.timing import build_datetime, generate_datetimes, get_duration
 
 
@@ -37,7 +39,11 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
     timezone: str
     frequency: pendulum.Duration
     timeseries: TBackend
-    _lookup_cache: dict | None
+    _epoch_lookup_cache: dict[int, float] | None
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        """Deep copy sharing the underlying frame, see :func:`deepcopy_sharing_frames`."""
+        return deepcopy_sharing_frames(self, memo, reset={"_epoch_lookup_cache"})
 
     @abstractmethod
     def _get_data(self) -> TBackend:
@@ -206,6 +212,33 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         :rtype: Self
         """
         ...
+
+    def with_values(self, values: Sequence[float] | pl.Series) -> Self:
+        """
+        Return a new timeseries on the same index, holding *values*.
+
+        The index is reused as it is: nothing is sorted, cast or inferred again. This is the cheap
+        way to build several series sharing a known index.
+
+        **Example**
+
+            index = Timeseries.from_values("2025-01-01 00:00:00", "1h", [0.0, 0.0, 0.0])
+            index.with_values([1.0, 2.0, 3.0]).values  # [1.0, 2.0, 3.0]
+
+        :param values: One value per timestamp, in index order
+        :type values: Sequence[float] | pl.Series
+        :return: A new timeseries, the current one is left unchanged
+        :rtype: Self
+        :raises ValueError: If the number of values differs from the length of the timeseries
+        """
+        if len(values) != len(self):
+            raise ValueError(f"Expected {len(self)} values to match the index, got {len(values)}")
+
+        # the index is already sorted and typed: skip the checks and conversions of __init__
+        result = copy.copy(self)
+        result.timeseries = self.timeseries.with_columns(pl.lit(pl.Series("value", values, dtype=pl.Float64)))
+        result._invalidate_cache()
+        return result
 
     @property
     @abstractmethod
@@ -840,19 +873,25 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         """
         ...
 
-    def to_lookup_dict(self) -> dict:
-        """Build a {time: value} dict for O(1) lookups."""
-        return self._get_lookup()
+    def _get_epoch_lookup(self) -> dict[int, float]:
+        """
+        Return cached {epoch microseconds: value} dict, building it on first call.
 
-    def _get_lookup(self) -> dict:
-        """Return cached {time: value} dict, building it on first call."""
-        if not hasattr(self, "_lookup_cache") or self._lookup_cache is None:
-            self._lookup_cache = dict(self.iter_rows())
-        return self._lookup_cache
+        Keys are the instants of the time column in microseconds since the Unix epoch (UTC),
+        see :func:`atlas.timing.epoch_key`. Building it does not create any datetime object,
+        which keeps it cheap on long series.
+        """
+        lookup = getattr(self, "_epoch_lookup_cache", None)
+        if lookup is None:
+            data = self._get_data().select(pl.col("time").dt.epoch("us"), "value")
+            df = data.collect() if isinstance(data, pl.LazyFrame) else data
+            lookup = dict(zip(df["time"].to_list(), df["value"].to_list(), strict=True))
+            self._epoch_lookup_cache = lookup
+        return lookup
 
     def _invalidate_cache(self) -> None:
         """Invalidate the lookup cache. Must be called whenever the underlying data changes."""
-        self._lookup_cache = None
+        self._epoch_lookup_cache = None
 
     @abstractmethod
     def __repr__(self) -> str:

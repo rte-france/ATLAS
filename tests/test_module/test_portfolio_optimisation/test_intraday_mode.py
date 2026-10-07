@@ -26,14 +26,14 @@ from atlas.modules.portfolio_optimisation.input_objects.portfolio import Portfol
 from atlas.modules.portfolio_optimisation.input_objects.portfolio_equipments import PortfolioEquipments
 from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.input_objects.wind import WindPO
-from atlas.modules.portfolio_optimisation.output_dataset import PortfolioOptimisationOutputDataset
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.result import PortfolioOptimisationResult
 from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
 from atlas.modules.portfolio_optimisation.utils.manual_activation import (
     _calculate_activated_power,
     _calculate_new_power,
 )
-from atlas.modules.portfolio_optimisation.utils.orchestration import PortfolioOptimisationResult
+from atlas.modules.portfolio_optimisation.utils.orchestration import SinglePortfolioResult
 from atlas.objects.network.node import Node
 from atlas.objects.network_operator.control_block import ControlBlock
 
@@ -265,11 +265,11 @@ class TestOutputRoutingIntraday:
     @staticmethod
     def _update(parameters, equipment: WindPO | ThermalPO, power: float = 7.0) -> None:
         """Write the schedules of the portfolio holding ``equipment``, every solver value being ``power``."""
-        result = Mock(spec=PortfolioOptimisationResult)
+        result = Mock(spec=SinglePortfolioResult)
         result.get_variable_value.return_value = power
         result.portfolio = equipment.portfolio
         result.is_manual_activation = False
-        PortfolioOptimisationOutputDataset(parameters=parameters, optimisation_results=[result]).update_equipments()
+        PortfolioOptimisationResult(parameters=parameters, optimisation_results=[result]).update_equipments()
 
     @pytest.mark.parametrize(
         "use_forecast, written, untouched",

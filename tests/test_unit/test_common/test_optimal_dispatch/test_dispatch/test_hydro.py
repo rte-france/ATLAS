@@ -174,25 +174,19 @@ class TestHydroDispatchEnergyBalance:
             d.add_variables(t)
         return d
 
-    def test_balance_constraint_at_start_uses_initial_level(
-        self, hydro_equipment, model, parameters, time_window
-    ):
+    def test_balance_constraint_at_start_uses_initial_level(self, hydro_equipment, model, parameters, time_window):
         d = self._setup(hydro_equipment, model, parameters, time_window)
         t = time_window[0]
         d.add_energy_balance(model, t, parameters)
         assert f"storage_level_evol_{t}_{hydro_equipment.name}" in model.constraints
 
-    def test_balance_constraint_after_start_uses_previous_var(
-        self, hydro_equipment, model, parameters, time_window
-    ):
+    def test_balance_constraint_after_start_uses_previous_var(self, hydro_equipment, model, parameters, time_window):
         d = self._setup(hydro_equipment, model, parameters, time_window)
         t = time_window[1]
         d.add_energy_balance(model, t, parameters)
         assert f"storage_level_evol_{t}_{hydro_equipment.name}" in model.constraints
 
-    def test_power_fragments_sum_aggregates_all_fragments(
-        self, hydro_equipment, model, parameters, time_window
-    ):
+    def test_power_fragments_sum_aggregates_all_fragments(self, hydro_equipment, model, parameters, time_window):
         d = self._setup(hydro_equipment, model, parameters, time_window)
         t = time_window[0]
         # Should not raise — exercises the sum expression construction.

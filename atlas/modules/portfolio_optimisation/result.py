@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from atlas.abstract_class.dataset import AbstractModuleOutput
+from atlas.abstract_class.dataset import ModuleResult
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
@@ -23,10 +23,10 @@ from atlas.orchestrator.change_set import UpdateObject
 if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
     from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
-    from atlas.modules.portfolio_optimisation.utils.orchestration import PortfolioOptimisationResult
+    from atlas.modules.portfolio_optimisation.utils.orchestration import SinglePortfolioResult
 
 
-class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisationParameters]):
+class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters]):
     """
     Output of the portfolio optimisation module.
 
@@ -37,7 +37,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
     def __init__(
         self,
         parameters: PortfolioOptimisationParameters,
-        optimisation_results: list[PortfolioOptimisationResult],
+        optimisation_results: list[SinglePortfolioResult],
     ):
         self.optimisation_results = optimisation_results
         self.parameters = parameters
@@ -116,9 +116,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
             self._write_portfolio_imbalance(optimisation_result.portfolio, optimisation_result)
             self._write_portfolio_power(optimisation_result.portfolio)
 
-    def _write_equipment_schedule(
-        self, equipment: EquipmentPO, optimisation_result: PortfolioOptimisationResult
-    ) -> None:
+    def _write_equipment_schedule(self, equipment: EquipmentPO, optimisation_result: SinglePortfolioResult) -> None:
         """
         Read the optimised schedule of an equipment and store it on the equipment itself.
 
@@ -129,7 +127,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
         :param equipment: Equipment to update.
         :type equipment: EquipmentPO
         :param optimisation_result: Solved optimisation holding the variable values.
-        :type optimisation_result: PortfolioOptimisationResult
+        :type optimisation_result: SinglePortfolioResult
         """
         schedule = extract_equipment_schedule(
             equipment,
@@ -167,16 +165,14 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
             equipment.state_sequence = ScenarioMatrix()
         equipment.state_sequence.upsert(execution_date, state_sequence_ts)
 
-    def _write_portfolio_imbalance(
-        self, portfolio: PortfolioPO, optimisation_result: PortfolioOptimisationResult
-    ) -> None:
+    def _write_portfolio_imbalance(self, portfolio: PortfolioPO, optimisation_result: SinglePortfolioResult) -> None:
         """
         Store the net imbalance of a portfolio, counted positively when the portfolio is short.
 
         :param portfolio: Portfolio to update.
         :type portfolio: PortfolioPO
         :param optimisation_result: Solved optimisation holding the variable values.
-        :type optimisation_result: PortfolioOptimisationResult
+        :type optimisation_result: SinglePortfolioResult
         """
         imbalance_values = [
             optimisation_result.get_variable_value(f"{portfolio.name}_large_imbalance_down_{time}")

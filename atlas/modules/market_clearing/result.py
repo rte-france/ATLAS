@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 import pendulum
 
 import atlas.config as cfg
-from atlas.abstract_class.dataset import AbstractModuleOutput
+from atlas.abstract_class.dataset import ModuleResult
 from atlas.enums import Product
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
@@ -25,7 +25,7 @@ from atlas.orchestrator.change_set import UpdateObject
 from atlas.timing import generate_datetimes
 
 
-class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]):
+class MarketClearingResult(ModuleResult[MarketClearingParameters]):
     """Output dataset for Market Clearing module
     What to we need from MarketClearing result :
       - accepted_powers

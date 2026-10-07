@@ -43,6 +43,6 @@ class ModuleRun:
 
     def run(self) -> AtlasDataset:
         cis = self.cis
-        output_dataset = self.module.run(cis.get_data(), self.parameters)
-        CISHandler.apply(output_dataset.change_sets, cis)
+        result = self.module.run(cis.get_data(), self.parameters)
+        CISHandler.apply(result.change_sets, cis)
         return cis.get_data(copy=False)

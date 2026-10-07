@@ -8,6 +8,7 @@ import pendulum
 import polars as pl
 import pytest
 
+import atlas.math.forecasting_matrix as forecasting_matrix_module
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.timeseries import Timeseries
@@ -1544,3 +1545,136 @@ class TestLazyForecastingMatrixInplace:
         result = lm.replace(datetime(2025, 1, 1, 0, 0, 0), new_ts, inplace=True)
         assert result is lm
         assert "2025-01-01 00:00:00" in lm.indexes
+
+
+# ============================================================
+# derived caches — ForecastingMatrix
+# ============================================================
+
+
+class TestForecastingMatrixCacheInvalidation:
+    """Cached parsed indexes and column frequencies must follow every change of the matrix frame."""
+
+    EXECUTION_DATE = pendulum.datetime(2025, 1, 1)
+    START = pendulum.datetime(2025, 1, 1)
+    END = pendulum.datetime(2025, 1, 1, 3)
+
+    @pytest.fixture
+    def matrix(self):
+        matrix = ForecastingMatrix()
+        matrix.add(Timeseries.from_values(self.START, "30m", [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]), self.START)
+        return matrix
+
+    def test_get_forecast_after_set_frequency(self, matrix):
+        matrix.get_forecast(self.EXECUTION_DATE, self.START, self.END, "15m")
+        matrix.set_frequency("1h")
+        expected = [1.5, 1.5, 1.5, 1.5, 3.5, 3.5, 3.5, 3.5, 5.5, 5.5, 5.5, 5.5, 7.5]
+        assert matrix.get_forecast(self.EXECUTION_DATE, self.START, self.END, "15m").values == expected
+
+    def test_get_forecast_after_set_date_format(self, matrix):
+        before = matrix.get_forecast(self.EXECUTION_DATE, self.START, self.END).values
+        matrix.set_date_format("DD/MM/YYYY HH:mm")
+        assert matrix.get_forecast(self.EXECUTION_DATE, self.START, self.END).values == before
+
+    def test_get_forecast_after_abs(self):
+        matrix = ForecastingMatrix()
+        matrix.add(Timeseries.from_values(self.START, "1h", [-1.0, -2.0, -3.0, -4.0]), self.START)
+        matrix.get_forecast(self.EXECUTION_DATE, self.START, self.END)
+        matrix.abs(inplace=True)
+        assert matrix.get_forecast(self.EXECUTION_DATE, self.START, self.END).values == [1.0, 2.0, 3.0, 4.0]
+
+    def test_get_forecast_after_add(self, matrix):
+        matrix.get_forecast(self.EXECUTION_DATE, self.START, self.END)
+        newer = pendulum.datetime(2025, 1, 1, 0, 30)
+        matrix.add(Timeseries.from_values(newer, "1h", [10.0, 20.0, 30.0]), newer)
+        forecast = matrix.get_forecast(newer, self.START, self.END, "30m")
+        assert forecast.values == [1.0, 10.0, 10.0, 20.0, 20.0, 30.0, 30.0]
+
+
+class TestForecastCache:
+    """get_forecast resolves once per available forecast set and timestep, then slices windows."""
+
+    DAY = pendulum.datetime(2025, 1, 1)
+    TIMES = [pendulum.datetime(2025, 1, 1, h) for h in range(6)]
+
+    @pytest.fixture(params=["eager", "lazy"])
+    def matrix(self, request):
+        matrix = ForecastingMatrix()
+        matrix.add(Timeseries.from_values(self.DAY, "1h", [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]), self.DAY)
+        matrix.add(Timeseries.from_values(self.DAY.add(hours=2), "1h", [30.0, 40.0, 50.0]), self.DAY.add(hours=2))
+        return matrix if request.param == "eager" else LazyForecastingMatrix(matrix.matrix.lazy())
+
+    @pytest.fixture
+    def resolutions(self, monkeypatch):
+        calls = []
+        resolve = forecasting_matrix_module._resolve_forecast
+
+        def counting_resolve(*args, **kwargs):
+            calls.append(args[1])
+            return resolve(*args, **kwargs)
+
+        monkeypatch.setattr(forecasting_matrix_module, "_resolve_forecast", counting_resolve)
+        return calls
+
+    def test_point_queries_resolve_once(self, matrix, resolutions):
+        values = [matrix.get_forecast(self.DAY, t, t).get_value(t) for t in self.TIMES]
+        assert values == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+        assert len(resolutions) == 1
+
+    def test_execution_dates_with_the_same_forecasts_share_a_resolution(self, matrix, resolutions):
+        for minutes in (0, 30, 59):
+            matrix.get_forecast(self.DAY.add(minutes=minutes), self.DAY, self.DAY.add(hours=5))
+        assert len(resolutions) == 1
+        matrix.get_forecast(self.DAY.add(hours=2), self.DAY, self.DAY.add(hours=5))
+        assert resolutions == [["2025-01-01 00:00:00"], ["2025-01-01 02:00:00", "2025-01-01 00:00:00"]]
+
+    def test_each_timestep_has_its_own_resolution(self, matrix, resolutions):
+        for timestep in (None, "30m", "30m", pendulum.duration(minutes=30), "1h"):
+            matrix.get_forecast(self.DAY, self.DAY, self.DAY.add(hours=1), timestep)
+        assert len(resolutions) == 3
+
+    def test_default_value_does_not_need_a_new_resolution(self, matrix, resolutions):
+        window = (self.DAY, self.DAY.add(hours=8))
+        assert matrix.get_forecast(self.DAY, *window).values == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+        assert matrix.get_forecast(self.DAY, *window, default_value=0.0).values[-3:] == [0.0, 0.0, 0.0]
+        assert len(resolutions) == 1
+
+    def test_cache_is_bounded(self, matrix, resolutions):
+        timesteps = ["10m", "15m", "20m", "30m", "1h"]
+        for timestep in timesteps:
+            matrix.get_forecast(self.DAY, self.DAY, self.DAY, timestep)
+        assert len(matrix._forecast_cache._resolved) == forecasting_matrix_module._FORECAST_CACHE_SIZE
+        matrix.get_forecast(self.DAY, self.DAY, self.DAY, "1h")
+        assert len(resolutions) == 5
+        matrix.get_forecast(self.DAY, self.DAY, self.DAY, "10m")
+        assert len(resolutions) == 6
+
+    def test_cache_is_dropped_when_the_matrix_changes(self, matrix, resolutions):
+        t = self.DAY.add(hours=3)
+        assert matrix.get_forecast(t, t, t).get_value(t) == 40.0
+        matrix.replace(self.DAY.add(hours=2), Timeseries.from_values(self.DAY.add(hours=2), "1h", [0.0, 0.0, 0.0]))
+        assert matrix.get_forecast(t, t, t).get_value(t) == 0.0
+        assert len(resolutions) == 2
+
+    def test_cache_is_dropped_after_set_frequency(self, matrix, resolutions):
+        matrix.get_forecast(self.DAY, self.DAY, self.DAY.add(hours=1), "30m")
+        matrix.set_frequency("30m")
+        matrix.get_forecast(self.DAY, self.DAY, self.DAY.add(hours=1), "30m")
+        assert len(resolutions) == 2
+
+    def test_returned_timeseries_can_be_modified(self, matrix):
+        t = self.DAY.add(hours=1)
+        forecast = matrix.get_forecast(self.DAY, self.DAY, self.DAY.add(hours=2))
+        forecast.set_value(t, 99.0, inplace=True)
+        forecast.set_timezone("Europe/Paris")
+        assert matrix.get_forecast(self.DAY, self.DAY, self.DAY.add(hours=2)).values == [1.0, 2.0, 3.0]
+
+    def test_execution_date_in_another_timezone(self, matrix):
+        execution_date = self.DAY.add(hours=2).in_tz("Europe/Paris")
+        assert matrix.get_forecast(execution_date, self.DAY, self.DAY.add(hours=4)).values == [
+            1.0,
+            2.0,
+            30.0,
+            40.0,
+            50.0,
+        ]

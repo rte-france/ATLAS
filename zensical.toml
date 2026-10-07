@@ -162,6 +162,7 @@ nav = [
         ]},
         { "Optimisation" = [
             { "Solver Interface" = "api/solver/interface.md" },
+            { "Temporal Variable" = "api/solver/temporal_variable.md" },
             { "Models" = "api/solver/models.md" },
         ]},
         { "Utilities" = [

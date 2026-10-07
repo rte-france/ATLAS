@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.abstract_class.parameters import AbstractModuleParameters
@@ -59,3 +59,11 @@ class Step(BaseModel):
     @staticmethod
     def _compute_default_name(data: dict) -> str:
         return str(data.get("module", "unnamed"))
+
+
+class ResolvedStep(Step):
+    """A Step whose parameters have already been resolved against the workflow's context."""
+
+    model_config = ConfigDict(frozen=True)
+
+    parameters: AbstractModuleParameters

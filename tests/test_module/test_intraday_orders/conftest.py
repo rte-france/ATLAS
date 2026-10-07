@@ -12,8 +12,8 @@ import pytest
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.container import Container
 from atlas.modules.intraday_orders.input_dataset import IntradayOrdersInputDataset
-from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
+from atlas.modules.intraday_orders.result import IntradayOrdersResult
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
@@ -83,8 +83,8 @@ def formulator_input_dataset(id_orders_atlas_data) -> IntradayOrdersInputDataset
 
 
 @pytest.fixture(scope="class")
-def formulator_output_dataset(formulator_input_dataset) -> IntradayOrdersOutputDataset:
-    return IntradayOrdersOutputDataset(formulator_input_dataset)
+def formulator_result(formulator_input_dataset) -> IntradayOrdersResult:
+    return IntradayOrdersResult(formulator_input_dataset)
 
 
 @pytest.fixture(scope="session")

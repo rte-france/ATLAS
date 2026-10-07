@@ -1,4 +1,4 @@
-from typing import Any, cast
+from typing import Any, TypeGuard, cast, get_args, get_origin
 
 from pydantic import ValidationError
 
@@ -8,6 +8,10 @@ from atlas.objects.business_model import BusinessModel
 from atlas.orchestrator.change_set import AddObject, ChangeSet, DeleteObject, UpdateObject
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.type import get_type_attribute
+
+
+def _is_business_model_type(attr_type: Any) -> TypeGuard[type[BusinessModel]]:
+    return isinstance(attr_type, type) and issubclass(attr_type, BusinessModel)
 
 
 class ChangeSetHandler:
@@ -134,34 +138,37 @@ class ChangeSetHandler:
         # Determine operation type for error messages
         operation = "add" if model_class is not None else "update"
 
+        def get_from_cis(ref_type: type[BusinessModel], ref: BusinessModel | str, key: str) -> BusinessModel:
+            ref_name = ref.name if isinstance(ref, BusinessModel) else ref
+            try:
+                return cis.data.get_container_by_type(ref_type).get(ref_name)
+            except KeyError:
+                raise ValueError(
+                    f"Trying to {operation} '{target_class}' attribute '{key}' "
+                    f"with '{ref_name}' but it is not present in CurrentInputState"
+                ) from None
+
         for key, value in data.items():
             if key == "name":
                 continue  # do not update the name
 
             if isinstance(value, BusinessModel):
                 # Already an instance, see if it exists in CIS
-                ref_container = cis.data.get_container_by_type(type(value))
-                try:
-                    existing = ref_container.get(value.name)
-                    data[key] = existing
-                except KeyError:
-                    raise ValueError(
-                        f"Trying to {operation} '{target_class}' attribute '{key}' "
-                        f"with '{value.name}' but it is not present in CurrentInputState"
-                    ) from None
+                data[key] = get_from_cis(type(value), value, key)
 
-            elif isinstance(value, str):
+            elif isinstance(value, str | list):
                 attr_type = get_type_attribute(cfg.INVERSE_MODEL_MAPPING_NAME[target_class], key)
-                if attr_type and isinstance(attr_type, type) and issubclass(attr_type, BusinessModel):
-                    ref_container = cis.data.get_container_by_type(attr_type)
-                    try:
-                        existing = ref_container.get(value)
-                        data[key] = existing
-                    except KeyError:
-                        raise ValueError(
-                            f"Trying to {operation} '{target_class}' attribute '{key}' "
-                            f"with '{value}' but it is not present in CurrentInputState"
-                        ) from None
+
+                if get_origin(attr_type) is list:
+                    # List of references (BusinessModelListRef): resolve each item, by instance or name.
+                    # A string holds the "|"-joined names, as in the serialized form.
+                    item_type = get_args(attr_type)[0]
+                    if _is_business_model_type(item_type):
+                        refs = (value.split("|") if value else []) if isinstance(value, str) else value
+                        data[key] = [get_from_cis(item_type, ref, key) for ref in refs]
+
+                elif isinstance(value, str) and _is_business_model_type(attr_type):
+                    data[key] = get_from_cis(attr_type, value, key)
 
     @staticmethod
     def _fill_object(obj: BusinessModel, data: dict[str, Any]):

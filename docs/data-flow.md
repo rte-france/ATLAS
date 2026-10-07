@@ -31,7 +31,7 @@ sequenceDiagram
 
 1. The orchestrator passes the CIS to the current module.
 2. The module reads data from `cis.data` (the underlying `AtlasDataset`) through its `InputDataset`.
-3. The module executes its logic and populates its `OutputDataset`, then calls `build_change_sets()`.
+3. The module executes its logic and populates its `ModuleResult`, then calls `build_change_sets()`.
 4. The orchestrator calls `CISHandler.apply(change_sets, cis)`.
 5. `CISHandler` orders the change sets (dependency order), detects duplicates, then delegates each to `ChangeSetHandler.apply()`.
 6. The updated CIS is passed to the next module.
@@ -83,7 +83,7 @@ For transactional safety within a single batch, `CISHandler` uses `cis.transacti
 ## Implementing a Module: Checklist
 
 - [ ] `InputDataset.__init__` — extract from `AtlasDataset`, never hold a reference to the CIS itself.
-- [ ] `OutputDataset.build_change_sets()` — emit `UpdateObject` / `AddObject` / `DeleteObject` for every mutated object.
+- [ ] `ModuleResult.build_change_sets()` — emit `UpdateObject` / `AddObject` / `DeleteObject` for every mutated object.
 - [ ] Never call `CISHandler` or `ChangeSetHandler` from inside a module — the orchestrator does this.
 - [ ] Use module-specific wrapper objects (`input_objects/`) to add computed properties; don't mutate the raw business objects during `import_data`.
 

@@ -87,5 +87,5 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[HydroIDO]):
     ) -> Order | None:
         if volume <= parameters.allowed_round_off_error:
             return None
-        bid_name = f"id_hydraulic_{order_type.value.lower()}_fragment_{fragment_idx}_at_{time.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{equipment.name}_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}"
+        bid_name = f"id_hydraulic_{order_type.value.lower()}_fragment_{fragment_idx}_at_{time}_for_unit_{equipment.name}_{parameters.temporal.execution_date}"
         return build_intraday_order(equipment, bid_name, price, 0.0, volume, order_type, time, parameters)

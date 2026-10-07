@@ -13,13 +13,13 @@ from pathlib import Path
 from typing import Any
 
 import atlas.config as cfg
-from atlas.abstract_class.dataset import AbstractDataset, AbstractModuleOutput
+from atlas.abstract_class.dataset import AbstractDataset, ModuleResult
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 
 
-class AbstractModule[P: AbstractModuleParameters, ID: AbstractDataset, OD: AbstractModuleOutput](ABC):
+class AbstractModule[P: AbstractModuleParameters, ID: AbstractDataset, R: ModuleResult](ABC):
     """Abstract base class for modules with standard execution lifecycle."""
 
     def before_execution(self) -> None:  # noqa: B027
@@ -57,7 +57,7 @@ class AbstractModule[P: AbstractModuleParameters, ID: AbstractDataset, OD: Abstr
         """Validates imported or generated data."""
 
     @abstractmethod
-    def execute(self, parameters: P, input_dataset: ID) -> OD:
+    def execute(self, parameters: P, input_dataset: ID) -> R:
         """Executes the module's main logic."""
 
     @abstractmethod
@@ -65,7 +65,7 @@ class AbstractModule[P: AbstractModuleParameters, ID: AbstractDataset, OD: Abstr
         self,
         parameters: P,
         input_dataset: ID,
-        output_dataset: OD,
+        result: R,
     ) -> bool:
         """Validates results"""
 
@@ -74,11 +74,11 @@ class AbstractModule[P: AbstractModuleParameters, ID: AbstractDataset, OD: Abstr
         self,
         parameters: P,
         input_dataset: ID,
-        output_dataset: OD,
+        result: R,
     ) -> None:
         """Exports results."""
 
-    def run(self, input_data: AtlasDataset, parameters: dict[str, Any] | str | Path | P) -> OD:
+    def run(self, input_data: AtlasDataset, parameters: dict[str, Any] | str | Path | P) -> R:
         """Orchestrates the preparation and execution of the module.
         Should not be overridden in subclass
         """
@@ -89,15 +89,15 @@ class AbstractModule[P: AbstractModuleParameters, ID: AbstractDataset, OD: Abstr
         if not validate_data_ok:
             raise AssertionError("Input Data/Parameters validation has not passed")
 
-        output_dataset = self.execute(params, input_dataset)
-        output_dataset.change_sets = []
-        output_dataset.build_change_sets()
+        result = self.execute(params, input_dataset)
+        result.change_sets = []
+        result.build_change_sets()
 
-        validates_results_ok = self.validates_results(params, input_dataset, output_dataset)
+        validates_results_ok = self.validates_results(params, input_dataset, result)
         if not validates_results_ok:
             raise AssertionError("Results validation has not passed")
-        self.export_results(params, input_dataset, output_dataset)
-        return output_dataset
+        self.export_results(params, input_dataset, result)
+        return result
 
     @staticmethod
     def get_business_model_class_used() -> Iterable[BusinessModelName]:
