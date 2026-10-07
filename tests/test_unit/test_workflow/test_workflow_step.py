@@ -26,8 +26,6 @@ def _make_mock_module_class(output=None):
     """Return a (mock_class, mock_instance) pair where instance.run() returns output."""
     mock_instance = MagicMock()
     mock_instance.run.return_value = output
-    mock_instance.get_business_model_class_used.return_value = []
-    mock_instance.get_filters.return_value = None
 
     mock_class = MagicMock(return_value=mock_instance)
     return mock_class, mock_instance
