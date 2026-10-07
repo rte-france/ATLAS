@@ -95,6 +95,9 @@ ignore_errors = true
 [tool.coverage.run]
 omit = ['atlas/io_utils/prometheus_transformer.py']
 
+[tool.coverage.report]
+fail_under = 80
+
 [tool.pytest.ini_options]
 addopts = "-m 'not integration'"
 markers = [
