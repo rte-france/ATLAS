@@ -241,7 +241,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         elif isinstance(other, Timeseries):
             if self.frequency != other.frequency:
                 raise ValueError("Could not perform multiplication on Timeseries because frequencies don't match")
-            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+            elif not other.dataframe["time"].is_in(self.dataframe["time"].implode()).all():
                 raise ValueError(
                     "Could not perform multiplication on Timeseries because indexes of Timeseries to add "
                     "are not in current Timeseries"
@@ -282,7 +282,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         elif isinstance(other, Timeseries):
             if self.frequency != other.frequency:
                 raise ValueError("Could not perform addition on Timeseries because frequencies don't match")
-            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+            elif not other.dataframe["time"].is_in(self.dataframe["time"].implode()).all():
                 raise ValueError(
                     "Could not perform addition on Timeseries because indexes of Timeseries to add are "
                     "not in current Timeseries. Addition is deliberately restrictive: use 'add_on_union' "
@@ -322,7 +322,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         elif isinstance(other, Timeseries):
             if self.frequency != other.frequency:
                 raise ValueError("Could not perform subtraction on Timeseries because frequencies don't match")
-            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+            elif not other.dataframe["time"].is_in(self.dataframe["time"].implode()).all():
                 raise ValueError(
                     "Could not perform subtraction on Timeseries because indexes of Timeseries to add are "
                     "not in current Timeseries"
@@ -361,7 +361,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         elif isinstance(other, Timeseries):
             if self.frequency != other.frequency:
                 raise ValueError("Could not perform division on Timeseries because frequencies don't match")
-            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+            elif not other.dataframe["time"].is_in(self.dataframe["time"].implode()).all():
                 raise ValueError(
                     "Could not perform division on Timeseries because indexes of Timeseries to add are "
                     "not in current Timeseries"
@@ -539,12 +539,12 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         other_ts = Timeseries(other)
         if self.frequency != other_ts.frequency:
             raise ValueError("Could not perform set values on Timeseries because frequencies don't match")
-        if not other_ts.dataframe["time"].is_in(self.dataframe["time"]).all():
+        if not other_ts.dataframe["time"].is_in(self.dataframe["time"].implode()).all():
             raise ValueError(
                 "Could not set values on Timeseries because indexes to set are not all present in Timeseries"
             )
 
-        df = self.timeseries.filter(~pl.col("time").is_in(other_ts.dataframe["time"]))
+        df = self.timeseries.filter(~pl.col("time").is_in(other_ts.dataframe["time"].implode()))
         df = pl.concat([df, other_ts.dataframe])
 
         return self._return(df, inplace)
