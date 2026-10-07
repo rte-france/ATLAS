@@ -290,9 +290,6 @@ for order in dataset.order.all():
     This result is obtained by using `action_plan.get_output_dataset()` and carries the last executed module's own results and its list of [ChangeSets](../api/orchestrator/change_set.md). It returns
     `None` if the action plan has not been executed to the end.
 
-<!--
-FIXME - make sure this is true
--->
 !!! warning "jobs outputs are not retained in memory"
     `action_plan.jobs` is a **generator**: each access builds a fresh set of unexecuted jobs. Iterating over 
     it after `execute()` therefore yields new objects: it does not give you the results of the run that just happened.

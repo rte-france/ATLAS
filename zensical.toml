@@ -24,8 +24,12 @@ nav = [
     { "User Guide" = [
         { "Command Line" = "cli.md" },
         { "Run a Module" = "modules/running-modules.md" },
-        { "Run a Workflow" = "modules/workflow.md" },
-        { "Run an Action Plan" = "modules/action-plan.md" },
+        { "Orchestrators" = [
+            { "Orchestrator" = "modules/orchestrator.md" },
+            { "Context" = "modules/context.md" },
+            { "Run a Workflow" = "modules/workflow.md" },
+            { "Run an Action Plan" = "modules/action-plan.md" },
+        ]},
         { "Antares Integration" = [
             { "Overview" = "antares-integration/index.md" },
             { "User Guide" = "antares-integration/user-guide.md" },
@@ -158,9 +162,14 @@ nav = [
         { "Action Plan" = [
             { "Action Plan" = "api/actionplan/action_plan.md" },
             { "Task" = "api/actionplan/task.md" },
-            { "Action Plan Job" = "api/actionplan/action_plan_job.md" },
         ]},
         { "Orchestrator" = [
+            { "Orchestrator" = "api/orchestrator/orchestrator.md" },
+            { "Parameters" = "api/orchestrator/orchestrator_parameter.md" },
+            { "Context" = "api/orchestrator/context.md" },
+            { "Job" = "api/orchestrator/orchestrator_job.md" },
+        ]},
+        { "CurrentInputState" = [
             { "CurrentInputState" = "api/orchestrator/current_input_state.md" },
             { "ChangeSets" = "api/orchestrator/change_set.md" },
             { "CISHandler" = "api/orchestrator/cis_handler.md" },
