@@ -7,7 +7,6 @@ Module that implements AbstractDataset
 """
 
 from abc import ABC, abstractmethod
-from typing import TypeVar
 
 from atlas.orchestrator.change_set import ChangeSet
 
@@ -24,8 +23,3 @@ class ModuleResult[P](AbstractDataset[P]):
     @abstractmethod
     def build_change_sets(self) -> list[ChangeSet]:
         """Return the ChangeSet objects produced by this module."""
-
-
-# Kept for backwards compatibility — imported by test_abstract_module.py
-ID = TypeVar("ID", bound=AbstractDataset)
-R = TypeVar("R", bound=ModuleResult)

@@ -21,7 +21,6 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
 
     parameters: PO
     final_result: AbstractDataset | None = None
-    PARAMETERS_CLASS: type[PO]
 
     def __init__(self, parameters: PO):
         """Initialize a Orchestrator instance.
@@ -47,7 +46,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
 
     @classmethod
     @abstractmethod
-    def get_param_class(cls) -> PO:
+    def get_param_class(cls) -> type[PO]:
         """
         Return the parameter class
         """

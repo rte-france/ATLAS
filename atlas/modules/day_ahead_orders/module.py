@@ -5,11 +5,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from collections.abc import Iterable
-
 import atlas.config as cfg
 from atlas.abstract_class.module import AbstractModule
-from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
@@ -25,7 +22,8 @@ from atlas.timing import generate_datetimes
 
 
 class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrdersInputDataset, DayAheadOrdersResult]):
-    def get_parameters_class(self):
+    @classmethod
+    def get_parameters_class(cls) -> type[DayAheadOrdersParameters]:
         return DayAheadOrdersParameters
 
     def import_data(self, input_data: AtlasDataset, parameters: DayAheadOrdersParameters) -> DayAheadOrdersInputDataset:
@@ -95,21 +93,3 @@ class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrde
 
         cfg.logger.info("Formulation of orders successfully completed.")
         return result
-
-    @staticmethod
-    def get_business_model_class_used() -> Iterable[BusinessModelName]:
-        return [
-            BusinessModelName.CONTROL_BLOCK,
-            BusinessModelName.MARKET_AREA,
-            BusinessModelName.MARKET_BORDER,
-            BusinessModelName.NODE,
-            BusinessModelName.PORTFOLIO,
-            BusinessModelName.WIND,
-            BusinessModelName.STORAGE,
-            BusinessModelName.HYDRO,
-            BusinessModelName.SOLAR,
-            BusinessModelName.THERMAL,
-            BusinessModelName.LOAD,
-            BusinessModelName.ORDER,
-            BusinessModelName.ORDER_COUPLING,
-        ]

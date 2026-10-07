@@ -24,7 +24,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
     Each job processes the output of the previous one, starting from the input dataset."""
 
     @classmethod
-    def get_param_class(cls):
+    def get_param_class(cls) -> type[WorkflowParameters]:
         return WorkflowParameters
 
     def __init__(self, parameters: WorkflowParameters, prefix_job_name: str | None = None):
@@ -90,7 +90,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
     def _build_step_parameters(self, step: Step) -> AbstractModuleParameters:
         """Build a step's parameters against the workflow's context."""
-        parameters_class = step.module.value().get_parameters_class()
+        parameters_class = step.module.value.get_parameters_class()
         if isinstance(step.parameters, (str, Path)):
             contextualized_parameters = parameters_class.from_file(
                 self.parameters.resolve_path(Path(step.parameters)), self.context

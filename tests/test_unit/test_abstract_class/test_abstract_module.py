@@ -9,16 +9,21 @@ Test AbstractModule
 from unittest.mock import Mock
 
 from atlas import BusinessModel
-from atlas.abstract_class.dataset import ID, ModuleResult, R
+from atlas.abstract_class.dataset import AbstractDataset, ModuleResult
 from atlas.abstract_class.module import AbstractModule
-from atlas.abstract_class.parameters import P
+from atlas.abstract_class.parameters import AbstractModuleParameters
+
+type P = AbstractModuleParameters
+type ID = AbstractDataset
+type R = ModuleResult
 
 
 class ModuleTest(AbstractModule[P, ID, R]):
     def __init__(self):
         pass
 
-    def get_parameters_class(self) -> type[P]:
+    @classmethod
+    def get_parameters_class(cls) -> type[P]:
         return Mock
 
     def import_data(self, raw_data: dict[str, list[BusinessModel]], parameters: P) -> ID:

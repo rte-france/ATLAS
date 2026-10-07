@@ -23,7 +23,8 @@ from atlas.timing import generate_datetimes
 class IntradayPriceForecastModule(
     AbstractModule[IntradayPriceForecastParameters, IntradayPriceForecastInputDataset, IntradayPriceForecastResult]
 ):
-    def get_parameters_class(self):
+    @classmethod
+    def get_parameters_class(cls) -> type[IntradayPriceForecastParameters]:
         return IntradayPriceForecastParameters
 
     def import_data(
