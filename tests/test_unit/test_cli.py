@@ -514,6 +514,28 @@ class TestPrometheusToAtlasRecursiveCommand:
         # Should exit with error code since no modules were processed
         assert result.exit_code == 1
 
+    @patch("atlas.app.find_hdf5_files")
+    @patch("atlas.app.PrometheusToAtlasDataParser")
+    def test_recursive_with_partial_failure(self, mock_parser, mock_find_hdf5, tmp_path):
+        """Test that one failed module makes the batch fail, even if the others succeed."""
+        root_dir = tmp_path / "root"
+        for name in ("module1", "module2"):
+            (root_dir / name / "ts").mkdir(parents=True)
+            (root_dir / name / "data.hdf5").write_text("")
+
+        mock_find_hdf5.side_effect = lambda x: [x / "data.hdf5"]
+        succeeding, failing = MagicMock(), MagicMock()
+        failing.process.side_effect = Exception("Test error")
+        mock_parser.side_effect = [succeeding, failing]
+
+        result = runner.invoke(
+            app,
+            ["prometheus-to-atlas", "batch", str(root_dir), "--output", str(tmp_path / "output"), "--no-mp"],
+        )
+
+        assert mock_parser.call_count == 2
+        assert result.exit_code == 1
+
 
 class TestProfilingCommand:
     """Tests for the 'atlas profiling' command."""

@@ -559,7 +559,7 @@ def prometheus_batch(
 
     rprint(f"\n[bold]Summary:[/bold] {len(ok)} succeeded, {len(failed)} failed out of {len(results)}")
 
-    if not ok:
+    if failed:
         raise typer.Exit(code=1)
 
 
