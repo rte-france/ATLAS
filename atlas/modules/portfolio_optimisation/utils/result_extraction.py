@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from pendulum import DateTime
 
     from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
-    from atlas.modules.portfolio_optimisation.utils.orchestration import PortfolioOptimisationResult
+    from atlas.modules.portfolio_optimisation.utils.orchestration import SinglePortfolioResult
 
 #: Solver variable prefix carrying the indicator of each thermal state.
 THERMAL_STATE_VARIABLES: dict[ThermalDispatchState, str] = {
@@ -59,7 +59,7 @@ class EquipmentSchedule:
 
 def extract_equipment_schedule(
     equipment: EquipmentPO,
-    optimisation_result: PortfolioOptimisationResult,
+    optimisation_result: SinglePortfolioResult,
     target_times: list[DateTime],
     allowed_round_off_error: float,
 ) -> EquipmentSchedule:
@@ -73,7 +73,7 @@ def extract_equipment_schedule(
     :param equipment: Equipment whose schedule must be read.
     :type equipment: EquipmentPO
     :param optimisation_result: Solved optimisation holding the variable values.
-    :type optimisation_result: PortfolioOptimisationResult
+    :type optimisation_result: SinglePortfolioResult
     :param target_times: Times over which the schedule is read.
     :type target_times: list[DateTime]
     :param allowed_round_off_error: Power below which the schedule is snapped to zero, in MW.
@@ -107,7 +107,7 @@ def _snap_to_zero(power: float, allowed_round_off_error: float) -> float:
 
 def _extract_thermal(
     equipment: ThermalPO,
-    optimisation_result: PortfolioOptimisationResult,
+    optimisation_result: SinglePortfolioResult,
     target_times: list[DateTime],
     allowed_round_off_error: float,
 ) -> EquipmentSchedule:
@@ -123,7 +123,7 @@ def _extract_thermal(
 
 
 def _read_thermal_state(
-    equipment: ThermalPO, optimisation_result: PortfolioOptimisationResult, time: DateTime
+    equipment: ThermalPO, optimisation_result: SinglePortfolioResult, time: DateTime
 ) -> ThermalDispatchState:
     """
     Read the operating state of a thermal unit at a given time.
@@ -134,7 +134,7 @@ def _read_thermal_state(
     :param equipment: Thermal unit to read.
     :type equipment: ThermalPO
     :param optimisation_result: Solved optimisation holding the variable values.
-    :type optimisation_result: PortfolioOptimisationResult
+    :type optimisation_result: SinglePortfolioResult
     :param time: Target time to read.
     :type time: DateTime
     :return: The operating state at that time.
@@ -148,7 +148,7 @@ def _read_thermal_state(
 
 def _extract_hydro(
     equipment: HydroPO,
-    optimisation_result: PortfolioOptimisationResult,
+    optimisation_result: SinglePortfolioResult,
     target_times: list[DateTime],
     allowed_round_off_error: float,
 ) -> EquipmentSchedule:
@@ -170,7 +170,7 @@ def _extract_hydro(
 
 def _extract_storage(
     equipment: StoragePO,
-    optimisation_result: PortfolioOptimisationResult,
+    optimisation_result: SinglePortfolioResult,
     target_times: list[DateTime],
     allowed_round_off_error: float,
 ) -> EquipmentSchedule:
@@ -189,7 +189,7 @@ def _extract_storage(
 
 def _extract_power_only(
     equipment: EquipmentPO,
-    optimisation_result: PortfolioOptimisationResult,
+    optimisation_result: SinglePortfolioResult,
     target_times: list[DateTime],
     allowed_round_off_error: float,
 ) -> EquipmentSchedule:

@@ -49,10 +49,11 @@ Both chains reuse the same **Market Clearing** and **Portfolio Optimisation** mo
 
 ## Installation
 
-Install [uv](https://docs.astral.sh/uv/#installation), then:
-
 ```bash
-git clone https://github.com/rte-france/ATLAS.git && cd ATLAS && uv sync
+pip install atlas-model
+
+# or with uv
+uv add atlas-model
 ```
 
 ## Quick Example

@@ -51,7 +51,7 @@ Every workflow inherits the [common orchestrator parameters](orchestrator.md#orc
 | `workflow_path` | No | directory of the workflow file | Absolute root path used when `path_from_workflow` is `true` |
 | `rollback_on_job_failure` | No | `true` | Roll back the state to before the failed step |
 | `create_job_snapshots` | No | `false` | Save a state snapshot before each step |
-| `export_output` | No | `true` | Export the final state to `<output_dir>/workflow_output` |
+| `export_final_state` | No | `true` | Serialize the final Current Input State once every step has run |
 | `context` | No | `{}` | [Context](context.md) of default and forced values applied to every step |
 | `steps` | Yes | — | Ordered list of steps |
 
@@ -188,14 +188,17 @@ workflow.add_step(Step(module="PortfolioOptimisation", parameters="./parameters/
 
 ## Accessing Results
 
-`execute()` returns the final [`CurrentInputState`](../api/orchestrator/current_input_state.md) — the input
-dataset with every step's changes applied. This is what you want in most cases:
+After execution, access the result of the last step:
 
 ```python
+# Execute and get the final CurrentInputState
 cis = workflow.execute()
-dataset = cis.get_data()
 
-for order in dataset.order.all():
+# Result of the last step
+result = workflow.final_result
+
+# Access values from that result
+for order in result.order.all():
     print(f"{order.name}: {order.accepted_power} MW")
 ```
 
@@ -222,17 +225,16 @@ A typical workflow project:
 my-workflow/
 ├── workflow.yaml
 ├── data/
-│   └── input/                  # Initial dataset (dataset_path)
+│   ├── input/              # Initial dataset (dataset_path)
+│   └── output/             # Final dataset
 ├── parameters/
 │   ├── day_ahead_orders.yml
 │   ├── market_clearing.yml
 │   └── portfolio_optimisation.yml
-└── results/                    # output_dir
+└── results/                # Per-step outputs (output_dir)
     ├── DayAheadOrders/
-    │   └── output_dataset/     # only if that step sets output.export_output_dataset
     ├── MarketClearing/
-    ├── PortfolioOptimisation/
-    └── workflow_output/        # final state, written when export_output is true
+    └── PortfolioOptimisation/
 ```
 
 <!--

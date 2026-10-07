@@ -34,15 +34,12 @@ class ThermalOptimizationResult:
     :type orders: list[OrderDAO]
     :param order_couplings: List of order couplings for this thermal unit
     :type order_couplings: list[OrderCouplingDAO]
-    :param success: Whether the optimization was successful
-    :type success: bool
     """
 
     thermal_name: str
     strategy: ThermalStrategy
     orders: list[OrderDAO] = field(default_factory=list)
     order_couplings: list[OrderCouplingDAO] = field(default_factory=list)
-    success: bool = True
 
 
 def optimize_single_thermal_unit(
@@ -64,42 +61,25 @@ def optimize_single_thermal_unit(
     :type parameters: DayAheadOrdersParameters
     :return: Thermal optimization result
     :rtype: ThermalOptimizationResult
+    :raises ValueError: if the unit has no known bidding strategy
     """
-    try:
-        cfg.logger.debug(f"Formulating orders for thermal unit {thermal.name} with strategy {thermal.strategy}")
+    cfg.logger.debug(f"Formulating orders for thermal unit {thermal.name} with strategy {thermal.strategy}")
 
-        if thermal.strategy == ThermalStrategy.BASE:
-            formulator = ThermalBaseLoadOrders(orders_time, parameters)
-            orders, order_couplings = formulator.formulate(thermal)
-        elif thermal.strategy == ThermalStrategy.INTERMEDIATE:
-            formulator_inter = ThermalIntermediateLoadOrders(orders_time, parameters)
-            orders, order_couplings = formulator_inter.formulate(thermal)
-        elif thermal.strategy == ThermalStrategy.PEAK:
-            formulator_peak = ThermalPeakLoadOrders(orders_time, parameters)
-            orders, order_couplings = formulator_peak.formulate(thermal)
-        else:
-            cfg.logger.warning(f"Unknown thermal strategy {thermal.strategy} for unit {thermal.name}")
-            return ThermalOptimizationResult(
-                thermal_name=thermal.name,
-                strategy=thermal.strategy or ThermalStrategy.BASE,
-                success=False,
-            )
+    if thermal.strategy == ThermalStrategy.BASE:
+        formulator = ThermalBaseLoadOrders(orders_time, parameters)
+        orders, order_couplings = formulator.formulate(thermal)
+    elif thermal.strategy == ThermalStrategy.INTERMEDIATE:
+        formulator_inter = ThermalIntermediateLoadOrders(orders_time, parameters)
+        orders, order_couplings = formulator_inter.formulate(thermal)
+    elif thermal.strategy == ThermalStrategy.PEAK:
+        formulator_peak = ThermalPeakLoadOrders(orders_time, parameters)
+        orders, order_couplings = formulator_peak.formulate(thermal)
+    else:
+        raise ValueError(f"Unknown thermal strategy {thermal.strategy} for unit {thermal.name}")
 
-        return ThermalOptimizationResult(
-            thermal_name=thermal.name,
-            strategy=thermal.strategy or ThermalStrategy.BASE,
-            orders=orders,
-            order_couplings=order_couplings,
-            success=True,
-        )
-
-    except Exception as e:
-        cfg.logger.error(f"Order formulation failed for thermal unit {thermal.name}: {e}")
-        import traceback
-
-        cfg.logger.info(traceback.format_exc())
-        return ThermalOptimizationResult(
-            thermal_name=thermal.name,
-            strategy=thermal.strategy or ThermalStrategy.BASE,
-            success=False,
-        )
+    return ThermalOptimizationResult(
+        thermal_name=thermal.name,
+        strategy=thermal.strategy or ThermalStrategy.BASE,
+        orders=orders,
+        order_couplings=order_couplings,
+    )

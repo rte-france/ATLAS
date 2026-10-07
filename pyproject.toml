@@ -1,6 +1,6 @@
 [project]
 name = "atlas-model"
-version = "0.1.0"
+version = "0.1.2"
 description = "A tool for simulating power market such as day-ahead, intraday, and reserves markets."
 readme = "README.md"
 requires-python = ">=3.13"
@@ -31,7 +31,7 @@ dependencies = [
 atlas = "atlas.app:app"
 
 [build-system]
-requires = ["uv_build>=0.7.19,<0.8.0"]
+requires = ["uv_build>=0.7.19,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -109,4 +109,5 @@ follow_untyped_imports = true
 addopts = "-m 'not integration'"
 markers = [
     "integration: marks tests as integration tests (run only on pull requests)",
+    "perf: execution time checked against tests/dataset/performance_thresholds.json (run in the CI perf job)",
 ]

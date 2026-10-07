@@ -6,12 +6,16 @@ on:
   pull_request:
     branches: ['**']
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
+
 jobs:
   doc-build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -21,7 +25,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install dependencies
-        run: uv sync --group docs --no-dev
+        run: uv sync --group docs --no-dev --locked
 
       - name: Build documentation website
         run: uv run zensical build --config-file zensical.toml

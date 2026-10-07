@@ -51,7 +51,7 @@ class NonDispatchableOrdersFormulator(AbstractOrdersFormulator[OtherNonDispatcha
         )
 
         for i, t in enumerate(orders_timestamps):
-            bid_name = f"other_nd_id_order_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}_{equipment.name}_{t.format('DD_MM_YYYY_HH_mm_ss')}"
+            bid_name = f"other_nd_id_order_{parameters.temporal.execution_date}_{equipment.name}_{t}"
             production_value = production_delta.get_value(t)
             buy_isp_forecast = price_forecast.get_value(t) * (1.0 + parameters.large_imbalance_penalty)
 

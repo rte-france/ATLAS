@@ -4,10 +4,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from typing import Any
+
 import pendulum
 
 import atlas.config as cfg
-from atlas.abstract_class.dataset import AbstractModuleOutput
+from atlas.abstract_class.dataset import ModuleResult
 from atlas.enums import Product
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
@@ -21,11 +23,11 @@ from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market.market_border import MarketBorder
 from atlas.objects.market.order import Order
 from atlas.objects.market_operator.portfolio import Portfolio
-from atlas.orchestrator.change_set import UpdateObject
+from atlas.orchestrator.change_set import ChangeSet, UpdateObject
 from atlas.timing import generate_datetimes
 
 
-class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]):
+class MarketClearingResult(ModuleResult[MarketClearingParameters]):
     """Output dataset for Market Clearing module
     What to we need from MarketClearing result :
       - accepted_powers
@@ -124,18 +126,18 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
         self.border_exchanges = clearing_outputs.border_exchanges
         self.market_prices = market_prices
 
-    def build_change_sets(self) -> None:
-        self.update_orders()
-        self.update_market_area()
-        self.update_market_border()
+    def build_change_sets(self) -> list[ChangeSet]:
+        change_sets = self.update_orders() + self.update_market_area() + self.update_market_border()
         if self.input_dataset.parameters.exchange_constraints_type == ExchangeConstraintsType.FB:
-            self.update_critical_branches()
+            change_sets += self.update_critical_branches()
+        return change_sets
 
-    def update_orders(self):
+    def update_orders(self) -> list[ChangeSet]:
+        change_sets: list[ChangeSet] = []
         # If accepted power is too small then change it to 0
         # Update individual spread price for order
         for order_name, order in self.input_dataset.orders.items():
-            updated_values = {"name": order_name}
+            updated_values: dict[str, Any] = {"name": order_name}
             accepted_power = self.accepted_powers[order.market_area.name, order_name]
             # At this point, unaccepted orders can be skipped:
             if abs(accepted_power) <= self.input_dataset.parameters.allowed_round_off_error:
@@ -149,7 +151,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                 updated_values["individual_spread"] = order.price - spot_price
 
             # Update the Order
-            self.change_sets.append(UpdateObject(updated_values, Order))
+            change_sets.append(UpdateObject(updated_values, Order))
 
         # Create accepted power TS for equipment and portfolio
         equipments_ts, portfolios_ts = {}, {}
@@ -252,7 +254,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                         equipment.id_cleared_quantity, equipment_ts
                     )
             # Update the Equipment
-            self.change_sets.append(UpdateObject(updated_values, type(equipment)))
+            change_sets.append(UpdateObject(updated_values, type(equipment)))
 
         for portfolio_name, portfolio_ts in portfolios_ts.items():
             portfolio = portfolios_mapping[portfolio_name]
@@ -290,11 +292,13 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                         portfolio.id_cleared_quantity, portfolio_ts
                     )
             # Update the Portfolio
-            self.change_sets.append(UpdateObject(updated_values, Portfolio))
+            change_sets.append(UpdateObject(updated_values, Portfolio))
+        return change_sets
 
-    def update_market_area(self):
+    def update_market_area(self) -> list[ChangeSet]:
+        change_sets: list[ChangeSet] = []
         for market_area_name, market_area in self.input_dataset.market_areas.items():
-            updated_values = {"name": market_area_name}
+            updated_values: dict[str, Any] = {"name": market_area_name}
             balance_values = [self.local_balances[market_area_name, time] for time in self.input_dataset.times]
             price_values = [self.market_prices[market_area_name, time] for time in self.input_dataset.times]
 
@@ -343,11 +347,13 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                     )
 
             # Update the Market Area
-            self.change_sets.append(UpdateObject(updated_values, MarketArea))
+            change_sets.append(UpdateObject(updated_values, MarketArea))
+        return change_sets
 
-    def update_market_border(self):
+    def update_market_border(self) -> list[ChangeSet]:
+        change_sets: list[ChangeSet] = []
         for market_border_name, market_border in self.input_dataset.market_borders.items():
-            updated_values = {"name": market_border_name}
+            updated_values: dict[str, Any] = {"name": market_border_name}
             flow_values = [self.border_exchanges[market_border_name, time] for time in self.input_dataset.times]
             shadow_price_values = [
                 self.market_prices[market_border.uphill_market_area.name, time]
@@ -413,9 +419,11 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
 
             # Remark : Flow markets are not yet taken into account.
             # Update the Market Border
-            self.change_sets.append(UpdateObject(updated_values, MarketBorder))
+            change_sets.append(UpdateObject(updated_values, MarketBorder))
+        return change_sets
 
-    def update_critical_branches(self):
+    def update_critical_branches(self) -> list[ChangeSet]:
+        change_sets: list[ChangeSet] = []
         relative_balances = {}
         for market_area_name, market_area in self.input_dataset.market_areas.items():
             for time in self.input_dataset.times:
@@ -424,7 +432,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                 ] - market_area.ref_balance.get_value(time)
 
         for critical_branch in self.input_dataset.critical_branches.values():
-            updated_values = {"name": critical_branch.name}
+            updated_values: dict[str, Any] = {"name": critical_branch.name}
             flow = self.zero_timeseries()
             for market_area_ptdf in critical_branch.market_area_ptdf:
                 da_ptdf = market_area_ptdf.da_ptdf.set_frequency(
@@ -443,7 +451,8 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                         "ATLAS 1.3 does not support exports on critical branches for this market. "
                         "This should be corrected in future versions"
                     )
-            self.change_sets.append(UpdateObject(updated_values, CriticalBranch))
+            change_sets.append(UpdateObject(updated_values, CriticalBranch))
+        return change_sets
 
     def zero_timeseries(self) -> Timeseries:
         """

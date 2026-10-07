@@ -393,6 +393,21 @@ def test_to_file_with_attribute_concatenate(tmp_path, sample_polars_df):
     assert len(df_concat) == len(matrix1.dataframe) + len(matrix2.dataframe)
 
 
+@pytest.mark.parametrize("file_format", ["parquet", "csv"])
+def test_to_file_with_attribute_concatenate_different_columns(tmp_path, sample_polars_df, file_format):
+    """Attributes with different columns (e.g. forecast dates) are stacked, missing cells left null."""
+    path = tmp_path / f"test_concat.{file_format}"
+    df2 = pl.DataFrame({"time": pd.date_range(start="2025-01-04", periods=2, freq="D"), "other": [4, 5]})
+
+    ScenarioMatrix(sample_polars_df).to_file_with_attribute(path, attribute="power", file_format=file_format)
+    ScenarioMatrix(df2).to_file_with_attribute(path, attribute="capacity", file_format=file_format)
+
+    df_concat = pl.read_parquet(path) if file_format == "parquet" else pl.read_csv(path, separator=";")
+    assert "other" in df_concat.columns
+    assert len(df_concat) == len(sample_polars_df) + len(df2)
+    assert df_concat.filter(pl.col("attribute") == "capacity")["other"].to_list() == [4, 5]
+
+
 def test_to_file_with_attribute_concatenate_unreadable_file(tmp_path, sample_polars_df):
     """An unreadable existing file must raise, not be overwritten with the new data only."""
     path = tmp_path / "corrupted.parquet"
