@@ -398,7 +398,8 @@ class TemporalVariable:
         :type t: DateTime
         :return: The value at *t*
         :rtype: float
-        :raises RuntimeError: If *t* holds a solver variable and the model has not been solved
+        :raises SolverError: If *t* holds a solver variable and the model has not been solved
+            successfully
         :raises KeyError: If *t* was never added
         """
         if t in self._fixed:
@@ -427,7 +428,7 @@ class TemporalVariable:
         :type include_fixed: bool
         :return: Values indexed by timestamp
         :rtype: Timeseries
-        :raises RuntimeError: If the model has not been solved
+        :raises SolverError: If the model has not been solved successfully
         :raises ValueError: If there is no value to return, if *times* contains duplicates, or if
             *times* and *include_fixed* are both given
         :raises KeyError: If one of *times* was never added
@@ -467,7 +468,7 @@ class TemporalVariable:
         :type include_fixed: bool
         :return: One value per timestamp
         :rtype: list[float]
-        :raises RuntimeError: If the model has not been solved
+        :raises SolverError: If the model has not been solved successfully
         :raises ValueError: If *times* and *include_fixed* are both given
         :raises KeyError: If one of *times* was never added
         """
@@ -571,8 +572,7 @@ class TemporalVariable:
             raise KeyError(f"Temporal variable '{self._name}' is not defined at {error.args[0]}") from None
 
     def _check_solved(self) -> None:
-        if self._model.solution_info is None:
-            raise RuntimeError(f"Optimisation model has not been solved yet, cannot read '{self._name}'")
+        self._model.require_solution()
 
 
 def _resolve(bound: Bound, t: DateTime) -> float:
