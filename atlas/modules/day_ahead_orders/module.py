@@ -22,7 +22,8 @@ from atlas.timing import generate_datetimes
 
 
 class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrdersInputDataset, DayAheadOrdersResult]):
-    def get_parameters_class(self):
+    @classmethod
+    def get_parameters_class(cls) -> type[DayAheadOrdersParameters]:
         return DayAheadOrdersParameters
 
     def import_data(self, input_data: AtlasDataset, parameters: DayAheadOrdersParameters) -> DayAheadOrdersInputDataset:

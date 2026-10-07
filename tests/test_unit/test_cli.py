@@ -89,15 +89,13 @@ class TestRunCommandModuleMode:
     def test_run_module_with_valid_inputs(self, mock_registry, mock_module_run, tmp_path):
         """Test that run module run succeeds with valid inputs (mocked execution)."""
         mock_module_class = MagicMock()
-        mock_module_instance = MagicMock()
-        mock_module_class.return_value = mock_module_instance
         mock_registry.get.return_value = mock_module_class
 
         mock_params_class = MagicMock()
         mock_params_instance = MagicMock()
         mock_params_instance.export.export_dataset = False
         mock_params_class.from_file.return_value = mock_params_instance
-        mock_module_instance.get_parameters_class.return_value = mock_params_class
+        mock_module_class.get_parameters_class.return_value = mock_params_class
 
         mock_run_instance = MagicMock()
         mock_module_run.return_value = mock_run_instance

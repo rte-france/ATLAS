@@ -22,7 +22,8 @@ class ModuleTest(AbstractModule[P, ID, R]):
     def __init__(self):
         pass
 
-    def get_parameters_class(self) -> type[P]:
+    @classmethod
+    def get_parameters_class(cls) -> type[P]:
         return Mock
 
     def import_data(self, raw_data: dict[str, list[BusinessModel]], parameters: P) -> ID:

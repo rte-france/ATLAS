@@ -19,8 +19,9 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 class AbstractModule[P: AbstractModuleParameters, ID: AbstractDataset, R: ModuleResult](ABC):
     """Abstract base class for modules with standard execution lifecycle."""
 
+    @classmethod
     @abstractmethod
-    def get_parameters_class(self) -> type[P]:
+    def get_parameters_class(cls) -> type[P]:
         """Returns the concrete Parameters class for this module."""
 
     def import_parameters(self, parameters: dict[str, Any] | str | Path | P) -> P:

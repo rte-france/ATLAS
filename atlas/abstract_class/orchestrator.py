@@ -46,7 +46,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
 
     @classmethod
     @abstractmethod
-    def get_param_class(cls) -> PO:
+    def get_param_class(cls) -> type[PO]:
         """
         Return the parameter class
         """

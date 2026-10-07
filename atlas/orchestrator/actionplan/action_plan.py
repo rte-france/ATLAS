@@ -33,7 +33,7 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
     Each job processes the output of the previous one, starting from the input dataset."""
 
     @classmethod
-    def get_param_class(cls):
+    def get_param_class(cls) -> type[ActionPlanParameters]:
         return ActionPlanParameters
 
     def __init__(self, parameters: ActionPlanParameters):
@@ -119,16 +119,12 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         """
         if isinstance(task.parameters, (str, Path)):
             path = task.parameters if isinstance(task.parameters, Path) else Path(task.parameters)
-            task_parameters = (
-                task.module.value()
-                .get_parameters_class()
-                .from_file(self.parameters.resolve_path(path), self._context_with_disregarded_temporal_defaults())
+            task_parameters = task.module.value.get_parameters_class().from_file(
+                self.parameters.resolve_path(path), self._context_with_disregarded_temporal_defaults()
             )
         elif isinstance(task.parameters, dict):
-            task_parameters = (
-                task.module.value()
-                .get_parameters_class()
-                .from_dict(task.parameters, self._context_with_disregarded_temporal_defaults())
+            task_parameters = task.module.value.get_parameters_class().from_dict(
+                task.parameters, self._context_with_disregarded_temporal_defaults()
             )
         else:
             task_parameters = self.parameters.context.apply_on_parameters(task.parameters)
