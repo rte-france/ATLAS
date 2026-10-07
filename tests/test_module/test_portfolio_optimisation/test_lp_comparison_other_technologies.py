@@ -16,7 +16,7 @@ import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
-from atlas.solver.solver_helper import SolverHelper
+from tests.solver_helper import SolverHelper
 from tests.utils import check_execution_time
 
 # Test data directories
