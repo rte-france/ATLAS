@@ -36,8 +36,6 @@ Adding a concurrent task to an `ActionPlan` raises a `ValueError` — see `Task.
 
 ## Field Names
 
-`from` is a Python keyword, so the field is `from_` in code. In YAML both `from` and `from_` are accepted.
-
 ## Task (base)
 
 ::: atlas.orchestrator.actionplan.parameters.Task
