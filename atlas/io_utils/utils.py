@@ -220,7 +220,7 @@ def diff_business_model(
 
     field_diffs: dict[str, Any] = {}
 
-    for field_name in obj.model_fields:
+    for field_name in type(obj).model_fields:
         val = getattr(obj, field_name, None)
         other_val = getattr(other_obj, field_name, None)
 

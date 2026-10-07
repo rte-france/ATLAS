@@ -88,7 +88,8 @@ LOAD_EQUIPMENT = {"a_baseload", "a_power_to_gas_1", "b_baseload", "b_power_to_ga
 
 class TestLoadStep:
     @pytest.fixture(scope="class")
-    def result(self, steps_result, steps_parameters) -> StepResult:
+    @classmethod
+    def result(cls, steps_result, steps_parameters) -> StepResult:
         return LoadStep(steps_result, _orders_time(steps_parameters), steps_parameters).formulate()
 
     def test_orders_match_expected(self, result, expected_orders):
@@ -111,7 +112,8 @@ NON_DISPATCHABLE_EQUIPMENT = {"a_other_non_dispatchable", "b_other_non_dispatcha
 
 class TestNonDispatchableStep:
     @pytest.fixture(scope="class")
-    def result(self, steps_result, steps_parameters) -> StepResult:
+    @classmethod
+    def result(cls, steps_result, steps_parameters) -> StepResult:
         return NonDispatchableStep(steps_result, _orders_time(steps_parameters), steps_parameters).formulate()
 
     def test_orders_match_expected(self, result, expected_orders):
@@ -134,7 +136,8 @@ WIND_PV_EQUIPMENT = {"a_wind_1", "b_wind_1", "a_photovoltaic_1", "b_photovoltaic
 
 class TestWindPVStep:
     @pytest.fixture(scope="class")
-    def result(self, steps_result, steps_parameters) -> StepResult:
+    @classmethod
+    def result(cls, steps_result, steps_parameters) -> StepResult:
         return WindPVStep(steps_result, _orders_time(steps_parameters), steps_parameters).formulate()
 
     def test_orders_match_expected(self, result, expected_orders):
@@ -157,7 +160,8 @@ HYDRO_EQUIPMENT = {"a_hydraulic", "b_hydraulic"}
 
 class TestHydraulicStep:
     @pytest.fixture(scope="class")
-    def result(self, steps_result, steps_parameters) -> StepResult:
+    @classmethod
+    def result(cls, steps_result, steps_parameters) -> StepResult:
         return HydraulicStep(steps_result, _orders_time(steps_parameters), steps_parameters).formulate()
 
     def test_orders_match_expected(self, result, expected_orders):
@@ -182,7 +186,8 @@ THERMAL_PEAK_EQUIPMENT = {"a_thermal_peak_1", "b_thermal_peak_1"}
 
 class TestThermalBaseOrders:
     @pytest.fixture(scope="class")
-    def result(self, steps_result, steps_parameters) -> StepResult:
+    @classmethod
+    def result(cls, steps_result, steps_parameters) -> StepResult:
         orders_time = _orders_time(steps_parameters)
         r = StepResult()
         for unit in [t for t in steps_result.thermal if t.strategy == ThermalStrategy.BASE]:
@@ -205,7 +210,8 @@ class TestThermalBaseOrders:
 
 class TestThermalPeakOrders:
     @pytest.fixture(scope="class")
-    def result(self, steps_result, steps_parameters) -> StepResult:
+    @classmethod
+    def result(cls, steps_result, steps_parameters) -> StepResult:
         orders_time = _orders_time(steps_parameters)
         r = StepResult()
         for unit in [t for t in steps_result.thermal if t.strategy == ThermalStrategy.PEAK]:
