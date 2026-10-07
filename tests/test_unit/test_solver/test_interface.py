@@ -956,3 +956,17 @@ class TestSetVariableBounds:
     def test_unknown_variable_raises(self, model):
         with pytest.raises(ValueError, match="Variable 'y' not found"):
             model.set_variable_bounds("y", 0.0, 1.0)
+
+
+class TestGetTemporalVariable:
+    def test_returns_registered_variable(self):
+        model = OptimisationModel("SCIP", "test_model")
+        power = model.add_temporal_variable("power")
+
+        assert model.get_temporal_variable("power") is power
+
+    def test_unknown_name_raises(self):
+        model = OptimisationModel("SCIP", "test_model")
+
+        with pytest.raises(ValueError, match="Temporal variable 'power' not found"):
+            model.get_temporal_variable("power")

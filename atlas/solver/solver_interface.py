@@ -242,7 +242,7 @@ class OptimisationModel:
 
         This is the only way to create a :class:`~atlas.solver.temporal_variable.TemporalVariable`:
         registration is what makes it part of :meth:`solution`. Keep the returned object to build
-        constraints, the model does not expose temporal variables by name.
+        constraints, or get it back by name with :meth:`get_temporal_variable`.
 
         **Example**
 
@@ -270,6 +270,22 @@ class OptimisationModel:
         logger.debug("Adding {} temporal variable '{}'", variable_type.value, name)
         return self._temporal_variables.add(self, name, times, variable_type, lower_bound, upper_bound)
 
+    def get_temporal_variable(self, name: str) -> TemporalVariable:
+        """
+        Get a temporal variable by name, as returned by :meth:`add_temporal_variable`.
+
+        **Example**
+
+            model.get_temporal_variable("unit_power").set_bounds(horizon, upper_bound=max_power)
+
+        :param name: Name of the temporal variable
+        :type name: str
+        :return: The registered temporal variable
+        :rtype: TemporalVariable
+        :raises ValueError: If no temporal variable has this name
+        """
+        return self._temporal_variables.get(name)
+
     def solution(self, include_fixed: bool = False) -> dict[str, Timeseries]:
         """
         Get the solved values of every temporal variable, as picklable timeseries.
@@ -292,6 +308,8 @@ class OptimisationModel:
         """
         Get a variable object by name for use in expressions.
 
+        For temporal variables, use :meth:`get_temporal_variable`.
+
         :param name: Variable name
         :type name: str
         :return: OR-Tools variable object
@@ -313,7 +331,8 @@ class OptimisationModel:
         """
         Change the bounds of a variable by name, typically to tighten a model before a new solve.
 
-        For temporal variables, use :meth:`~atlas.solver.temporal_variable.TemporalVariable.set_bounds`.
+        For temporal variables, use :meth:`~atlas.solver.temporal_variable.TemporalVariable.set_bounds`
+        on :meth:`get_temporal_variable`.
 
         **Example**
 

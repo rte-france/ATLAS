@@ -70,6 +70,21 @@ class TemporalVariableRegistry:
         self._variables[name] = temporal_variable
         return temporal_variable
 
+    def get(self, name: str) -> TemporalVariable:
+        """
+        Get a registered temporal variable by name.
+
+        :param name: Name of the temporal variable
+        :type name: str
+        :return: The registered temporal variable
+        :rtype: TemporalVariable
+        :raises ValueError: If no temporal variable has this name
+        """
+        try:
+            return self._variables[name]
+        except KeyError:
+            raise ValueError(f"Temporal variable '{name}' not found") from None
+
     def solution(self, include_fixed: bool = False) -> dict[str, Timeseries]:
         """
         Get the solved values of every temporal variable having values to return.
