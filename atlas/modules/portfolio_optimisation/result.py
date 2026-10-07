@@ -18,7 +18,7 @@ from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
 from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.result_extraction import EquipmentSchedule, extract_equipment_schedule
-from atlas.orchestrator.change_set import UpdateObject
+from atlas.orchestrator.change_set import ChangeSet, UpdateObject
 
 if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
@@ -42,8 +42,9 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
         self.optimisation_results = optimisation_results
         self.parameters = parameters
 
-    def build_change_sets(self) -> None:
+    def build_change_sets(self) -> list[ChangeSet]:
         """Run in-place mutations then export each modified object as an UpdateObject changeset."""
+        change_sets: list[ChangeSet] = []
         self.update_equipments()
         self.update_portfolios()
 
@@ -56,11 +57,12 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
                     "imbalance": portfolio.imbalance,
                     "power": portfolio.power,
                 }
-                self.change_sets.append(UpdateObject(portfolio_data, type(portfolio)))
+                change_sets.append(UpdateObject(portfolio_data, type(portfolio)))
 
             for _, equipment_list in portfolio.equipments.iter_by_type():
                 for equipment in equipment_list:
-                    self.change_sets.append(UpdateObject(self._equipment_data(equipment), type(equipment)))
+                    change_sets.append(UpdateObject(self._equipment_data(equipment), type(equipment)))
+        return change_sets
 
     def _equipment_data(self, equipment: EquipmentPO) -> dict:
         """

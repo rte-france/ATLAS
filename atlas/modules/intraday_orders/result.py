@@ -27,7 +27,7 @@ from atlas.objects.equipment.thermal import Thermal
 from atlas.objects.equipment.wind import Wind
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
-from atlas.orchestrator.change_set import AddObject, UpdateObject
+from atlas.orchestrator.change_set import AddObject, ChangeSet, UpdateObject
 
 if TYPE_CHECKING:
     from atlas.modules.intraday_orders.input_dataset import IntradayOrdersInputDataset
@@ -35,7 +35,6 @@ if TYPE_CHECKING:
 
 class IntradayOrdersResult(ModuleResult[IntradayOrdersParameters]):
     def __init__(self, input_dataset: IntradayOrdersInputDataset):
-        self.change_sets = []
         self.order: list[Order] = []
         self.order_coupling: list[OrderCoupling] = []
 
@@ -47,11 +46,12 @@ class IntradayOrdersResult(ModuleResult[IntradayOrdersParameters]):
         self.storage: list[StorageIDO] = input_dataset.storage
         self.other_non_dispatchable: list[OtherNonDispatchableIDO] = input_dataset.other_non_dispatchable
 
-    def build_change_sets(self):
+    def build_change_sets(self) -> list[ChangeSet]:
+        change_sets: list[ChangeSet] = []
         for order in self.order:
-            self.change_sets.append(AddObject.from_object(order))
+            change_sets.append(AddObject.from_object(order))
         for order_coupling in self.order_coupling:
-            self.change_sets.append(AddObject.from_object(order_coupling))
+            change_sets.append(AddObject.from_object(order_coupling))
 
         for load in self.load:
             load_dict = {
@@ -61,7 +61,7 @@ class IntradayOrdersResult(ModuleResult[IntradayOrdersParameters]):
                 "total_id_buy_submitted_volume": load.total_id_buy_submitted_volume,
                 "total_id_sell_submitted_volume": load.total_id_sell_submitted_volume,
             }
-            self.change_sets.append(UpdateObject(load_dict, Load))
+            change_sets.append(UpdateObject(load_dict, Load))
 
         for hydro in self.hydro:
             hydro_dict = {
@@ -71,7 +71,7 @@ class IntradayOrdersResult(ModuleResult[IntradayOrdersParameters]):
                 "total_id_buy_submitted_volume": hydro.total_id_buy_submitted_volume,
                 "total_id_sell_submitted_volume": hydro.total_id_sell_submitted_volume,
             }
-            self.change_sets.append(UpdateObject(hydro_dict, Hydro))
+            change_sets.append(UpdateObject(hydro_dict, Hydro))
 
         for solar in self.solar:
             solar_dict = {
@@ -81,7 +81,7 @@ class IntradayOrdersResult(ModuleResult[IntradayOrdersParameters]):
                 "total_id_buy_submitted_volume": solar.total_id_buy_submitted_volume,
                 "total_id_sell_submitted_volume": solar.total_id_sell_submitted_volume,
             }
-            self.change_sets.append(UpdateObject(solar_dict, Solar))
+            change_sets.append(UpdateObject(solar_dict, Solar))
 
         for wind in self.wind:
             wind_dict = {
@@ -91,7 +91,7 @@ class IntradayOrdersResult(ModuleResult[IntradayOrdersParameters]):
                 "total_id_buy_submitted_volume": wind.total_id_buy_submitted_volume,
                 "total_id_sell_submitted_volume": wind.total_id_sell_submitted_volume,
             }
-            self.change_sets.append(UpdateObject(wind_dict, Wind))
+            change_sets.append(UpdateObject(wind_dict, Wind))
 
         for other_non_dispatchable in self.other_non_dispatchable:
             other_non_dispatchable_dict = {
@@ -101,7 +101,7 @@ class IntradayOrdersResult(ModuleResult[IntradayOrdersParameters]):
                 "total_id_buy_submitted_volume": other_non_dispatchable.total_id_buy_submitted_volume,
                 "total_id_sell_submitted_volume": other_non_dispatchable.total_id_sell_submitted_volume,
             }
-            self.change_sets.append(UpdateObject(other_non_dispatchable_dict, OtherNonDispatchable))
+            change_sets.append(UpdateObject(other_non_dispatchable_dict, OtherNonDispatchable))
 
         for thermal in self.thermal:
             thermal_dict = {
@@ -111,7 +111,7 @@ class IntradayOrdersResult(ModuleResult[IntradayOrdersParameters]):
                 "total_id_buy_submitted_volume": thermal.total_id_buy_submitted_volume,
                 "total_id_sell_submitted_volume": thermal.total_id_sell_submitted_volume,
             }
-            self.change_sets.append(UpdateObject(thermal_dict, Thermal))
+            change_sets.append(UpdateObject(thermal_dict, Thermal))
 
         for storage in self.storage:
             storage_dict = {
@@ -121,4 +121,5 @@ class IntradayOrdersResult(ModuleResult[IntradayOrdersParameters]):
                 "total_id_buy_submitted_volume": storage.total_id_buy_submitted_volume,
                 "total_id_sell_submitted_volume": storage.total_id_sell_submitted_volume,
             }
-            self.change_sets.append(UpdateObject(storage_dict, Storage))
+            change_sets.append(UpdateObject(storage_dict, Storage))
+        return change_sets

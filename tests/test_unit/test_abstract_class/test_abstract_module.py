@@ -78,3 +78,24 @@ def test_validate_results_is_false():
     invalid_result_parameters = Mock()
     invalid_result_parameters.valid_result = False
     assert not ModuleTest().validates_results(invalid_result_parameters, Mock(), Mock())
+
+
+class _OneChangeSetResult(ModuleResult):
+    def build_change_sets(self) -> list:
+        return [Mock()]
+
+
+class _OneChangeSetModule(ModuleTest):
+    def import_data(self, raw_data: dict[str, list[BusinessModel]], parameters: P) -> ID:
+        return Mock(loads=[1])
+
+    def execute(self, parameters: P, input_dataset: ID) -> R:
+        return _OneChangeSetResult()
+
+
+def test_run_stores_change_sets_per_result():
+    first = _OneChangeSetModule().run(Mock(), Mock())
+    second = _OneChangeSetModule().run(Mock(), Mock())
+    assert len(first.change_sets) == 1
+    assert len(second.change_sets) == 1
+    assert first.change_sets is not second.change_sets
