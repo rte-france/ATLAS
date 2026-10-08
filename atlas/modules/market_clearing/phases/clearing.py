@@ -456,13 +456,7 @@ class Clearing:
         self.model.add_objective(sum(objective))
 
     def add_absolute_exchanges_objective(self, absolute: AbsoluteExchanges, lambda2: float) -> None:
-        objective = []
-        for time in self.input_dataset.times:
-            for border_name in self.input_dataset.market_borders.keys():
-                border_pos_exchanges = absolute.positive[border_name][time]
-                border_neg_exchanges = absolute.negative[border_name][time]
-                objective.append(border_pos_exchanges - border_neg_exchanges)
-        self.model.add_objective(-lambda2 * sum(objective))
+        self.model.add_objective(-lambda2 * absolute.total())
 
     def add_exchanges_objective(self, lambda3: float, lambda4: float) -> None:
         """Push every border exchange towards its maximum (lambda3) and its minimum (lambda4).
@@ -473,9 +467,7 @@ class Clearing:
         penalty = lambda3 - lambda4
         if not penalty:
             return
-        self.model.add_objective(
-            penalty * sum(exchange[time] for exchange in self.exchange.values() for time in self.input_dataset.times)
-        )
+        self.model.add_objective(penalty * sum(exchange.sum() for exchange in self.exchange.values()))
 
     def get_tso_sold_power(self, time: pendulum.DateTime, control_block: ControlBlock) -> Any:
         return _sum_tso_orders(

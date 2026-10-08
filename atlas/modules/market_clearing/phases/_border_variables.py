@@ -10,12 +10,19 @@ that Clearing only creates the loss variables for borders with a non-zero loss f
 ExchangesFixing creates them for every border.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.input_objects.market_border import DEFAULT_MAX_FLOW, DEFAULT_MIN_FLOW
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.solver.temporal_variable import TemporalVariable
+
+if TYPE_CHECKING:
+    # ortools-stubs does not ship pywraplp (see the solver_interface mypy override)
+    from ortools.linear_solver import pywraplp  # type: ignore[attr-defined]
 
 
 @dataclass(frozen=True)
@@ -24,6 +31,10 @@ class AbsoluteExchanges:
 
     positive: dict[str, TemporalVariable]
     negative: dict[str, TemporalVariable]
+
+    def total(self) -> pywraplp.LinearExpr:
+        """Sum of the absolute exchanges of every border over the clearing times."""
+        return sum(self.positive[name].sum() - self.negative[name].sum() for name in self.positive)
 
 
 @dataclass(frozen=True)

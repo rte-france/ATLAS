@@ -366,37 +366,27 @@ def create_price_difference_constraints(pricing: _PricingPhase) -> None:
 
 
 def create_price_objective(pricing: _PricingPhase) -> None:
-    objective = []
-    for time in pricing.input_dataset.times:
-        for price_group in pricing.price_groups[time]:
-            price = pricing.variables.price[price_group.id][time]
-            objective.append(pricing.parameters.market_price_penalty_alpha * price)
-    pricing.model.add_objective(sum(objective))
+    prices = sum(price.sum() for price in pricing.variables.price.values())
+    pricing.model.add_objective(pricing.parameters.market_price_penalty_alpha * prices)
 
 
 def create_absolute_price_objective(pricing: _PricingPhase) -> None:
-    objective = []
-    for time in pricing.input_dataset.times:
-        for price_group in pricing.price_groups[time]:
-            positive_price = pricing.variables.positive_price[price_group.id][time]
-            negative_price = pricing.variables.negative_price[price_group.id][time]
-            objective.append(pricing.parameters.market_price_penalty_beta * (positive_price - negative_price))
-    pricing.model.add_objective(sum(objective))
+    variables = pricing.variables
+    absolute_prices = sum(
+        variables.positive_price[group_id].sum() - variables.negative_price[group_id].sum()
+        for group_id in variables.positive_price
+    )
+    pricing.model.add_objective(pricing.parameters.market_price_penalty_beta * absolute_prices)
 
 
 def create_branch_load_objective(pricing: _PricingPhase) -> None:
-    objective = []
-    for time in pricing.input_dataset.times:
-        if count_saturated(pricing.saturated_critical_branch, time, pricing.parameters.allowed_round_off_error) != 0:
-            continue
-        price_groups = pricing.price_groups[time]
-        for group_i, group_j in iter_group_pairs(price_groups):
-            positive_load_slack = pricing.variables.positive_branch_load_slack[(group_i.id, group_j.id)][time]
-            negative_load_slack = pricing.variables.negative_branch_load_slack[(group_i.id, group_j.id)][time]
-            objective.append(
-                pricing.parameters.fb_branch_load_slack_penalty * (positive_load_slack - negative_load_slack)
-            )
-    pricing.model.add_objective(sum(objective))
+    # the slacks only exist at the time steps without saturated critical branch
+    variables = pricing.variables
+    absolute_slacks = sum(
+        variables.positive_branch_load_slack[pair].sum() - variables.negative_branch_load_slack[pair].sum()
+        for pair in variables.positive_branch_load_slack
+    )
+    pricing.model.add_objective(pricing.parameters.fb_branch_load_slack_penalty * absolute_slacks)
 
 
 def create_price_difference_objective(pricing: _PricingPhase) -> None:

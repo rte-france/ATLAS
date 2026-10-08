@@ -66,14 +66,8 @@ class ExchangesFixing:
 
     def build_objective(self) -> None:
         """Create objective function for the exchanges fixing phase model"""
-        objective = []
-        for border_name in self.input_dataset.market_borders.keys():
-            for time in self.input_dataset.times:
-                border_pos_exchange = self.absolute.positive[border_name][time]
-                border_neg_exchange = self.absolute.negative[border_name][time]
-                objective.append(border_pos_exchange - border_neg_exchange)
         self.model.set_direction("maximize")
-        self.model.add_objective(sum(objective))
+        self.model.add_objective(self.absolute.total())
 
     ##################################
     # Constraints

@@ -113,10 +113,8 @@ def create_worst_rejected_buy_constraints(pricing: _PricingPhase, rejection: Rej
 
 
 def create_worst_rejected_objective(pricing: _PricingPhase, rejection: RejectionVariables) -> None:
-    objective = []
-    for price_groups in pricing.price_groups.values():
-        for price_group in price_groups:
-            max_rejected_buy = rejection.worst_rejected_buy[price_group.id][price_group.time]
-            min_rejected_sale = rejection.worst_rejected_sale[price_group.id][price_group.time]
-            objective.append(pricing.parameters.paradoxically_rejected_penalty * (min_rejected_sale + max_rejected_buy))
-    pricing.model.add_objective(sum(objective))
+    worst_rejected = sum(
+        rejection.worst_rejected_sale[group_id].sum() + rejection.worst_rejected_buy[group_id].sum()
+        for group_id in rejection.worst_rejected_sale
+    )
+    pricing.model.add_objective(pricing.parameters.paradoxically_rejected_penalty * worst_rejected)
