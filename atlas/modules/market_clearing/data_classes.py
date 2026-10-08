@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 
 import pendulum
 
+from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.input_objects.order import OrderMC
 
 
@@ -66,11 +67,11 @@ class ClearingOutputs:
     """Results of the Clearing and ExchangesFixing phases, consumed by Pricing and by the
     market clearing output dataset.
 
-    The time-indexed results are keyed by the timestep itself, so a key stays meaningful without
-    ``input_dataset.times`` at hand.
+    The balances and exchanges are the solutions of their temporal variables, one timeseries per
+    market area and per border over ``input_dataset.times``.
     """
 
     saturated_critical_branch: dict[tuple[str, pendulum.DateTime], float]
-    border_exchanges: dict[tuple[str, pendulum.DateTime], float]
-    local_balances: dict[tuple[str, pendulum.DateTime], float]
+    border_exchanges: dict[str, Timeseries]
+    local_balances: dict[str, Timeseries]
     accepted_powers: dict[tuple[str, str], float]
