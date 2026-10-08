@@ -159,11 +159,11 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
             }
             change_sets.append(UpdateObject(updated_values, Order))
 
-            equipment = order.equipment
-            if order.is_agent_tso or equipment is None or equipment.portfolio is None:
+            order_equipment = order.equipment
+            if order.is_agent_tso or order_equipment is None or order_equipment.portfolio is None:
                 continue
-            portfolio = equipment.portfolio
-            _, equipment_sold = equipments_sold.setdefault(equipment.name, (equipment, [0.0] * len(times)))
+            portfolio = order_equipment.portfolio
+            _, equipment_sold = equipments_sold.setdefault(order_equipment.name, (order_equipment, [0.0] * len(times)))
             _, portfolio_sold = portfolios_sold.setdefault(portfolio.name, (portfolio, [0.0] * len(times)))
             power_sold = accepted_power * order.production_sign
             for index in range(position[order.start_date], position[order.end_date_processed - timestep] + 1):
