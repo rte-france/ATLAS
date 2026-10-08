@@ -38,9 +38,9 @@ The `run()` method executes these standard steps:
 3. **Validate**: Perform data validation (typically timestep consistency checks)
 4. **Execute**: Run the module's core logic
 5. **Validate Results**: Check output validity
-6. **Export**: Update business model objects with results (if `export_results=True`)
+6. **Export**: Run the module's `export_results()` hook. Most modules do nothing there; `MarketClearing` writes its CSV reports when `export.export_results` is true
 
-Results are stored directly in the business model objects.
+The module returns a `ModuleResult` carrying its ChangeSets. They reach the business model objects when the orchestrator (or `ModuleRun`) applies them to the Current Input State, see [Data Flow](../data-flow.md).
 
 ## AbstractModule Methods
 
@@ -51,7 +51,7 @@ All modules implement these core methods:
 - `validate_data()`: Validates input data consistency
 - `execute()`: Runs the module's core logic
 - `validates_results()`: Validates output data
-- `export_results()`: Updates business model objects with results
+- `export_results()`: Optional export hook (e.g. CSV reports)
 
 ## Key Design Patterns
 
@@ -59,7 +59,7 @@ All modules implement these core methods:
 
 **Pydantic Models**: Parameters and datasets validated via Pydantic
 
-**Business Model Integration**: Results stored directly in business objects
+**Business Model Integration**: Results returned as ChangeSets applied to the business objects
 
 **Solver Interface**: Optimization modules use ATLAS `OptimisationModel` for solver abstraction
 

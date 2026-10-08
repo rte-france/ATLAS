@@ -34,7 +34,7 @@ Implements `AbstractModule` with methods:
 - `validate_data()`: Validates timestep consistency
 - `execute()`: Runs optimization via `PortfolioOptimisationOrchestrator`
 - `validates_results()`: Validates outputs
-- `export_results()`: Updates equipment and portfolio forecasts
+- `export_results()`: Only logs
 
 ### **`PortfolioOptimisationParameters`**
 
@@ -92,7 +92,7 @@ execute() → Orchestration of the module
   ↓
 validates_results()
   ↓
-export_results() → update equipment.power, portfolio.imbalance
+export_results() → nothing
 ```
 
 ## Module-Specific Design Patterns

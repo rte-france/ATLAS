@@ -82,7 +82,19 @@ class Task(BaseModel, ABC):
 
     @classmethod
     def are_concurrent(cls, task1: Task, task2: Task) -> bool:
-        """Return true if both task are concurrent, meaning they both have the same priority and, at some point, have to be executed with the same execution."""
+        """Return whether two tasks are concurrent.
+
+        Two tasks are concurrent if they share the same ``priority`` and, at some point within
+        their respective ``from``/``until`` windows, would both be scheduled to execute on the
+        same date. Tasks with different priorities are never considered concurrent, since their
+        relative execution order is already determined.
+
+        :param task1: First task to compare.
+        :type task1: Task
+        :param task2: Second task to compare.
+        :type task2: Task
+        :return: True if the two tasks share a priority and an execution date, False otherwise.
+        """
         # Different priority are ignored
         if task1.priority != task2.priority:
             return False

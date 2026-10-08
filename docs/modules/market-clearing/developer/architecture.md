@@ -98,7 +98,7 @@ execute()
   ↓
 validates_results()
   ↓
-export_results() → update price value of equipments/portfolios and flow value
+export_results() → write CSV reports to results/ (if export.export_results)
 ```
 
 ## Module-Specific Design Patterns
