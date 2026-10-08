@@ -21,7 +21,7 @@ There are two concrete task types:
 | [`TaskWorkflow`](task.md) | A [`Workflow`](../workflow/workflow.md) on each iteration |
 
 
-Jobs generated are, regardless of task type, **ActionPlanJob** which executes one module against the current dataset and produces an output dataset.
+Jobs generated are, regardless of task type, **ActionPlanJob** which executes one module against the current dataset and produces a result.
 
 !!! note "`until` is a bound, not necessarily an execution date"
     If `until − from` is not an exact multiple of `frequency`, the last execution date falls before `until`

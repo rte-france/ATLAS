@@ -28,8 +28,8 @@ Every orchestrator exposes:
 
 !!! warning "`jobs` is a generator"
     Each access to `orchestrator.jobs` builds a **fresh set of unexecuted jobs**. It is not a record of the last
-    run: iterating it after `execute()` yields new objects whose `get_output_dataset()` is `None`. Use the value
-    returned by `execute()`, or exported output directories, to read results.
+    run: iterating it after `execute()` yields new objects whose `result` is `None`. Use the value
+    returned by `execute()`, or exported run directories, to read results.
 
 ### The Current Input State
 
@@ -37,8 +37,8 @@ The [`CurrentInputState`](../api/orchestrator/current_input_state.md) (CIS) is t
 through a run. It wraps an [`AtlasDataset`](../api/io/atlas_dataset.md) and adds snapshots, rollback, diffing and
 transactions.
 
-Modules never write to it directly. Each job receives a **deep copy** of the current data, runs, and returns an
-output object carrying a list of [ChangeSets](../api/orchestrator/change_set.md) — `AddObject`, `UpdateObject`,
+Modules never write to it directly. Each job receives a **deep copy** of the current data, runs, and returns a
+`ModuleResult` carrying a list of [ChangeSets](../api/orchestrator/change_set.md) — `AddObject`, `UpdateObject`,
 `DeleteObject`. The [`CISHandler`](../api/orchestrator/cis_handler.md) is the only component that applies them.
 
 ### The Run Loop
@@ -52,10 +52,11 @@ output object carrying a list of [ChangeSets](../api/orchestrator/change_set.md)
     2. Hand the job a deep copy of the current data and run its module.
     3. Order the resulting ChangeSets by model instantiation order, warn about several ChangeSets targeting the
        same object, then apply them to the CIS through the `CISHandler`.
-    4. If the job's module parameters set `output.export_output_dataset`, write the CIS to
-       `<that job's output.output_dir>/output_dataset`.
-4. Record the last job's module output as the orchestrator's `final_dataset`.
-5. If `export_output`, write the CIS to `<output_dir>/workflow_output` or `<output_dir>/actionplan_output`.
+    4. If the job's module parameters set `export.export_dataset`, write the CIS to
+       `<that job's export.run_dir>/output_dataset`.
+4. Record the last job's result as the orchestrator's `final_result`.
+5. If `export_final_state`, write the CIS to `<output_dir>/<name>-output` (`<output_dir>/workflow-output` or
+   `<output_dir>/actionplan-output` when the orchestrator has no `name`).
 
 Each job therefore sees the cumulative effect of every job before it — this is what makes a workflow a chain, and
 what lets the tasks of an action plan interact across a rolling horizon.
@@ -81,7 +82,7 @@ applied, and no later job runs.
 | `orchestrator_path` | path | current working directory | Absolute root path used when the flag above is `true` |
 | `rollback_on_job_failure` | bool | `true` | Roll back touched containers when a job fails |
 | `create_job_snapshots` | bool | `false` | Snapshot the state before the run and before each job |
-| `export_output` | bool | `true` | Export the final state at the end of the run |
+| `export_final_state` | bool | `true` | Export the final state at the end of the run |
 | `context` | [ContextParameters](context.md) | `{}` | Defaults and forced values applied to every job's parameters |
 
 `path_from_orchestrator` and `orchestrator_path` each accept two aliases, so the same field can be written in the
@@ -152,19 +153,20 @@ cis.diff(label="Workflow_input")            # what changed since
 
 ### Exporting the Final State
 
-With `export_output: true` (the default), the final CIS is written at the end of the run to
-`<output_dir>/workflow_output` or `<output_dir>/actionplan_output`. Timeseries and matrices are written as
+With `export_final_state: true` (the default), the final CIS is written at the end of the run to
+`<output_dir>/<name>-output`, where `<name>` is the orchestrator's `name`, or `workflow` / `actionplan` when it has
+none. Timeseries and matrices are written as
 parquet.
 
 Per-job exports are controlled by the **module** parameters instead, through
-[`output.export_output_dataset`](common-parameters.md#output-output-configuration-optional). The orchestrator
-rewrites each job's `output.output_dir` before the run:
+[`export.export_dataset`](common-parameters.md#export-what-the-module-writes-to-disk-optional). The orchestrator
+rewrites each job's `export.run_dir` before the run:
 
-| Orchestrator | Per-job `output_dir` |
+| Orchestrator | Per-job `run_dir` |
 |---|---|
 | `Workflow` step | `<output_dir>/<step name>` |
 | `ActionPlan` `TaskModule` iteration | `<output_dir>/<task name>/<execution date>` |
-| `ActionPlan` `TaskWorkflow` step | `<the inner workflow's output_dir>/<prefixed step name>` — see the [caveat](action-plan.md#directory-layout) |
+| `ActionPlan` `TaskWorkflow` step | `<output_dir>/<task name>/<execution date>/<step name>` — see the [directory layout](action-plan.md#directory-layout) |
 
 ---
 
@@ -191,7 +193,7 @@ Both orchestrators expose the same surface:
 orchestrator = Workflow.from_file("workflow.yaml")   # or ActionPlan.from_file(...)
 orchestrator.use_context(context)                    # merge in a context (see the caveat below)
 cis = orchestrator.execute()                         # run; returns the final CurrentInputState
-output = orchestrator.get_output_dataset()           # last job's module output, or None
+result = orchestrator.final_result                   # last job's result, or None
 ```
 
 | Member | Description |
@@ -199,7 +201,7 @@ output = orchestrator.get_output_dataset()           # last job's module output,
 | `from_file(path, context=None)` | Build from YAML/JSON, optionally merging a [context](context.md) that takes priority over the file's |
 | `use_context(context)` | Merge a context into the parameters, overwriting overlapping keys |
 | `execute()` | Run every job in order; returns the final `CurrentInputState` |
-| `get_output_dataset()` | The **last executed job's** module output (with its ChangeSets), or `None` |
+| `final_result` | The **last executed job's** `ModuleResult` (with its ChangeSets), or `None` until the run completes |
 | `jobs` / `jobs_count` | The job iterator and the expected job count |
 
 ---

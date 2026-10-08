@@ -51,7 +51,7 @@ Every action plan inherits the [common orchestrator parameters](orchestrator.md#
 | `action_plan_path` | No | directory of the action plan file | Absolute root path used when `path_from_action_plan` is `true` |
 | `rollback_on_job_failure` | No | `true` | Roll back the state to before the failed job |
 | `create_job_snapshots` | No | `false` | Save a state snapshot before each job |
-| `export_output` | No | `true` | Export the final state to `<output_dir>/actionplan_output` |
+| `export_final_state` | No | `true` | Export the final state to `<output_dir>/<name>-output` |
 | `context` | No | `{}` | [Context](context.md) of default and forced values applied to every task |
 | `tasks` | Yes | — | List of tasks |
 
@@ -296,7 +296,6 @@ for order in dataset.order.all():
     (or use *context parameters* to that end) and read the exported dataset from disk (see below), 
     or inspect the state between tasks with [snapshots](orchestrator.md#snapshots).
 
-
 ---
 
 ## Directory Layout
@@ -312,13 +311,15 @@ my-action-plan/
 │   └── portfolio_optimisation.yml
 └── results/                                # output_dir
     ├── daily-portfolio/                    # one directory per Task
-    │   ├── 2028-01-01T00:00:00+00:00/
+    │   ├── 2028-01-01T00:00:00+00:00/      # run_dir of one iteration
+    │   │   ├── results/                    # only if export_results is true (MarketClearing only)
+    │   │   └── output_dataset/             # only if export_dataset is true
     │   ├── 2028-01-02T00:00:00+00:00/
     │   └── ...
-    └── actionplan_output/                  # final state, when export_output is true
+    └── monthly-portfolio-output/           # final state, when export_final_state is true
 ```
 
-For a `TaskModule`, each iteration's module parameters get their `output.output_dir` set to
+For a `TaskModule`, each iteration's module parameters get their `export.run_dir` set to
 `<output_dir>/<task name>/<execution date>/`. Files are only written there if the module parameters set
 `output.export_output_dataset: true` (or `export_result`).
 
@@ -334,11 +335,15 @@ FIXME - fix this issue
     Iterations do not collide, because the step name carries the task and iteration:
 
     ```
-    <workflow output_dir>/
-    ├── task 'weekly-day-ahead' iteration 1 DayAheadOrders/
-    ├── task 'weekly-day-ahead' iteration 1 MarketClearing/
-    ├── task 'weekly-day-ahead' iteration 2 DayAheadOrders/
-    └── ...
+    results/
+    └── weekly-day-ahead/                       # one directory per Task
+        ├── 2028-01-01T00:00:00+00:00/          # one directory per iteration
+        │   ├── DayAheadOrders/                 # one directory per step
+        │   └── MarketClearing/
+        ├── 2028-01-08T00:00:00+00:00/
+        │   ├── DayAheadOrders/
+        │   └── MarketClearing/
+        └── ...
     ```
 
     Set the inner workflow's `output_dir` explicitly if you want those results in a predictable place.
@@ -358,7 +363,7 @@ once in [Orchestrator](orchestrator.md#advanced-options). In short:
 |---|---|---|
 | `rollback_on_job_failure` | `true` | On failure, restore the containers touched by the failing job |
 | `create_job_snapshots` | `false` | Snapshot the state before the action plan and before each job |
-| `export_output` | `true` | Write the final state to `<output_dir>/actionplan_output` |
+| `export_final_state` | `true` | Write the final state to `<output_dir>/<name>-output` |
 
 With `create_job_snapshots: true`, an action plan creates one snapshot named `ActionPlan_input` before the first
 job, then one named `input_'<job name>'` before each job. Snapshot labels are listed in the

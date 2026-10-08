@@ -123,8 +123,6 @@ forced:
     execution_date: <iteration execution date>
     start_date: <execution date + offset_start_date>
     end_date: <execution date + offset_end_date>
-  output:
-    output_dir: <output_dir>/<task name>/<execution date>
 ```
 
 Two consequences are worth knowing:
