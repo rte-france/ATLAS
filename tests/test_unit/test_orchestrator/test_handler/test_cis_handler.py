@@ -194,6 +194,39 @@ class TestCISHandlerRollback:
         cis.data.order.add([Order(name=f"order_{i}", price=10.0, market_area=ma) for i in (1, 2, 3)])
         return cis
 
+    def test_rollback_keeps_references_to_live_objects(self, cis_with_orders):
+        cis = cis_with_orders
+        order_1 = cis.data.order.get("order_1")
+        change_sets = [
+            UpdateObject({"name": "ma1", "control_block": "cb1"}, model_type=MarketArea),
+            UpdateObject({"name": "order_1", "price": 99.0}, model_type=Order),
+            AddObject({"name": "order_4", "market_area": "ma1"}, model_type=Order),
+            UpdateObject({"name": "order_999", "price": 1.0}, model_type=Order),
+        ]
+
+        with pytest.raises(ChangeSetApplicationError):
+            CISHandler.apply(change_sets, cis)
+
+        assert cis.data.order.get("order_1") is order_1
+        assert order_1.price == 10.0
+        assert order_1.market_area in cis.data
+        assert order_1.market_area is cis.data.market_area.get("ma1")
+        assert "order_4" not in cis.data.order
+
+    def test_rollback_restores_deleted_object_in_place(self, cis_with_orders):
+        cis = cis_with_orders
+        order_2 = cis.data.order.get("order_2")
+        change_sets = [
+            DeleteObject("order_2", model_type=Order),
+            UpdateObject({"name": "order_999", "price": 1.0}, model_type=Order),
+        ]
+
+        with pytest.raises(ChangeSetApplicationError):
+            CISHandler.apply(change_sets, cis)
+
+        assert cis.data.order.get("order_2") is order_2
+        assert [order.name for order in cis.data.order] == ["order_1", "order_2", "order_3"]
+
     def test_failing_update_leaves_object_unchanged(self, cis_with_orders):
         """An update failing on its 2nd field must not apply the 1st one, even without rollback."""
         cis = cis_with_orders
