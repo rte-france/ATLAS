@@ -35,7 +35,7 @@ tasks:
 Three different types of parameters exist:
 
 - **Top-level parameters** define global information (such as the action plan name).
-- **Task parameters** define a task, the module and parameters to exectue and its scheduling.
+- **Task parameters** define a task, the module and parameters to execute and its scheduling.
 - (optional) **Context parameters** define values to apply to *every* task's parameters.
 
 ### Top-level Parameters
@@ -99,7 +99,7 @@ For iteration *n*, the [`temporal` parameters](./common-parameters.md#structure)
 
 ### Exclusive parameters
 
-On top of the common parameters, exactly one of two task types must be chosen and its exclusives fields defined:
+On top of the common parameters, exactly one of two task types must be chosen and its exclusive fields defined:
 
 | Task type  | Field | Description |
 |---|---|---|
@@ -107,7 +107,7 @@ On top of the common parameters, exactly one of two task types must be chosen an
 | `TaskWorkflow` | `workflow` | Runs a [`Workflow`](workflow.md) on each iteration. `workflow` is a path to a workflow YAML file or an inline mapping with the same shape as a workflow config. |
 
 !!! note "Placeholder dates in module parameters"
-    A `TaskModule` parameters file do not need to define any `temporal` block,
+    A `TaskModule` parameters file does not need to define any `temporal` block,
     Atlas overwrites `start_date`/`end_date`/`execution_date` fields with the task's real per-iteration
     dates before each run. Only `timestep` is kept from what you provide.
     The same applies to the module parameters of a `TaskWorkflow`'s steps.
@@ -137,7 +137,7 @@ If `name` is omitted, the task is named after what it runs: the module name for 
 `TaskWorkflow`, the workflow's `name`, or the file name when the workflow is given as a path.
 
 !!! note "Duplicate task names"
-    If several task end up with the same name, Atlas appends `_1`, `_2`, … to **every** occurrence, in order:
+    If several tasks end up with the same name, Atlas appends `_1`, `_2`, … to **every** occurrence, in order:
     two `my_task` tasks become `my_task_1` and `my_task_2`. Names that are already unique are
     left untouched. Task names are used as output directory names, so keeping them explicit and unique is worthwhile.
 
@@ -348,9 +348,9 @@ once in [Orchestrator](orchestrator.md#advanced-options). In short:
 | `export_final_state` | `true` | Write the final state to `<output_dir>/<name>-output` |
 
 With `create_job_snapshots: true`, an action plan creates one snapshot named `ActionPlan_input` before the first
-job, then one named `input_'<job name>'` before each job. Snapshot labels are listed in the
-logs when a job fails.
-
+job, then one named `input_<job name>` before each job. The job name is `task '<task name>' iteration <n>` for a
+`TaskModule`, and `task '<task name>' iteration <n> <step name>` for each step of a
+`TaskWorkflow`. Snapshot labels are listed in the logs when a job fails.
 
 ---
 

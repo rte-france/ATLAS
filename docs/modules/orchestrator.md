@@ -24,7 +24,7 @@ that differ only in how they print themselves.
 Every orchestrator exposes:
 
 - `jobs` — an **iterator** producing the jobs to run, in execution order
-- `jobs_count` — how many jobs are expected (see the [caveat for action plans](action-plan.md#scheduling))
+- `jobs_count` — how many jobs are expected (for an action plan, a `TaskWorkflow` iteration counts one job per step, see [Scheduling](action-plan.md#scheduling))
 
 !!! warning "`jobs` is a generator"
     Each access to `orchestrator.jobs` builds a **fresh set of unexecuted jobs**. It is not a record of the last
@@ -183,7 +183,7 @@ A context has exactly two blocks:
 | `default` | The module parameters leave the value unset | Lowest — the module's own value wins |
 | `forced` | Always | Highest — overrides the module's own value |
 
-See [Context](context.md) for the full precedence rules and the important caveat about when a context is applied.
+See [Context](context.md) for the full precedence rules.
 
 ## Common API
 
@@ -191,7 +191,7 @@ Both orchestrators expose the same surface:
 
 ```python
 orchestrator = Workflow.from_file("workflow.yaml")   # or ActionPlan.from_file(...)
-orchestrator.use_context(context)                    # merge in a context (see the caveat below)
+orchestrator.use_context(context)                    # merge in a context; steps/tasks are re-resolved
 cis = orchestrator.execute()                         # run; returns the final CurrentInputState
 result = orchestrator.final_result                   # last job's result, or None
 ```

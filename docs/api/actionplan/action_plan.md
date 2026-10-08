@@ -1,7 +1,7 @@
 # Action Plan
 
 An **ActionPlan** is a structure for managing the execution of multiple modules and workflows through a scheduled
-set of [`Tasks`](task.md) ; derive from [`AbstractOrchestrator`](../orchestrator/orchestrator.md).
+set of [`Tasks`](task.md) ; derives from [`AbstractOrchestrator`](../orchestrator/orchestrator.md).
 
 An ActionPlan executes a stream of jobs against a [`CurrentInputState`](../orchestrator/current_input_state.md), applying each job's
 [ChangeSets](../orchestrator/change_set.md) through the [`CISHandler`](../orchestrator/cis_handler.md), with the

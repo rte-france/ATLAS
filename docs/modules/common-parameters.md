@@ -34,7 +34,7 @@ multiprocessing: # Parallel execution (optional, has defaults)
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `solver_name` | string | `"XPRESS"` | Solver to use (e.g. `"XPRESS"`, `"SCIP"`, `"HiGHS"`) |
+| `solver_name` | string | `"XPRESS"` | Solver to use (e.g. `"XPRESS"`, `"SCIP"`, `"HIGHS"`) |
 | `timeout` | ISO 8601 duration | `"PT4M"` | Maximum solving time |
 | `duality_gap` | float | `0.0001` | MIP optimality tolerance |
 | `use_presolve` | boolean | `false` | Enable solver presolve |

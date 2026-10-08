@@ -34,8 +34,6 @@ Adding a concurrent task to an `ActionPlan` raises a `ValueError` — see `Task.
 [`ActionPlan.add_task`](action_plan.md) is called directly. Tasks with different priorities are never concurrent.
 
 
-## Field Names
-
 ## Task (base)
 
 ::: atlas.orchestrator.actionplan.parameters.Task

@@ -113,7 +113,7 @@ steps:
     parameters: ./parameters/market_clearing.yml
 ```
 
-See [Context](context.md) for the full precedence rules and the important caveat about when a context is applied.
+See [Context](context.md) for the full precedence rules.
 
 ---
 
@@ -245,9 +245,6 @@ whatever `run_dir` the module parameters file declares. A step only writes there
 directory when `solver.export_lp` is true.
 
 
-<!--
-FIXME - make on other pass on this, coolhead
--->
 When `path_from_workflow: true`, all relative paths in `workflow.yaml` are resolved from `workflow_path` — which
 `Workflow.from_file` sets to the directory containing the workflow file — so you can move the whole folder without
 breaking paths. Absolute paths are always used as-is.
