@@ -130,8 +130,9 @@ Two consequences are worth knowing:
 - A `forced.temporal` entry you write yourself in a `TaskWorkflow`'s workflow file is **overwritten** by the
   action plan's scheduling dates. `timestep` is untouched, so per-module time resolution still comes from the
   module parameters.
-- The forced `output.output_dir` does not survive: the workflow rewrites each step's output directory when it
-  builds its steps. See the [action plan directory layout](action-plan.md#directory-layout).
+- Output directories do not go through the context. For each iteration the action plan overrides the inner
+  workflow's own `output_dir` with `<output_dir>/<task name>/<execution date>`, and the workflow then derives each
+  step's `export.run_dir` from it. See the [action plan directory layout](action-plan.md#directory-layout).
 
 A `TaskModule` does not go through the context for this — its dates are written straight into the module
 parameters for each iteration.

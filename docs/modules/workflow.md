@@ -51,7 +51,7 @@ Every workflow inherits the [common orchestrator parameters](orchestrator.md#orc
 | `workflow_path` | No | directory of the workflow file | Absolute root path used when `path_from_workflow` is `true` |
 | `rollback_on_job_failure` | No | `true` | Roll back the state to before the failed step |
 | `create_job_snapshots` | No | `false` | Save a state snapshot before each step |
-| `export_final_state` | No | `true` | Serialize the final Current Input State once every step has run |
+| `export_final_state` | No | `true` | Serialize the final Current Input State once every step has run, to `<output_dir>/<name>-output` (`workflow-output` if the workflow has no `name`) |
 | `context` | No | `{}` | [Context](context.md) of default and forced values applied to every step |
 | `steps` | Yes | — | Ordered list of steps |
 
@@ -188,30 +188,28 @@ workflow.add_step(Step(module="PortfolioOptimisation", parameters="./parameters/
 
 ## Accessing Results
 
-After execution, access the result of the last step:
+`execute()` returns the final [`CurrentInputState`](../api/orchestrator/current_input_state.md) — the input
+dataset with every step's changes applied. This is what you want in most cases:
 
 ```python
-# Execute and get the final CurrentInputState
 cis = workflow.execute()
+dataset = cis.get_data()
 
-# Result of the last step
-result = workflow.final_result
-
-# Access values from that result
-for order in result.order.all():
+for order in dataset.order.all():
     print(f"{order.name}: {order.accepted_power} MW")
 ```
 
-!!! note "last step **module output**"
-    This result is obtained by using `workflow.get_output_dataset()` and carries the last executed module's own results and its list of [ChangeSets](../api/orchestrator/change_set.md). It returns
-    `None` if the workflow has not been executed to the end.
+!!! note "`workflow.final_result` holds the `ModuleResult`"
+`workflow.final_result` holds the `ModuleResult` produced by the **last executed step**. It carries that module's own
+results and its list of [ChangeSets](../api/orchestrator/change_set.md), not the whole dataset, and is `None` until the
+workflow has run to the end.
 
-!!! warning "Per-step outputs are not retained in memory"
+!!! warning "Per-step results are not retained in memory"
     `workflow.jobs` is a **generator**: each access builds a fresh set of unexecuted jobs. Iterating over it after
     `execute()` therefore yields new objects: it does not give you the
     results of the run that just happened.
 
-    To keep per-step results, set `output.export_output_dataset: true` in the relevant step's module parameters (or use *context parameters* to that end) and
+    To keep per-step results, set `export.export_dataset: true` in the relevant step's module parameters (or use *context parameters* to that end) and
     read the exported dataset from disk (see below), or inspect the state between steps with
     [snapshots](orchestrator.md#snapshots).
 
@@ -225,25 +223,26 @@ A typical workflow project:
 my-workflow/
 ├── workflow.yaml
 ├── data/
-│   ├── input/              # Initial dataset (dataset_path)
-│   └── output/             # Final dataset
+│   └── input/                  # Initial dataset (dataset_path)
 ├── parameters/
 │   ├── day_ahead_orders.yml
 │   ├── market_clearing.yml
 │   └── portfolio_optimisation.yml
-└── results/                # Per-step outputs (output_dir)
-    ├── DayAheadOrders/
+└── results/                    # output_dir
+    ├── DayAheadOrders/         # run_dir of that step
+    │   └── output_dataset/     # only if that step sets export.export_dataset
     ├── MarketClearing/
-    └── PortfolioOptimisation/
+    │   ├── results/            # only if that step sets export.export_results
+    │   └── output_dataset/
+    ├── PortfolioOptimisation/
+    └── day-ahead-output/       # final state, written when export_final_state is true
 ```
 
-<!--
-FIXME - check on this
--->
-Each step's module parameters get their `output.output_dir` rewritten to `<output_dir>/<step name>`, overriding
-whatever `output_dir` the module parameters file declares. A step only writes there if its own module parameters
-set `output.export_output_dataset: true` (or `export_result`); see
-[common module parameters](common-parameters.md#output-output-configuration-optional).
+Each step's module parameters get their `export.run_dir` rewritten to `<output_dir>/<step name>`, overriding
+whatever `run_dir` the module parameters file declares. A step only writes there if its own module parameters set
+`export.export_results: true` and/or `export.export_dataset: true` under `output_dataset/`; see
+[common module parameters](common-parameters.md#export-what-the-module-writes-to-disk-optional). The solver's LP files go to `lp_export/` in the same
+directory when `solver.export_lp` is true.
 
 
 <!--
@@ -264,7 +263,7 @@ once in [Orchestrator](orchestrator.md#advanced-options). In short:
 |---|---|---|
 | `rollback_on_job_failure` | `true` | On failure, restore the containers touched by the failing step |
 | `create_job_snapshots` | `false` | Snapshot the state before the workflow and before each step |
-| `export_output` | `true` | Write the final state to `<output_dir>/workflow_output` |
+| `export_final_state` | `true` | Write the final state to `<output_dir>/<name>-output` |
 
 With `create_job_snapshots: true`, a workflow creates one snapshot named `Workflow_input` before the first job,
 then one named `input_'<job name>'` before each job. Snapshot labels are listed in the logs when a step fails.

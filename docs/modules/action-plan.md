@@ -265,35 +265,20 @@ for order in dataset.order.all():
     print(f"{order.name}: {order.accepted_power} MW")
 ```
 
-`get_output_dataset()` returns the module output object produced by the **last executed job**, carrying that
-module's own results and its [ChangeSets](../api/orchestrator/change_set.md), or `None` if the action plan has not
-run to the end. As with workflows, `action_plan.jobs` is a generator of fresh, unexecuted jobs — iterating it after
-`execute()` does not give you the results of the run. To keep per-iteration results, rely on the exported output
-directories below.
+`action_plan.final_result` holds the `ModuleResult` produced by the **last executed
+job**, carrying that module's own results and its [ChangeSets](../api/orchestrator/change_set.md). It is `None` until
+the action plan has run to the end.
 
+!!! note "Final state vs. last result"
+    `execute()` returns the final state with *every* task's changes applied, whereas `final_result` only
+    describes the last executed job. Use the former in most cases.
 
-
-`execute()` returns the final [`CurrentInputState`](../api/orchestrator/current_input_state.md) — the input
-dataset with every task's changes applied. This is what you want in most cases:
-
-```python
-cis = action_plan.execute()
-dataset = cis.get_data()
-
-for order in dataset.order.all():
-    print(f"{order.name}: {order.accepted_power} MW")
-```
-
-!!! note "last task last **module output**"
-    This result is obtained by using `action_plan.get_output_dataset()` and carries the last executed module's own results and its list of [ChangeSets](../api/orchestrator/change_set.md). It returns
-    `None` if the action plan has not been executed to the end.
-
-!!! warning "jobs outputs are not retained in memory"
-    `action_plan.jobs` is a **generator**: each access builds a fresh set of unexecuted jobs. Iterating over 
+!!! warning "job results are not retained in memory"
+    `action_plan.jobs` is a **generator**: each access builds a fresh set of unexecuted jobs. Iterating over
     it after `execute()` therefore yields new objects: it does not give you the results of the run that just happened.
 
-    To keep jobs results, set `output.export_output_dataset: true` in the relevant module parameters 
-    (or use *context parameters* to that end) and read the exported dataset from disk (see below), 
+    To keep per-job results, set `export.export_dataset: true` in the relevant module parameters
+    (or use *context parameters* to that end) and read the exported dataset from disk (see below),
     or inspect the state between tasks with [snapshots](orchestrator.md#snapshots).
 
 ---
@@ -321,18 +306,14 @@ my-action-plan/
 
 For a `TaskModule`, each iteration's module parameters get their `export.run_dir` set to
 `<output_dir>/<task name>/<execution date>/`. Files are only written there if the module parameters set
-`output.export_output_dataset: true` (or `export_result`).
+`export.export_results: true` and/or `export.export_dataset: true`;
+see [common module parameters](common-parameters.md#export-what-the-module-writes-to-disk-optional).
 
-<!--
-FIXME - fix this issue
--->
-!!! warning "A `TaskWorkflow` does not write under the action plan's `output_dir`"
-    The action plan forces a per-iteration output directory into the workflow's [context](context.md), but the
-    workflow overwrites each step's `output.output_dir` with `<the workflow's own output_dir>/<step name>` when it
-    builds its steps. Step outputs of a `TaskWorkflow` therefore land under the **workflow's** `output_dir`, not
-    the action plan's.
-
-    Iterations do not collide, because the step name carries the task and iteration:
+!!! note "Layout of a `TaskWorkflow`"
+    For a `TaskWorkflow`, the action plan overrides the workflow's own `output_dir` with
+    `<output_dir>/<task name>/<execution date>/`, and the workflow then sets each step's `export.run_dir` to
+    `<that directory>/<step name>`. Step outputs therefore land under the action plan's `output_dir`, and iterations
+    never collide because each one has its own execution-date directory:
 
     ```
     results/
@@ -346,7 +327,8 @@ FIXME - fix this issue
         └── ...
     ```
 
-    Set the inner workflow's `output_dir` explicitly if you want those results in a predictable place.
+    The inner workflow is only used to build its steps: its own `output_dir` and `export_final_state` are ignored.
+    Only the action plan writes a final state, to `<output_dir>/<name>-output`.
 
 When `path_from_action_plan: true`, all relative paths in `action_plan.yaml` are resolved from
 `action_plan_path` — which `ActionPlan.from_file` sets to the directory containing the action plan file — so you
