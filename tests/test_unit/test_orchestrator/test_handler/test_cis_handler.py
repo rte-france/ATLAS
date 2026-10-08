@@ -185,3 +185,27 @@ class TestCISHandler:
         # Verify order_2 WAS added (no rollback)
         assert "order_2" in cis.data.order
         assert cis.data.order.get("order_2").price == 20.0
+
+
+class TestCISHandlerRollback:
+    @pytest.fixture
+    def cis_with_orders(self, cis):
+        ma = cis.data.market_area.get("ma1")
+        cis.data.order.add([Order(name=f"order_{i}", price=10.0, market_area=ma) for i in (1, 2, 3)])
+        return cis
+
+    def test_failing_update_leaves_object_unchanged(self, cis_with_orders):
+        """An update failing on its 2nd field must not apply the 1st one, even without rollback."""
+        cis = cis_with_orders
+        update = UpdateObject({"name": "order_1", "price": 50.0, "qmax": "invalid"}, model_type=Order)
+
+        with pytest.raises(ChangeSetApplicationError):
+            CISHandler.apply([update], cis, rollback_on_error=False)
+
+        assert cis.data.order.get("order_1").price == 10.0
+
+    def test_update_with_unknown_field_raises(self, cis_with_orders):
+        update = UpdateObject({"name": "order_1", "unknown": 1}, model_type=Order)
+
+        with pytest.raises(ChangeSetApplicationError, match="unknown fields"):
+            CISHandler.apply([update], cis_with_orders)

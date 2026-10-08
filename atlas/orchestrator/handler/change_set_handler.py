@@ -99,14 +99,11 @@ class ChangeSetHandler:
                 f"Cannot update '{change_set.model_type}' object '{obj_name}': object not found in CurrentInputState"
             ) from None
 
-        # Validate that we're only updating existing fields (optional but recommended)
-        # This can be relaxed if dynamic field addition is needed
-        model_class = cfg.MODEL_MAPPING_NAME.get(change_set.model_type)
-        if model_class is not None:
-            model_fields = model_class.model_fields.keys()
-            invalid_fields = [key for key in data.keys() if key not in model_fields and key != "name"]
-            if invalid_fields:
-                logger.warning(f"Updating {change_set.model_type} '{obj_name}' with non-model fields: {invalid_fields}")
+        invalid_fields = [key for key in data if key not in type(obj).model_fields]
+        if invalid_fields:
+            raise ValueError(
+                f"Cannot update '{change_set.model_type}' object '{obj_name}': unknown fields {invalid_fields}"
+            )
 
         ChangeSetHandler._resolve_reference(data, cis, obj=obj)
         ChangeSetHandler._fill_object(obj, data)
@@ -172,10 +169,14 @@ class ChangeSetHandler:
 
     @staticmethod
     def _fill_object(obj: BusinessModel, data: dict[str, Any]):
-        for key, value in data.items():
-            if key == "name":
-                continue  # do not update the name
-            setattr(obj, key, value)
+        """Update *obj* with *data* atomically: either every field is updated or none is.
+
+        The whole object is validated before being touched, so a failing field leaves it unchanged.
+        The instance itself is kept, so references to it stay valid.
+        """
+        fields = {key: value for key, value in data.items() if key != "name"}  # do not update the name
+        validated = type(obj).model_validate({**obj.__dict__, **fields})
+        obj.__dict__.update({key: validated.__dict__[key] for key in fields})
 
     @staticmethod
     def _remove(change_set: DeleteObject, cis: CurrentInputState):
