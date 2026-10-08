@@ -29,7 +29,7 @@ from atlas.objects.network_operator.control_block import ControlBlock
 def two_zone_fb_dataset() -> AtlasDataset:
     """A 2-zone dataset (FR/DE) with a critical branch and a PTDF in each zone, for testing
     zone-restricted Flow-Based resolution (see issue #422: these containers used to be built
-    from the *unfiltered* dataset, regardless of control_block_names/market_area_names)."""
+    from the *unfiltered* dataset, regardless of market_area_names)."""
     cb_fr = ControlBlock(name="FR")
     cb_de = ControlBlock(name="DE")
     ma_fr = MarketArea(name="FR", control_block=cb_fr)
@@ -76,33 +76,12 @@ class TestZoneFiltering:
     def test_restricted_zone_with_flow_based_does_not_crash(self, two_zone_fb_dataset: AtlasDataset) -> None:
         """Previously raised KeyError: critical_branch/market_area_ptdf were never zone-filtered,
         so a PTDF from the excluded zone had no matching entry in the (zone-filtered) market_areas."""
-        input_dataset = MarketClearingInputDataset(two_zone_fb_dataset, _fb_parameters(control_block_names=["FR"]))
+        input_dataset = MarketClearingInputDataset(two_zone_fb_dataset, _fb_parameters(market_area_names=["FR"]))
 
+        assert set(input_dataset.market_areas) == {"FR"}
+        assert set(input_dataset.control_blocks) == {"FR"}
         assert set(input_dataset.market_area_ptdfs) == {"ptdf_FR"}
         assert set(input_dataset.critical_branches) == {"branch_FR"}
-        assert set(input_dataset.control_blocks) == {"FR"}
-
-    def test_only_market_area_names_restricts_control_blocks_too(self, two_zone_fb_dataset: AtlasDataset) -> None:
-        """Setting only market_area_names (control_block_names left at 'all') must restrict the
-        same way, since control blocks and market areas are named identically here."""
-        input_dataset = MarketClearingInputDataset(two_zone_fb_dataset, _fb_parameters(market_area_names=["DE"]))
-
-        assert set(input_dataset.control_blocks) == {"DE"}
-        assert set(input_dataset.market_area_ptdfs) == {"ptdf_DE"}
-
-    def test_inconsistent_zone_names_raise(self, two_zone_fb_dataset: AtlasDataset) -> None:
-        """Previously: an inconsistent pair silently produced an empty control_blocks dict."""
-        with pytest.raises(ValueError, match="must select the same zones"):
-            MarketClearingInputDataset(
-                two_zone_fb_dataset, _fb_parameters(control_block_names=["FR"], market_area_names=["DE"])
-            )
-
-    def test_consistent_zone_names_on_both_parameters_still_works(self, two_zone_fb_dataset: AtlasDataset) -> None:
-        input_dataset = MarketClearingInputDataset(
-            two_zone_fb_dataset, _fb_parameters(control_block_names=["FR"], market_area_names=["FR"])
-        )
-
-        assert set(input_dataset.control_blocks) == {"FR"}
 
 
 class TestTimesAndMode:

@@ -32,7 +32,6 @@ def test_default_parameters():
     assert params.allowed_round_off_error == 0.001
     assert params.exchange_constraints_type == ExchangeConstraintsType.ATC
     assert params.market == Product.DayAhead
-    assert params.control_block_names == "all"
     assert params.market_area_names == "all"
     assert params.initial_max_price == 1e8
     assert params.initial_min_price == -1e8
@@ -46,7 +45,6 @@ def test_custom_parameters():
     params = MarketClearingParameters(
         temporal=make_date(timestep=Duration(minutes=15)),
         solver=SolverParameters(solver_name=SolverEnum.XPRESS, use_presolve=False),
-        control_block_names=["CB1", "CB2"],
         market_area_names="[MA]",
         price_modifier_lambda_1=0.05,
         exchange_constraints_type=ExchangeConstraintsType.FB,
@@ -55,7 +53,6 @@ def test_custom_parameters():
     )
     assert params.temporal.timestep == Duration(minutes=15)
     assert params.price_modifier_lambda_1 == 0.05
-    assert params.control_block_names == ["CB1", "CB2"]
     assert params.market_area_names == ["MA"]
     assert params.exchange_constraints_type == ExchangeConstraintsType.FB
     assert params.market == Product.Intraday
@@ -68,10 +65,10 @@ def test_invalid_enum_for_exchange_constraints_type_raises():
         MarketClearingParameters(exchange_constraints_type="INVALID")
 
 
-def test_list_or_str_control_blocks():
-    params = MarketClearingParameters(temporal=make_date(), control_block_names="All")
-    assert isinstance(params.control_block_names, str)
+def test_list_or_str_market_areas():
+    params = MarketClearingParameters(temporal=make_date(), market_area_names="All")
+    assert isinstance(params.market_area_names, str)
 
-    params = MarketClearingParameters(temporal=make_date(), control_block_names=["CB1", "CB2"])
-    assert isinstance(params.control_block_names, list)
-    assert "CB1" in params.control_block_names
+    params = MarketClearingParameters(temporal=make_date(), market_area_names=["MA1", "MA2"])
+    assert isinstance(params.market_area_names, list)
+    assert "MA1" in params.market_area_names

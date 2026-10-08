@@ -69,9 +69,6 @@ class MarketClearingParameters(AbstractModuleParameters):
     execution dates of consecutive order formulation module and Clearing, but less than between the order formulation
     of the previous market and the current Clearing : must be greater than 0, default value is 5
     :type execution_datetime_tolerance: int
-    :param control_block_names: Custom selection of control blocks to be included in the computation or string 'All' to
-    select all control block. the default value is 'All'
-    :type control_block_names: str | list[str]
     :param exchange_constraints_type: Type of constraints to apply on exchanges between market areas: ATC or
     FB (Flow-based): Default value is 'ATC'
     :type exchange_constraints_type: ExchangeConstraintsType
@@ -152,11 +149,6 @@ class MarketClearingParameters(AbstractModuleParameters):
         "execution dates of consecutive order formulation module and Clearing, but less than between "
         "the order formulation of the previous market and the current Clearing : must be greater than 0, "
         "default value is 5",
-    )
-    control_block_names: InclusionList = Field(
-        "all",
-        description="Custom selection of control blocks to be included in the computation or string 'All' to select "
-        "all control block. the default value is 'All'",
     )
     exchange_constraints_type: ExchangeConstraintsType = Field(
         ExchangeConstraintsType.ATC,

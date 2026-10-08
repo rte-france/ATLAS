@@ -38,7 +38,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
 
         self.is_atc = self.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
 
-        zone_names = AtlasDataset.resolve_zone_names(parameters.control_block_names, parameters.market_area_names)
+        zone_names = parameters.market_area_names
         scoped_data = input_data if zone_names == "all" else input_data.include_zones(zone_names)
 
         self.orders = self.get_orders(scoped_data.order.all())
@@ -74,12 +74,9 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         return mc_critical_branches
 
     def get_control_blocks(self, control_blocks: list[ControlBlock]) -> dict[str, ControlBlock]:
-        # `control_blocks` is already scoped to the selected zones (see AtlasDataset.resolve_zone_names / include_zones
-        # in __init__), so every control block here is kept.
         return {control_block.name: ControlBlock(**dict(control_block)) for control_block in control_blocks}
 
     def get_market_areas(self, market_areas: list[MarketArea], orders: dict[str, OrderMC]) -> dict[str, MarketAreaMC]:
-        # `market_areas` is already scoped to the selected zones, so every market area here is kept.
         mc_market_areas = {}
         for market_area in market_areas:
             market_area_orders = {
@@ -156,8 +153,6 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 parent.order_coupling_parent_ids = parent_ids
 
     def get_market_borders(self, market_borders: list[MarketBorder]) -> dict[str, MarketBorderMC]:
-        # `market_borders` is already scoped to the selected zones (both endpoints inside the zone
-        # selection, mirroring the previous behaviour of always excluding external borders).
         mc_market_borders = {}
         for market_border in market_borders:
             market_border_dump = {

@@ -735,54 +735,6 @@ class AtlasDataset(BaseModel):
             },
         )
 
-    @staticmethod
-    def resolve_zone_names(
-        control_block_names: Literal["all"] | Iterable[str],
-        market_area_names: Literal["all"] | Iterable[str],
-    ) -> Literal["all"] | list[str]:
-        """
-        Reconcile a pair of zone-selection parameters into a single zone list for ``include_zones``.
-
-        Several modules expose both a ``control_block_names`` and a ``market_area_names`` selection
-        parameter, one per side of a 1-1 relationship where every control block and its market area
-        share the same name. This reconciles the two into the single list ``include_zones`` expects:
-        when only one of them restricts the scope, it is used as-is; when both do, they must designate
-        the same zones, since applying them independently would otherwise filter inconsistently
-        (e.g. control blocks kept by one list, market areas or borders kept by the other).
-
-        :param control_block_names: Control block names to include, or "all"
-        :type control_block_names: Literal["all"] | Iterable[str]
-        :param market_area_names: Market area names to include, or "all"
-        :type market_area_names: Literal["all"] | Iterable[str]
-
-        :return: "all" if neither parameter restricts the scope, otherwise the list of zone names
-            to pass to :meth:`include_zones`
-        :rtype: Literal["all"] | list[str]
-
-        :raises ValueError: If control_block_names and market_area_names both restrict the scope
-            but disagree on which zones to keep
-
-        Example:
-            >>> AtlasDataset.resolve_zone_names(["FR", "DE"], "all")
-            ['FR', 'DE']
-            >>> AtlasDataset.resolve_zone_names(["FR"], ["DE"])
-            Traceback (most recent call last):
-                ...
-            ValueError: control_block_names and market_area_names must select the same zones...
-        """
-        if control_block_names == "all":
-            return market_area_names if market_area_names == "all" else list(market_area_names)
-        if market_area_names == "all":
-            return list(control_block_names)
-        control_block_names, market_area_names = list(control_block_names), list(market_area_names)
-        if set(control_block_names) != set(market_area_names):
-            raise ValueError(
-                "control_block_names and market_area_names must select the same zones (control blocks and "
-                f"market areas are named identically in this dataset): got {sorted(control_block_names)} "
-                f"vs {sorted(market_area_names)}"
-            )
-        return control_block_names
-
     def set_frequency_all(
         self,
         frequency: str | pendulum.Duration,

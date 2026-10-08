@@ -1684,29 +1684,6 @@ class TestFilterZones:
         with pytest.raises(ValueError, match="Control blocks not found in dataset"):
             multi_zone_dataset.include_zones(["FR", "INVALID_ZONE"])
 
-    def test_resolve_zone_names_both_all_returns_all(self):
-        assert AtlasDataset.resolve_zone_names("all", "all") == "all"
-
-    def test_resolve_zone_names_only_control_block_names_restricts(self):
-        assert AtlasDataset.resolve_zone_names(["FR", "DE"], "all") == ["FR", "DE"]
-
-    def test_resolve_zone_names_only_market_area_names_restricts(self):
-        assert AtlasDataset.resolve_zone_names("all", ["DE"]) == ["DE"]
-
-    def test_resolve_zone_names_consistent_pair_returns_the_shared_zones(self):
-        assert AtlasDataset.resolve_zone_names(["FR", "DE"], ["DE", "FR"]) == ["FR", "DE"]
-
-    def test_resolve_zone_names_inconsistent_pair_raises(self):
-        with pytest.raises(ValueError, match="must select the same zones"):
-            AtlasDataset.resolve_zone_names(["FR"], ["DE"])
-
-    def test_resolve_zone_names_result_feeds_include_zones(self, multi_zone_dataset):
-        """The intended usage: resolve, then pass straight to include_zones."""
-        zone_names = AtlasDataset.resolve_zone_names(["FR"], "all")
-        filtered = multi_zone_dataset.include_zones(zone_names)
-
-        assert {cb.name for cb in filtered.control_block} == {"FR"}
-
     def test_filters_chain_without_copying_until_asked(self, multi_zone_dataset):
         """The chain suggested in the review: zones, then equipment, then technologies, then one copy."""
         chained = multi_zone_dataset.include_zones(["FR"]).exclude_equipments(["thermal_FR"])
