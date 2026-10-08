@@ -351,10 +351,14 @@ class Pricing:
 
         :rtype: dict[str, Timeseries]
         """
+        group_prices = {
+            group_id: dict(zip(price.model_times, price.solution_values(), strict=True))
+            for group_id, price in self.variables.price.items()
+        }
         area_prices: dict[str, list[float]] = {name: [] for name in self.input_dataset.market_areas}
         for time in self.input_dataset.times:
             for price_group in self.price_groups[time]:
-                price = self.variables.price[price_group.id].solution_value(time)
+                price = group_prices[price_group.id][time]
                 for market_area_name in price_group.market_area_names:
                     area_prices[market_area_name].append(price)
         times = self.input_dataset.times
