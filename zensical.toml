@@ -39,6 +39,7 @@ nav = [
             { "Timeseries" = "examples/timeseries.md" },
             { "Matrix" = "examples/matrix.md" },
             { "OptimisationModel" = "examples/optimisation_model.md" },
+            { "Temporal Variables" = "examples/temporal_variable.md" },
         ]},
     ]},
     { "Modules" = [
