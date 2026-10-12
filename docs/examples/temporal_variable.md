@@ -55,6 +55,7 @@ A temporal variable declared without timestamps is empty: add them later, one by
 charge = model.add_temporal_variable("storage_charge", lower_bound=0.0, upper_bound=50.0)
 charge.add_all(horizon[:12])
 charge.add(horizon[12])
+charge.add_all(horizon[13:])  # the whole horizon is now covered
 ```
 
 ## Fixed Values (Initial Conditions)
@@ -85,13 +86,13 @@ demand = Timeseries.from_values(
     timezone="UTC",
 )
 demand_values = demand.get_values(horizon)  # one lookup instead of 24
+max_values = max_power.get_values(horizon)
 discharge = model.add_temporal_variable("storage_discharge", horizon, lower_bound=0.0, upper_bound=50.0)
-charge.add_all(horizon[13:])
 
-for t, d in zip(horizon, demand_values, strict=True):
+for t, d, p_max in zip(horizon, demand_values, max_values, strict=True):
     # power[t - timestep] is the fixed value at start, a solver variable afterwards
     model.add_constraint(power[t] - power[t - timestep] <= 30.0, f"ramp_up_{t}")
-    model.add_constraint(power[t] <= max_power.get_value(t) * on[t], f"power_on_{t}")
+    model.add_constraint(power[t] <= p_max * on[t], f"power_on_{t}")
     model.add_constraint(
         stored[t] == stored[t - timestep] + charge[t] - discharge[t], f"storage_balance_{t}"
     )
@@ -115,7 +116,9 @@ model.add_constraint(power.sum(horizon) <= 1800.0, "daily_energy")
 
 model.set_direction("minimize")
 model.set_objective(power.sum(weights=fuel_cost) + 5.0 * on.sum())
-model.solve()
+
+info = model.solve()
+print(info.status, info.objective_value)
 ```
 
 ## Reading the Solution
@@ -142,12 +145,15 @@ power.set_bounds(horizon[0], 0.0, 10.0)               # one timestamp
 power.set_bounds(horizon[12:], upper_bound=60.0)      # lower bounds kept
 power.set_bounds(upper_bound=max_power)               # every solver variable
 
-model.solve()
+info = model.solve()
+print(info.status, info.objective_value)
 ```
 
 ## Errors
 
 ```python
+import pickle
+
 # A timestamp can only be defined once
 try:
     power.fix(start, 0.0)
@@ -167,8 +173,6 @@ except ValueError as e:
     print(e)
 
 # Solver objects cannot be pickled: return model.solution() instead
-import pickle
-
 try:
     pickle.dumps(power)
 except TypeError as e:
