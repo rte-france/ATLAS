@@ -321,6 +321,9 @@ Most variables are indexed by time. `add_temporal_variable` declares a `Temporal
 ## Error Handling
 
 ```python
+# Fresh model: the one above has already been solved
+model = OptimisationModel(solver_name=SolverEnum.SCIP, name="error_handling")
+
 # Handle variable/constraint errors
 try:
     var = model.get_variable("nonexistent")
