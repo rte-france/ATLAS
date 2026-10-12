@@ -9,20 +9,15 @@ from collections.abc import Iterator
 
 import pendulum
 
+from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.data_classes import PriceGroup
 
 type GroupPair = tuple[int, int]
 
 
-def count_saturated(
-    saturated_critical_branch: dict[tuple[str, pendulum.DateTime], float],
-    time: pendulum.DateTime,
-    tolerance: float,
-) -> int:
-    """Count critical branches saturated (shadow price below tolerance) at a given time step."""
-    return len(
-        [1 for (_, cb_time), value in saturated_critical_branch.items() if abs(value) <= tolerance and cb_time == time]
-    )
+def count_saturated(saturated_critical_branch: dict[str, Timeseries], time: pendulum.DateTime, tolerance: float) -> int:
+    """Count critical branches saturated (slack below tolerance) at a given time step."""
+    return sum(abs(slack.get_value(time)) <= tolerance for slack in saturated_critical_branch.values())
 
 
 def iter_group_pairs(price_groups: list[PriceGroup]) -> Iterator[tuple[PriceGroup, PriceGroup]]:

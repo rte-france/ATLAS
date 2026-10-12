@@ -67,11 +67,11 @@ class ClearingOutputs:
     """Results of the Clearing and ExchangesFixing phases, consumed by Pricing and by the
     market clearing output dataset.
 
-    The balances and exchanges are the solutions of their temporal variables, one timeseries per
-    market area and per border over ``input_dataset.times``.
+    The balances, exchanges and critical branch slacks are one timeseries per market area, border and
+    critical branch over ``input_dataset.times``.
     """
 
-    saturated_critical_branch: dict[tuple[str, pendulum.DateTime], float]
+    saturated_critical_branch: dict[str, Timeseries]
     border_exchanges: dict[str, Timeseries]
     local_balances: dict[str, Timeseries]
     accepted_powers: dict[tuple[str, str], float]

@@ -110,7 +110,7 @@ class _PricingPhase(Protocol):
     parameters: MarketClearingParameters
     input_dataset: MarketClearingInputDataset
     price_groups: dict[pendulum.DateTime, list[PriceGroup]]
-    saturated_critical_branch: dict[tuple[str, pendulum.DateTime], float]
+    saturated_critical_branch: dict[str, Timeseries]
     clearing_border_exchanges: dict[str, Timeseries]
     clearing_accepted_powers: dict[tuple[str, str], float]
     linked_orders: dict[int, list[OrderMC]]

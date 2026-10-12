@@ -101,7 +101,11 @@ class Clearing:
                 )
             with open(output_path / "clearing_saturated_critical_branches.json", "w") as f:
                 json.dump(
-                    [[cb, str(t), val] for (cb, t), val in self.get_saturated_critical_branch().items()],
+                    [
+                        [cb, str(t), val]
+                        for cb, slack in self.get_saturated_critical_branch().items()
+                        for t, val in slack.iter_rows()
+                    ],
                     f,
                 )
 
@@ -520,16 +524,24 @@ class Clearing:
             for order in market_area.orders.values()
         }
 
-    def get_saturated_critical_branch(self) -> dict[tuple[str, pendulum.DateTime], float]:
-        """Retrieve the slack value of each critical branch at each timestep
+    def get_saturated_critical_branch(self) -> dict[str, Timeseries]:
+        """Retrieve the slack value of each critical branch over the clearing times
 
-        :rtype: dict[tuple[str, pendulum.DateTime], float]
+        :return: Slack of the constraint of each critical branch, null when the branch is saturated
+        :rtype: dict[str, Timeseries]
         """
-        saturated_critical_branch = {}
-        for time in self.input_dataset.times:
-            for critical_branch_name in self.input_dataset.critical_branches:
-                critical_branch_saturation = self.model.get_constraint_slack_value(
-                    constants.critical_branch_constraint_name(critical_branch_name, time)
-                )
-                saturated_critical_branch[critical_branch_name, time] = critical_branch_saturation
-        return saturated_critical_branch
+        times = self.input_dataset.times
+        timezone = times[0].timezone_name or "UTC"
+        return {
+            name: Timeseries(
+                {
+                    "time": times,
+                    "value": [
+                        self.model.get_constraint_slack_value(constants.critical_branch_constraint_name(name, time))
+                        for time in times
+                    ],
+                },
+                timezone=timezone,
+            )
+            for name in self.input_dataset.critical_branches
+        }

@@ -270,7 +270,7 @@ def create_shadow_price_constraints(pricing: _PricingPhase) -> None:
     for time in pricing.input_dataset.times:
         for critical_branch_name in pricing.input_dataset.critical_branches:
             shadow_price = pricing.variables.shadow_price[critical_branch_name][time]
-            saturated_critical_branch = pricing.saturated_critical_branch[critical_branch_name, time]
+            saturated_critical_branch = pricing.saturated_critical_branch[critical_branch_name].get_value(time)
             if saturated_critical_branch > pricing.parameters.allowed_round_off_error:
                 pricing.model.add_constraint(
                     saturated_critical_branch * shadow_price == 0.0,
