@@ -32,8 +32,8 @@ class AbsoluteExchanges:
     positive: dict[str, TemporalVariable]
     negative: dict[str, TemporalVariable]
 
-    def total(self) -> pywraplp.LinearExpr:
-        """Sum of the absolute exchanges of every border over the clearing times."""
+    def total(self) -> pywraplp.LinearExpr | int:
+        """Sum of the absolute exchanges of every border over the clearing times, 0 without any border."""
         return sum(self.positive[name].sum() - self.negative[name].sum() for name in self.positive)
 
 
@@ -133,5 +133,5 @@ def add_loss_variables(
             nus=model.add_temporal_variable(f"nu_on_{name}", times),
         )
         for name, border in input_dataset.market_borders.items()
-        if not only_borders_with_losses or (border.loss_factor and border.loss_factor != 0.0)
+        if not only_borders_with_losses or border.loss_factor
     }
