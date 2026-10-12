@@ -10,6 +10,7 @@ from typing import Any
 import atlas.config as cfg
 from atlas.abstract_class.dataset import ModuleResult
 from atlas.enums import Product
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.data_classes import ClearingOutputs
@@ -101,6 +102,34 @@ CRITICAL_BRANCH_FLOW_FIELDS: Fields = {
     Product.DayAhead: {"da_flow": APPEND},
     Product.Intraday: {"total_id_flow": CUMULATE, "id_flow": FORECAST},
 }
+
+
+def check_contiguous(history: AbstractTimeseries, window: Timeseries, how: Merge) -> None:
+    """
+    Check that a window can be merged into a history without leaving a gap.
+
+    :param history: Current value of the attribute
+    :type history: AbstractTimeseries
+    :param window: Values cleared over the horizon
+    :type window: Timeseries
+    :param how: How the window is merged, APPEND or CUMULATE
+    :type how: Merge
+    :raises ValueError: If the window leaves a gap (or, appended, overlaps) with the history
+    """
+    step = history.timestep
+    history_start, history_end = history.index[0], history.index[-1]
+    window_start, window_end = window.index[0], window.index[-1]
+    if how == Merge.APPEND:
+        contiguous = window_start == history_end + step or window_end == history_start - step
+        expected = f"start at {history_end + step} or end at {history_start - step}"
+    else:
+        contiguous = window_start <= history_end + step and window_end >= history_start - step
+        expected = f"overlap or touch the history, which covers {history_start} to {history_end}"
+    if not contiguous:
+        raise ValueError(
+            f"Cannot {how.name.lower()} a cleared window from {window_start} to {window_end} to a history "
+            f"from {history_start} to {history_end}: the window must {expected}"
+        )
 
 
 class MarketClearingResult(ModuleResult[MarketClearingParameters]):
@@ -275,13 +304,16 @@ class MarketClearingResult(ModuleResult[MarketClearingParameters]):
         :type how: Merge
         :return: The new value of the attribute
         :rtype: AbstractTimeseries | ForecastingMatrix | LazyForecastingMatrix
-        :raises ValueError: If the window leaves a gap after the history, or overlaps it when appended
+        :raises ValueError: If the window is not contiguous with the history: appended, it must touch the
+            history without overlapping it; cumulated, it may overlap the history but must not leave a gap
+            before or after it
         """
         if how == Merge.FORECAST:
             forecast = ForecastingMatrix() if history is None else history
             return forecast.add(window, self.input_dataset.parameters.temporal.execution_date)
         if history is None or len(history) < 2:
             return window
+        check_contiguous(history, window, how)
         if how == Merge.APPEND:
             return history.add_indexes(window, inplace=False)
         return history.add_on_union(window, inplace=False)
