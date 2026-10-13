@@ -4,24 +4,37 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from __future__ import annotations
+
 import json
+from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
 import pendulum
 
-import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
 from atlas.custom_errors import SolverError
+from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.data_classes import ClearingOutputs, PriceGroup
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
 from atlas.modules.market_clearing.input_objects.market_border import MarketBorderMC
+from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.order_links import OrderLinkResolver
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases._helpers import count_saturated
 from atlas.modules.market_clearing.phases.pricing import first_attempt, second_attempt, third_attempt
-from atlas.modules.market_clearing.phases.pricing._types import PricingAttempt
+from atlas.modules.market_clearing.phases.pricing._types import (
+    PricingAttempt,
+    PricingVariables,
+    RelaxableConstraints,
+)
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
+
+if TYPE_CHECKING:
+    # ortools-stubs does not ship pywraplp (see the solver_interface mypy override)
+    from ortools.linear_solver import pywraplp  # type: ignore[attr-defined]
 
 
 class Pricing:
@@ -38,13 +51,17 @@ class Pricing:
         self.parameters = parameters
         self.saturated_critical_branch = clearing_outputs.saturated_critical_branch
         self.clearing_border_exchanges = clearing_outputs.border_exchanges
-        self.clearing_local_balances = clearing_outputs.local_balances
         self.clearing_accepted_powers = clearing_outputs.accepted_powers
         self.price_groups = self.create_price_groups()
         order_links = OrderLinkResolver(self.input_dataset.orders, self.input_dataset.order_couplings).resolve()
-        self.dict_linked_orders = order_links.linked_orders
-        self.dict_parent_child_orders = order_links.parent_child_orders
-        self._full_link_id_by_order = order_links.full_link_id_by_order
+        self.linked_orders = order_links.linked_orders
+        self.parent_child_orders = order_links.parent_child_orders
+        self.full_link_id_by_order = order_links.full_link_id_by_order
+
+        # Variables only depend on the clearing outputs and the price groups: they are declared here
+        # so that the attempts always find them. Nothing is relaxable until the first attempt is built.
+        self.variables: PricingVariables = first_attempt.build_variables(self)
+        self.relaxable = RelaxableConstraints()
 
     def compute(self):
         """Price the cleared market, relaxing the model over up to three attempts.
@@ -90,31 +107,55 @@ class Pricing:
                 json.dump(
                     [
                         [market_area_name, str(time), val]
-                        for (market_area_name, time), val in self.get_market_prices().items()
+                        for market_area_name, prices in self.get_market_prices().items()
+                        for time, val in prices.iter_rows()
                     ],
                     f,
                 )
 
-    def build_first(self):
+    def build_first(self) -> None:
         first_attempt.instantiate_order_group_index(self)
-        first_attempt.build_variables(self)
-        first_attempt.build_constraints(self)
+        self.relaxable = first_attempt.build_constraints(self)
         first_attempt.build_objective(self)
 
-    def build_second(self):
+    def build_second(self) -> None:
         # Update PriceGroup
-        second_attempt.update_price_bound(self)
-        second_attempt.compute_min_max_rejected_sale_buy(self)
-        second_attempt.build_variables(self)
-        # If the order is accepted, check if it is partially accepted. If so, delete the marginal surplus constraint.
-        second_attempt.build_constraints(self)
-        second_attempt.build_objective(self)
+        second_attempt.tighten_price_bounds(self)
+        second_attempt.compute_worst_rejected_prices(self)
+        rejection = second_attempt.build_variables(self)
+        # Relax the null surplus of the marginally accepted orders, penalize the worst rejected ones instead
+        second_attempt.build_constraints(self, rejection)
+        second_attempt.build_objective(self, rejection)
 
-    def build_third(self):
+    def build_third(self) -> None:
         opposite_delta_p_dict = third_attempt.compute_opposite_delta_p(self)
-        third_attempt.build_variables(self, opposite_delta_p_dict)
-        third_attempt.build_constraints(self, opposite_delta_p_dict)
-        third_attempt.build_objective(self, opposite_delta_p_dict)
+        paradox = third_attempt.build_variables(self, opposite_delta_p_dict)
+        third_attempt.build_constraints(self, paradox, opposite_delta_p_dict)
+        third_attempt.build_objective(self, paradox)
+
+    ##################################
+    # Orders — shared across the three attempts
+    ##################################
+    def is_accepted(self, order: OrderMC) -> bool:
+        """Tell whether the clearing accepted a power above the round-off error for *order*."""
+        return (
+            self.clearing_accepted_powers[order.market_area.name, order.name] > self.parameters.allowed_round_off_error
+        )
+
+    def order_price(self, order: OrderMC) -> pywraplp.Variable:
+        """Get the price variable of the group *order* belongs to, at the time the order starts.
+
+        :raises ValueError: If the order belongs to no price group
+        """
+        if order.group_index is None:
+            raise ValueError(f"Order '{order.name}' belongs to no price group")
+        return self.variables.price[order.group_index][order.start_date]
+
+    def standalone_orders(self) -> Iterator[OrderMC]:
+        """Iterate over the orders that belong to neither a group of linked orders nor a parent-child group."""
+        for order in self.input_dataset.orders.values():
+            if order.name not in self.full_link_id_by_order and order.parent_child_id is None:
+                yield order
 
     ##################################
     # Price groups — shared across the three attempts
@@ -152,7 +193,7 @@ class Pricing:
         for border, neighbour_market_area_name in self.get_market_area_neighbours(market_area.name):
             if neighbour_market_area_name in price_group.market_area_names:
                 continue
-            flow = self.clearing_border_exchanges[border.name, time]
+            flow = self.clearing_border_exchanges[border.name].get_value(time)
             relative_max_flow = border.max_flow.get_value(time)
             relative_min_flow = border.min_flow.get_value(time)
             if (
@@ -302,14 +343,27 @@ class Pricing:
                 price_group.min_price = max(price_group.min_price, max_accepted_sale_price)
                 price_group.max_price = min(price_group.max_price, min_accepted_purchase_price)
 
-    def get_market_prices(self) -> dict[tuple[str, pendulum.DateTime], float]:
+    def get_market_prices(self) -> dict[str, Timeseries]:
+        """Retrieve the price of each market area over the clearing horizon
+
+        Price groups are rebuilt at every timestep: at each one, an area takes the price of the
+        group it belongs to.
+
+        :rtype: dict[str, Timeseries]
         """
-        :rtype: dict[tuple[str, pendulum.DateTime], float]
-        """
-        market_prices = {}
-        for time, price_groups in self.price_groups.items():
-            for price_group in price_groups:
+        group_prices = {
+            group_id: dict(zip(price.model_times, price.solution_values(), strict=True))
+            for group_id, price in self.variables.price.items()
+        }
+        area_prices: dict[str, list[float]] = {name: [] for name in self.input_dataset.market_areas}
+        for time in self.input_dataset.times:
+            for price_group in self.price_groups[time]:
+                price = group_prices[price_group.id][time]
                 for market_area_name in price_group.market_area_names:
-                    market_price_name = constants.price_on_group_variable_name(price_group.id, time)
-                    market_prices[market_area_name, time] = self.model.get_variable_value(market_price_name)
-        return market_prices
+                    area_prices[market_area_name].append(price)
+        times = self.input_dataset.times
+        timezone = times[0].timezone_name or "UTC"
+        return {
+            name: Timeseries({"time": times, "value": prices}, timezone=timezone)
+            for name, prices in area_prices.items()
+        }
