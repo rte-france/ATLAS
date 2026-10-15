@@ -16,7 +16,7 @@ from atlas.enums import SolverStatus, VariableType
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.solver.solver_interface import OptimisationModel
-from atlas.solver.temporal_variable import TemporalVariable
+from atlas.solver.temporal_variable import TemporalVariable, TemporalVariableRegistry
 
 START = pendulum.datetime(2025, 1, 1)
 TIMESTEP = pendulum.duration(hours=1)
@@ -26,6 +26,17 @@ TIMES = [START + k * TIMESTEP for k in range(3)]
 @pytest.fixture
 def model() -> OptimisationModel:
     return OptimisationModel("SCIP", "test_model")
+
+
+class TestTimeLabel:
+    def test_repeated_hour_at_end_of_daylight_saving_time_keeps_its_offset(self):
+        registry = TemporalVariableRegistry()
+        summer = pendulum.datetime(2026, 10, 25, 2, tz="Europe/Paris", fold=0)
+        winter = pendulum.datetime(2026, 10, 25, 2, tz="Europe/Paris", fold=1)
+
+        assert summer == winter
+        assert registry.time_label(summer) == "2026-10-25 02:00:00+02:00"
+        assert registry.time_label(winter) == "2026-10-25 02:00:00+01:00"
 
 
 class TestDeclaration:
@@ -166,7 +177,7 @@ class TestAddAllChecks:
     def test_duplicates_in_request_raise_before_creating_variables(self, model):
         var = model.add_temporal_variable("power")
 
-        with pytest.raises(ValueError, match="cannot add duplicate timestamps at once"):
+        with pytest.raises(ValueError, match="'power' got duplicate timestamps"):
             var.add_all([TIMES[0], TIMES[1], TIMES[0]])
 
         assert len(var) == 0
@@ -411,3 +422,146 @@ def test_repr(model):
     var.fix(START - TIMESTEP, 0)
 
     assert repr(var) == "TemporalVariable(name=on, type=boolean, variables=3, fixed=1)"
+
+
+def _coefficients(model, name, variables):
+    constraint = model.get_constraint(name)
+    return [constraint.GetCoefficient(v) for v in variables], (constraint.lb(), constraint.ub())
+
+
+class TestSum:
+    def test_sums_model_times_by_default(self, model):
+        var = model.add_temporal_variable("power", TIMES)
+        var.fix(START - TIMESTEP, 5.0)
+
+        model.add_constraint(var.sum() <= 10, "total")
+
+        assert _coefficients(model, "total", [var[t] for t in TIMES]) == ([1.0] * 3, (float("-inf"), 10.0))
+
+    def test_explicit_times_include_fixed_values(self, model):
+        var = model.add_temporal_variable("power", TIMES)
+        var.fix(START - TIMESTEP, 5.0)
+
+        model.add_constraint(var.sum([START - TIMESTEP, TIMES[0]]) <= 10, "total")
+
+        assert _coefficients(model, "total", [var[TIMES[0]], var[TIMES[1]]]) == ([1.0, 0.0], (float("-inf"), 5.0))
+
+    @pytest.mark.parametrize(
+        "weights",
+        [
+            pytest.param(Timeseries({"time": TIMES, "value": [1.0, 2.0, 3.0]}), id="timeseries"),
+            pytest.param(lambda t: float(t.hour + 1), id="callable"),
+        ],
+    )
+    def test_time_dependent_weights(self, model, weights):
+        var = model.add_temporal_variable("power", TIMES)
+
+        model.add_constraint(var.sum(weights=weights) <= 10, "total")
+
+        assert _coefficients(model, "total", [var[t] for t in TIMES])[0] == [1.0, 2.0, 3.0]
+
+    def test_constant_weight(self, model):
+        var = model.add_temporal_variable("power", TIMES)
+
+        model.add_constraint(var.sum(weights=0.5) <= 10, "total")
+
+        assert _coefficients(model, "total", [var[t] for t in TIMES])[0] == [0.5] * 3
+
+    def test_unknown_time_raises(self, model):
+        var = model.add_temporal_variable("power", TIMES)
+
+        with pytest.raises(KeyError, match="is not defined at"):
+            var.sum([START - TIMESTEP])
+
+
+class TestFixAll:
+    def test_fixes_a_sequence(self, model):
+        var = model.add_temporal_variable("power")
+
+        var.fix_all(TIMES, [1.0, 2.0, 3.0])
+
+        assert [var[t] for t in TIMES] == [1.0, 2.0, 3.0]
+        assert model.variables == set()
+
+    def test_reads_a_timeseries_in_one_lookup(self, model):
+        values = Timeseries({"time": TIMES, "value": [1.0, 2.0, 3.0]})
+        var = model.add_temporal_variable("power")
+
+        with patch.object(Timeseries, "get_values", autospec=True, side_effect=Timeseries.get_values) as get_values:
+            var.fix_all(TIMES, values)
+
+        assert get_values.call_count == 1
+        assert var.times == TIMES
+
+    def test_length_mismatch_raises_before_fixing(self, model):
+        var = model.add_temporal_variable("power")
+
+        with pytest.raises(ValueError, match="got 2 values for 3 timestamps"):
+            var.fix_all(TIMES, [1.0, 2.0])
+
+        assert len(var) == 0
+
+    def test_clash_raises_before_fixing(self, model):
+        var = model.add_temporal_variable("power", [TIMES[2]])
+
+        with pytest.raises(ValueError, match="already holds a solver variable"):
+            var.fix_all(TIMES, [1.0, 2.0, 3.0])
+
+        assert var.times == [TIMES[2]]
+
+    def test_duplicates_raise_before_fixing(self, model):
+        var = model.add_temporal_variable("power")
+
+        with pytest.raises(ValueError, match="'power' got duplicate timestamps"):
+            var.fix_all([TIMES[0], TIMES[0]], [1.0, 2.0])
+
+        assert len(var) == 0
+
+
+class TestSetBounds:
+    def test_single_timestamp(self, model):
+        var = model.add_temporal_variable("power", TIMES)
+
+        var.set_bounds(TIMES[1], 1.0, 2.0)
+
+        assert (var[TIMES[1]].lb(), var[TIMES[1]].ub()) == (1.0, 2.0)
+        assert var[TIMES[0]].ub() == float("inf")
+
+    def test_defaults_to_model_times_and_keeps_omitted_bound(self, model):
+        var = model.add_temporal_variable("power", TIMES, lower_bound=-5.0, upper_bound=5.0)
+
+        var.set_bounds(upper_bound=Timeseries({"time": TIMES, "value": [1.0, 2.0, 3.0]}))
+
+        assert [(var[t].lb(), var[t].ub()) for t in TIMES] == [(-5.0, 1.0), (-5.0, 2.0), (-5.0, 3.0)]
+
+    def test_declaration_bounds_still_apply_to_later_variables(self, model):
+        var = model.add_temporal_variable("power", TIMES, upper_bound=5.0)
+
+        var.set_bounds(upper_bound=1.0)
+
+        assert var.add(TIMES[-1] + TIMESTEP).ub() == 5.0
+
+    def test_defaults_skip_fixed_timestamps(self, model):
+        var = model.add_temporal_variable("power", TIMES)
+        var.fix(START - TIMESTEP, 0.0)
+
+        var.set_bounds(upper_bound=1.0)
+
+        assert [var[t].ub() for t in TIMES] == [1.0, 1.0, 1.0]
+
+    def test_fixed_timestamp_raises_before_changing_bounds(self, model):
+        var = model.add_temporal_variable("power", TIMES)
+        var.fix(START - TIMESTEP, 0.0)
+
+        with pytest.raises(ValueError, match="holds a fixed value"):
+            var.set_bounds([TIMES[0], START - TIMESTEP], 1.0, 2.0)
+
+        assert var[TIMES[0]].lb() == float("-inf")
+
+    def test_unknown_timestamp_raises_before_changing_bounds(self, model):
+        var = model.add_temporal_variable("power", TIMES)
+
+        with pytest.raises(KeyError, match="is not defined at"):
+            var.set_bounds([TIMES[0], START - TIMESTEP], 1.0, 2.0)
+
+        assert var[TIMES[0]].lb() == float("-inf")

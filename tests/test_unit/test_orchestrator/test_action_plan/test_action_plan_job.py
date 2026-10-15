@@ -103,7 +103,8 @@ class TestTaskIterator:
         task_iterator1 = ConcreteTaskGenerator(task1)
         task_iterator2 = ConcreteTaskGenerator(task2)
 
-        assert task_iterator1.__lt__(task_iterator2)
+        assert task_iterator1.priority(0) < task_iterator2.priority(0)
+        assert not task_iterator2.priority(0) < task_iterator1.priority(0)
 
     def test_lesser_than_different_priority(self, task):
         task1 = copy.copy(task)
@@ -114,7 +115,8 @@ class TestTaskIterator:
         task2.priority = 2
         task_iterator2 = ConcreteTaskGenerator(task2)
 
-        assert task_iterator1.__lt__(task_iterator2)
+        assert task_iterator1.priority(0) < task_iterator2.priority(0)
+        assert not task_iterator2.priority(0) < task_iterator1.priority(0)
 
     def test_equal_identical(self, task):
         ti1 = copy.copy(task)

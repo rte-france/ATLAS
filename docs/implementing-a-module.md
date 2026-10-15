@@ -143,21 +143,21 @@ Change sets tell the orchestrator what was modified so it can propagate results 
 from atlas.abstract_class.dataset import ModuleResult
 from atlas.modules.my_module.input_dataset import MyModuleInputDataset
 from atlas.modules.my_module.parameters import MyModuleParameters
-from atlas.orchestrator.change_set import UpdateObject
+from atlas.orchestrator.change_set import ChangeSet, UpdateObject
 
 
 class MyModuleResult(ModuleResult[MyModuleParameters]):
     def __init__(self, input_dataset: MyModuleInputDataset):
         self.market_areas = input_dataset.market_areas  # mutated during execute()
 
-    def build_change_sets(self) -> None:
-        for area in self.market_areas:
-            self.change_sets.append(
-                UpdateObject(
-                    {"name": area.name, "my_result_field": area.my_result_field},
-                    type(area),
-                )
+    def build_change_sets(self) -> list[ChangeSet]:
+        return [
+            UpdateObject(
+                {"name": area.name, "my_result_field": area.my_result_field},
+                type(area),
             )
+            for area in self.market_areas
+        ]
 ```
 
 Three change set types are available: `AddObject`, `UpdateObject`, `DeleteObject`.

@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any
 
 from atlas.abstract_class.dataset import ModuleResult
 from atlas.abstract_class.module import AbstractModule
@@ -61,6 +61,3 @@ class AbstractJob:
         Stores the resulting ModuleResult.
         """
         self._result = self.module.run(input_dataset, self.parameters)
-
-
-J = TypeVar("J", bound=AbstractJob)

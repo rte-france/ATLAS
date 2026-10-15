@@ -16,7 +16,7 @@ import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
-from atlas.solver.solver_helper import SolverHelper
+from tests.solver_helper import SolverHelper
 from tests.utils import check_execution_time
 
 # Test data directories
@@ -79,7 +79,8 @@ class TestThermalCombinationLPComparison:
     """Tests for comparing generated LP files against reference LP files."""
 
     @pytest.fixture(scope="class")
-    def executed_dao_module(self, thermal_combination_number, base_parameters_dict):
+    @classmethod
+    def executed_dao_module(cls, thermal_combination_number, base_parameters_dict):
         _combination_num, combination_name, combination_dir, reference_lp = thermal_combination_number
 
         with tempfile.TemporaryDirectory() as tmpdir:

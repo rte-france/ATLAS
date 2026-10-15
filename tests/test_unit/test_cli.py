@@ -89,15 +89,13 @@ class TestRunCommandModuleMode:
     def test_run_module_with_valid_inputs(self, mock_registry, mock_module_run, tmp_path):
         """Test that run module run succeeds with valid inputs (mocked execution)."""
         mock_module_class = MagicMock()
-        mock_module_instance = MagicMock()
-        mock_module_class.return_value = mock_module_instance
         mock_registry.get.return_value = mock_module_class
 
         mock_params_class = MagicMock()
         mock_params_instance = MagicMock()
         mock_params_instance.export.export_dataset = False
         mock_params_class.from_file.return_value = mock_params_instance
-        mock_module_instance.get_parameters_class.return_value = mock_params_class
+        mock_module_class.get_parameters_class.return_value = mock_params_class
 
         mock_run_instance = MagicMock()
         mock_module_run.return_value = mock_run_instance
@@ -512,6 +510,28 @@ class TestPrometheusToAtlasRecursiveCommand:
         )
 
         # Should exit with error code since no modules were processed
+        assert result.exit_code == 1
+
+    @patch("atlas.app.find_hdf5_files")
+    @patch("atlas.app.PrometheusToAtlasDataParser")
+    def test_recursive_with_partial_failure(self, mock_parser, mock_find_hdf5, tmp_path):
+        """Test that one failed module makes the batch fail, even if the others succeed."""
+        root_dir = tmp_path / "root"
+        for name in ("module1", "module2"):
+            (root_dir / name / "ts").mkdir(parents=True)
+            (root_dir / name / "data.hdf5").write_text("")
+
+        mock_find_hdf5.side_effect = lambda x: [x / "data.hdf5"]
+        succeeding, failing = MagicMock(), MagicMock()
+        failing.process.side_effect = Exception("Test error")
+        mock_parser.side_effect = [succeeding, failing]
+
+        result = runner.invoke(
+            app,
+            ["prometheus-to-atlas", "batch", str(root_dir), "--output", str(tmp_path / "output"), "--no-mp"],
+        )
+
+        assert mock_parser.call_count == 2
         assert result.exit_code == 1
 
 

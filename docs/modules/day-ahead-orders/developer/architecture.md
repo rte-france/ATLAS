@@ -89,7 +89,7 @@ execute() → DayAheadOrdersOrchestrator
   ↓
 validates_results()
   ↓
-export_results() → update order, order_coupling
+export_results() → nothing
 ```
 
 ## Module-Specific Design Patterns

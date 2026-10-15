@@ -8,28 +8,20 @@ Module that implements AbstractModule
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-import atlas.config as cfg
 from atlas.abstract_class.dataset import AbstractDataset, ModuleResult
 from atlas.abstract_class.parameters import AbstractModuleParameters
-from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 
 
 class AbstractModule[P: AbstractModuleParameters, ID: AbstractDataset, R: ModuleResult](ABC):
     """Abstract base class for modules with standard execution lifecycle."""
 
-    def before_execution(self) -> None:  # noqa: B027
-        """Hook before execution."""
-
-    def after_execution(self) -> None:  # noqa: B027
-        """Hook after execution."""
-
+    @classmethod
     @abstractmethod
-    def get_parameters_class(self) -> type[P]:
+    def get_parameters_class(cls) -> type[P]:
         """Returns the concrete Parameters class for this module."""
 
     def import_parameters(self, parameters: dict[str, Any] | str | Path | P) -> P:
@@ -90,21 +82,10 @@ class AbstractModule[P: AbstractModuleParameters, ID: AbstractDataset, R: Module
             raise AssertionError("Input Data/Parameters validation has not passed")
 
         result = self.execute(params, input_dataset)
-        result.change_sets = []
-        result.build_change_sets()
+        result.change_sets = result.build_change_sets()
 
         validates_results_ok = self.validates_results(params, input_dataset, result)
         if not validates_results_ok:
             raise AssertionError("Results validation has not passed")
         self.export_results(params, input_dataset, result)
         return result
-
-    @staticmethod
-    def get_business_model_class_used() -> Iterable[BusinessModelName]:
-        """Returns the business model names used by this module."""
-        return cfg.MODEL_MAPPING_NAME.keys()
-
-    @staticmethod
-    def get_filters():
-        """Returns filters to apply on the dataset. Override to restrict data scope."""
-        return None

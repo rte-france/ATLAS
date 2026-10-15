@@ -45,6 +45,7 @@ class TemporalVariableRegistry:
     def __init__(self) -> None:
         self._variables: dict[str, TemporalVariable] = {}
         self._time_axes: dict[tuple[str, tuple[DateTime, ...]], Timeseries] = {}
+        self._time_labels: tuple[dict[DateTime, str], dict[DateTime, str]] = ({}, {})
 
     def add(
         self,
@@ -68,6 +69,21 @@ class TemporalVariableRegistry:
         temporal_variable = TemporalVariable(model, self, name, times, variable_type, lower_bound, upper_bound)
         self._variables[name] = temporal_variable
         return temporal_variable
+
+    def get(self, name: str) -> TemporalVariable:
+        """
+        Get a registered temporal variable by name.
+
+        :param name: Name of the temporal variable
+        :type name: str
+        :return: The registered temporal variable
+        :rtype: TemporalVariable
+        :raises ValueError: If no temporal variable has this name
+        """
+        try:
+            return self._variables[name]
+        except KeyError:
+            raise ValueError(f"Temporal variable '{name}' not found") from None
 
     def solution(self, include_fixed: bool = False) -> dict[str, Timeseries]:
         """
@@ -104,6 +120,22 @@ class TemporalVariableRegistry:
             axis = Timeseries({"time": list(times), "value": [0.0] * len(times)}, timezone=timezone)
             self._time_axes[key] = axis
         return axis
+
+    def time_label(self, t: DateTime) -> str:
+        """
+        Get ``str(t)``, computed once per model: formatting a :class:`~pendulum.DateTime` is slow.
+
+        :param t: Timestamp
+        :type t: DateTime
+        :return: The label of *t*, used in the names of solver variables
+        :rtype: str
+        """
+        # both occurrences of an hour repeated at the end of daylight saving time are equal: split by fold
+        labels = self._time_labels[t.fold]
+        label = labels.get(t)
+        if label is None:
+            label = labels[t] = str(t)
+        return label
 
     def clear(self) -> None:
         """Forget every temporal variable and shared index."""
@@ -218,9 +250,9 @@ class TemporalVariable:
         :raises ValueError: If *t* already holds a solver variable or a fixed value
         :raises KeyError: If a timeseries bound has no value at *t*
         """
-        self._check_undefined(t)
+        self._check_undefined([t])
         self._invalidate_sorted_times()
-        name = f"{self._name}_{t}"
+        name = f"{self._name}_{self._registry.time_label(t)}"
         if self._variable_type == VariableType.BOOLEAN:
             variable = self._model.add_boolean_variable(name)
         else:
@@ -243,19 +275,88 @@ class TemporalVariable:
         :raises KeyError: If a timeseries bound has no value at one of the timestamps
         """
         times = list(times)
-        self._check_all_undefined(times)
+        self._check_undefined(times)
         self._invalidate_sorted_times()
 
+        label = self._registry.time_label
         if self._variable_type == VariableType.BOOLEAN:
             for t in times:
-                self._variables[t] = self._model.add_boolean_variable(f"{self._name}_{t}")
+                self._variables[t] = self._model.add_boolean_variable(f"{self._name}_{label(t)}")
             return
 
         lowers = _resolve_all(self._lower_bound, times)
         uppers = _resolve_all(self._upper_bound, times)
         create = self._create_bounded()
         for t, lower, upper in zip(times, lowers, uppers, strict=True):
-            self._variables[t] = create(f"{self._name}_{t}", lower, upper)
+            self._variables[t] = create(f"{self._name}_{label(t)}", lower, upper)
+
+    def set_bounds(
+        self,
+        times: DateTime | Iterable[DateTime] | None = None,
+        lower_bound: Bound | None = None,
+        upper_bound: Bound | None = None,
+    ) -> None:
+        """
+        Change the bounds of solver variables, typically to tighten a model before a new solve.
+
+        Every timestamp is checked and every bound resolved before any variable is changed. The bounds
+        given at declaration are left unchanged: they still apply to variables added afterwards.
+
+        **Example**
+
+            power.set_bounds(t, 0.0, 10.0)                       # one timestamp
+            power.set_bounds(horizon, upper_bound=max_power)     # lower bounds kept
+
+        :param times: One timestamp or several, defaults to every timestamp holding a solver variable
+        :type times: DateTime | Iterable[DateTime] | None
+        :param lower_bound: New lower bound, same forms as at declaration. None keeps the current one.
+        :type lower_bound: float | AbstractTimeseries | Callable[[DateTime], float] | None
+        :param upper_bound: New upper bound, same forms and default as *lower_bound*
+        :type upper_bound: float | AbstractTimeseries | Callable[[DateTime], float] | None
+        :raises ValueError: If one of *times* holds a fixed value
+        :raises KeyError: If one of *times* was never added, or if a timeseries bound has no value at it
+        """
+        if times is None:
+            selected = list(self._default_times(include_fixed=False))
+        else:
+            selected = [times] if isinstance(times, DateTime) else list(times)
+            if fixed := [t for t in selected if t in self._fixed]:
+                raise ValueError(
+                    f"Temporal variable '{self._name}' holds a fixed value at {min(fixed)}, it has no bounds"
+                )
+        variables = [self._get_variable(t) for t in selected]
+        lowers = [v.lb() for v in variables] if lower_bound is None else _resolve_all(lower_bound, selected)
+        uppers = [v.ub() for v in variables] if upper_bound is None else _resolve_all(upper_bound, selected)
+        for variable, lower, upper in zip(variables, lowers, uppers, strict=True):
+            variable.SetBounds(lower, upper)
+
+    def sum(self, times: Iterable[DateTime] | None = None, weights: Bound = 1.0) -> pywraplp.LinearExpr:
+        """
+        Build the weighted sum of the family as one linear expression.
+
+        Fixed values are summed like solver variables. Much faster than the builtin ``sum`` over
+        ``self[t]``, which nests one expression per term.
+
+        **Example**
+
+            model.add_constraint(sell.sum(window, weights=dt_h) <= energy, "energy")
+
+        :param times: Timestamps to sum, defaults to every timestamp holding a solver variable
+        :type times: Iterable[DateTime] | None
+        :param weights: Weight of each term, same forms as the bounds, defaults to 1
+        :type weights: float | AbstractTimeseries | Callable[[DateTime], float]
+        :return: The linear expression
+        :rtype: pywraplp.LinearExpr
+        :raises KeyError: If one of *times* was never added, or if a timeseries weight has no value at it
+        """
+        selected = self._default_times(include_fixed=False) if times is None else list(times)
+        terms = [self[t] for t in selected]
+        if isinstance(weights, int | float):
+            total = self._model.solver.Sum(terms)
+            return total if weights == 1 else weights * total
+        return self._model.solver.Sum(
+            [w * term for w, term in zip(_resolve_all(weights, selected), terms, strict=True)]
+        )
 
     def fix(self, t: DateTime, value: float) -> None:
         """
@@ -267,9 +368,31 @@ class TemporalVariable:
         :type value: float
         :raises ValueError: If *t* already holds a solver variable or a fixed value
         """
-        self._check_undefined(t)
+        self._check_undefined([t])
         self._invalidate_sorted_times()
         self._fixed[t] = value
+
+    def fix_all(self, times: Iterable[DateTime], values: Sequence[float] | AbstractTimeseries) -> None:
+        """
+        Set one fixed value per timestamp in *times*, the counterpart of :meth:`add_all`.
+
+        All timestamps are checked before any value is set, and a timeseries is read in one lookup.
+
+        :param times: Timestamps of the values
+        :type times: Iterable[DateTime]
+        :param values: One value per timestamp, in the order of *times*, or a timeseries read at *times*
+        :type values: Sequence[float] | AbstractTimeseries
+        :raises ValueError: If *values* and *times* differ in length, if *times* contains duplicates, or if
+            a timestamp already holds a solver variable or a fixed value
+        :raises KeyError: If a timeseries has no value at one of the timestamps
+        """
+        times = list(times)
+        values = values.get_values(times) if isinstance(values, AbstractTimeseries) else values
+        if len(values) != len(times):
+            raise ValueError(f"Temporal variable '{self._name}' got {len(values)} values for {len(times)} timestamps")
+        self._check_undefined(times)
+        self._invalidate_sorted_times()
+        self._fixed.update(zip(times, values, strict=True))
 
     def is_fixed(self, t: DateTime) -> bool:
         """
@@ -290,7 +413,8 @@ class TemporalVariable:
         :type t: DateTime
         :return: The value at *t*
         :rtype: float
-        :raises RuntimeError: If *t* holds a solver variable and the model has not been solved
+        :raises SolverError: If *t* holds a solver variable and the model has not been solved
+            successfully
         :raises KeyError: If *t* was never added
         """
         if t in self._fixed:
@@ -319,7 +443,7 @@ class TemporalVariable:
         :type include_fixed: bool
         :return: Values indexed by timestamp
         :rtype: Timeseries
-        :raises RuntimeError: If the model has not been solved
+        :raises SolverError: If the model has not been solved successfully
         :raises ValueError: If there is no value to return, if *times* contains duplicates, or if
             *times* and *include_fixed* are both given
         :raises KeyError: If one of *times* was never added
@@ -359,7 +483,7 @@ class TemporalVariable:
         :type include_fixed: bool
         :return: One value per timestamp
         :rtype: list[float]
-        :raises RuntimeError: If the model has not been solved
+        :raises SolverError: If the model has not been solved successfully
         :raises ValueError: If *times* and *include_fixed* are both given
         :raises KeyError: If one of *times* was never added
         """
@@ -420,20 +544,14 @@ class TemporalVariable:
         except KeyError:
             raise KeyError(f"Temporal variable '{self._name}' is not defined at {t}") from None
 
-    def _check_undefined(self, t: DateTime) -> None:
-        if t in self._variables:
-            raise ValueError(f"Temporal variable '{self._name}' already holds a solver variable at {t}")
-        if t in self._fixed:
-            raise ValueError(f"Temporal variable '{self._name}' already holds a fixed value at {t}")
-
-    def _check_all_undefined(self, times: list[DateTime]) -> None:
-        unique = set(times)
-        if len(unique) != len(times):
-            raise ValueError(f"Temporal variable '{self._name}' cannot add duplicate timestamps at once")
-        if clash := unique & self._variables.keys():
-            raise ValueError(f"Temporal variable '{self._name}' already holds a solver variable at {min(clash)}")
-        if clash := unique & self._fixed.keys():
-            raise ValueError(f"Temporal variable '{self._name}' already holds a fixed value at {min(clash)}")
+    def _check_undefined(self, times: list[DateTime]) -> None:
+        if len(times) > 1 and len(set(times)) != len(times):
+            raise ValueError(f"Temporal variable '{self._name}' got duplicate timestamps")
+        for t in times:
+            if t in self._variables:
+                raise ValueError(f"Temporal variable '{self._name}' already holds a solver variable at {t}")
+            if t in self._fixed:
+                raise ValueError(f"Temporal variable '{self._name}' already holds a fixed value at {t}")
 
     def _default_times(self, include_fixed: bool) -> tuple[DateTime, ...]:
         if include_fixed not in self._sorted:
@@ -469,8 +587,7 @@ class TemporalVariable:
             raise KeyError(f"Temporal variable '{self._name}' is not defined at {error.args[0]}") from None
 
     def _check_solved(self) -> None:
-        if self._model.solution_info is None:
-            raise RuntimeError(f"Optimisation model has not been solved yet, cannot read '{self._name}'")
+        self._model.require_solution()
 
 
 def _resolve(bound: Bound, t: DateTime) -> float:

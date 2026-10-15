@@ -49,16 +49,12 @@ class ActionPlanMockFactory:
     def make_mock_module(output):
         mock_instance = MagicMock()
         mock_instance.run.return_value = output
-        mock_instance.get_business_model_class_used.return_value = []
-        mock_instance.get_filters.return_value = None
         return MagicMock(return_value=mock_instance)
 
     @staticmethod
     def make_mock_job(name="step", output=None):
         mock_instance = MagicMock()
         mock_instance.run.return_value = output
-        mock_instance.get_business_model_class_used.return_value = []
-        mock_instance.get_filters.return_value = None
         mock_class = MagicMock(return_value=mock_instance)
         return ActionPlanJob(name, mock_class, {})
 
