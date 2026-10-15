@@ -316,7 +316,7 @@ class StorageDispatch:
         eq = self._eq
         temporal = parameters.temporal
         prev = temporal.start_date - temporal.timestep
-        default = eq.maximum_energy.get_value(prev) * (eq.storage_initial_level or 0.0)
+        default = eq.maximum_energy.get_value(prev) * eq.storage_initial_level.get_value(prev)
 
         # an empty matrix raises inside get_forecast, so it is screened out here rather
         # than relying on the empty-forecast fallback below

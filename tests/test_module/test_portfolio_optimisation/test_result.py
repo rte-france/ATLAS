@@ -94,6 +94,7 @@ def portfolio() -> PortfolioPO:
             discharge_efficiency=1.0,
             charge_efficiency=1.0,
             maximum_energy=power_curve,
+            storage_initial_level=power_curve,
             additional_hours=pendulum.duration(hours=0),
         ),
     )

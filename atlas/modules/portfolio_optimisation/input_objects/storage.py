@@ -23,6 +23,7 @@ class StoragePO(Storage):
     discharge_efficiency: float
     charge_efficiency: float
     maximum_energy: AbstractTimeseries
+    storage_initial_level: AbstractTimeseries
     additional_hours: Duration  # type: ignore[assignment]
 
     optimisation_time_window: list[DateTime] = []
@@ -30,9 +31,9 @@ class StoragePO(Storage):
     _cached_energy_forecat_initial: Timeseries | None = None
 
     def get_initial_stock(self, parameters: PortfolioOptimisationParameters) -> float:
-        default_energy = (
-            self.maximum_energy.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
-            * self.storage_initial_level
+        initial_time = parameters.temporal.start_date - parameters.temporal.timestep
+        default_energy = self.maximum_energy.get_value(initial_time) * self.storage_initial_level.get_value(
+            initial_time
         )
 
         if self.stored_energy is None or not self._cached_energy_forecat_initial:

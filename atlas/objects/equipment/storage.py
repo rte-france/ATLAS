@@ -24,8 +24,9 @@ class Storage(Equipment):
     :param is_v2g: True if Equipment has vehicule to grid capabilities
     :type is_v2g: bool
     :param storage_initial_level: Percentage of MaximumEnergy used as a reference to determine the unit's initial
-    stock level, if StoredEnergy has not yet been filled by a previous market
-    :type storage_initial_level: float
+    stock level, if StoredEnergy has not yet been filled by a previous market. Read at the timestep preceding the
+    start of the optimisation
+    :type storage_initial_level: AbstractTimeseries
     :param storage_type: Storage type, e.g. battery, pumped hydro, etc.
     :type storage_type: StorageType
     :param transition_duration: Duration of the transition phase between two states (e.g. charging to discharging).

@@ -436,8 +436,9 @@ def _get_initial_stored_energy(equipment: HydroPO | StoragePO, parameters: Portf
     if isinstance(equipment, HydroPO):
         return equipment.initial_level.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
     else:
-        max_energy = equipment.maximum_energy.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
-        return equipment.storage_initial_level * max_energy
+        initial_time = parameters.temporal.start_date - parameters.temporal.timestep
+        max_energy = equipment.maximum_energy.get_value(initial_time)
+        return equipment.storage_initial_level.get_value(initial_time) * max_energy
 
 
 def _calculate_new_energy_value(

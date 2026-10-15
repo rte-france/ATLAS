@@ -202,7 +202,9 @@ def _create_open_phs(
         minimum_state_of_charge=minimum_soc_ts,
         charge_efficiency=props.efficiency,
         discharge_efficiency=1.0,
-        storage_initial_level=storage.properties.initial_level,
+        storage_initial_level=Timeseries.from_timeseries(
+            phs_max_energy_ts, default_value=storage.properties.initial_level
+        ),
         transition_duration=duration(days=0),
         power=phs_power_fm,
     )
@@ -380,6 +382,13 @@ def convert_phs_open_fr(
     end_date = parameters.start_date + duration(years=1)
     days_in_year = (end_date - parameters.start_date).days
 
+    maximum_energy_ts = Timeseries.from_index(
+        start_date=parameters.start_date,
+        frequency=f"{days_in_year}d",
+        end_date=end_date,
+        default_value=float(fr_reservoir.open_loop_capacity),
+    )
+
     phs = Storage(
         name="fr_phs_open",
         node=atlas_dataset.get("node", "fr"),
@@ -387,12 +396,7 @@ def convert_phs_open_fr(
         storage_type=StorageType.PUMPED_HYDRAULIC_STORAGE,
         maximum_power=maximum_power_ts,
         minimum_power=minimum_power_ts,
-        maximum_energy=Timeseries.from_index(
-            start_date=parameters.start_date,
-            frequency=f"{days_in_year}d",
-            end_date=end_date,
-            default_value=float(fr_reservoir.open_loop_capacity),
-        ),
+        maximum_energy=maximum_energy_ts,
         minimum_state_of_charge=Timeseries.from_index(
             start_date=parameters.start_date,
             frequency=f"{days_in_year}d",
@@ -401,7 +405,9 @@ def convert_phs_open_fr(
         ),
         charge_efficiency=charge_efficiency,
         discharge_efficiency=discharge_efficiency,
-        storage_initial_level=parameters.storage.get_phs_initial_level("fr"),
+        storage_initial_level=Timeseries.from_timeseries(
+            maximum_energy_ts, default_value=parameters.storage.get_phs_initial_level("fr")
+        ),
         transition_duration=duration(days=0),
         is_v2g=False,
         power=power_fm,

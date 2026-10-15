@@ -228,7 +228,9 @@ def _convert_standard_evs(
             ),
             charge_efficiency=charge_efficiency,
             discharge_efficiency=discharge_efficiency,
-            storage_initial_level=parameters.storage.get_ev_initial_level(area_name),
+            storage_initial_level=Timeseries.from_timeseries(
+                maximum_energy_ts, default_value=parameters.storage.get_ev_initial_level(area_name)
+            ),
             displacement_energy=displacement_energy_ts,
         )
         ev_units.append(ev)
@@ -367,6 +369,7 @@ def _convert_france_evs(
     else:
         night_disp_ts = None
 
+    night_max_energy_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=night_max_energy)
     night_ev = Storage(
         name="fr_ev_night",
         node=node,
@@ -375,7 +378,7 @@ def _convert_france_evs(
         is_v2g=True,
         maximum_power=Timeseries.from_values(parameters.start_date, frequency="1h", values=night_max_power),
         minimum_power=Timeseries.from_values(parameters.start_date, frequency="1h", values=night_min_power),
-        maximum_energy=Timeseries.from_values(parameters.start_date, frequency="1h", values=night_max_energy),
+        maximum_energy=night_max_energy_ts,
         minimum_state_of_charge=Timeseries.from_index(
             start_date=parameters.start_date,
             frequency="1h",
@@ -384,7 +387,9 @@ def _convert_france_evs(
         ),
         charge_efficiency=charge_efficiency,
         discharge_efficiency=discharge_efficiency,
-        storage_initial_level=parameters.storage.get_ev_initial_level("fr"),
+        storage_initial_level=Timeseries.from_timeseries(
+            night_max_energy_ts, default_value=parameters.storage.get_ev_initial_level("fr")
+        ),
         displacement_energy=night_disp_ts,
     )
     ev_units.append(night_ev)
@@ -399,6 +404,7 @@ def _convert_france_evs(
     else:
         regular_disp_ts = None
 
+    regular_max_energy_ts = Timeseries.from_values(parameters.start_date, frequency="1h", values=regular_max_energy)
     regular_ev = Storage(
         name="fr_ev_regular",
         node=node,
@@ -407,7 +413,7 @@ def _convert_france_evs(
         is_v2g=True,
         maximum_power=Timeseries.from_values(parameters.start_date, frequency="1h", values=regular_max_power),
         minimum_power=Timeseries.from_values(parameters.start_date, frequency="1h", values=regular_min_power),
-        maximum_energy=Timeseries.from_values(parameters.start_date, frequency="1h", values=regular_max_energy),
+        maximum_energy=regular_max_energy_ts,
         minimum_state_of_charge=Timeseries.from_index(
             start_date=parameters.start_date,
             frequency="1h",
@@ -416,7 +422,9 @@ def _convert_france_evs(
         ),
         charge_efficiency=charge_efficiency,
         discharge_efficiency=discharge_efficiency,
-        storage_initial_level=parameters.storage.get_ev_initial_level("fr"),
+        storage_initial_level=Timeseries.from_timeseries(
+            regular_max_energy_ts, default_value=parameters.storage.get_ev_initial_level("fr")
+        ),
         displacement_energy=regular_disp_ts,
     )
     ev_units.append(regular_ev)

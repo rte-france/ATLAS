@@ -34,9 +34,35 @@ def _orders_time(parameters):
     )
 
 
+def _without_equipment_additional_hours(diff: dict) -> dict:
+    """Drop the ``additional_hours`` diffs of nested equipments, and the diffs left empty."""
+    pruned = {}
+    for key, value in diff.items():
+        if isinstance(value, dict) and value.get("type") == "nested":
+            nested = value["diffs"]
+            if key == "equipment":
+                nested = {k: v for k, v in nested.items() if k != "additional_hours"}
+            nested = _without_equipment_additional_hours(nested)
+            if nested:
+                pruned[key] = {**value, "diffs": nested}
+        elif isinstance(value, dict) and "type" not in value and all(isinstance(v, dict) for v in value.values()):
+            nested = _without_equipment_additional_hours(value)
+            if nested:
+                pruned[key] = nested
+        else:
+            pruned[key] = value
+    return pruned
+
+
 def _meaningful_diff(obj, other) -> dict:
-    """Return diff between two BusinessModel instances, ignoring auto-generated names."""
-    return {k: v for k, v in diff_business_model(obj, other).items() if k != "name"}
+    """
+    Return diff between two BusinessModel instances, ignoring auto-generated names.
+
+    The equipment of a generated order is the module input object, whose ``additional_hours`` holds the
+    day-ahead duration only, while the expected equipment holds every time frame: that field is ignored.
+    """
+    diff = {k: v for k, v in diff_business_model(obj, other).items() if k != "name"}
+    return _without_equipment_additional_hours(diff)
 
 
 def _assert_orders_match(result: StepResult, expected: Container[Order], equipment_names: set[str]) -> None:

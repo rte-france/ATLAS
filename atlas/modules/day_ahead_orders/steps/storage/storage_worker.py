@@ -147,22 +147,21 @@ def _initiate_stock(storage: StorageDAO, parameters: DayAheadOrdersParameters) -
     - If stored_energy is not empty, but it does not contain data shortly before start_date (shortly being
       arbitrarily defined as two days before start_date), then it is also not available.
     """
+    initial_time = parameters.temporal.start_date - parameters.temporal.timestep
+    default_stock = storage.storage_initial_level.get_value(initial_time) * storage.maximum_energy.get_value(
+        initial_time
+    )
     if storage.stored_energy is None:
-        initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(parameters.temporal.start_date)
-    else:
-        energy_forecast = storage.stored_energy.get_forecast(
-            parameters.temporal.execution_date,
-            parameters.temporal.start_date.subtract(days=2),
-            parameters.temporal.start_date - parameters.temporal.timestep,
-            parameters.temporal.timestep,
-        )
-        if len(energy_forecast) == 0:
-            initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(
-                parameters.temporal.start_date
-            )
-        else:
-            initial_stock = energy_forecast.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
-    return initial_stock
+        return default_stock
+    energy_forecast = storage.stored_energy.get_forecast(
+        parameters.temporal.execution_date,
+        parameters.temporal.start_date.subtract(days=2),
+        initial_time,
+        parameters.temporal.timestep,
+    )
+    if len(energy_forecast) == 0:
+        return default_stock
+    return energy_forecast.get_value(initial_time)
 
 
 def _optimize_ev(

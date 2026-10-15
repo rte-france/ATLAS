@@ -89,7 +89,7 @@ def battery_equipment(node, portfolio, power_ts, soc_ts):
         minimum_state_of_charge=soc_ts,
         charge_efficiency=0.9,
         discharge_efficiency=0.9,
-        storage_initial_level=0.5,
+        storage_initial_level=Timeseries.from_timeseries(power_ts, default_value=0.5),
         additional_hours=pendulum.duration(hours=2),
     )
 
@@ -112,7 +112,7 @@ def ev_equipment(node, portfolio, power_ts, soc_ts):
         minimum_state_of_charge=soc_ts,
         charge_efficiency=0.95,
         discharge_efficiency=1.0,
-        storage_initial_level=0.3,
+        storage_initial_level=Timeseries.from_timeseries(power_ts, default_value=0.3),
         additional_hours=pendulum.duration(hours=0),
         is_v2g=False,
     )
@@ -145,7 +145,7 @@ def ev_half_hourly(node, portfolio, half_hourly_timestep, start_date):
         minimum_state_of_charge=Timeseries.from_index(**index, default_value=0.1),
         charge_efficiency=0.95,
         discharge_efficiency=1.0,
-        storage_initial_level=0.3,
+        storage_initial_level=Timeseries.from_index(**index, default_value=0.3),
         additional_hours=pendulum.duration(hours=0),
         is_v2g=False,
         displacement_energy=displacement,
@@ -278,7 +278,7 @@ class TestStorageDispatchAccessors:
             minimum_state_of_charge=soc_ts,
             charge_efficiency=0.95,
             discharge_efficiency=0.8,
-            storage_initial_level=0.3,
+            storage_initial_level=Timeseries.from_timeseries(power_ts, default_value=0.3),
             additional_hours=pendulum.duration(hours=0),
             is_v2g=True,
         )

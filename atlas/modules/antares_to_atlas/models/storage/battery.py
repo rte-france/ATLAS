@@ -108,6 +108,13 @@ def _create_battery(
     end_date = parameters.start_date + duration(years=1)
     days_in_year = (end_date - parameters.start_date).days
 
+    maximum_energy_ts = Timeseries.from_index(
+        start_date=parameters.start_date,
+        frequency=f"{days_in_year}d",
+        end_date=end_date,
+        default_value=props.reservoir_capacity,
+    )
+
     return Storage(
         name=storage.id,
         node=atlas_dataset.get("node", area_id),
@@ -116,16 +123,13 @@ def _create_battery(
         # In Antares: injection = power from grid to storage (charge), withdrawal = power from storage to grid (discharge)
         minimum_power=maximum_injection_power_ts * (-1),
         maximum_power=maximum_withdrawal_power_ts,
-        maximum_energy=Timeseries.from_index(
-            start_date=parameters.start_date,
-            frequency=f"{days_in_year}d",
-            end_date=end_date,
-            default_value=props.reservoir_capacity,
-        ),
+        maximum_energy=maximum_energy_ts,
         minimum_state_of_charge=minimum_soc_ts,
         charge_efficiency=props.efficiency,
         discharge_efficiency=1.0,
-        storage_initial_level=parameters.storage.get_battery_initial_level(area_id),
+        storage_initial_level=Timeseries.from_timeseries(
+            maximum_energy_ts, default_value=parameters.storage.get_battery_initial_level(area_id)
+        ),
         transition_duration=duration(days=0),
         additional_hours=AdditionalHours.uniform(duration(days=2)),
         is_v2g=False,

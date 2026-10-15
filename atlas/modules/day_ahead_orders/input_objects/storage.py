@@ -19,7 +19,7 @@ class StorageDAO(Storage):
     maximum_energy: AbstractTimeseries
     minimum_power: AbstractTimeseries
     maximum_power: AbstractTimeseries
-    storage_initial_level: float
+    storage_initial_level: AbstractTimeseries
     minimum_state_of_charge: AbstractTimeseries
     additional_hours: Duration  # type: ignore[assignment]
 

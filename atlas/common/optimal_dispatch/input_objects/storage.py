@@ -27,5 +27,5 @@ class StorageDispatchInput(Storage):
     minimum_state_of_charge: AbstractTimeseries
     charge_efficiency: float = Field(gt=0)
     discharge_efficiency: float = Field(gt=0)
-    storage_initial_level: float
+    storage_initial_level: AbstractTimeseries
     additional_hours: DurationField  # type: ignore[assignment]

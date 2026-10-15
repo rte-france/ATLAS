@@ -193,13 +193,17 @@ def _process_single_object_math(
     cfg.logger.debug(f"Processing math objects for '{object_name}' (type: {object_type})")
 
     object_instantiated: dict[str, Any] = {}
+    scalar_timeseries: dict[str, float] = {}
     key = None
 
     try:
         for key, value in obj.items():
             attribute_type = get_type_attribute(object_type, key)
 
-            if value == "timeseries" and attribute_type is AbstractTimeseries:
+            if attribute_type is AbstractTimeseries and _is_number(value):
+                scalar_timeseries[key] = float(value)
+
+            elif value == "timeseries" and attribute_type is AbstractTimeseries:
                 object_instantiated[key] = _load_timeseries(
                     object_type=object_type,
                     name=object_name,
@@ -222,12 +226,56 @@ def _process_single_object_math(
             else:
                 object_instantiated[key] = value
 
+        for key, value in scalar_timeseries.items():
+            object_instantiated[key] = _constant_timeseries(value, object_instantiated)
+
     except Exception as e:
         raise FileParsingError(
             f"Error processing attribute '{key}' for object '{object_name}' of type '{object_type}'"
         ) from e
 
     return object_instantiated
+
+
+def _is_number(value: Any) -> bool:
+    """Return True if ``value`` is a number, or a string holding one."""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int | float):
+        return True
+    if isinstance(value, str):
+        try:
+            float(value)
+        except ValueError:
+            return False
+        return True
+    return False
+
+
+def _constant_timeseries(value: float, object_attributes: dict[str, Any]) -> AbstractTimeseries:
+    """
+    Build a constant timeseries from a scalar given in place of a timeseries in an object file.
+
+    Temporary fallback until every timeseries is provided in a timeseries file: the index is taken
+    from the timeseries of the same object spanning the longest period, so that the constant covers
+    the same dates and follows the same resampling.
+
+    :param value: Constant value of the timeseries
+    :type value: float
+    :param object_attributes: Attributes of the object already loaded
+    :type object_attributes: dict[str, Any]
+    :raises DataValidationError: If the object has no timeseries to take the index from
+    :return: Timeseries with the index of the reference timeseries and ``value`` everywhere
+    :rtype: AbstractTimeseries
+    """
+    timeseries = [attr for attr in object_attributes.values() if isinstance(attr, AbstractTimeseries) and len(attr)]
+    if not timeseries:
+        raise DataValidationError(
+            f"Cannot build a constant timeseries from the scalar {value}: "
+            f"the object has no other timeseries attribute to take the time index from."
+        )
+    reference = max(timeseries, key=lambda attr: attr.last_date() - attr.first_date())
+    return type(reference).from_timeseries(reference, default_value=value)
 
 
 def _load_timeseries(

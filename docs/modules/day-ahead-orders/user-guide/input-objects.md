@@ -28,7 +28,7 @@ Supports Battery, Pumped Hydraulic Storage, and Electric Vehicle types.
 | `maximum_energy` | `AbstractTimeseries` | Maximum energy that can be stored (MWh). |
 | `minimum_power` | `AbstractTimeseries` | Minimum charge/discharge power (MW). By convention, should be negative if the unit is able to withdraw energy from the network. |
 | `maximum_power` | `AbstractTimeseries` | Maximum charge/discharge power (MW). |
-| `storage_initial_level` | `float` | Initial state of charge as a fraction of `maximum_energy`. |
+| `storage_initial_level` | `AbstractTimeseries` | Initial state of charge as a fraction of `maximum_energy`, read at the timestep preceding `start_date`. Used when `stored_energy` is not available. |
 | `minimum_state_of_charge` | `AbstractTimeseries` | Minimum state-of-charge ratio applied to `maximum_energy`. |
 | `additional_hours` | `AdditionalHours` | Extra optimization horizon appended after `end_date`. Only the `day_ahead` time frame is used. |
 

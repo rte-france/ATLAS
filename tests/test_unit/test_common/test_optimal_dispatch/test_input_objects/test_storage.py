@@ -25,7 +25,7 @@ def valid_storage_dict(node, portfolio, timeseries):
         "minimum_state_of_charge": timeseries,
         "charge_efficiency": 0.9,
         "discharge_efficiency": 0.9,
-        "storage_initial_level": 0.5,
+        "storage_initial_level": timeseries,
         "additional_hours": pendulum.duration(hours=2),
     }
 

@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -9,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
-from atlas.custom_errors import ObjectInstantiationError
+from atlas.custom_errors import DataValidationError, ObjectInstantiationError
 from atlas.io_utils import input_loader
 from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.models import InputLoaderConfig
@@ -359,3 +360,50 @@ def test_parse_objects_multiple_models(tmp_path):
     result = input_loader._parse_objects_files(tmp_path / "objects")
     assert "hydro" in result
     assert "solar" in result
+
+
+class TestScalarTimeseriesFallback:
+    """A scalar given in place of a timeseries in an object file becomes a constant timeseries."""
+
+    @pytest.mark.parametrize(("value", "expected"), [(0.6, True), (1, True), ("0.6", True), ("timeseries", False)])
+    def test_is_number(self, value, expected):
+        assert input_loader._is_number(value) is expected
+
+    @pytest.mark.parametrize("value", [None, True, "", "abc"])
+    def test_is_not_number(self, value):
+        assert input_loader._is_number(value) is False
+
+    def test_constant_takes_the_index_of_the_longest_timeseries(self):
+        short = Timeseries.from_index("2028-09-27 00:00:00", "1h", "2028-09-27 23:00:00", default_value=1.0)
+        long = Timeseries.from_index("2028-07-01 00:00:00", "1d", "2029-07-01 00:00:00", default_value=2.0)
+
+        constant = input_loader._constant_timeseries(0.6, {"a": short, "b": long, "c": 3.0})
+
+        assert isinstance(constant, Timeseries)
+        assert constant.index == long.index
+        assert set(constant.values) == {0.6}
+
+    def test_constant_keeps_the_lazy_variant(self):
+        reference = LazyTimeseries.from_timeseries(
+            Timeseries.from_index("2028-07-01 00:00:00", "1d", "2028-07-10 00:00:00", default_value=2.0)
+        )
+
+        constant = input_loader._constant_timeseries(0.6, {"a": reference})
+
+        assert isinstance(constant, LazyTimeseries)
+        assert constant.get_value("2028-07-05 00:00:00") == pytest.approx(0.6)
+
+    def test_object_without_timeseries_raises(self):
+        with pytest.raises(DataValidationError):
+            input_loader._constant_timeseries(0.6, {"a": 1.0, "b": "text"})
+
+    @pytest.mark.parametrize("lazy", [False, True])
+    def test_storage_initial_level_from_test_dataset(self, lazy):
+        objects = load_from_directory(Path("tests/dataset/day_ahead/portfolio_optimisation_input"), lazy=lazy)
+
+        for storage in objects["storage"]:
+            level = storage.storage_initial_level
+            assert isinstance(level, AbstractTimeseries)
+            assert level.first_date() == storage.maximum_energy.first_date()
+            assert level.last_date() == storage.maximum_energy.last_date()
+            assert set(level.values) == {0.6}

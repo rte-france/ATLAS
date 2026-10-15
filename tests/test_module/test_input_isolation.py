@@ -15,6 +15,7 @@ from typing import Any
 
 import polars as pl
 import pytest
+from pydantic import BaseModel
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
@@ -44,6 +45,8 @@ def _fingerprint(value: Any) -> Any:
         return value
     if isinstance(value, BusinessModel):
         return ("ref", id(value))
+    if isinstance(value, BaseModel):
+        return (type(value).__name__, {name: _fingerprint(getattr(value, name)) for name in type(value).model_fields})
     if isinstance(value, (AbstractTimeseries, AbstractScenarioMatrix)):
         state = {name: _fingerprint(attr) for name, attr in vars(value).items() if "cache" not in name}
         return (type(value).__name__, state)
