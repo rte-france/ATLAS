@@ -65,7 +65,7 @@ Includes Battery, Pumped Hydraulic Storage, and Electric Vehicle types.
 | `charge_efficiency` | `float` | Ratio of energy stored to energy withdrawn from the grid. |
 | `maximum_fcr` | `float` | Maximum FCR capacity, as a ratio of `maximum_power`. |
 | `maximum_afrr` | `float` | Maximum aFRR capacity (MW), as a ratio of `maximum_power`. |
-| `additional_hours` | `Duration` | Extended optimization horizon appended after `end_date`, to ensure that decisions made during the interval [`start_date`, `end_date`] are relevant with the following time steps. |
+| `additional_hours` | `AdditionalHours` | Extended optimization horizon appended after `end_date`, to ensure that decisions made during the interval [`start_date`, `end_date`] are relevant with the following time steps. The time frame matching the `market` parameter is used. |
 
 ---
 
@@ -81,7 +81,7 @@ Includes Battery, Pumped Hydraulic Storage, and Electric Vehicle types.
 | `storage_marginal_value` | `AbstractScenarioMatrix` | Water values used to represent the value of the energy currently stored (taking into account possible gains if used on future markets) (€/MWh). |
 | `maximum_fcr` | `float` | Maximum FCR capacity (MW), as a ratio of `maximum_power`. |
 | `maximum_afrr` | `float` | Maximum aFRR capacity (MW), as a ratio of `maximum_power`. |
-| `additional_hours` | `Duration` | Extended optimization horizon appended after `end_date`. |
+| `additional_hours` | `AdditionalHours` | Extended optimization horizon appended after `end_date`. The time frame matching the `market` parameter is used. |
 
 ---
 
@@ -93,7 +93,7 @@ Dispatchable and non-dispatchable loads are handled separately based on `load_ty
 |---|---|---|
 | `load_type` | `LoadType` | Determines whether the unit is dispatchable or not. Expected values : `BASELOAD`, `POWER_TO_GAS` or `NON_DISPATCHABLE_LOAD`. |
 | `maximum_power_forecast` | `ForecastingMatrix` | Forecasts of the maximum power that can be produced by the unit, indexed by execution date (should be negative by Atlas convention) (MW). |
-| `additional_hours` | `Duration` | Extended optimization horizon appended after `end_date`. |
+| `additional_hours` | `AdditionalHours` | Extended optimization horizon appended after `end_date`. The time frame matching the `market` parameter is used. |
 
 ---
 
@@ -105,7 +105,7 @@ Dispatchable and non-dispatchable loads are handled separately based on `load_ty
 | `maximum_curtailment_ratio` | `AbstractTimeseries` | Ratio of `maximum_power_forecast` that can be curtailed. 0 indicates that the unit cannot be curtailed at all, while 1 indicates that the unit is fully flexible. |
 | `maximum_fcr` | `float` | Maximum FCR capacity (MW), as a ratio of `maximum_power_forecast` for the current `execution_date`. |
 | `maximum_afrr` | `float` | Maximum aFRR capacity (MW), as a ratio of `maximum_power_forecast` for the current `execution_date`. |
-| `additional_hours` | `Duration` | Extended optimization horizon appended after `end_date` (in hours). |
+| `additional_hours` | `AdditionalHours` | Extended optimization horizon appended after `end_date` (in hours). The time frame matching the `market` parameter is used. |
 
 ---
 
@@ -117,7 +117,7 @@ Dispatchable and non-dispatchable loads are handled separately based on `load_ty
 | `maximum_curtailment_ratio` | `AbstractTimeseries` | Ratio of `maximum_power_forecast` that can be curtailed. 0 indicates that the unit cannot be curtailed at all, while 1 indicates that the unit is fully flexible. |
 | `maximum_fcr` | `float` | Maximum FCR capacity (MW), as a ratio of `maximum_power_forecast` for the current `execution_date`. |
 | `maximum_afrr` | `float` | Maximum aFRR capacity (MW), as a ratio of `maximum_power_forecast` for the current `execution_date`. |
-| `additional_hours` | `Duration` | Extended optimization horizon appended after `end_date` (in hours). |
+| `additional_hours` | `AdditionalHours` | Extended optimization horizon appended after `end_date` (in hours). The time frame matching the `market` parameter is used. |
 
 ---
 
@@ -126,7 +126,7 @@ Dispatchable and non-dispatchable loads are handled separately based on `load_ty
 | Field | Type | Description |
 |---|---|---|
 | `maximum_power_forecast` | `ForecastingMatrix` | Forecasts of the maximum power that can be produced by the unit, indexed by execution date (MW). |
-| `additional_hours` | `Duration` | Extended optimization horizon appended after `end_date` (in hours). |
+| `additional_hours` | `AdditionalHours` | Extended optimization horizon appended after `end_date` (in hours). The time frame matching the `market` parameter is used. |
 
 ---
 

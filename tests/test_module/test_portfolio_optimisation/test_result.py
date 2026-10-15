@@ -76,6 +76,7 @@ def portfolio() -> PortfolioPO:
             maximum_afrr=0.0,
             maximum_power=power_curve,
             variable_cost=power_curve,
+            additional_hours=pendulum.duration(hours=0),
         ),
     )
     portfolio.equipments.add(

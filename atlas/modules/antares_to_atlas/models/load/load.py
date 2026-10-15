@@ -11,6 +11,7 @@ from atlas.enums import LoadType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.modules.antares_to_atlas.utils import get_portfolio
+from atlas.objects.equipment.equipment import AdditionalHours
 from atlas.objects.equipment.load import Load
 
 
@@ -42,7 +43,7 @@ def convert_load_units(study: Study, parameters: AntaresToAtlasParameters, atlas
                 maximum_gradient=0.0,
                 setup_delay=0.0,
                 unit_count=0,
-                additional_hours=pendulum.duration(),
+                additional_hours=AdditionalHours.uniform(pendulum.duration()),
             )
             logger.debug(f"Created load unit : {load.name}")
             loads.append(load)

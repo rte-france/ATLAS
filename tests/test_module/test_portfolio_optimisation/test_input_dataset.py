@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 
 import pendulum
 import pytest
+from pydantic import ValidationError
 
 from atlas.enums import LoadType, MarketType
 from atlas.io_utils.atlas_dataset import AtlasDataset
@@ -21,6 +22,7 @@ from atlas.modules.portfolio_optimisation.input_objects.solar import SolarPO
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
 from atlas.modules.portfolio_optimisation.input_objects.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.objects.equipment.equipment import AdditionalHours
 from atlas.objects.equipment.hydro import Hydro
 from atlas.objects.equipment.load import Load
 from atlas.objects.equipment.solar import Solar
@@ -399,3 +401,49 @@ class TestPortfolioOptimisationInputDataset:
 
         assert len(dataset.portfolios) == 1
         assert hasattr(mock_wind_po_instance, "optimisation_time_window")
+
+
+class TestAdditionalHoursResolution:
+    """``additional_hours`` is resolved according to the market of the optimisation."""
+
+    @staticmethod
+    def _wind(additional_hours: AdditionalHours | None) -> Wind:
+        control_block = ControlBlock(name="cb")
+        market_area = MarketArea(name="ma", control_block=control_block)
+        portfolio = Portfolio(name="pf", control_block=control_block, market_area=market_area)
+        node = Node(name="node", control_block=control_block, market_area=market_area)
+        return Wind(name="wind", node=node, portfolio=portfolio, additional_hours=additional_hours)
+
+    @staticmethod
+    def _dataset(market: MarketType) -> PortfolioOptimisationInputDataset:
+        dataset = PortfolioOptimisationInputDataset.__new__(PortfolioOptimisationInputDataset)
+        dataset.parameters = PortfolioOptimisationParameters(temporal=make_date(), market=market)
+        return dataset
+
+    @pytest.mark.parametrize(
+        ("market", "expected_hours"),
+        [
+            (MarketType.dayahead, 1),
+            (MarketType.intraday, 2),
+            (MarketType.rr_activation, 3),
+            (MarketType.mfrr_activation, 4),
+        ],
+    )
+    def test_market_time_frame_is_selected(self, market, expected_hours):
+        wind = self._wind(
+            AdditionalHours(day_ahead="PT1H", intraday="PT2H", rr_activation="PT3H", mfrr_activation="PT4H")
+        )
+        fields = self._dataset(market)._equipment_fields(wind)
+        assert fields["additional_hours"] == pendulum.duration(hours=expected_hours)
+
+    def test_undefined_time_frame_fails_validation(self):
+        wind = self._wind(AdditionalHours(day_ahead="PT1H"))
+        fields = self._dataset(MarketType.intraday)._equipment_fields(wind)
+        with pytest.raises(ValidationError, match="additional_hours"):
+            WindPO(**(fields | {"maximum_fcr": 0.0, "maximum_afrr": 0.0}))
+
+    def test_equipment_is_not_modified(self):
+        additional_hours = AdditionalHours(day_ahead="PT1H")
+        wind = self._wind(additional_hours)
+        self._dataset(MarketType.dayahead)._equipment_fields(wind)
+        assert wind.additional_hours == additional_hours

@@ -19,7 +19,7 @@ class SolarPO(Solar):
     maximum_afrr: float
     maximum_curtailment_ratio: AbstractTimeseries
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
-    additional_hours: Duration
+    additional_hours: Duration  # type: ignore[assignment]
 
     optimisation_time_window: list[DateTime] = []
     _cached_forecast: Timeseries | None = None

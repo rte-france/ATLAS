@@ -22,4 +22,4 @@ class HydroDispatchInput(Hydro):
     maximum_power: AbstractTimeseries
     minimum_power: AbstractTimeseries
     initial_level: AbstractTimeseries
-    additional_hours: DurationField
+    additional_hours: DurationField  # type: ignore[assignment]

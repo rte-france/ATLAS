@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from itertools import groupby
+from typing import Any
 
 from atlas.abstract_class.dataset import AbstractDataset
 from atlas.enums import LoadType
@@ -25,6 +26,7 @@ from atlas.modules.portfolio_optimisation.utils.manual_activation import (
     is_excluded_market_area,
     should_manually_activate,
 )
+from atlas.objects.equipment.equipment import Equipment
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.timing import generate_datetimes
 
@@ -38,16 +40,17 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         self.input_data = input_data
         self.parameters = parameters
 
-        loads: list[LoadPO] = [LoadPO(**(dict(load))) for load in self.input_data.load]
+        loads: list[LoadPO] = [LoadPO(**self._equipment_fields(load)) for load in self.input_data.load]
 
         self.equipments = PortfolioEquipments(
-            wind=[WindPO(**dict(wind)) for wind in self.input_data.wind],
-            storage=[StoragePO(**dict(storage)) for storage in self.input_data.storage],
-            hydro=[HydroPO(**dict(hydro)) for hydro in self.input_data.hydro],
-            solar=[SolarPO(**dict(solar)) for solar in self.input_data.solar],
-            thermal=[ThermalPO(**dict(thermal)) for thermal in self.input_data.thermal],
+            wind=[WindPO(**self._equipment_fields(wind)) for wind in self.input_data.wind],
+            storage=[StoragePO(**self._equipment_fields(storage)) for storage in self.input_data.storage],
+            hydro=[HydroPO(**self._equipment_fields(hydro)) for hydro in self.input_data.hydro],
+            solar=[SolarPO(**self._equipment_fields(solar)) for solar in self.input_data.solar],
+            thermal=[ThermalPO(**self._equipment_fields(thermal)) for thermal in self.input_data.thermal],
             other_non_dispatchable=[
-                OtherNonDispatchablePO(**dict(other)) for other in self.input_data.other_non_dispatchable
+                OtherNonDispatchablePO(**self._equipment_fields(other))
+                for other in self.input_data.other_non_dispatchable
             ],
             dispatchable_load=[load for load in loads if load.load_type == LoadType.POWER_TO_GAS],
             non_dispatchable_load=[load for load in loads if load.load_type != LoadType.POWER_TO_GAS],
@@ -58,6 +61,20 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
 
         self._create_portfolios()
         self._set_equipments_time_window()
+
+    def _equipment_fields(self, equipment: Equipment) -> dict[str, Any]:
+        """
+        Fields of an equipment, with ``additional_hours`` resolved for the market of the optimisation.
+
+        :param equipment: Equipment from the input state
+        :type equipment: Equipment
+        :return: Fields used to build the module input object
+        :rtype: dict[str, Any]
+        """
+        fields = dict(equipment)
+        if equipment.additional_hours is not None:
+            fields["additional_hours"] = equipment.additional_hours.for_market(self.parameters.market)
+        return fields
 
     def _set_equipments_time_window(self) -> None:
         """Set the optimisation time window on each equipment individually."""

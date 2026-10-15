@@ -30,6 +30,7 @@ from atlas.config import DEFAULT_VALUE_IO, logger
 from atlas.enums import BusinessModelName, CouplingType, StorageType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.utils import to_snake_case
+from atlas.objects.equipment.equipment import AdditionalHours
 from atlas.timing import pendulum_to_datetime
 from atlas.type import get_class_inheritance_chain, get_type_attribute
 
@@ -146,43 +147,37 @@ class PrometheusToAtlasDataParser:
                 equipment.maximum_gradient = 0 if equipment.maximum_gradient is None else equipment.maximum_gradient
 
         for load in dataset.load:
-            load.additional_hours = Duration(hours=0) if load.additional_hours is None else load.additional_hours
+            load.additional_hours = _fill_additional_hours(load.additional_hours, Duration(hours=0))
 
         for other_non_dispatchable in dataset.other_non_dispatchable:
-            other_non_dispatchable.additional_hours = (
-                Duration(hours=0)
-                if other_non_dispatchable.additional_hours is None
-                else other_non_dispatchable.additional_hours
+            other_non_dispatchable.additional_hours = _fill_additional_hours(
+                other_non_dispatchable.additional_hours, Duration(hours=0)
             )
 
         for solar in dataset.solar:
-            solar.additional_hours = Duration(hours=0) if solar.additional_hours is None else solar.additional_hours
+            solar.additional_hours = _fill_additional_hours(solar.additional_hours, Duration(hours=0))
 
         for wind in dataset.wind:
-            wind.additional_hours = Duration(hours=0) if wind.additional_hours is None else wind.additional_hours
+            wind.additional_hours = _fill_additional_hours(wind.additional_hours, Duration(hours=0))
 
         for hydro in dataset.hydro:
-            hydro.additional_hours = Duration(hours=12) if hydro.additional_hours is None else hydro.additional_hours
+            hydro.additional_hours = _fill_additional_hours(hydro.additional_hours, Duration(hours=12))
 
         for thermal in dataset.thermal:
-            thermal.additional_hours = (
-                Duration(hours=12) if thermal.additional_hours is None else thermal.additional_hours
-            )
+            thermal.additional_hours = _fill_additional_hours(thermal.additional_hours, Duration(hours=12))
 
         for storage in dataset.storage:
             storage.transition_duration = (
                 pendulum.Duration(hours=0) if storage.transition_duration is None else storage.transition_duration  # type: ignore
             )
 
-            if storage.additional_hours is None:
-                if storage.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-                    storage.additional_hours = Duration(hours=144)
-                elif storage.storage_type == StorageType.BATTERY:
-                    storage.additional_hours = Duration(hours=48)
-                elif storage.storage_type == StorageType.ELECTRIC_VEHICLE:
-                    storage.additional_hours = Duration(hours=24)
-                else:
-                    storage.additional_hours = Duration(hours=48)
+            if storage.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
+                storage_default_hours = Duration(hours=144)
+            elif storage.storage_type == StorageType.ELECTRIC_VEHICLE:
+                storage_default_hours = Duration(hours=24)
+            else:
+                storage_default_hours = Duration(hours=48)
+            storage.additional_hours = _fill_additional_hours(storage.additional_hours, storage_default_hours)
 
         for market_border in dataset.market_border:
             market_border.coupling_type = (
@@ -750,6 +745,21 @@ class PrometheusToAtlasDataParser:
         csv_path = objects_dir / f"{object_type_snake}.csv"
         df_attrs.write_csv(csv_path, separator=CSV_SEPARATOR)
         logger.success(f"Wrote attributes CSV for {object_type_snake} to {csv_path}")
+
+
+def _fill_additional_hours(additional_hours: AdditionalHours | None, default: Duration) -> AdditionalHours:
+    """Complete every undefined time frame of ``additional_hours`` with ``default``.
+
+    Args:
+        additional_hours: Additional hours read from the input, if any
+        default: Duration used for undefined time frames
+
+    Returns:
+        Additional hours defined for every time frame
+    """
+    if additional_hours is None:
+        return AdditionalHours.uniform(default)
+    return additional_hours.fill_missing(default)
 
 
 def _ensure_directory(path: Path) -> None:

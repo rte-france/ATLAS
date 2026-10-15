@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pendulum import DateTime
+from pendulum import DateTime, Duration
 from pydantic import model_validator
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
@@ -25,6 +25,7 @@ class ThermalPO(Thermal):
     variable_cost: AbstractTimeseries
     maximum_gradient: float = 0.0
     has_daily_energy_constraint: bool = False
+    additional_hours: Duration  # type: ignore[assignment]
     optimisation_time_window: list[DateTime] = []
 
     _T_on: int = 0

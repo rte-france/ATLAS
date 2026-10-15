@@ -23,4 +23,4 @@ class LoadDispatchInput(Load):
 
     load_type: LoadType
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
-    additional_hours: DurationField
+    additional_hours: DurationField  # type: ignore[assignment]

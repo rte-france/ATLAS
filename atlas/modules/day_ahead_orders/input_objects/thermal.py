@@ -19,4 +19,4 @@ class ThermalDAO(Thermal):
     minimum_power: AbstractTimeseries
     minimum_stable_power_duration: Duration
     minimum_time_off: Duration
-    additional_hours: Duration
+    additional_hours: Duration  # type: ignore[assignment]

@@ -4,6 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.objects.business_model import BusinessModel
@@ -76,3 +77,6 @@ class Portfolio(BusinessModel):
     rr_down_procured: AbstractTimeseries | None = None
     rr_up_procured: AbstractTimeseries | None = None
     total_id_cleared_quantity: AbstractTimeseries | None = None
+    baseline_generation: AbstractScenarioMatrix | None = None
+    ceiling_generation: AbstractScenarioMatrix | None = None
+    optimal_dispatch_volume: AbstractScenarioMatrix | None = None

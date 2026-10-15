@@ -23,7 +23,7 @@ class StoragePO(Storage):
     discharge_efficiency: float
     charge_efficiency: float
     maximum_energy: AbstractTimeseries
-    additional_hours: Duration
+    additional_hours: Duration  # type: ignore[assignment]
 
     optimisation_time_window: list[DateTime] = []
     _cached_energy_forecast: Timeseries | None = None

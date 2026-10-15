@@ -12,6 +12,6 @@ from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
 
 class OtherNonDispatchablePO(OtherNonDispatchable):
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
-    additional_hours: Duration
+    additional_hours: Duration  # type: ignore[assignment]
 
     optimisation_time_window: list[DateTime] = []

@@ -4,8 +4,22 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import Field
+from datetime import timedelta
+from typing import Any
 
+from pendulum import Duration
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializationInfo,
+    SerializerFunctionWrapHandler,
+    TypeAdapter,
+    model_serializer,
+    model_validator,
+)
+
+from atlas.enums import MarketType
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
@@ -13,6 +27,126 @@ from atlas.objects.business_model import BusinessModel
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
 from atlas.validators import BusinessModelRef, DurationField
+
+_DURATION_ADAPTER: TypeAdapter[timedelta] = TypeAdapter(timedelta)
+
+
+def _duration_to_iso(value: timedelta) -> str:
+    return _DURATION_ADAPTER.dump_python(value, mode="json")
+
+
+class AdditionalHours(BaseModel):
+    """
+    Extra hours appended to the optimisation window, per market time frame.
+
+    Can be built from a single duration (applied to every time frame) or from a
+    ``key=duration`` string separated by ``|``, which is also the CSV representation.
+
+    :param day_ahead: Additional hours for the day-ahead market
+    :type day_ahead: Duration
+    :param intraday: Additional hours for the intraday market
+    :type intraday: Duration
+    :param rr_activation: Additional hours for RR activation
+    :type rr_activation: Duration
+    :param mfrr_activation: Additional hours for mFRR activation
+    :type mfrr_activation: Duration
+    :param specific_activation: Additional hours for specific activation
+    :type specific_activation: Duration
+
+    Example::
+
+        >>> AdditionalHours.model_validate("PT12H").intraday
+        Duration(hours=12)
+        >>> hours = AdditionalHours.model_validate("day_ahead=PT12H|intraday=PT6H")
+        >>> hours.for_market(MarketType.intraday)
+        Duration(hours=6)
+        >>> hours.model_dump(mode="json")
+        'day_ahead=PT12H|intraday=PT6H'
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+
+    day_ahead: DurationField | None = None
+    intraday: DurationField | None = None
+    rr_activation: DurationField | None = None
+    mfrr_activation: DurationField | None = None
+    specific_activation: DurationField | None = None
+
+    @classmethod
+    def uniform(cls, duration: Duration) -> "AdditionalHours":
+        """
+        Build an instance with the same duration for every time frame.
+
+        :param duration: Duration applied to every time frame
+        :type duration: Duration
+        :return: Instance with every time frame set to ``duration``
+        :rtype: AdditionalHours
+        """
+        return cls(**dict.fromkeys(cls.model_fields, duration))
+
+    @model_validator(mode="before")
+    @classmethod
+    def _parse(cls, value: Any) -> Any:
+        if isinstance(value, timedelta):
+            return dict.fromkeys(cls.model_fields, value)
+        if not isinstance(value, str):
+            return value
+        if "=" not in value:
+            return dict.fromkeys(cls.model_fields, value.strip())
+        parsed: dict[str, str] = {}
+        for item in value.split("|"):
+            key, separator, duration = item.partition("=")
+            key = key.strip()
+            if not separator:
+                raise ValueError(f"Invalid additional hours item '{item}', expected 'key=duration'")
+            if key in parsed:
+                raise ValueError(f"Duplicate additional hours key '{key}'")
+            parsed[key] = duration.strip()
+        return parsed
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> Any:
+        if not info.mode_is_json():
+            return handler(self)
+        values = {name: getattr(self, name) for name in type(self).model_fields}
+        defined = {name: value for name, value in values.items() if value is not None}
+        if not defined:
+            return None
+        if len(defined) == len(values) and len(set(defined.values())) == 1:
+            return _duration_to_iso(next(iter(defined.values())))
+        return "|".join(f"{name}={_duration_to_iso(value)}" for name, value in defined.items())
+
+    def for_market(self, market: MarketType) -> Duration | None:
+        """
+        Return the additional hours of the time frame matching a market type.
+
+        :param market: Market type
+        :type market: MarketType
+        :return: Additional hours for this market, ``None`` if not defined
+        :rtype: Duration | None
+        """
+        return getattr(self, _MARKET_TO_FIELD[market])
+
+    def fill_missing(self, default: Duration) -> "AdditionalHours":
+        """
+        Return a copy where every undefined time frame is set to ``default``.
+
+        :param default: Duration used for undefined time frames
+        :type default: Duration
+        :return: Completed copy
+        :rtype: AdditionalHours
+        """
+        return self.model_copy(
+            update={name: default for name in type(self).model_fields if getattr(self, name) is None}
+        )
+
+
+_MARKET_TO_FIELD: dict[MarketType, str] = {
+    MarketType.dayahead: "day_ahead",
+    MarketType.intraday: "intraday",
+    MarketType.rr_activation: "rr_activation",
+    MarketType.mfrr_activation: "mfrr_activation",
+}
 
 
 class Equipment(BusinessModel):
@@ -111,6 +245,8 @@ class Equipment(BusinessModel):
     :type antares_min_gen: Timeseries
     :param antares_dispatch: Output dispatch of an Antares simulation (MW)
     :type antares_dispatch: Timeseries
+    :param additional_hours: Extra hours appended to the optimisation window, per market time frame
+    :type additional_hours: AdditionalHours
     """
 
     node: BusinessModelRef[Node]
@@ -154,4 +290,8 @@ class Equipment(BusinessModel):
     total_id_cleared_quantity: AbstractTimeseries | None = None
     total_id_sell_submitted_volume: AbstractTimeseries | None = None
     variable_cost: AbstractTimeseries | None = None
-    additional_hours: DurationField | None = None
+
+    additional_hours: AdditionalHours | None = None
+    antares_min_gen: AbstractTimeseries | None = None
+    antares_dispatch: AbstractTimeseries | None = None
+    long_term_markets_commitment: AbstractTimeseries | None = None

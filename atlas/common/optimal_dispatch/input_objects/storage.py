@@ -28,4 +28,4 @@ class StorageDispatchInput(Storage):
     charge_efficiency: float = Field(gt=0)
     discharge_efficiency: float = Field(gt=0)
     storage_initial_level: float
-    additional_hours: DurationField
+    additional_hours: DurationField  # type: ignore[assignment]

@@ -124,6 +124,7 @@ def _thermal_equipment() -> ThermalPO:
         maximum_afrr=0.0,
         maximum_power=_ts(100.0),
         variable_cost=_ts(50.0),
+        additional_hours=pendulum.duration(hours=0),
     )
     portfolio.equipments.add("thermal", equipment)
     return equipment

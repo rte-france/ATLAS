@@ -17,7 +17,7 @@ class WindPO(Wind):
     maximum_afrr: float
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
     maximum_curtailment_ratio: AbstractTimeseries
-    additional_hours: Duration
+    additional_hours: Duration  # type: ignore[assignment]
 
     optimisation_time_window: list[DateTime] = []
     _cached_forecast: Timeseries | None = None

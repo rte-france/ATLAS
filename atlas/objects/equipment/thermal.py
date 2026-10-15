@@ -58,6 +58,8 @@ class Thermal(Equipment):
     :type co2_emission_factor: float
     :param fuel: type of fuel used by the thermal equipment
     :type fuel: str
+    :param antares_nodu: Number Of Dispatched Units from the Antares results
+    :type antares_nodu: Timeseries
     """
 
     installed_capacity: float | None = Field(
@@ -90,3 +92,6 @@ class Thermal(Equipment):
     da_sell_submitted_volume: AbstractTimeseries | None = None
     maximum_power: AbstractTimeseries | None = None
     minimum_power: AbstractTimeseries | None = None
+
+    fuel: str | None = None
+    antares_nodu: AbstractTimeseries | None = None

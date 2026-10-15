@@ -14,6 +14,7 @@ from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.models.storage._helpers import get_minimum_soc, get_power_bounds
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.modules.antares_to_atlas.utils import get_portfolio
+from atlas.objects.equipment.equipment import AdditionalHours
 from atlas.objects.equipment.storage import Storage
 
 _SKIPPED_GROUPS = {STStorageGroup.PSP_OPEN.value, STStorageGroup.PSP_CLOSED.value, STStorageGroup.PONDAGE.value}
@@ -126,7 +127,7 @@ def _create_battery(
         discharge_efficiency=1.0,
         storage_initial_level=parameters.storage.get_battery_initial_level(area_id),
         transition_duration=duration(days=0),
-        additional_hours=duration(days=2),
+        additional_hours=AdditionalHours.uniform(duration(days=2)),
         is_v2g=False,
         co2_emission_factor=0.0,
         has_daily_energy_constraint=False,

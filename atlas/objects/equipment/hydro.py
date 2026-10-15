@@ -46,8 +46,6 @@ class Hydro(Equipment):
     :type maximum_power: AbstractTimeseries
     :param minimum_power: Minimum power
     :type minimum_power: AbstractTimeseries
-    :param energy_target_frequency: Frequency of energy target data. Possible values: 'Monthly', 'Daily'
-    :type energy_target_frequency: InflowFrequency
     """
 
     fragment_prices: PipeSeparatedFloats = Field(

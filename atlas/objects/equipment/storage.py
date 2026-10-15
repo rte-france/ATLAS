@@ -81,3 +81,6 @@ class Storage(Equipment):
     maximum_power: AbstractTimeseries | None = None
     minimum_power: AbstractTimeseries | None = None
     minimum_state_of_charge: AbstractTimeseries | None = None
+
+    automated_reserve_duration: float | None = None
+    manual_reserve_duration: float | None = None

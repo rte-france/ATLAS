@@ -11,6 +11,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.modules.antares_to_atlas.utils import get_portfolio
+from atlas.objects.equipment.equipment import AdditionalHours
 from atlas.objects.equipment.solar import Solar
 
 
@@ -34,7 +35,7 @@ def _build_solar(area_name: str, parameters: AntaresToAtlasParameters, atlas_dat
         maximum_gradient=0.0,
         setup_delay=0.0,
         unit_count=0,
-        additional_hours=duration(),
+        additional_hours=AdditionalHours.uniform(duration()),
         **kwargs,
     )
 

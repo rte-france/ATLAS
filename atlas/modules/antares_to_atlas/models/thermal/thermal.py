@@ -14,6 +14,7 @@ from atlas.io_utils.container import Container
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 from atlas.modules.antares_to_atlas.utils import get_maximum_power, get_portfolio, get_variable_cost
+from atlas.objects.equipment.equipment import AdditionalHours
 from atlas.objects.equipment.thermal import Thermal
 
 
@@ -117,7 +118,7 @@ def _convert_single_thermal(
             end_date=end_date,
             default_value=thermal.properties.startup_cost,
         ),
-        additional_hours=duration(hours=12),
+        additional_hours=AdditionalHours.uniform(duration(hours=12)),
         maximum_afrr=0.0,
         maximum_fcr=0.0,
         co2_emission_factor=thermal.properties.co2,

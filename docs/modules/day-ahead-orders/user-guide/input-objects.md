@@ -15,7 +15,7 @@ This page describes the input data required by the Day-Ahead Orders module.
 | `minimum_power` | `AbstractTimeseries` | Minimum power output when online (MW). |
 | `minimum_stable_power_duration` | `Duration` | Minimum time at stable power level between ramp events. |
 | `minimum_time_off` | `Duration` | Minimum time the unit must stay off after a shutdown. |
-| `additional_hours` | `Duration` | Extra optimization horizon appended after `end_date`. Controlled by the `thermal_additional_hours` parameter. |
+| `additional_hours` | `AdditionalHours` | Extra optimization horizon appended after `end_date`. Only the `day_ahead` time frame is used. |
 
 ---
 
@@ -30,7 +30,7 @@ Supports Battery, Pumped Hydraulic Storage, and Electric Vehicle types.
 | `maximum_power` | `AbstractTimeseries` | Maximum charge/discharge power (MW). |
 | `storage_initial_level` | `float` | Initial state of charge as a fraction of `maximum_energy`. |
 | `minimum_state_of_charge` | `AbstractTimeseries` | Minimum state-of-charge ratio applied to `maximum_energy`. |
-| `additional_hours` | `Duration` | Extra optimization horizon appended after `end_date`. |
+| `additional_hours` | `AdditionalHours` | Extra optimization horizon appended after `end_date`. Only the `day_ahead` time frame is used. |
 
 !!! note
     For Electric Vehicle storage, `displacement_energy` is also required.

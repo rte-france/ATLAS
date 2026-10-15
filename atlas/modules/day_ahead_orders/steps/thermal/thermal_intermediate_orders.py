@@ -260,7 +260,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
     def _load_price_forecast(self, unit: ThermalDAO, price_type: str) -> Timeseries:
         attr_name = f"price_forecast_{price_type.lower()}"
         forecast = getattr(unit.portfolio.market_area, attr_name)
-        add_hours = unit.optimization_additional_hours.select("DayAhead").get_value(self.parameters.temporal.start_date)
+        add_hours = unit.additional_hours
         if forecast is None:
             raise AttributeError(f"{unit.portfolio.market_area.name} has no attribute '{attr_name}'")
         return forecast.get_forecast(
