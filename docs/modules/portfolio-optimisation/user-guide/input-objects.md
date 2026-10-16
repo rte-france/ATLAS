@@ -65,6 +65,8 @@ Includes Battery, Pumped Hydraulic Storage, and Electric Vehicle types.
 | `charge_efficiency` | `float` | Ratio of energy stored to energy withdrawn from the grid. |
 | `maximum_fcr` | `float` | Maximum FCR capacity, as a ratio of `maximum_power`. |
 | `maximum_afrr` | `float` | Maximum aFRR capacity (MW), as a ratio of `maximum_power`. |
+| `automated_reserve_duration` | `Duration` | Duration during which procured automated reserves (FCR, aFRR) must be sustainable from the stored energy. Defaults to 1 hour when converting Prometheus or Antares data. |
+| `manual_reserve_duration` | `Duration` | Duration during which procured manual reserves must be sustainable from the stored energy. Defaults to 1 hour when converting Prometheus or Antares data. |
 | `additional_hours` | `AdditionalHours` | Extended optimization horizon appended after `end_date`, to ensure that decisions made during the interval [`start_date`, `end_date`] are relevant with the following time steps. The time frame matching the `market` parameter is used. |
 
 ---

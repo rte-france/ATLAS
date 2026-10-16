@@ -8,14 +8,14 @@ from __future__ import annotations
 
 from functools import cached_property
 
-from pendulum import DateTime, duration
+from pendulum import DateTime
 from pydantic import Field
 
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.enums import MarketType, StorageType
 from atlas.io_utils.parameters import MultiProcessingParameters, SolverParameters
 from atlas.timing import generate_datetimes
-from atlas.validators import DurationField, ExclusionList, ThermalStrategyList
+from atlas.validators import ExclusionList, ThermalStrategyList
 
 
 class PortfolioOptimisationParameters(AbstractModuleParameters):
@@ -66,38 +66,14 @@ class PortfolioOptimisationParameters(AbstractModuleParameters):
         0.15,
         description="Quantity (%) of imbalance qualified as small, relative to max portfolio energy.",
     )
-    battery_automated_reserve_duration: DurationField = Field(
-        default_factory=lambda: duration(minutes=60),
-        description="Automated reserve duration for battery equipment.",  # type: ignore[assignment]
-    )
     battery_nb_fragments: int = Field(
         3, description="Number of power fragments for battery; last fragments are more expensive."
     )
-    battery_reserve_duration: DurationField = Field(
-        default_factory=lambda: duration(minutes=60),
-        description="Manual reserve duration for battery equipment.",  # type: ignore[assignment]
-    )
-    electric_vehicle_automated_reserve_duration: DurationField = Field(
-        default_factory=lambda: duration(minutes=1),
-        description="Automated reserve duration for electric vehicle equipment.",  # type: ignore[assignment]
-    )
     electric_vehicle_nb_fragments: int = Field(3, description="Number of power fragments for electric vehicle.")
-    electric_vehicle_reserve_duration: DurationField = Field(
-        default_factory=lambda: duration(minutes=1),
-        description="Manual reserve duration for electric vehicle equipment.",  # type: ignore[assignment]
-    )
     hydraulic_minimal_fragment_size: float = Field(
         100, description="Minimal amount of power for an offer to be formulated for hydraulic."
     )
-    pumped_hydraulic_automated_reserve_duration: DurationField = Field(
-        default_factory=lambda: duration(minutes=60),
-        description="Automated reserve duration for pumped hydraulic equipment.",  # type: ignore[assignment]
-    )
     pumped_hydraulic_nb_fragments: int = Field(3, description="Number of power fragments for pumped hydraulic.")
-    pumped_hydraulic_reserve_duration: DurationField = Field(
-        default_factory=lambda: duration(minutes=60),
-        description="Manual reserve duration for pumped hydraulic equipment.",  # type: ignore[assignment]
-    )
     excluded_market_areas: ExclusionList = Field(
         default_factory=list,
         description='list of market areas excluded from classic optimization. None and ["all"] are possible values.',

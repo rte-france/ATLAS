@@ -96,6 +96,8 @@ def portfolio() -> PortfolioPO:
             maximum_energy=power_curve,
             storage_initial_level=power_curve,
             additional_hours=pendulum.duration(hours=0),
+            automated_reserve_duration=pendulum.duration(hours=1),
+            manual_reserve_duration=pendulum.duration(hours=1),
         ),
     )
     portfolio.equipments.add(

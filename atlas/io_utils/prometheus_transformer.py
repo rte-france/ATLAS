@@ -170,6 +170,12 @@ class PrometheusToAtlasDataParser:
             storage.transition_duration = (
                 pendulum.Duration(hours=0) if storage.transition_duration is None else storage.transition_duration  # type: ignore
             )
+            storage.automated_reserve_duration = (
+                Duration(hours=1) if storage.automated_reserve_duration is None else storage.automated_reserve_duration
+            )
+            storage.manual_reserve_duration = (
+                Duration(hours=1) if storage.manual_reserve_duration is None else storage.manual_reserve_duration
+            )
 
             if storage.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
                 storage_default_hours = Duration(hours=144)

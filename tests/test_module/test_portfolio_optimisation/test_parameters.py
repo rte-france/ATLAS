@@ -23,29 +23,6 @@ def make_date(**kwargs):
     )
 
 
-class TestPortfolioOptimisationParametersDurationValidator:
-    """Test suite for duration field validator."""
-
-    def test_parse_duration_all_duration_fields(self):
-        """Test that all duration fields can be parsed correctly."""
-        params = PortfolioOptimisationParameters(
-            temporal=make_date(),
-            battery_automated_reserve_duration="30m",
-            battery_reserve_duration="45m",
-            electric_vehicle_automated_reserve_duration="2m",
-            electric_vehicle_reserve_duration="5m",
-            pumped_hydraulic_automated_reserve_duration="90m",
-            pumped_hydraulic_reserve_duration="120m",
-        )
-
-        assert params.battery_automated_reserve_duration == duration(minutes=30)
-        assert params.battery_reserve_duration == duration(minutes=45)
-        assert params.electric_vehicle_automated_reserve_duration == duration(minutes=2)
-        assert params.electric_vehicle_reserve_duration == duration(minutes=5)
-        assert params.pumped_hydraulic_automated_reserve_duration == duration(minutes=90)
-        assert params.pumped_hydraulic_reserve_duration == duration(minutes=120)
-
-
 class TestPortfolioOptimisationParametersExcludedMarketAreas:
     """Test suite for excluded_market_areas property."""
 

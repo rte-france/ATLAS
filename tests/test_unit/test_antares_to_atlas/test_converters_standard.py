@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 from antares.craft.model.st_storage import STStorageGroup
+from pendulum import duration
 
 from atlas.math.timeseries import Timeseries
 from atlas.modules.antares_to_atlas.models.load.load import convert_load_units
@@ -780,7 +781,10 @@ class TestConvertBatteryUnits:
             result = convert_battery_units(study, params, fr_dataset)
 
         assert len(result.storage) == 1
-        assert result.storage.get("fr_battery_1") is not None
+        unit = result.storage.get("fr_battery_1")
+        assert unit is not None
+        assert unit.automated_reserve_duration == duration(hours=1)
+        assert unit.manual_reserve_duration == duration(hours=1)
 
     def test_battery_unit_name_matches_storage_id(self, fr_dataset):
         params = make_params(market_areas=["fr"])
@@ -933,7 +937,10 @@ class TestConvertPHSClosedUnits:
             result = convert_phs_closed_units(study, params, fr_dataset)
 
         assert len(result.storage) == 1
-        assert result.storage.get("fr_phs_closed_1") is not None
+        unit = result.storage.get("fr_phs_closed_1")
+        assert unit is not None
+        assert unit.automated_reserve_duration == duration(hours=1)
+        assert unit.manual_reserve_duration == duration(hours=1)
 
     def test_phs_closed_unit_name_matches_storage_id(self, fr_dataset):
         params = make_params(market_areas=["fr"])

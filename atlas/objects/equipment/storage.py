@@ -48,10 +48,12 @@ class Storage(Equipment):
     :param minimum_state_of_charge: Coefficient applied to MaximumEnergy, to represent the minimum energy that can be
     stored
     :type minimum_state_of_charge: Timeseries
-    :param automated_reserve_duration: To be clarified
-    :type automated_reserve_duration: int
-    :param manual_reserve_duration: To be clarified
-    :type manual_reserve_duration: int
+    :param automated_reserve_duration: Duration during which procured automated reserves (FCR, aFRR) must be
+    sustainable from the stored energy. Used to reserve energy in the storage for these reserves
+    :type automated_reserve_duration: Duration
+    :param manual_reserve_duration: Duration during which procured manual reserves (mFRR, RR) must be sustainable
+    from the stored energy. Used to reserve energy in the storage for these reserves
+    :type manual_reserve_duration: Duration
 
     """
 
@@ -83,5 +85,11 @@ class Storage(Equipment):
     minimum_power: AbstractTimeseries | None = None
     minimum_state_of_charge: AbstractTimeseries | None = None
 
-    automated_reserve_duration: float | None = None
-    manual_reserve_duration: float | None = None
+    automated_reserve_duration: DurationField | None = Field(
+        None,
+        description="Automated reserve duration",
+    )
+    manual_reserve_duration: DurationField | None = Field(
+        None,
+        description="Manual reserve duration",
+    )

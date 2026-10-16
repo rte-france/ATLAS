@@ -131,15 +131,16 @@ class StoragePOStep(AbstractOptimStep[StoragePO]):
             model.add_constraint(reserves_up_var <= max_power, f"reserves_up_max_{time}_{eq.name}")
             model.add_constraint(reserves_down_var <= max_power, f"reserves_down_max_{time}_{eq.name}")
 
+            manual_reserve_hours = eq.manual_reserve_duration.total_hours()
+            automated_reserve_hours = eq.automated_reserve_duration.total_hours()
+            reserve_stored_energy_down = (
+                reserves_down_var * manual_reserve_hours + automated_reserves_down_var * automated_reserve_hours
+            )
+            reserve_stored_energy_up = (
+                reserves_up_var * manual_reserve_hours + automated_reserves_up_var * automated_reserve_hours
+            )
+
             if eq.storage_type in [StorageType.BATTERY, StorageType.PUMPED_HYDRAULIC_STORAGE]:
-                reserve_stored_energy_down = (
-                    reserves_down_var * parameters.battery_reserve_duration.total_hours()
-                    + automated_reserves_down_var * parameters.battery_automated_reserve_duration.total_hours()
-                )
-                reserve_stored_energy_up = (
-                    reserves_up_var * parameters.battery_reserve_duration.total_hours()
-                    + automated_reserves_up_var * parameters.battery_automated_reserve_duration.total_hours()
-                )
                 model.add_constraint(
                     power_level_sell_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
                     <= max_power * eq.discharge_efficiency,
@@ -160,14 +161,6 @@ class StoragePOStep(AbstractOptimStep[StoragePO]):
                 )
 
             elif eq.storage_type == StorageType.ELECTRIC_VEHICLE:
-                reserve_stored_energy_down = (
-                    reserves_down_var * parameters.battery_reserve_duration.total_hours()
-                    + automated_reserves_down_var * parameters.battery_automated_reserve_duration.total_hours()
-                )
-                reserve_stored_energy_up = (
-                    reserves_up_var * parameters.battery_reserve_duration.total_hours()
-                    + automated_reserves_up_var * parameters.battery_automated_reserve_duration.total_hours()
-                )
                 model.add_constraint(
                     (power_level_sell_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var)
                     <= (eq.is_v2g * max_power * eq.discharge_efficiency),

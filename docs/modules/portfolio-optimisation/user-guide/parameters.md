@@ -41,8 +41,6 @@ For common parameters (`temporal`, `solver`, `output`, `multiprocessing`), see [
 |---|---|---|---|
 | `battery_number_of_fragments` | `int` | `3` | In the optimization process, the total available power range of the battery is separated into fragments. This parameter defines the number of power. |
 | `battery_smoothing_factor` | `float` | `0.2` | Smoothing factor for the power curve (value has to be between 0 and 1). |
-| `battery_reserve_duration` | `Duration` | `60 min` | Manual reserve duration. |
-| `battery_automated_reserve_duration` | `Duration` | `60 min` | Automated reserve duration. |
 
 ### Pumped Hydraulic Storage
 
@@ -50,8 +48,6 @@ For common parameters (`temporal`, `solver`, `output`, `multiprocessing`), see [
 |---|---|---|---|
 | `pumped_hydraulic_number_of_fragments` | `int` | `3` | See the similar parameter for batteries. |
 | `pumped_hydraulic_smoothing_factor` | `float` | `0.2` | Smoothing factor for the power curve (value has to be between 0 and 1). |
-| `pumped_hydraulic_reserve_duration` | `Duration` | `60 min` | Manual reserve duration. |
-| `pumped_hydraulic_automated_reserve_duration` | `Duration` | `60 min` | Automated reserve duration. |
 | `hydraulic_minimal_fragment_size` | `int` | `100` MW | Offers below this threshold are removed and remaining fragments renormalized. |
 
 ### Electric Vehicle
@@ -60,8 +56,6 @@ For common parameters (`temporal`, `solver`, `output`, `multiprocessing`), see [
 |---|---|---|---|
 | `electric_vehicle_number_of_fragments` | `int` | `3` | See the similar parameter for batteries. |
 | `electric_vehicle_smoothing_factor` | `float` | `0.2` | Smoothing factor for the power curve (value has to be between 0 and 1). |
-| `electric_vehicle_reserve_duration` | `Duration` | `1 min` | Manual reserve duration. |
-| `electric_vehicle_automated_reserve_duration` | `Duration` | `1 min` | Automated reserve duration. |
 
 ## Numerical Stability
 

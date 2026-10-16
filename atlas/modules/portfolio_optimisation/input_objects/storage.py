@@ -25,6 +25,8 @@ class StoragePO(Storage):
     maximum_energy: AbstractTimeseries
     storage_initial_level: AbstractTimeseries
     additional_hours: Duration  # type: ignore[assignment]
+    automated_reserve_duration: Duration  # type: ignore[assignment]
+    manual_reserve_duration: Duration  # type: ignore[assignment]
 
     optimisation_time_window: list[DateTime] = []
     _cached_energy_forecast: Timeseries | None = None

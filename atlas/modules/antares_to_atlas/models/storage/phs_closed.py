@@ -110,6 +110,8 @@ def _create_closed_phs(
         node=atlas_dataset.get("node", area_id),
         portfolio=get_portfolio(atlas_dataset, parameters, area_id),
         storage_type=StorageType.PUMPED_HYDRAULIC_STORAGE,
+        automated_reserve_duration=duration(hours=1),
+        manual_reserve_duration=duration(hours=1),
         minimum_power=maximum_injection_power_ts * (-1),
         maximum_power=maximum_withdrawal_power_ts,
         maximum_energy=maximum_energy_ts,
