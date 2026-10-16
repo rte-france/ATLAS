@@ -103,7 +103,6 @@ def _create_hydraulic_equipment(
             default_value=0.0,
         ),
         energy_target_frequency=InflowFrequency.Daily,
-        inflow_frequency=InflowFrequency.Daily,
         has_daily_energy_constraint=False,
         minimum_daily_energy=Timeseries.from_index(
             start_date=parameters.start_date,

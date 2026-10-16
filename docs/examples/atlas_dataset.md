@@ -237,7 +237,6 @@ hydro = Hydro(
     node=node_fr,
     portfolio=portfolio_fr,
     inflows=inflows_ts,
-    inflow_frequency="Daily",
 )
 
 dataset.hydro.add(hydro)
