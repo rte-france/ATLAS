@@ -7,151 +7,151 @@
 \     Integer        : 0
 \     Continuous     : 168
 Maximize
- Obj: +1 positive_exchange_on_a_b_at_2028_09_27_00_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_01_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_02_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_03_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_04_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_05_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_06_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_07_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_08_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_09_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_10_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_11_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_12_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_13_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_14_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_15_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_16_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_17_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_18_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_19_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_20_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_21_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_22_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_23_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_00_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_01_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_02_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_03_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_04_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_05_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_06_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_07_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_08_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_09_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_10_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_11_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_12_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_13_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_14_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_15_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_16_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_17_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_18_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_19_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_20_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_21_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_22_00_00_00_00 -1 negative_exchange_on_a_b_at_2028_09_27_23_00_00_00_00 
+ Obj: +1 positive_exchange_on_a_b_2028_09_27_00_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_01_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_02_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_03_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_04_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_05_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_06_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_07_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_08_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_09_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_10_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_11_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_12_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_13_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_14_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_15_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_16_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_17_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_18_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_19_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_20_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_21_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_22_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_23_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_00_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_01_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_02_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_03_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_04_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_05_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_06_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_07_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_08_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_09_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_10_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_11_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_12_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_13_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_14_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_15_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_16_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_17_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_18_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_19_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_20_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_21_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_22_00_00_00_00 -1 negative_exchange_on_a_b_2028_09_27_23_00_00_00_00 
 Subject to
- Constraint_4.2_at_time_2028_09_27_00_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_00_00_00_00_00  = -2211
- Constraint_4.2_at_time_2028_09_27_00_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_00_00_00_00_00  = 2211
- Constraint_4.2_at_time_2028_09_27_01_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_01_00_00_00_00  = -2093
- Constraint_4.2_at_time_2028_09_27_01_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_01_00_00_00_00  = 2093
- Constraint_4.2_at_time_2028_09_27_02_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_02_00_00_00_00  = -794
- Constraint_4.2_at_time_2028_09_27_02_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_02_00_00_00_00  = 794
- Constraint_4.2_at_time_2028_09_27_03_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_03_00_00_00_00  = -1178
- Constraint_4.2_at_time_2028_09_27_03_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_03_00_00_00_00  = 1178
- Constraint_4.2_at_time_2028_09_27_04_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_04_00_00_00_00  = -930
- Constraint_4.2_at_time_2028_09_27_04_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_04_00_00_00_00  = 930
- Constraint_4.2_at_time_2028_09_27_05_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_05_00_00_00_00  = -1972
- Constraint_4.2_at_time_2028_09_27_05_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_05_00_00_00_00  = 1972
- Constraint_4.2_at_time_2028_09_27_06_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_06_00_00_00_00  = -891
- Constraint_4.2_at_time_2028_09_27_06_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_06_00_00_00_00  = 891
- Constraint_4.2_at_time_2028_09_27_07_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_07_00_00_00_00  = 467
- Constraint_4.2_at_time_2028_09_27_07_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_07_00_00_00_00  = -467
- Constraint_4.2_at_time_2028_09_27_08_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_08_00_00_00_00  = 630
- Constraint_4.2_at_time_2028_09_27_08_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_08_00_00_00_00  = -630
- Constraint_4.2_at_time_2028_09_27_09_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_09_00_00_00_00  = -886
- Constraint_4.2_at_time_2028_09_27_09_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_09_00_00_00_00  = 886
- Constraint_4.2_at_time_2028_09_27_10_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_10_00_00_00_00  = -1942
- Constraint_4.2_at_time_2028_09_27_10_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_10_00_00_00_00  = 1942
- Constraint_4.2_at_time_2028_09_27_11_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_11_00_00_00_00  = 2621
- Constraint_4.2_at_time_2028_09_27_11_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_11_00_00_00_00  = -2621
- Constraint_4.2_at_time_2028_09_27_12_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_12_00_00_00_00  = 175
- Constraint_4.2_at_time_2028_09_27_12_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_12_00_00_00_00  = -175
- Constraint_4.2_at_time_2028_09_27_13_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_13_00_00_00_00  = -2765
- Constraint_4.2_at_time_2028_09_27_13_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_13_00_00_00_00  = 2765
- Constraint_4.2_at_time_2028_09_27_14_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_14_00_00_00_00  = -2744
- Constraint_4.2_at_time_2028_09_27_14_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_14_00_00_00_00  = 2744
- Constraint_4.2_at_time_2028_09_27_15_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_15_00_00_00_00  = 634
- Constraint_4.2_at_time_2028_09_27_15_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_15_00_00_00_00  = -634
- Constraint_4.2_at_time_2028_09_27_16_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_16_00_00_00_00  = 638
- Constraint_4.2_at_time_2028_09_27_16_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_16_00_00_00_00  = -638
- Constraint_4.2_at_time_2028_09_27_17_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_17_00_00_00_00  = -3000
- Constraint_4.2_at_time_2028_09_27_17_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_17_00_00_00_00  = 3000
- Constraint_4.2_at_time_2028_09_27_18_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_18_00_00_00_00  = -335
- Constraint_4.2_at_time_2028_09_27_18_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_18_00_00_00_00  = 335
- Constraint_4.2_at_time_2028_09_27_19_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_19_00_00_00_00  = -368
- Constraint_4.2_at_time_2028_09_27_19_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_19_00_00_00_00  = 368
- Constraint_4.2_at_time_2028_09_27_20_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_20_00_00_00_00  = -708
- Constraint_4.2_at_time_2028_09_27_20_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_20_00_00_00_00  = 708
- Constraint_4.2_at_time_2028_09_27_21_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_21_00_00_00_00  = -2226
- Constraint_4.2_at_time_2028_09_27_21_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_21_00_00_00_00  = 2226
- Constraint_4.2_at_time_2028_09_27_22_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_22_00_00_00_00  = -3000
- Constraint_4.2_at_time_2028_09_27_22_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_22_00_00_00_00  = 3000
- Constraint_4.2_at_time_2028_09_27_23_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_at_2028_09_27_23_00_00_00_00  = -1229
- Constraint_4.2_at_time_2028_09_27_23_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_at_2028_09_27_23_00_00_00_00  = 1229
- Positive_and_negative_parts_definition_at_time_2028_09_27_00_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_00_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_00_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_00_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_01_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_01_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_01_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_01_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_02_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_02_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_02_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_02_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_03_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_03_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_03_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_03_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_04_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_04_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_04_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_04_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_05_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_05_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_05_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_05_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_06_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_06_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_06_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_06_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_07_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_07_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_07_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_07_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_08_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_08_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_08_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_08_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_09_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_09_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_09_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_09_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_10_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_10_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_10_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_10_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_11_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_11_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_11_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_11_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_12_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_12_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_12_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_12_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_13_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_13_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_13_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_13_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_14_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_14_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_14_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_14_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_15_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_15_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_15_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_15_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_16_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_16_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_16_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_16_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_17_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_17_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_17_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_17_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_18_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_18_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_18_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_18_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_19_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_19_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_19_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_19_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_20_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_20_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_20_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_20_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_21_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_21_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_21_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_21_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_22_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_22_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_22_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_22_00_00_00_00  = 0
- Positive_and_negative_parts_definition_at_time_2028_09_27_23_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_at_2028_09_27_23_00_00_00_00 +1 positive_exchange_on_a_b_at_2028_09_27_23_00_00_00_00 +1 negative_exchange_on_a_b_at_2028_09_27_23_00_00_00_00  = 0
+ Constraint_4.2_at_time_2028_09_27_00_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_00_00_00_00_00  = -2211
+ Constraint_4.2_at_time_2028_09_27_00_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_00_00_00_00_00  = 2211
+ Constraint_4.2_at_time_2028_09_27_01_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_01_00_00_00_00  = -2093
+ Constraint_4.2_at_time_2028_09_27_01_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_01_00_00_00_00  = 2093
+ Constraint_4.2_at_time_2028_09_27_02_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_02_00_00_00_00  = -794
+ Constraint_4.2_at_time_2028_09_27_02_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_02_00_00_00_00  = 794
+ Constraint_4.2_at_time_2028_09_27_03_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_03_00_00_00_00  = -1178
+ Constraint_4.2_at_time_2028_09_27_03_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_03_00_00_00_00  = 1178
+ Constraint_4.2_at_time_2028_09_27_04_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_04_00_00_00_00  = -930
+ Constraint_4.2_at_time_2028_09_27_04_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_04_00_00_00_00  = 930
+ Constraint_4.2_at_time_2028_09_27_05_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_05_00_00_00_00  = -1972
+ Constraint_4.2_at_time_2028_09_27_05_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_05_00_00_00_00  = 1972
+ Constraint_4.2_at_time_2028_09_27_06_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_06_00_00_00_00  = -891
+ Constraint_4.2_at_time_2028_09_27_06_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_06_00_00_00_00  = 891
+ Constraint_4.2_at_time_2028_09_27_07_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_07_00_00_00_00  = 467
+ Constraint_4.2_at_time_2028_09_27_07_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_07_00_00_00_00  = -467
+ Constraint_4.2_at_time_2028_09_27_08_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_08_00_00_00_00  = 630
+ Constraint_4.2_at_time_2028_09_27_08_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_08_00_00_00_00  = -630
+ Constraint_4.2_at_time_2028_09_27_09_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_09_00_00_00_00  = -886
+ Constraint_4.2_at_time_2028_09_27_09_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_09_00_00_00_00  = 886
+ Constraint_4.2_at_time_2028_09_27_10_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_10_00_00_00_00  = -1942
+ Constraint_4.2_at_time_2028_09_27_10_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_10_00_00_00_00  = 1942
+ Constraint_4.2_at_time_2028_09_27_11_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_11_00_00_00_00  = 2621
+ Constraint_4.2_at_time_2028_09_27_11_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_11_00_00_00_00  = -2621
+ Constraint_4.2_at_time_2028_09_27_12_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_12_00_00_00_00  = 175
+ Constraint_4.2_at_time_2028_09_27_12_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_12_00_00_00_00  = -175
+ Constraint_4.2_at_time_2028_09_27_13_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_13_00_00_00_00  = -2765
+ Constraint_4.2_at_time_2028_09_27_13_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_13_00_00_00_00  = 2765
+ Constraint_4.2_at_time_2028_09_27_14_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_14_00_00_00_00  = -2744
+ Constraint_4.2_at_time_2028_09_27_14_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_14_00_00_00_00  = 2744
+ Constraint_4.2_at_time_2028_09_27_15_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_15_00_00_00_00  = 634
+ Constraint_4.2_at_time_2028_09_27_15_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_15_00_00_00_00  = -634
+ Constraint_4.2_at_time_2028_09_27_16_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_16_00_00_00_00  = 638
+ Constraint_4.2_at_time_2028_09_27_16_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_16_00_00_00_00  = -638
+ Constraint_4.2_at_time_2028_09_27_17_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_17_00_00_00_00  = -3000
+ Constraint_4.2_at_time_2028_09_27_17_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_17_00_00_00_00  = 3000
+ Constraint_4.2_at_time_2028_09_27_18_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_18_00_00_00_00  = -335
+ Constraint_4.2_at_time_2028_09_27_18_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_18_00_00_00_00  = 335
+ Constraint_4.2_at_time_2028_09_27_19_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_19_00_00_00_00  = -368
+ Constraint_4.2_at_time_2028_09_27_19_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_19_00_00_00_00  = 368
+ Constraint_4.2_at_time_2028_09_27_20_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_20_00_00_00_00  = -708
+ Constraint_4.2_at_time_2028_09_27_20_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_20_00_00_00_00  = 708
+ Constraint_4.2_at_time_2028_09_27_21_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_21_00_00_00_00  = -2226
+ Constraint_4.2_at_time_2028_09_27_21_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_21_00_00_00_00  = 2226
+ Constraint_4.2_at_time_2028_09_27_22_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_22_00_00_00_00  = -3000
+ Constraint_4.2_at_time_2028_09_27_22_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_22_00_00_00_00  = 3000
+ Constraint_4.2_at_time_2028_09_27_23_00_00_00_00_on_market_area_ma_a: +1 exchange_on_a_b_2028_09_27_23_00_00_00_00  = -1229
+ Constraint_4.2_at_time_2028_09_27_23_00_00_00_00_on_market_area_ma_b: -1 exchange_on_a_b_2028_09_27_23_00_00_00_00  = 1229
+ Positive_and_negative_parts_definition_at_time_2028_09_27_00_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_00_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_00_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_00_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_01_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_01_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_01_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_01_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_02_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_02_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_02_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_02_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_03_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_03_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_03_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_03_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_04_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_04_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_04_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_04_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_05_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_05_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_05_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_05_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_06_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_06_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_06_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_06_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_07_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_07_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_07_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_07_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_08_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_08_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_08_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_08_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_09_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_09_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_09_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_09_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_10_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_10_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_10_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_10_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_11_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_11_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_11_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_11_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_12_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_12_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_12_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_12_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_13_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_13_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_13_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_13_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_14_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_14_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_14_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_14_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_15_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_15_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_15_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_15_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_16_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_16_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_16_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_16_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_17_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_17_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_17_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_17_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_18_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_18_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_18_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_18_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_19_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_19_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_19_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_19_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_20_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_20_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_20_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_20_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_21_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_21_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_21_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_21_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_22_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_22_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_22_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_22_00_00_00_00  = 0
+ Positive_and_negative_parts_definition_at_time_2028_09_27_23_00_00_00_00_on_market_border_a_b: -1 exchange_on_a_b_2028_09_27_23_00_00_00_00 +1 positive_exchange_on_a_b_2028_09_27_23_00_00_00_00 +1 negative_exchange_on_a_b_2028_09_27_23_00_00_00_00  = 0
 Bounds
- -3000 <= exchange_on_a_b_at_2028_09_27_00_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_01_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_02_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_03_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_04_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_05_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_06_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_07_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_08_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_09_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_10_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_11_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_12_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_13_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_14_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_15_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_16_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_17_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_18_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_19_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_20_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_21_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_22_00_00_00_00 <= 4000
- -3000 <= exchange_on_a_b_at_2028_09_27_23_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_00_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_01_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_02_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_03_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_04_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_05_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_06_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_07_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_08_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_09_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_10_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_11_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_12_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_13_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_14_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_15_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_16_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_17_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_18_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_19_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_20_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_21_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_22_00_00_00_00 <= 4000
- 0 <= positive_exchange_on_a_b_at_2028_09_27_23_00_00_00_00 <= 4000
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_00_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_01_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_02_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_03_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_04_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_05_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_06_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_07_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_08_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_09_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_10_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_11_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_12_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_13_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_14_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_15_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_16_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_17_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_18_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_19_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_20_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_21_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_22_00_00_00_00 <= 0
- -3000 <= negative_exchange_on_a_b_at_2028_09_27_23_00_00_00_00 <= 0
+ -3000 <= exchange_on_a_b_2028_09_27_00_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_01_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_02_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_03_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_04_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_05_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_06_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_07_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_08_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_09_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_10_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_11_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_12_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_13_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_14_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_15_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_16_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_17_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_18_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_19_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_20_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_21_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_22_00_00_00_00 <= 4000
+ -3000 <= exchange_on_a_b_2028_09_27_23_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_00_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_01_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_02_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_03_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_04_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_05_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_06_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_07_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_08_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_09_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_10_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_11_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_12_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_13_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_14_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_15_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_16_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_17_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_18_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_19_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_20_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_21_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_22_00_00_00_00 <= 4000
+ 0 <= positive_exchange_on_a_b_2028_09_27_23_00_00_00_00 <= 4000
+ -3000 <= negative_exchange_on_a_b_2028_09_27_00_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_01_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_02_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_03_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_04_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_05_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_06_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_07_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_08_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_09_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_10_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_11_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_12_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_13_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_14_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_15_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_16_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_17_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_18_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_19_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_20_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_21_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_22_00_00_00_00 <= 0
+ -3000 <= negative_exchange_on_a_b_2028_09_27_23_00_00_00_00 <= 0
 End

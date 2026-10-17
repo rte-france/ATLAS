@@ -7,13 +7,10 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-
 from loguru import logger
 
 import atlas.config as cfg
 from atlas.abstract_class.module import AbstractModule
-from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
@@ -35,7 +32,8 @@ class PortfolioOptimisationModule(
         PortfolioOptimisationResult,
     ]
 ):
-    def get_parameters_class(self):
+    @classmethod
+    def get_parameters_class(cls) -> type[PortfolioOptimisationParameters]:
         """
         Returns the concrete Parameters class for this module.
 
@@ -216,19 +214,3 @@ class PortfolioOptimisationModule(
                     equipment_portfolios.append(equipment_portfolio)
 
         return equipment_portfolios
-
-    @staticmethod
-    def get_business_model_class_used() -> Iterable[BusinessModelName]:
-        """Return list of business model classes used in this dataset."""
-        return [
-            BusinessModelName.MARKET_AREA,
-            BusinessModelName.CONTROL_BLOCK,
-            BusinessModelName.PORTFOLIO,
-            BusinessModelName.THERMAL,
-            BusinessModelName.LOAD,
-            BusinessModelName.HYDRO,
-            BusinessModelName.STORAGE,
-            BusinessModelName.WIND,
-            BusinessModelName.SOLAR,
-            BusinessModelName.OTHER_NON_DISPATCHABLE,
-        ]

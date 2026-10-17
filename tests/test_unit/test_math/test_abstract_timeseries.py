@@ -449,3 +449,44 @@ class TestEpochLookupCache:
     def test_null_value_is_kept(self, df):
         ts = Timeseries(df.with_columns(pl.when(pl.col("value") == 20.0).then(None).otherwise("value").alias("value")))
         assert ts._get_epoch_lookup() == self.expected([10.0, None, 30.0, 40.0])
+
+
+class TestWithValues:
+    """Tests for the with_values() method."""
+
+    @pytest.fixture(params=[Timeseries, LazyTimeseries])
+    def ts(self, request):
+        eager = Timeseries.from_values("2025-01-01 00:00:00", "1h", [1.0, 2.0, 3.0], timezone="Europe/Paris")
+        return eager if request.param is Timeseries else LazyTimeseries(eager)
+
+    def test_holds_new_values_on_the_same_index(self, ts):
+        result = ts.with_values([10.0, 20.0, 30.0])
+
+        assert type(result) is type(ts)
+        assert result.index == ts.index
+        assert result.values == [10.0, 20.0, 30.0]
+        assert result.timezone == "Europe/Paris"
+        assert result.timestep == ts.timestep
+
+    def test_leaves_the_original_unchanged(self, ts):
+        ts.with_values([10.0, 20.0, 30.0])
+
+        assert ts.values == [1.0, 2.0, 3.0]
+
+    def test_accepts_a_polars_series_and_integers(self, ts):
+        assert ts.with_values(pl.Series([4, 5, 6])).values == [4.0, 5.0, 6.0]
+
+    def test_matches_a_timeseries_built_from_scratch(self):
+        index = Timeseries.from_values("2025-01-01 00:00:00", "1h", [0.0, 0.0])
+        expected = Timeseries.from_values("2025-01-01 00:00:00", "1h", [7.0, 8.0])
+
+        assert index.with_values([7.0, 8.0]) == expected
+
+    def test_length_mismatch_raises(self, ts):
+        with pytest.raises(ValueError, match="Expected 3 values to match the index, got 2"):
+            ts.with_values([1.0, 2.0])
+
+    def test_empty_timeseries_takes_no_value(self, ts):
+        empty = type(ts)()
+
+        assert len(empty.with_values([])) == 0

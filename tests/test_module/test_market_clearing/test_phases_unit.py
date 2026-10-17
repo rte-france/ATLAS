@@ -5,7 +5,7 @@ This file is part of the ATLAS project.
 
 Unit tests for the pure algorithms of the market_clearing phases (price groups, neighbour
 detection, order-link resolution, marginal fixing, order feasibility) — PR-1 of the code
-quality audit in issue #296. These run without a solver: Pricing's algorithmic methods are
+quality audit in issue #296. These never solve a model: Pricing's algorithmic methods are
 exercised via the unbound-method technique against a lightweight duck-typed stand-in for
 `self`, since `Pricing.__init__` otherwise requires a live OR-Tools model.
 """
@@ -20,9 +20,11 @@ from atlas.modules.market_clearing.input_dataset import MarketClearingInputDatas
 from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.order_links import OrderLinkResolver
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
+from atlas.modules.market_clearing.phases._border_variables import add_exchange_variables
 from atlas.modules.market_clearing.phases.clearing import Clearing
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
-from atlas.modules.market_clearing.phases.pricing import Pricing, third_attempt
+from atlas.modules.market_clearing.phases.pricing import Pricing, first_attempt, third_attempt
+from atlas.solver.solver_interface import OptimisationModel
 from tests.test_module.test_market_clearing.factories import (
     make_market_area,
     make_market_border,
@@ -35,28 +37,13 @@ from tests.test_module.test_market_clearing.factories import (
 ONE_HOUR = pendulum.duration(hours=1)
 
 
-class _FakeOptimisationModel:
-    """Duck-typed stand-in for the `OptimisationModel` a real `Pricing` composes as `self.model` —
-    returns a plain float placeholder for any variable, since these tests only check whether a
-    variable/constraint was created and, for arithmetic, don't care about its exact value."""
-
-    def __init__(self):
-        self._variables: dict = {}
-
-    def add_continuous_variable(self, name, lower_bound=float("-inf"), upper_bound=float("inf")):
-        return self._variables.setdefault(name, 0.0)
-
-    def get_variable(self, name):
-        return self._variables.setdefault(name, 0.0)
-
-
 class _PricingAlgorithms:
     """Duck-typed stand-in for `Pricing` exposing only its solver-free algorithms.
 
     `Pricing.__init__` builds a live OR-Tools model and immediately runs these methods as a
     side effect, which makes the real class impractical to unit test in isolation. Binding the
     unbound methods here runs the exact same production code against a minimal fake `input_dataset`
-    / `parameters`, without needing a solver.
+    / `parameters`, in a model that is never solved.
     """
 
     def __init__(self, input_dataset, parameters, clearing_border_exchanges=None, clearing_accepted_powers=None):
@@ -65,9 +52,9 @@ class _PricingAlgorithms:
         self.clearing_border_exchanges = clearing_border_exchanges or {}
         self.clearing_accepted_powers = clearing_accepted_powers or {}
         self.saturated_critical_branch = {}
-        self.dict_linked_orders: dict = {}
-        self._full_link_id_by_order: dict = {}
-        self.model = _FakeOptimisationModel()
+        self.linked_orders: dict = {}
+        self.full_link_id_by_order: dict = {}
+        self.model = OptimisationModel("GLOP")
 
     # Each wrapper below calls the real, unbound `Pricing` method (or, for the third pricing attempt,
     # the plain `third_attempt` function it now delegates to) against this stand-in — mypy doesn't
@@ -89,11 +76,20 @@ class _PricingAlgorithms:
     def compute_price_bounds(self, price_group, pricing_type):
         return Pricing.compute_price_bounds(self, price_group, pricing_type)  # type: ignore[arg-type]
 
+    def is_accepted(self, order):
+        return Pricing.is_accepted(self, order)  # type: ignore[arg-type]
+
+    def order_price(self, order):
+        return Pricing.order_price(self, order)  # type: ignore[arg-type]
+
+    def standalone_orders(self):
+        return Pricing.standalone_orders(self)  # type: ignore[arg-type]
+
     def compute_opposite_delta_p(self):
         return third_attempt.compute_opposite_delta_p(self)  # type: ignore[arg-type]
 
-    def create_delta_price_pc_variables(self, opposite_delta_p_dict):
-        return third_attempt.create_delta_price_pc_variables(self, opposite_delta_p_dict)  # type: ignore[arg-type]
+    def create_parent_child_delta_p_variables(self, opposite_delta_p_dict):
+        return third_attempt.create_parent_child_delta_p_variables(self, opposite_delta_p_dict)  # type: ignore[arg-type]
 
 
 class _FakeInputDataset:
@@ -107,6 +103,7 @@ class _FakeInputDataset:
         self.market_borders = market_borders or {}
         self.orders = orders or {}
         self.order_couplings = order_couplings or {}
+        self.critical_branches: dict = {}
 
 
 class TestOrderIsFeasible:
@@ -280,7 +277,10 @@ class TestCreatePriceGroups:
             market_areas={"ma_a": area_a, "ma_b": area_b, "ma_c": area_c},
             market_borders={"ab": border_ab, "bc": border_bc},
         )
-        exchanges = {("ab", times[0]): ab_flow, ("bc", times[0]): bc_flow}
+        exchanges = {
+            "ab": Timeseries.from_values(times[0], ONE_HOUR, [ab_flow]),
+            "bc": Timeseries.from_values(times[0], ONE_HOUR, [bc_flow]),
+        }
         return input_dataset, exchanges
 
     def test_areas_merge_across_an_unsaturated_border_and_split_at_a_saturated_one(
@@ -573,9 +573,12 @@ class TestCreateOppositeDeltaP:
         )
         pricing = _PricingAlgorithms(input_dataset, parameters, clearing_accepted_powers=accepted_powers)
         order_links = OrderLinkResolver(input_dataset.orders, input_dataset.order_couplings).resolve()
-        pricing.dict_linked_orders = order_links.linked_orders
-        pricing.dict_parent_child_orders = order_links.parent_child_orders
-        pricing._full_link_id_by_order = order_links.full_link_id_by_order
+        pricing.linked_orders = order_links.linked_orders
+        pricing.parent_child_orders = order_links.parent_child_orders
+        pricing.full_link_id_by_order = order_links.full_link_id_by_order
+        # Both orders belong to price group 0, the only group of the single time step
+        pricing.price_groups = {times[0]: [PriceGroup(id=0, time=times[0], market_area_names=["ma_a"])]}
+        pricing.variables = first_attempt.build_variables(pricing)  # type: ignore[arg-type]
         return pricing
 
     def test_no_accepted_order_gives_the_none_sentinel(self, parameters: MarketClearingParameters) -> None:
@@ -596,51 +599,36 @@ class TestCreateOppositeDeltaP:
         pricing = self._build_parent_child_pricing(parameters, {("ma_a", "parent"): 10.0, ("ma_a", "child"): 0.0})
         opposite_delta_p_dict = pricing.compute_opposite_delta_p()
 
-        pricing.create_delta_price_pc_variables(opposite_delta_p_dict)
+        pricing.create_parent_child_delta_p_variables(opposite_delta_p_dict)
 
-        assert constants.delta_p_pc(next(iter(pricing.dict_parent_child_orders))) in pricing.model._variables
-
-
-class _RecordingVariable:
-    """Stand-in for a solver variable that reports which pair of names an equality tied together."""
-
-    def __init__(self, name: str):
-        self.name = name
-
-    def __eq__(self, other):
-        return (self.name, other.name)
-
-
-class _RecordingModel:
-    """Duck-typed `OptimisationModel` recording the constraints a phase creates, so the constraint
-    set can be asserted without a solver."""
-
-    def __init__(self):
-        self._variables: dict = {}
-        self.constraints: dict = {}
-
-    def get_variable(self, name):
-        return self._variables.setdefault(name, _RecordingVariable(name))
-
-    def add_constraint(self, expression, name):
-        self.constraints[name] = expression
+        assert constants.delta_p_pc(next(iter(pricing.parent_child_orders))) in pricing.model.variables
 
 
 class _ClearingAlgorithms:
     """Duck-typed stand-in for `Clearing`, bound to the real unbound method under test — same
-    technique as `_PricingAlgorithms`, since `Clearing.__init__` builds a live OR-Tools model."""
+    technique as `_PricingAlgorithms`, so that only the border variables are created in the model."""
 
     def __init__(self, input_dataset, parameters):
         self.input_dataset = input_dataset
         self.parameters = parameters
-        self.model = _RecordingModel()
+        self.model = OptimisationModel("GLOP")
+        self.exchange = add_exchange_variables(self.model, input_dataset)
 
-    def create_exchange_across_border_constraints(self):
-        return Clearing.create_exchange_across_border_constraints(self)  # type: ignore[arg-type]
+    def tied_exchanges(self, constraint_name: str) -> tuple[pendulum.DateTime, pendulum.DateTime]:
+        """Return the (tied, block start) times an exchange equality constraint links together."""
+        constraint = self.model.get_constraint(constraint_name)
+        exchange = self.exchange["ab"]
+        coefficients = {time: constraint.GetCoefficient(exchange[time]) for time in self.input_dataset.times}
+        (tied,) = [time for time, coefficient in coefficients.items() if coefficient == 1.0]
+        (block_start,) = [time for time, coefficient in coefficients.items() if coefficient == -1.0]
+        return tied, block_start
+
+    def create_resolution_block_constraints(self):
+        return Clearing.create_resolution_block_constraints(self)  # type: ignore[arg-type]
 
 
 class TestExchangeAcrossBorderConstraints:
-    """`Clearing.create_exchange_across_border_constraints` — a border coarser than the clearing
+    """`Clearing.create_resolution_block_constraints` — a border coarser than the clearing
     timestep carries a single exchange per resolution block, so every timestep inside a block is
     tied back to the timestep opening it."""
 
@@ -659,38 +647,38 @@ class TestExchangeAcrossBorderConstraints:
     def test_border_at_the_clearing_resolution_is_left_free(self, parameters: MarketClearingParameters) -> None:
         clearing, _ = self._build(parameters, time_resolution=0.0)
 
-        clearing.create_exchange_across_border_constraints()
+        clearing.create_resolution_block_constraints()
 
-        assert clearing.model.constraints == {}
+        assert clearing.model.constraints == set()
 
     def test_two_hour_border_ties_each_odd_hour_to_the_hour_opening_its_block(
         self, parameters: MarketClearingParameters
     ) -> None:
         clearing, times = self._build(parameters, time_resolution=120.0)
 
-        clearing.create_exchange_across_border_constraints()
+        clearing.create_resolution_block_constraints()
 
         # Blocks are [t0, t1] and [t2, t3]: only the second hour of each block is constrained.
         assert set(clearing.model.constraints) == {
             constants.exchange_across_border_constraint_name("ab", times[1]),
             constants.exchange_across_border_constraint_name("ab", times[3]),
         }
-        assert clearing.model.constraints[constants.exchange_across_border_constraint_name("ab", times[1])] == (
-            constants.border_exchange_variable_name("ab", times[1]),
-            constants.border_exchange_variable_name("ab", times[0]),
+        assert clearing.tied_exchanges(constants.exchange_across_border_constraint_name("ab", times[1])) == (
+            times[1],
+            times[0],
         )
-        assert clearing.model.constraints[constants.exchange_across_border_constraint_name("ab", times[3])] == (
-            constants.border_exchange_variable_name("ab", times[3]),
-            constants.border_exchange_variable_name("ab", times[2]),
+        assert clearing.tied_exchanges(constants.exchange_across_border_constraint_name("ab", times[3])) == (
+            times[3],
+            times[2],
         )
 
     def test_four_hour_border_ties_every_later_hour_to_the_first(self, parameters: MarketClearingParameters) -> None:
         clearing, times = self._build(parameters, time_resolution=240.0)
 
-        clearing.create_exchange_across_border_constraints()
+        clearing.create_resolution_block_constraints()
 
         for time in times[1:]:
-            assert clearing.model.constraints[constants.exchange_across_border_constraint_name("ab", time)] == (
-                constants.border_exchange_variable_name("ab", time),
-                constants.border_exchange_variable_name("ab", times[0]),
+            assert clearing.tied_exchanges(constants.exchange_across_border_constraint_name("ab", time)) == (
+                time,
+                times[0],
             )

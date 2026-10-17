@@ -1,14 +1,13 @@
 import os
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 
 import typer
 from rich import print as rprint
 from rich.table import Table
 
 import atlas
-from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.config import logger
 from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
 from atlas.modules.antares_to_atlas.antares_to_atlas import AntaresToAtlas
@@ -66,7 +65,7 @@ def run_module_cmd(
 
     try:
         with timer() as t:
-            params = cast(AbstractModuleParameters, module_class().get_parameters_class()).from_file(parameters_path)
+            params = module_class.get_parameters_class().from_file(parameters_path)
             result = ModuleRun(module_class, dataset_path, params).run()
 
             if params.export.export_dataset:
@@ -559,7 +558,7 @@ def prometheus_batch(
 
     rprint(f"\n[bold]Summary:[/bold] {len(ok)} succeeded, {len(failed)} failed out of {len(results)}")
 
-    if not ok:
+    if failed:
         raise typer.Exit(code=1)
 
 

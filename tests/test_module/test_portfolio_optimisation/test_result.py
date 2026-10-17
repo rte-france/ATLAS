@@ -12,7 +12,6 @@ from unittest.mock import Mock
 import pendulum
 import pytest
 
-from atlas.abstract_class.dataset import ModuleResult
 from atlas.enums import BusinessModelName, ThermalDispatchState
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
@@ -68,14 +67,6 @@ def _result(
     return SinglePortfolioResult(
         portfolio=portfolio, solution_info=None, solution=zeros | solution, is_manual_activation=is_manual_activation
     )
-
-
-@pytest.fixture(autouse=True)
-def _isolate_change_sets():
-    """ModuleResult.change_sets is a class-level list shared by every output instance."""
-    ModuleResult.change_sets = []
-    yield
-    ModuleResult.change_sets = []
 
 
 @pytest.fixture
@@ -233,12 +224,12 @@ class TestIndividualEquipmentMode:
         values = {"so_power_level": _timeseries([12.0] * len(TARGET_TIMES))}
         dataset = PortfolioOptimisationResult(_parameters(is_portfolio_bidding=False), [_result(portfolio, values)])
 
-        dataset.build_change_sets()
+        change_sets = dataset.build_change_sets()
 
         assert _forecast_values(_equipment_by_name(portfolio, "so").power) == [12.0, 12.0, 12.0]
         assert portfolio.imbalance is None
         assert portfolio.power is None
-        model_types = [change_set.model_type for change_set in dataset.change_sets]
+        model_types = [change_set.model_type for change_set in change_sets]
         assert BusinessModelName.PORTFOLIO not in model_types
         assert BusinessModelName.SOLAR in model_types
 
@@ -248,10 +239,10 @@ class TestManualActivation:
         values = {"so_power_level": _timeseries([12.0] * len(TARGET_TIMES))}
         dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values, is_manual_activation=True)])
 
-        dataset.build_change_sets()
+        change_sets = dataset.build_change_sets()
 
         assert _equipment_by_name(portfolio, "so").power is None
-        model_types = [change_set.model_type for change_set in dataset.change_sets]
+        model_types = [change_set.model_type for change_set in change_sets]
         assert BusinessModelName.PORTFOLIO not in model_types
         assert BusinessModelName.THERMAL in model_types
 
@@ -260,18 +251,18 @@ class TestChangeSets:
     def test_emits_one_changeset_per_object(self, portfolio):
         dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, {})])
 
-        dataset.build_change_sets()
+        change_sets = dataset.build_change_sets()
 
-        assert len(dataset.change_sets) == 4  # one portfolio + three equipments
+        assert len(change_sets) == 4  # one portfolio + three equipments
 
     def test_payload_carries_the_optimised_attributes(self, portfolio):
         values = {"st_power_level_sell": _timeseries([20.0] * len(TARGET_TIMES))}
         dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values)])
 
-        dataset.build_change_sets()
+        change_sets = dataset.build_change_sets()
 
         storage_change_set = next(
-            change_set for change_set in dataset.change_sets if change_set.model_type == BusinessModelName.STORAGE
+            change_set for change_set in change_sets if change_set.model_type == BusinessModelName.STORAGE
         )
         assert storage_change_set.data["name"] == "st"
         assert _forecast_values(storage_change_set.data["power"]) == [20.0, 20.0, 20.0]

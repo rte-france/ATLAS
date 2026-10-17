@@ -127,8 +127,6 @@ class MockModuleBuilder:
     def __init__(self):
         self.instance = MagicMock()
         self.instance.run.return_value = MockOutPutBuilder().build()
-        self.instance.get_business_model_class_used.return_value = []
-        self.instance.get_filters.return_value = None
 
     def with_output(self, output) -> Self:
         self.instance.run.return_value = output

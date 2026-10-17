@@ -19,7 +19,7 @@ params = {
     "solver": {
         "solver_name": "XPRESS",
     },
-    "output": {
+    "export": {
         "export_results": True,
     },
 }

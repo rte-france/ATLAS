@@ -931,3 +931,42 @@ class TestIntegrationScenarios:
         assert integration_model.solution_info is None
         assert integration_model._objective is None
         assert integration_model._objective_direction is None
+
+
+class TestSetVariableBounds:
+    @pytest.fixture
+    def model(self):
+        model = OptimisationModel("SCIP", "test_model")
+        model.add_continuous_variable("x", -1.0, 1.0)
+        return model
+
+    def test_sets_both_bounds(self, model):
+        model.set_variable_bounds("x", 2.0, 3.0)
+
+        assert (model.get_variable("x").lb(), model.get_variable("x").ub()) == (2.0, 3.0)
+
+    @pytest.mark.parametrize(
+        ("bounds", "expected"), [({"lower_bound": 0.0}, (0.0, 1.0)), ({"upper_bound": 0.0}, (-1.0, 0.0))]
+    )
+    def test_omitted_bound_is_kept(self, model, bounds, expected):
+        model.set_variable_bounds("x", **bounds)
+
+        assert (model.get_variable("x").lb(), model.get_variable("x").ub()) == expected
+
+    def test_unknown_variable_raises(self, model):
+        with pytest.raises(ValueError, match="Variable 'y' not found"):
+            model.set_variable_bounds("y", 0.0, 1.0)
+
+
+class TestGetTemporalVariable:
+    def test_returns_registered_variable(self):
+        model = OptimisationModel("SCIP", "test_model")
+        power = model.add_temporal_variable("power")
+
+        assert model.get_temporal_variable("power") is power
+
+    def test_unknown_name_raises(self):
+        model = OptimisationModel("SCIP", "test_model")
+
+        with pytest.raises(ValueError, match="Temporal variable 'power' not found"):
+            model.get_temporal_variable("power")
