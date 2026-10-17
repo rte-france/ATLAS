@@ -11,30 +11,31 @@ from typing import TYPE_CHECKING
 from pendulum import DateTime
 
 from atlas.abstract_class.parameters import AbstractModuleParameters
-from atlas.enums import StorageType
-from atlas.solver.model_var import ModelVar
+from atlas.enums import StorageType, VariableType
 from atlas.solver.solver_interface import OptimisationModel
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from atlas.common.optimal_dispatch.input_objects.storage import StorageDispatchInput
+    from atlas.solver.temporal_variable import TemporalVariable
 
 
 class StorageDispatch:
     """
     Physical dispatch component for a single storage unit.
 
-    Owns sell/buy power, binary sell/buy state, stored energy variables, and optionally
-    fragment variables for piecewise-linear bid modelling.
+    Owns sell/buy power, binary sell/buy state, stored energy temporal variables, and optionally
+    fragment temporal variables for piecewise-linear bid modelling. The stored energy is fixed
+    to the initial stock at the timestep preceding the horizon.
     Handles physical constraints (level evolution, sell/buy separation, cycle balance)
     and fragment constraints (sum and bound). Does **not** handle reserves or objective terms.
 
     Typical usage::
 
         dispatch = StorageDispatch(equipment)
-        dispatch.setup(model, parameters, nb_fragments=3)  # init vars + initial stock
-        for time in time_window:
-            dispatch.add_variables(time)                   # per-timestep decision variables
-            dispatch.add_fragment_variables(time, max_p, min_p)
+        dispatch.setup(model, parameters, nb_fragments=3)  # declare vars + fix initial stock
+        dispatch.add_variables(time_window)                # decision and fragment variables
         for time in time_window:
             dispatch.add_constraints(model, time, parameters)
             dispatch.add_fragment_sum_constraints(time, power_sell, power_buy)
@@ -47,14 +48,16 @@ class StorageDispatch:
         self._model: OptimisationModel = None  # type: ignore[assignment]
         self._nb_fragments: int = 0
 
-        self.power_level_sell_var: ModelVar = None  # type: ignore[assignment]
-        self.power_level_buy_var: ModelVar = None  # type: ignore[assignment]
-        self.is_sell_var: ModelVar = None  # type: ignore[assignment]
-        self.stored_energy_var: ModelVar = None  # type: ignore[assignment]
+        self.power_level_sell: TemporalVariable = None  # type: ignore[assignment]
+        self.power_level_buy: TemporalVariable = None  # type: ignore[assignment]
+        self.is_sell: TemporalVariable = None  # type: ignore[assignment]
+        self.stored_energy: TemporalVariable = None  # type: ignore[assignment]
+        self.power_level_sell_n: list[TemporalVariable] = []
+        self.power_level_buy_n: list[TemporalVariable] = []
 
     def setup(self, model: OptimisationModel, parameters: AbstractModuleParameters, nb_fragments: int = 0) -> None:
         """
-        Compute initial stock and create ModelVar objects.
+        Compute the initial stock and declare the temporal variables.
 
         Must be called before :meth:`add_variables` or :meth:`add_constraints`.
 
@@ -64,44 +67,32 @@ class StorageDispatch:
             Pass 0 (default) when fragments are not used.
         :type nb_fragments: int
         """
-        self._model = model
         self._nb_fragments = nb_fragments
         self._compute_initial_stock(parameters)
-        self._setup_state_variables(model)
+        self._declare_variables(model)
+        temporal = parameters.temporal
+        self.stored_energy.fix(temporal.start_date - temporal.timestep, self._initial_stock)
 
-    def add_variables(self, time: DateTime) -> None:
+    def add_variables(self, times: Iterable[DateTime]) -> None:
         """
-        Register decision variables for *time* in the model.
+        Register decision variables for *times* in the model.
 
-        :param time: The timestep for which to create variables
-        :type time: DateTime
+        Also creates ``nb_fragments`` sell fragments (≥ 0) and buy fragments (≤ 0) per timestep,
+        each bounded by ``maximum_power / nb_fragments`` and ``minimum_power / nb_fragments``.
+
+        :param times: The timesteps for which to create variables
+        :type times: Iterable[DateTime]
         """
-        self.power_level_sell_var.set_model_var(time)
-        self.power_level_buy_var.set_model_var(time)
-        self.is_sell_var.set_model_var(time)
-        self.stored_energy_var.set_model_var(time)
-
-    def add_fragment_variables(self, time: DateTime, max_power: float, min_power: float) -> None:
-        """
-        Register fragment decision variables for *time* in the model.
-
-        Creates ``nb_fragments`` sell fragments (≥ 0) and buy fragments (≤ 0), each
-        bounded by ``max_power / nb_fragments`` and ``min_power / nb_fragments`` respectively.
-        No-op when ``nb_fragments`` is 0.
-
-        :param time: The timestep for which to create variables
-        :type time: DateTime
-        :param max_power: Maximum sell power at *time* (MW)
-        :type max_power: float
-        :param min_power: Minimum buy power at *time* (MW, negative)
-        :type min_power: float
-        """
-        if self._nb_fragments == 0:
-            return
-        nb = self._nb_fragments
-        for n in range(nb):
-            self._model.add_continuous_variable(self._sell_n_key(time, n), 0, max_power / nb)
-            self._model.add_continuous_variable(self._buy_n_key(time, n), min_power / nb, 0)
+        times = list(times)
+        for variable in (
+            self.power_level_sell,
+            self.power_level_buy,
+            self.is_sell,
+            self.stored_energy,
+            *self.power_level_sell_n,
+            *self.power_level_buy_n,
+        ):
+            variable.add_all(times)
 
     def add_fragment_sum_constraints(self, time: DateTime, power_sell, power_buy) -> None:
         """
@@ -118,38 +109,16 @@ class StorageDispatch:
         """
         if self._nb_fragments == 0:
             return
-        nb = self._nb_fragments
         n = self._eq.name
-        self._model.add_constraint(
-            power_sell == sum(self._model.get_variable(self._sell_n_key(time, i)) for i in range(nb)),
+        model = self._model
+        model.add_constraint(
+            power_sell == sum(fragment[time] for fragment in self.power_level_sell_n),
             f"sell_fragment_sum_{time}_{n}",
         )
-        self._model.add_constraint(
-            power_buy == sum(self._model.get_variable(self._buy_n_key(time, i)) for i in range(nb)),
+        model.add_constraint(
+            power_buy == sum(fragment[time] for fragment in self.power_level_buy_n),
             f"buy_fragment_sum_{time}_{n}",
         )
-
-    def get_fragment_sell_var(self, time: DateTime, n: int):
-        """
-        Return the *n*-th sell fragment variable at *time*.
-
-        :param time: The timestep
-        :type time: DateTime
-        :param n: Fragment index
-        :type n: int
-        """
-        return self._model.get_variable(self._sell_n_key(time, n))
-
-    def get_fragment_buy_var(self, time: DateTime, n: int):
-        """
-        Return the *n*-th buy fragment variable at *time*.
-
-        :param time: The timestep
-        :type time: DateTime
-        :param n: Fragment index
-        :type n: int
-        """
-        return self._model.get_variable(self._buy_n_key(time, n))
 
     def add_storage_level_evolution(
         self, model: OptimisationModel, time: DateTime, parameters: AbstractModuleParameters
@@ -175,9 +144,10 @@ class StorageDispatch:
         max_energy_prev = eq.maximum_energy.get_value(prev_time)
         energy_ratio = max_energy / max_energy_prev if max_energy_prev > 0 else 1.0
 
-        power_sell = self.power_level_sell_var.get_value(time)
-        power_buy = self.power_level_buy_var.get_value(time)
-        stored_energy = self.stored_energy_var.get_value(time)
+        power_sell = self.power_level_sell[time]
+        power_buy = self.power_level_buy[time]
+        stored_energy = self.stored_energy[time]
+        prev_stored_energy = self.stored_energy[prev_time]
 
         displacement = int(eq.displacement_energy.get_value(time)) if eq.displacement_energy else 0
         displacement_prev = int(eq.displacement_energy.get_value(prev_time)) if eq.displacement_energy else 0
@@ -189,17 +159,11 @@ class StorageDispatch:
             - (displacement - displacement_prev)
         )
 
-        if time == parameters.temporal.start_date:
-            model.add_constraint(
-                stored_energy == self._initial_stock * energy_ratio + energy_delta,
-                f"storage_level_evol_{time}_{n}",
-            )
-        else:
-            prev_stored_energy = self.stored_energy_var.get_value(prev_time)
-            model.add_constraint(
-                stored_energy == prev_stored_energy * energy_ratio + energy_delta,
-                f"storage_level_evol_{time}_{n}",
-            )
+        # at start_date, the previous stored energy is the fixed initial stock
+        model.add_constraint(
+            stored_energy == prev_stored_energy * energy_ratio + energy_delta,
+            f"storage_level_evol_{time}_{n}",
+        )
 
     def add_constraints(self, model: OptimisationModel, time: DateTime, parameters: AbstractModuleParameters) -> None:
         """
@@ -267,9 +231,8 @@ class StorageDispatch:
             )
 
         model.add_constraint(
-            sum(-self.power_level_buy_var.get_value(t) for t in time_window) * charge_eff * dt_h
-            == sum(self.power_level_sell_var.get_value(t) for t in time_window) * dt_h / discharge_eff
-            + displacement_delta,
+            sum(-self.power_level_buy[t] for t in time_window) * charge_eff * dt_h
+            == sum(self.power_level_sell[t] for t in time_window) * dt_h / discharge_eff + displacement_delta,
             f"cycle_balance_{eq.name}",
         )
 
@@ -306,12 +269,6 @@ class StorageDispatch:
     def name(self) -> str:
         return self._eq.name
 
-    def _sell_n_key(self, time: DateTime, n: int) -> str:
-        return f"{self._eq.name}_power_level_sell_n_{n}_{time}"
-
-    def _buy_n_key(self, time: DateTime, n: int) -> str:
-        return f"{self._eq.name}_power_level_buy_n_{n}_{time}"
-
     def _compute_initial_stock(self, parameters: AbstractModuleParameters) -> None:
         eq = self._eq
         temporal = parameters.temporal
@@ -332,40 +289,46 @@ class StorageDispatch:
         )
         self._initial_stock = forecast.get_value(prev) if len(forecast) > 0 else default
 
-    def _setup_state_variables(self, model: OptimisationModel) -> None:
+    def _declare_variables(self, model: OptimisationModel) -> None:
         eq = self._eq
         n = eq.name
+        nb = self._nb_fragments
+        self._model = model
 
-        self.power_level_sell_var = ModelVar(
-            getter=lambda time: model.get_variable(f"{n}_power_level_sell_{time}"),
-            setter=lambda time: model.add_continuous_variable(
-                f"{n}_power_level_sell_{time}", 0, eq.maximum_power.get_value(time)
-            ),
+        self.power_level_sell = model.add_temporal_variable(
+            f"{n}_power_level_sell", lower_bound=0, upper_bound=eq.maximum_power
         )
-        self.power_level_buy_var = ModelVar(
-            getter=lambda time: model.get_variable(f"{n}_power_level_buy_{time}"),
-            setter=lambda time: model.add_continuous_variable(
-                f"{n}_power_level_buy_{time}", eq.minimum_power.get_value(time), 0
-            ),
+        self.power_level_buy = model.add_temporal_variable(
+            f"{n}_power_level_buy", lower_bound=eq.minimum_power, upper_bound=0
         )
-        self.is_sell_var = ModelVar(
-            getter=lambda time: model.get_variable(f"{n}_is_sell_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"{n}_is_sell_{time}"),
+        self.is_sell = model.add_temporal_variable(f"{n}_is_sell", variable_type=VariableType.BOOLEAN)
+        self.stored_energy = model.add_temporal_variable(
+            f"{n}_stored_energy",
+            lower_bound=lambda time: eq.minimum_state_of_charge.get_value(time) * eq.maximum_energy.get_value(time),
+            upper_bound=eq.maximum_energy,
         )
-        self.stored_energy_var = ModelVar(
-            getter=lambda time: model.get_variable(f"{n}_stored_energy_{time}"),
-            setter=lambda time: model.add_continuous_variable(
-                f"{n}_stored_energy_{time}",
-                eq.minimum_state_of_charge.get_value(time) * eq.maximum_energy.get_value(time),
-                eq.maximum_energy.get_value(time),
-            ),
-        )
+        self.power_level_sell_n = [
+            model.add_temporal_variable(
+                f"{n}_power_level_sell_n_{i}",
+                lower_bound=0,
+                upper_bound=lambda time: eq.maximum_power.get_value(time) / nb,
+            )
+            for i in range(nb)
+        ]
+        self.power_level_buy_n = [
+            model.add_temporal_variable(
+                f"{n}_power_level_buy_n_{i}",
+                lower_bound=lambda time: eq.minimum_power.get_value(time) / nb,
+                upper_bound=0,
+            )
+            for i in range(nb)
+        ]
 
     def _add_sell_buy_separation(self, model: OptimisationModel, time: DateTime) -> None:
         n = self._eq.name
-        is_sell = self.is_sell_var.get_value(time)
-        power_sell = self.power_level_sell_var.get_value(time)
-        power_buy = self.power_level_buy_var.get_value(time)
+        is_sell = self.is_sell[time]
+        power_sell = self.power_level_sell[time]
+        power_buy = self.power_level_buy[time]
 
         model.add_constraint(power_sell <= self.effective_max_sell(time) * is_sell, f"relative_power_max_{time}_{n}")
         model.add_constraint(

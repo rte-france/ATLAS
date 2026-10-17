@@ -9,13 +9,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pendulum import DateTime
-
 from atlas.common.optimal_dispatch.reserves.handler import ReserveHandler
 from atlas.math.timeseries import Timeseries
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from pendulum import DateTime
+
     from atlas.common.optimal_dispatch.dispatch.thermal import ThermalDispatch
+    from atlas.solver.temporal_variable import Bound, TemporalVariable
 
 
 class ThermalReserveHandler(ReserveHandler):
@@ -39,6 +42,7 @@ class ThermalReserveHandler(ReserveHandler):
         self.feasible_automated_reserves_up_procured: Timeseries
         self.feasible_automated_reserves_down_procured: Timeseries
         self.automated_unsupplied_reserves: float = 0.0
+        self.relaxed_reserves: TemporalVariable = None  # type: ignore[assignment]
 
     def setup_reserve_forecasts(
         self,
@@ -65,15 +69,15 @@ class ThermalReserveHandler(ReserveHandler):
         self.feasible_automated_reserves_down_procured = feasible_auto_down
         self.automated_unsupplied_reserves = automated_unsupplied
 
-    def add_variables(self, time: DateTime, max_power: float, min_power: float) -> None:
-        m = self._require_model()
-        m.add_continuous_variable(self.var("reserves_up", time), 0, max_power)
-        m.add_continuous_variable(self.var("reserves_down", time), 0, max_power)
-        m.add_continuous_variable(self.var("unprovided_reserves_up", time), 0, max_power)
-        m.add_continuous_variable(self.var("unprovided_reserves_down", time), 0, max_power)
-        m.add_continuous_variable(self.var("relaxed_reserves", time), 0, min_power)
-        m.add_continuous_variable(self.var("automated_reserves_up", time), 0, self._maximum_automated)
-        m.add_continuous_variable(self.var("automated_reserves_down", time), 0, self._maximum_automated)
+    def add_variables(self, times: Iterable[DateTime], max_power: Bound, min_power: Bound) -> None:
+        times = list(times)
+        self.reserves_up = self._declare("reserves_up", times, 0, max_power)
+        self.reserves_down = self._declare("reserves_down", times, 0, max_power)
+        self.unprovided_reserves_up = self._declare("unprovided_reserves_up", times, 0, max_power)
+        self.unprovided_reserves_down = self._declare("unprovided_reserves_down", times, 0, max_power)
+        self.relaxed_reserves = self._declare("relaxed_reserves", times, 0, min_power)
+        self.automated_reserves_up = self._declare("automated_reserves_up", times, 0, self._maximum_automated)
+        self.automated_reserves_down = self._declare("automated_reserves_down", times, 0, self._maximum_automated)
 
     def add_fill_up_constraints(
         self,
@@ -102,13 +106,13 @@ class ThermalReserveHandler(ReserveHandler):
         :type epsilon: float
         """
         m = self._require_model()
-        ru = m.get_variable(self.var("reserves_up", time))
-        aru = m.get_variable(self.var("automated_reserves_up", time))
-        uru = m.get_variable(self.var("unprovided_reserves_up", time))
-        rd = m.get_variable(self.var("reserves_down", time))
-        ard = m.get_variable(self.var("automated_reserves_down", time))
-        urd = m.get_variable(self.var("unprovided_reserves_down", time))
-        rr = m.get_variable(self.var("relaxed_reserves", time))
+        ru = self.reserves_up[time]
+        aru = self.automated_reserves_up[time]
+        uru = self.unprovided_reserves_up[time]
+        rd = self.reserves_down[time]
+        ard = self.automated_reserves_down[time]
+        urd = self.unprovided_reserves_down[time]
+        rr = self.relaxed_reserves[time]
 
         n = self._name
         up_sum = power_var + ru + aru + uru
@@ -133,11 +137,11 @@ class ThermalReserveHandler(ReserveHandler):
         """
         m = self._require_model()
         d = self._dispatch
-        online_sum = d.on_up_var.get_value(time) + d.on_down_var.get_value(time)
+        online_sum = d.on_up[time] + d.on_down[time]
         if d.has_flat:
-            online_sum = online_sum + d.on_flat_var.get_value(time)
+            online_sum = online_sum + d.on_flat[time]
         m.add_constraint(
-            m.get_variable(self.var("relaxed_reserves", time)) <= min_power * (1 - online_sum),
+            self.relaxed_reserves[time] <= min_power * (1 - online_sum),
             f"relaxed_reserves_{time}_{self._name}",
         )
 
@@ -156,23 +160,23 @@ class ThermalReserveHandler(ReserveHandler):
         m = self._require_model()
         d = self._dispatch
 
-        unavailable = d.off_var.get_value(time)
+        unavailable = d.off[time]
         if d.has_start:
-            unavailable = unavailable + d.on_start_var.get_value(time)
+            unavailable = unavailable + d.on_start[time]
         if d.has_stop:
-            unavailable = unavailable + d.stop_var.get_value(time)
+            unavailable = unavailable + d.stop[time]
 
         n = self._name
-        aru = m.get_variable(self.var("automated_reserves_up", time))
-        ard = m.get_variable(self.var("automated_reserves_down", time))
+        aru = self.automated_reserves_up[time]
+        ard = self.automated_reserves_down[time]
         m.add_constraint(aru <= self._maximum_automated * (1 - unavailable), f"automated_reserves_up_max_{time}_{n}")
         m.add_constraint(ard <= self._maximum_automated * (1 - unavailable), f"automated_reserves_down_max_{time}_{n}")
 
         res_unavailable = unavailable
         if d.has_flat:
-            res_unavailable = res_unavailable + d.on_up_var.get_value(time) + d.on_down_var.get_value(time)
+            res_unavailable = res_unavailable + d.on_up[time] + d.on_down[time]
 
-        ru = m.get_variable(self.var("reserves_up", time))
-        rd = m.get_variable(self.var("reserves_down", time))
+        ru = self.reserves_up[time]
+        rd = self.reserves_down[time]
         m.add_constraint(ru <= max_power * (1 - res_unavailable), f"reserves_up_max_{time}_{n}")
         m.add_constraint(rd <= max_power * (1 - res_unavailable), f"reserves_down_max_{time}_{n}")

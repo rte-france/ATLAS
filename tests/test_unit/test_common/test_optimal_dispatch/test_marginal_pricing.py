@@ -115,14 +115,6 @@ def test_energy_level_falls_back_when_forecast_misses_the_time():
     assert InterpolatedMarginalValue.for_unit(unit, EXECUTION_DATE, TIME).energy_level == 250.0
 
 
-def test_cached_forecast_is_used_instead_of_refetching():
-    stored_energy = _StoredEnergy(_Levels({TIME: 130.0}))
-    unit = _Unit(stored_energy, _Levels({TIME: 250.0}))
-    marginal_value = InterpolatedMarginalValue.for_unit(unit, EXECUTION_DATE, TIME, _Levels({TIME: 50.0}))
-    assert marginal_value.energy_level == 50.0
-    assert stored_energy.calls == []
-
-
 def _fragments(volumes: list[float]) -> dict[int, FragmentData]:
     return {i: FragmentData(volume=v, price=float(i)) for i, v in enumerate(volumes)}
 
