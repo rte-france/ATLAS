@@ -32,34 +32,10 @@ class PortfolioOptimisationModel(OptimisationModel):
         self.parameters = parameters
         self._step = PortfolioStep(portfolio)
 
-    def _prefetch_equipment_forecasts(self) -> None:
-        """Pre-fetch forecasts for all equipment to avoid redundant get_forecast calls during model building."""
-        cfg.logger.debug("Pre-fetching forecasts for all equipment...")
-
-        for wind in self.portfolio.equipments.wind:
-            wind.prefetch_forecasts(self.parameters.temporal.execution_date)
-        for solar in self.portfolio.equipments.solar:
-            solar.prefetch_forecasts(self.parameters.temporal.execution_date)
-        for load in [*self.portfolio.equipments.dispatchable_load, *self.portfolio.equipments.non_dispatchable_load]:
-            load.prefetch_forecasts(self.parameters.temporal.execution_date)
-
-        for hydro in self.portfolio.equipments.hydro:
-            hydro.prefetch_forecasts(
-                self.parameters.temporal.execution_date,
-                self.parameters.temporal.timestep,
-                self.parameters.temporal.start_date,
-            )
-
-        for storage in self.portfolio.equipments.storage:
-            storage.prefetch_forecasts(self.parameters.temporal.execution_date, self.parameters.init_battery_time)
-
-        cfg.logger.debug("Completed pre-fetching forecasts.")
-
     def build(self) -> None:
         """Build the optimization model by adding variables, constraints, and objectives."""
         cfg.logger.info(f"Building optimisation model for portfolio: {self.portfolio.name} ..")
 
-        self._prefetch_equipment_forecasts()
         self._step.add_variables(self, self.parameters)
         self._step.add_constraints(self, self.parameters)
         self._step.add_objective(self, self.parameters)
