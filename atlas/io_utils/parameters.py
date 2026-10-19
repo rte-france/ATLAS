@@ -8,20 +8,21 @@ from __future__ import annotations
 
 import copy
 import json
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Self
+from typing import Self, TypeVar
 
 import yaml
 from pendulum import duration
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.enums import SolverEnum
-from atlas.io_utils.utils import deep_update
+from atlas.io_utils.utils import FrozenBaseModel, deep_update
 from atlas.validators import DurationField
 
 
-class Parameters(BaseModel):
+class Parameters(FrozenBaseModel):
     """A class to parse parameters from a YAML or JSON file."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
@@ -65,8 +66,8 @@ class Parameters(BaseModel):
         if parameters is None:
             parameters = {}
 
-        parameters = context.apply_on_dict(parameters)
-        return cls(**parameters)
+        contextualized_parameters = context.apply_on_dict(parameters)
+        return cls(**contextualized_parameters)
 
     @staticmethod
     def _parse_yaml(file_path: str | Path) -> dict:
@@ -91,7 +92,7 @@ class Parameters(BaseModel):
             return json.load(file)
 
 
-class DateParameters(BaseModel):
+class DateParameters(FrozenBaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     start_date: DateTime
@@ -118,7 +119,7 @@ class DateParameters(BaseModel):
         return self
 
 
-class SolverParameters(BaseModel):
+class SolverParameters(FrozenBaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     solver_name: SolverEnum = SolverEnum.XPRESS
@@ -130,60 +131,101 @@ class SolverParameters(BaseModel):
     )
 
 
-class MultiProcessingParameters(BaseModel):
+class MultiProcessingParameters(FrozenBaseModel):
     enable: bool = False
     max_workers: int | None = None
 
 
-class OutputParameters(BaseModel):
-    export_result: bool = False
-    export_output_dataset: bool = False
-    output_dir: Path = Path("output")
+@dataclass(frozen=True)
+class RunPaths:
+    """Directory layout produced by a single module execution.
+
+    Owns the sub-directory names of a run tree so that no call site has to spell
+    them out. ``root`` is expected to be already resolved by the caller.
+
+    :param root: Root directory of the run.
+    :type root: pathlib.Path
+
+    Example::
+
+        >>> paths = RunPaths(Path("output"))
+        >>> paths.results
+        PosixPath('output/results')
+    """
+
+    root: Path
+
+    @property
+    def results(self) -> Path:
+        """Directory holding the business CSVs produced by the module."""
+        return self.root / "results"
+
+    @property
+    def dataset(self) -> Path:
+        """Directory holding the serialized dataset produced by the module."""
+        return self.root / "output_dataset"
+
+    @property
+    def lp_export(self) -> Path:
+        """Directory holding the LP files exported by the solver."""
+        return self.root / "lp_export"
 
 
-class ContextParameters(BaseModel):
+class ExportParameters(FrozenBaseModel):
+    """What a module writes to disk, and where.
+
+    :param export_results: If True, write the module's business CSVs.
+    :type export_results: bool
+    :param export_dataset: If True, serialize the dataset produced by the module.
+    :type export_dataset: bool
+    :param run_dir: Root directory of the run tree for this module execution.
+    :type run_dir: pathlib.Path
+    """
+
+    export_results: bool = False
+    export_dataset: bool = False
+    run_dir: Path = Path("output")
+
+
+PT = TypeVar("PT", bound=Parameters)
+
+
+class ContextParameters(FrozenBaseModel):
     """A context contains values to use as default or to forced on corresponding parameters."""
 
     default: dict = Field(default_factory=lambda: {})
     forced: dict = Field(default_factory=lambda: {})
 
-    def apply(self, context: ContextParameters, inplace: bool = True) -> ContextParameters:
+    def apply(self, context: ContextParameters) -> ContextParameters:
         """
-        Override any value in this context that are also present in given context.
+        Return a validated copy with the given fields replaced.
         :param context: context to use for this parameter
         :type context: ContextParameters
-        :param inplace: If True, modifies this object. If False, returns a deep copy with modified attributes.
-        :type inplace: bool
         """
-        updated_default = deep_update(self.default, context.default, override=True, inplace=inplace)
-        updated_forced = deep_update(self.forced, context.forced, override=True, inplace=inplace)
-        return self if inplace else ContextParameters(default=updated_default, forced=updated_forced)
+        updated_default = deep_update(self.default, context.default, override=True, inplace=False)
+        updated_forced = deep_update(self.forced, context.forced, override=True, inplace=False)
+        return ContextParameters(default=updated_default, forced=updated_forced)
 
-    def apply_on_dict(self, base: dict, inplace: bool = False) -> dict:
+    def apply_on_dict(self, base: dict) -> dict:
         """
-        Return the resulting dictionary obtained by applying this context to the given dictionary,
-        return a deepcopy if inplace is False.
+        Return the resulting dictionary obtained by applying this context to the given dictionary.
         Any default value in this context will be added if not present in the dictionary.
         Override any forced value from this context that are also present in given dict.
         :param base: dictionary to use as base result
         :type base: dict
-        :param inplace: If True, modifies given dict. If False, returns a deep copy with modified attributes.
-        :type inplace: bool
         """
-        updated_dict = base if inplace else copy.deepcopy(base)
+        updated_dict = copy.deepcopy(base)
         deep_update(updated_dict, self.default, False)
         deep_update(updated_dict, self.forced, True)
         return updated_dict
 
-    def apply_on_parameters(self, parameter: Parameters, inplace: bool = False) -> Parameters:
+    def apply_on_parameters(self, parameter: PT) -> PT:
         """
-        Copy and update parameters based on this context, return a deepcopy if deepcopy is True.
+        Validate and return the resulting parameters obtained by applying this context to the given parameters.
         Any default value in this context will be added if value is None in the parameter.
         Override any forced value from this context that are also present in given parameter.
         :param parameter: parameter to copy and update using this context
         :type parameter: Parameters
-        :param inplace: If True, modifies given parameter. If False, returns a deep copy with modified attributes.
-        :type inplace: bool
         """
         # prune self.default to field that exist and value is None
         applicable_defaults = {
@@ -194,6 +236,6 @@ class ContextParameters(BaseModel):
         fields_to_update = {**applicable_defaults, **self.forced}
 
         # prune fields_to_update to field that exist
-        applicable_update = {k: v for k, v in fields_to_update if hasattr(parameter, k)}
+        applicable_update = {k: v for k, v in fields_to_update.items() if hasattr(parameter, k)}
 
-        return parameter.model_copy(update=applicable_update, deep=inplace)
+        return parameter.evolve(**applicable_update)

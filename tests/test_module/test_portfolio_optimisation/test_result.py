@@ -3,7 +3,7 @@
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Unit tests for PortfolioOptimisationOutputDataset: writing of the optimised schedules onto
+Unit tests for PortfolioOptimisationResult: writing of the optimised schedules onto
 portfolio and equipment objects, and emission of the resulting changesets.
 """
 
@@ -12,7 +12,6 @@ from unittest.mock import Mock
 import pendulum
 import pytest
 
-from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.enums import BusinessModelName, ThermalDispatchState
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
@@ -22,7 +21,8 @@ from atlas.modules.portfolio_optimisation.input_objects.portfolio_equipments imp
 from atlas.modules.portfolio_optimisation.input_objects.solar import SolarPO
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
 from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
-from atlas.modules.portfolio_optimisation.output_dataset import PortfolioOptimisationOutputDataset
+from atlas.modules.portfolio_optimisation.result import PortfolioOptimisationResult
+from atlas.modules.portfolio_optimisation.utils.orchestration import SinglePortfolioResult
 from atlas.objects.network.node import Node
 from atlas.objects.network_operator.control_block import ControlBlock
 
@@ -42,26 +42,31 @@ def _parameters(*, is_portfolio_bidding: bool = True, use_forecast: bool = False
     parameters.is_portfolio_bidding = is_portfolio_bidding
     parameters.use_forecast = use_forecast
     parameters.allowed_round_off_error = 0.01
-    parameters.target_times = TARGET_TIMES
+    parameters.portfolio_time_window = TARGET_TIMES
     parameters.temporal.timestep = TIMESTEP
     parameters.temporal.execution_date = EXECUTION_DATE
     return parameters
 
 
-def _result(portfolio: PortfolioPO, variable_values: dict[str, float], is_manual_activation: bool = False) -> Mock:
-    result = Mock()
-    result.portfolio = portfolio
-    result.is_manual_activation = is_manual_activation
-    result.get_variable_value.side_effect = lambda name: variable_values.get(name, 0.0)
-    return result
+#: Temporal variables every solution of the test portfolio holds; thermal state indicators are optional.
+SOLVED_VARIABLES = [
+    "th_power_level",
+    "st_power_level_sell",
+    "st_power_level_buy",
+    "st_stored_energy",
+    "so_power_level",
+    *(f"pf_{size}_imbalance_{direction}" for size in ("small", "large") for direction in ("up", "down")),
+]
 
 
-@pytest.fixture(autouse=True)
-def _isolate_change_sets():
-    """AbstractModuleOutput.change_sets is a class-level list shared by every output instance."""
-    AbstractModuleOutput.change_sets = []
-    yield
-    AbstractModuleOutput.change_sets = []
+def _result(
+    portfolio: PortfolioPO, solution: dict[str, Timeseries], is_manual_activation: bool = False
+) -> SinglePortfolioResult:
+    """Build a solved result, every variable of the portfolio not in *solution* being zero."""
+    zeros = {name: _timeseries([0.0] * len(TARGET_TIMES)) for name in SOLVED_VARIABLES}
+    return SinglePortfolioResult(
+        portfolio=portfolio, solution_info=None, solution=zeros | solution, is_manual_activation=is_manual_activation
+    )
 
 
 @pytest.fixture
@@ -84,6 +89,10 @@ def portfolio() -> PortfolioPO:
             maximum_fcr=0.0,
             maximum_afrr=0.0,
             maximum_power=power_curve,
+            minimum_power=_timeseries([0.0, 0.0, 0.0]),
+            minimum_time_on=pendulum.duration(hours=0),
+            minimum_time_off=pendulum.duration(hours=0),
+            minimum_stable_power_duration=pendulum.duration(hours=0),
             variable_cost=power_curve,
         ),
     )
@@ -102,6 +111,7 @@ def portfolio() -> PortfolioPO:
             discharge_efficiency=1.0,
             charge_efficiency=1.0,
             maximum_energy=power_curve,
+            storage_initial_level=0.0,
             additional_hours=pendulum.duration(hours=0),
         ),
     )
@@ -134,9 +144,9 @@ def _forecast_values(matrix: ForecastingMatrix) -> list[float]:
 
 class TestEquipmentSchedules:
     def test_writes_thermal_power_and_state_sequence(self, portfolio):
-        values = {f"th_power_level_{time}": 50.0 for time in TARGET_TIMES}
-        values |= {f"on_flat_th_{time}": 1 for time in TARGET_TIMES}
-        dataset = PortfolioOptimisationOutputDataset(_parameters(), [_result(portfolio, values)])
+        values = {"th_power_level": _timeseries([50.0] * len(TARGET_TIMES))}
+        values |= {"on_flat_th": _timeseries([1] * len(TARGET_TIMES))}
+        dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values)])
 
         dataset.update_equipments()
 
@@ -148,9 +158,9 @@ class TestEquipmentSchedules:
         )
 
     def test_writes_storage_power_and_stored_energy(self, portfolio):
-        values = {f"st_power_level_sell_{time}": 20.0 for time in TARGET_TIMES}
-        values |= {f"st_stored_energy_{time}": 80.0 for time in TARGET_TIMES}
-        dataset = PortfolioOptimisationOutputDataset(_parameters(), [_result(portfolio, values)])
+        values = {"st_power_level_sell": _timeseries([20.0] * len(TARGET_TIMES))}
+        values |= {"st_stored_energy": _timeseries([80.0] * len(TARGET_TIMES))}
+        dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values)])
 
         dataset.update_equipments()
 
@@ -161,8 +171,8 @@ class TestEquipmentSchedules:
     def test_overwrites_an_execution_date_already_present(self, portfolio):
         solar = _equipment_by_name(portfolio, "so")
         solar.power = ForecastingMatrix().add(_timeseries([1.0, 1.0, 1.0]), EXECUTION_DATE)
-        values = {f"so_power_level_{time}": 9.0 for time in TARGET_TIMES}
-        dataset = PortfolioOptimisationOutputDataset(_parameters(), [_result(portfolio, values)])
+        values = {"so_power_level": _timeseries([9.0] * len(TARGET_TIMES))}
+        dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values)])
 
         dataset.update_equipments()
 
@@ -172,10 +182,10 @@ class TestEquipmentSchedules:
 
 class TestForecastMode:
     def test_routes_power_to_id_po_for_orders_and_spares_the_committed_schedules(self, portfolio):
-        values = {f"so_power_level_{time}": 7.0 for time in TARGET_TIMES}
-        values |= {f"st_stored_energy_{time}": 80.0 for time in TARGET_TIMES}
-        values |= {f"on_up_th_{time}": 1 for time in TARGET_TIMES}
-        dataset = PortfolioOptimisationOutputDataset(_parameters(use_forecast=True), [_result(portfolio, values)])
+        values = {"so_power_level": _timeseries([7.0] * len(TARGET_TIMES))}
+        values |= {"st_stored_energy": _timeseries([80.0] * len(TARGET_TIMES))}
+        values |= {"on_up_th": _timeseries([1] * len(TARGET_TIMES))}
+        dataset = PortfolioOptimisationResult(_parameters(use_forecast=True), [_result(portfolio, values)])
 
         dataset.update_equipments()
 
@@ -188,19 +198,19 @@ class TestForecastMode:
 
 class TestPortfolioLevel:
     def test_imbalance_is_positive_when_short(self, portfolio):
-        values = {f"pf_large_imbalance_down_{time}": 10.0 for time in TARGET_TIMES}
-        values |= {f"pf_small_imbalance_up_{time}": 4.0 for time in TARGET_TIMES}
-        dataset = PortfolioOptimisationOutputDataset(_parameters(), [_result(portfolio, values)])
+        values = {"pf_large_imbalance_down": _timeseries([10.0] * len(TARGET_TIMES))}
+        values |= {"pf_small_imbalance_up": _timeseries([4.0] * len(TARGET_TIMES))}
+        dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values)])
 
         dataset.update_portfolios()
 
         assert _forecast_values(portfolio.imbalance) == [6.0, 6.0, 6.0]
 
     def test_power_sums_the_equipment_schedules(self, portfolio):
-        values = {f"th_power_level_{time}": 50.0 for time in TARGET_TIMES}
-        values |= {f"so_power_level_{time}": 5.0 for time in TARGET_TIMES}
-        values |= {f"st_power_level_sell_{time}": 20.0 for time in TARGET_TIMES}
-        dataset = PortfolioOptimisationOutputDataset(_parameters(), [_result(portfolio, values)])
+        values = {"th_power_level": _timeseries([50.0] * len(TARGET_TIMES))}
+        values |= {"so_power_level": _timeseries([5.0] * len(TARGET_TIMES))}
+        values |= {"st_power_level_sell": _timeseries([20.0] * len(TARGET_TIMES))}
+        dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values)])
 
         dataset.update_equipments()
         dataset.update_portfolios()
@@ -211,52 +221,48 @@ class TestPortfolioLevel:
 class TestIndividualEquipmentMode:
     def test_writes_equipment_schedules_but_nothing_at_portfolio_level(self, portfolio):
         """Individual mode optimises one equipment per synthetic portfolio; results must land."""
-        values = {f"so_power_level_{time}": 12.0 for time in TARGET_TIMES}
-        dataset = PortfolioOptimisationOutputDataset(
-            _parameters(is_portfolio_bidding=False), [_result(portfolio, values)]
-        )
+        values = {"so_power_level": _timeseries([12.0] * len(TARGET_TIMES))}
+        dataset = PortfolioOptimisationResult(_parameters(is_portfolio_bidding=False), [_result(portfolio, values)])
 
-        dataset.build_change_sets()
+        change_sets = dataset.build_change_sets()
 
         assert _forecast_values(_equipment_by_name(portfolio, "so").power) == [12.0, 12.0, 12.0]
         assert portfolio.imbalance is None
         assert portfolio.power is None
-        model_types = [change_set.model_type for change_set in dataset.change_sets]
+        model_types = [change_set.model_type for change_set in change_sets]
         assert BusinessModelName.PORTFOLIO not in model_types
         assert BusinessModelName.SOLAR in model_types
 
 
 class TestManualActivation:
     def test_leaves_schedules_alone_and_emits_no_portfolio_changeset(self, portfolio):
-        values = {f"so_power_level_{time}": 12.0 for time in TARGET_TIMES}
-        dataset = PortfolioOptimisationOutputDataset(
-            _parameters(), [_result(portfolio, values, is_manual_activation=True)]
-        )
+        values = {"so_power_level": _timeseries([12.0] * len(TARGET_TIMES))}
+        dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values, is_manual_activation=True)])
 
-        dataset.build_change_sets()
+        change_sets = dataset.build_change_sets()
 
         assert _equipment_by_name(portfolio, "so").power is None
-        model_types = [change_set.model_type for change_set in dataset.change_sets]
+        model_types = [change_set.model_type for change_set in change_sets]
         assert BusinessModelName.PORTFOLIO not in model_types
         assert BusinessModelName.THERMAL in model_types
 
 
 class TestChangeSets:
     def test_emits_one_changeset_per_object(self, portfolio):
-        dataset = PortfolioOptimisationOutputDataset(_parameters(), [_result(portfolio, {})])
+        dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, {})])
 
-        dataset.build_change_sets()
+        change_sets = dataset.build_change_sets()
 
-        assert len(dataset.change_sets) == 4  # one portfolio + three equipments
+        assert len(change_sets) == 4  # one portfolio + three equipments
 
     def test_payload_carries_the_optimised_attributes(self, portfolio):
-        values = {f"st_power_level_sell_{time}": 20.0 for time in TARGET_TIMES}
-        dataset = PortfolioOptimisationOutputDataset(_parameters(), [_result(portfolio, values)])
+        values = {"st_power_level_sell": _timeseries([20.0] * len(TARGET_TIMES))}
+        dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values)])
 
-        dataset.build_change_sets()
+        change_sets = dataset.build_change_sets()
 
         storage_change_set = next(
-            change_set for change_set in dataset.change_sets if change_set.model_type == BusinessModelName.STORAGE
+            change_set for change_set in change_sets if change_set.model_type == BusinessModelName.STORAGE
         )
         assert storage_change_set.data["name"] == "st"
         assert _forecast_values(storage_change_set.data["power"]) == [20.0, 20.0, 20.0]

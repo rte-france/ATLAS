@@ -66,8 +66,8 @@ class TestStorageDAOStep:
         model, step, time_window = _build_model(storage, storage_parameters)
         time = time_window[0]
 
-        buy = step.dispatch.power_level_buy_var.get_value(time)
-        sell = step.dispatch.power_level_sell_var.get_value(time)
+        buy = step.dispatch.power_level_buy[time]
+        sell = step.dispatch.power_level_sell[time]
 
         assert buy.lb() == storage.minimum_power.get_value(time) < 0
         assert buy.ub() == 0
@@ -81,8 +81,8 @@ class TestStorageDAOStep:
         time = time_window[0]
 
         for n in range(NB_FRAGMENTS):
-            sell_n = step.dispatch.get_fragment_sell_var(time, n)
-            buy_n = step.dispatch.get_fragment_buy_var(time, n)
+            sell_n = step.dispatch.power_level_sell_n[n][time]
+            buy_n = step.dispatch.power_level_buy_n[n][time]
             assert sell_n.ub() == pytest.approx(storage.maximum_power.get_value(time) / NB_FRAGMENTS)
             assert buy_n.lb() == pytest.approx(storage.minimum_power.get_value(time) / NB_FRAGMENTS)
 

@@ -82,14 +82,8 @@ class StorageDAOStep(AbstractOptimStep[StorageDAO, "DayAheadOrdersParameters"]):
         self._smoothing_factor = smoothing_factor
 
     def add_variables(self, model: OptimisationModel, parameters: DayAheadOrdersParameters) -> None:
-        eq = self.equipment
         self.dispatch.setup(model, parameters, self._nb_fragments)
-
-        for time in self._time_window:
-            self.dispatch.add_variables(time)
-            self.dispatch.add_fragment_variables(
-                time, eq.maximum_power.get_value(time), eq.minimum_power.get_value(time)
-            )
+        self.dispatch.add_variables(self._time_window)
 
     def add_constraints(self, model: OptimisationModel, parameters: DayAheadOrdersParameters) -> None:
         eq = self.equipment
@@ -101,8 +95,8 @@ class StorageDAOStep(AbstractOptimStep[StorageDAO, "DayAheadOrdersParameters"]):
                 self.dispatch.add_sell_buy_separation(model, time)
             self.dispatch.add_fragment_sum_constraints(
                 time,
-                self.dispatch.power_level_sell_var.get_value(time),
-                self.dispatch.power_level_buy_var.get_value(time),
+                self.dispatch.power_level_sell[time],
+                self.dispatch.power_level_buy[time],
             )
 
         if is_ev:
@@ -130,8 +124,8 @@ class StorageDAOStep(AbstractOptimStep[StorageDAO, "DayAheadOrdersParameters"]):
         for time in self._time_window:
             price = prices.get(time, 0.0)
             for n in range(nb):
-                sell_n = self.dispatch.get_fragment_sell_var(time, n)
-                buy_n = self.dispatch.get_fragment_buy_var(time, n)
+                sell_n = self.dispatch.power_level_sell_n[n][time]
+                buy_n = self.dispatch.power_level_buy_n[n][time]
                 if nb == 1:
                     model.add_objective(price * (sell_n + buy_n) * dt_h)
                 else:
@@ -158,7 +152,7 @@ class StorageDAOStep(AbstractOptimStep[StorageDAO, "DayAheadOrdersParameters"]):
         ) * parameters.ev_energy_coef
 
         model.add_constraint(
-            sum(-self.dispatch.power_level_buy_var.get_value(time) for time in self._time_window) * eq.charge_efficiency
+            sum(-self.dispatch.power_level_buy[time] for time in self._time_window) * eq.charge_efficiency
             >= required_energy,
             f"DisplacementEnergy_compensation_for_{eq.name}",
         )
@@ -181,66 +175,62 @@ def optimize_single_storage(
     :type parameters: DayAheadOrdersParameters
     :param local_timewindow: Timesteps of the day-ahead delivery window
     :type local_timewindow: list[DateTime]
-    :return: Solved volumes, or ``None`` when the unit is skipped or the solve fails
+    :return: Solved volumes, or ``None`` when the unit is skipped (no capacity over the
+        delivery window). A failed optimisation raises instead of being reported here.
     :rtype: StorageOptimisationResult | None
+    :raises ValueError: if the unit has an unsupported storage type
     """
-    try:
-        if storage.maximum_energy.filter(item=local_timewindow, inplace=False).max() <= 0:
-            cfg.logger.debug(f"Equipment {storage.name} avoided, as its maximum_energy is 0")
-            return None
-
-        settings = _fragment_settings(storage, parameters)
-        if settings is None:
-            cfg.logger.error(f"equipment {storage.name} has an unsupported storage type {storage.storage_type}")
-            return None
-        nb_fragments, smoothing_factor = settings
-
-        cfg.logger.debug(f"Optimizing storage equipment {storage.name}")
-
-        # the unit optimises over a horizon extended by its own lookahead, so that the orders it
-        # submits for the delivery day account for what it will need on the following hours
-        time_window = generate_datetimes(
-            parameters.temporal.start_date,
-            parameters.temporal.end_date + storage.additional_hours - parameters.temporal.timestep,
-            parameters.temporal.timestep,
-        )
-
-        model = OptimisationModel(
-            parameters.solver.solver_name,
-            f"Optimization of the storage unit {storage.name}",
-            SolverOptions(
-                presolve=parameters.solver.use_presolve,
-                duality_gap=parameters.solver.duality_gap,
-                time_limit=parameters.solver.timeout,
-            ),
-        )
-        model.set_direction("maximize")
-
-        step = StorageDAOStep(storage, time_window, nb_fragments, smoothing_factor)
-        step.add_variables(model, parameters)
-        step.add_constraints(model, parameters)
-        step.add_objective(model, parameters, _price_forecasts(storage, time_window, parameters))
-
-        if parameters.solver.export_lp:
-            lp_dir = parameters.get_lp_dir()
-            lp_dir.mkdir(parents=True, exist_ok=True)
-            model.export_model(lp_dir / f"storage_{storage.name}.lp")
-
-        model.solve()
-
-        result = StorageOptimisationResult()
-        for time in time_window:
-            if time >= parameters.temporal.end_date:
-                break
-            result.sell_volumes[time] = round(step.dispatch.power_level_sell_var.get_value(time).solution_value(), 2)
-            # buy power is negative in the dispatch convention, orders are expressed as positive volumes
-            result.buy_volumes[time] = round(-step.dispatch.power_level_buy_var.get_value(time).solution_value(), 2)
-
-        return result
-
-    except Exception as e:
-        cfg.logger.error(f"Optimization failed for storage {storage.name}: {e}")
+    if storage.maximum_energy.filter(item=local_timewindow, inplace=False).max() <= 0:
+        cfg.logger.debug(f"Equipment {storage.name} avoided, as its maximum_energy is 0")
         return None
+
+    settings = _fragment_settings(storage, parameters)
+    if settings is None:
+        raise ValueError(f"Unsupported storage type {storage.storage_type} for unit {storage.name}")
+    nb_fragments, smoothing_factor = settings
+
+    cfg.logger.debug(f"Optimizing storage equipment {storage.name}")
+
+    # the unit optimises over a horizon extended by its own lookahead, so that the orders it
+    # submits for the delivery day account for what it will need on the following hours
+    time_window = generate_datetimes(
+        parameters.temporal.start_date,
+        parameters.temporal.end_date + storage.additional_hours - parameters.temporal.timestep,
+        parameters.temporal.timestep,
+    )
+
+    model = OptimisationModel(
+        parameters.solver.solver_name,
+        f"Optimization of the storage unit {storage.name}",
+        SolverOptions(
+            presolve=parameters.solver.use_presolve,
+            duality_gap=parameters.solver.duality_gap,
+            time_limit=parameters.solver.timeout,
+        ),
+    )
+    model.set_direction("maximize")
+
+    step = StorageDAOStep(storage, time_window, nb_fragments, smoothing_factor)
+    step.add_variables(model, parameters)
+    step.add_constraints(model, parameters)
+    step.add_objective(model, parameters, _price_forecasts(storage, time_window, parameters))
+
+    if parameters.solver.export_lp:
+        lp_dir = parameters.lp_dir
+        lp_dir.mkdir(parents=True, exist_ok=True)
+        model.export_model(lp_dir / f"storage_{storage.name}.lp")
+
+    model.solve()
+
+    result = StorageOptimisationResult()
+    for time in time_window:
+        if time >= parameters.temporal.end_date:
+            break
+        result.sell_volumes[time] = round(step.dispatch.power_level_sell.solution_value(time), 2)
+        # buy power is negative in the dispatch convention, orders are expressed as positive volumes
+        result.buy_volumes[time] = round(-step.dispatch.power_level_buy.solution_value(time), 2)
+
+    return result
 
 
 def _fragment_settings(storage: StorageDAO, parameters: DayAheadOrdersParameters) -> tuple[int, float] | None:

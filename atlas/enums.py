@@ -249,6 +249,20 @@ class SolverEnum(StrEnum):
     HIGHS = "HIGHS"
 
 
+class VariableType(StrEnum):
+    """
+    Enumeration of optimisation variable types.
+
+    :cvar CONTINUOUS: Continuous variable.
+    :cvar INTEGER: Integer variable.
+    :cvar BOOLEAN: Boolean variable.
+    """
+
+    CONTINUOUS = "continuous"
+    INTEGER = "integer"
+    BOOLEAN = "boolean"
+
+
 ENUM_TYPE_MAPPING = {
     "LoadType": LoadType,
     "StorageType": StorageType,

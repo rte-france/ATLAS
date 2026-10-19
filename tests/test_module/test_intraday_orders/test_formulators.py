@@ -115,8 +115,9 @@ LOAD_EQUIPMENT = {"a_baseload", "a_power_to_gas_1", "b_baseload", "b_power_to_ga
 
 class TestLoadFormulator:
     @pytest.fixture(scope="class")
-    def result(self, formulator_output_dataset, formulator_parameters) -> FormulatorResult:
-        equipments = formulator_output_dataset.load
+    @classmethod
+    def result(cls, formulator_result, formulator_parameters) -> FormulatorResult:
+        equipments = formulator_result.load
         return LoadOrdersFormulator().formulate(equipments, _orders_time(formulator_parameters), formulator_parameters)
 
     def test_orders_match_expected(self, result, expected_orders):
@@ -139,8 +140,9 @@ NON_DISPATCHABLE_EQUIPMENT = {"a_other_non_dispatchable", "b_other_non_dispatcha
 
 class TestNonDispatchableFormulator:
     @pytest.fixture(scope="class")
-    def result(self, formulator_output_dataset, formulator_parameters) -> FormulatorResult:
-        equipments = formulator_output_dataset.other_non_dispatchable
+    @classmethod
+    def result(cls, formulator_result, formulator_parameters) -> FormulatorResult:
+        equipments = formulator_result.other_non_dispatchable
         return NonDispatchableOrdersFormulator().formulate(
             equipments, _orders_time(formulator_parameters), formulator_parameters
         )
@@ -165,8 +167,9 @@ WIND_EQUIPMENT = {"a_wind_1", "b_wind_1"}
 
 class TestWindFormulator:
     @pytest.fixture(scope="class")
-    def result(self, formulator_output_dataset, formulator_parameters) -> FormulatorResult:
-        equipments = formulator_output_dataset.wind
+    @classmethod
+    def result(cls, formulator_result, formulator_parameters) -> FormulatorResult:
+        equipments = formulator_result.wind
         return WindOrdersFormulator().formulate(equipments, _orders_time(formulator_parameters), formulator_parameters)
 
     def test_orders_match_expected(self, result, expected_orders):
@@ -189,8 +192,9 @@ SOLAR_EQUIPMENT = {"a_photovoltaic_1", "b_photovoltaic_1"}
 
 class TestSolarFormulator:
     @pytest.fixture(scope="class")
-    def result(self, formulator_output_dataset, formulator_parameters) -> FormulatorResult:
-        equipments = formulator_output_dataset.solar
+    @classmethod
+    def result(cls, formulator_result, formulator_parameters) -> FormulatorResult:
+        equipments = formulator_result.solar
         return SolarOrdersFormulator().formulate(equipments, _orders_time(formulator_parameters), formulator_parameters)
 
     def test_orders_match_expected(self, result, expected_orders):
@@ -213,8 +217,9 @@ HYDRO_EQUIPMENT = {"a_hydraulic", "b_hydraulic"}
 
 class TestHydroFormulator:
     @pytest.fixture(scope="class")
-    def result(self, formulator_output_dataset, formulator_parameters) -> FormulatorResult:
-        equipments = formulator_output_dataset.hydro
+    @classmethod
+    def result(cls, formulator_result, formulator_parameters) -> FormulatorResult:
+        equipments = formulator_result.hydro
         return HydroOrdersFormulator().formulate(equipments, _orders_time(formulator_parameters), formulator_parameters)
 
     def test_orders_match_expected(self, result, expected_orders):
@@ -237,8 +242,9 @@ STORAGE_EQUIPMENT = {"a_battery_1", "b_battery_1", "a_electric_vehicle_1", "b_el
 
 class TestStorageFormulator:
     @pytest.fixture(scope="class")
-    def result(self, formulator_output_dataset, formulator_parameters) -> FormulatorResult:
-        equipments = formulator_output_dataset.storage
+    @classmethod
+    def result(cls, formulator_result, formulator_parameters) -> FormulatorResult:
+        equipments = formulator_result.storage
         return StorageOrdersFormulator().formulate(
             equipments, _orders_time(formulator_parameters), formulator_parameters
         )
@@ -270,11 +276,10 @@ THERMAL_BASE_INTERMEDIATE_EQUIPMENT = {
 
 class TestThermalBaseIntermediateFormulator:
     @pytest.fixture(scope="class")
-    def result(self, formulator_output_dataset, formulator_parameters) -> FormulatorResult:
+    @classmethod
+    def result(cls, formulator_result, formulator_parameters) -> FormulatorResult:
         equipments = [
-            t
-            for t in formulator_output_dataset.thermal
-            if t.strategy in (ThermalStrategy.BASE, ThermalStrategy.INTERMEDIATE)
+            t for t in formulator_result.thermal if t.strategy in (ThermalStrategy.BASE, ThermalStrategy.INTERMEDIATE)
         ]
         return ThermalOrdersFormulator().formulate(
             equipments, _orders_time(formulator_parameters), formulator_parameters
@@ -301,8 +306,9 @@ THERMAL_PEAK_EQUIPMENT = {"a_thermal_peak_1", "b_thermal_peak_1"}
 
 class TestThermalPeakFormulator:
     @pytest.fixture(scope="class")
-    def result(self, formulator_output_dataset, formulator_parameters) -> FormulatorResult:
-        equipments = [t for t in formulator_output_dataset.thermal if t.strategy == ThermalStrategy.PEAK]
+    @classmethod
+    def result(cls, formulator_result, formulator_parameters) -> FormulatorResult:
+        equipments = [t for t in formulator_result.thermal if t.strategy == ThermalStrategy.PEAK]
         return ThermalOrdersFormulator().formulate(
             equipments, _orders_time(formulator_parameters), formulator_parameters
         )

@@ -34,14 +34,11 @@ class ThermalBiddingStep(AbstractOrderStep):
             self.parameters,
             label="thermal",
         ):
-            if unit_result.success:
-                result.orders.extend(unit_result.orders)
-                result.order_couplings.extend(unit_result.order_couplings)
-                cfg.logger.info(
-                    f"Completed order formulation for thermal unit: {thermal.name} ({unit_result.strategy.value})"
-                )
-            else:
-                cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal.name}")
+            result.orders.extend(unit_result.orders)
+            result.order_couplings.extend(unit_result.order_couplings)
+            cfg.logger.info(
+                f"Completed order formulation for thermal unit: {thermal.name} ({unit_result.strategy.value})"
+            )
 
         cfg.logger.info("Computing maximum sell volumes...")
         self._compute_da_sell_submitted_volume(result)

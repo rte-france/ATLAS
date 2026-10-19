@@ -132,7 +132,12 @@ class TestThermalDispatchCombinations:
     def test_combination_2_stop_only(self, node, portfolio, power_ts, min_power_ts, parameters, model):
         assert (
             self._combination(
-                node, portfolio, power_ts, min_power_ts, parameters, model,
+                node,
+                portfolio,
+                power_ts,
+                min_power_ts,
+                parameters,
+                model,
                 shutdown_duration=pendulum.duration(hours=2),
             )
             == 2
@@ -141,7 +146,12 @@ class TestThermalDispatchCombinations:
     def test_combination_3_flat_only(self, node, portfolio, power_ts, min_power_ts, parameters, model):
         assert (
             self._combination(
-                node, portfolio, power_ts, min_power_ts, parameters, model,
+                node,
+                portfolio,
+                power_ts,
+                min_power_ts,
+                parameters,
+                model,
                 minimum_stable_power_duration=pendulum.duration(hours=3),
             )
             == 3
@@ -150,7 +160,12 @@ class TestThermalDispatchCombinations:
     def test_combination_4_start_only(self, node, portfolio, power_ts, min_power_ts, parameters, model):
         assert (
             self._combination(
-                node, portfolio, power_ts, min_power_ts, parameters, model,
+                node,
+                portfolio,
+                power_ts,
+                min_power_ts,
+                parameters,
+                model,
                 startup_duration=pendulum.duration(hours=2),
             )
             == 4
@@ -159,7 +174,12 @@ class TestThermalDispatchCombinations:
     def test_combination_5_stop_and_flat(self, node, portfolio, power_ts, min_power_ts, parameters, model):
         assert (
             self._combination(
-                node, portfolio, power_ts, min_power_ts, parameters, model,
+                node,
+                portfolio,
+                power_ts,
+                min_power_ts,
+                parameters,
+                model,
                 shutdown_duration=pendulum.duration(hours=2),
                 minimum_stable_power_duration=pendulum.duration(hours=3),
             )
@@ -169,7 +189,12 @@ class TestThermalDispatchCombinations:
     def test_combination_6_start_and_flat(self, node, portfolio, power_ts, min_power_ts, parameters, model):
         assert (
             self._combination(
-                node, portfolio, power_ts, min_power_ts, parameters, model,
+                node,
+                portfolio,
+                power_ts,
+                min_power_ts,
+                parameters,
+                model,
                 startup_duration=pendulum.duration(hours=2),
                 minimum_stable_power_duration=pendulum.duration(hours=3),
             )
@@ -179,7 +204,12 @@ class TestThermalDispatchCombinations:
     def test_combination_7_stop_and_start(self, node, portfolio, power_ts, min_power_ts, parameters, model):
         assert (
             self._combination(
-                node, portfolio, power_ts, min_power_ts, parameters, model,
+                node,
+                portfolio,
+                power_ts,
+                min_power_ts,
+                parameters,
+                model,
                 shutdown_duration=pendulum.duration(hours=2),
                 startup_duration=pendulum.duration(hours=2),
             )
@@ -189,7 +219,12 @@ class TestThermalDispatchCombinations:
     def test_combination_8_all_flags(self, node, portfolio, power_ts, min_power_ts, parameters, model):
         assert (
             self._combination(
-                node, portfolio, power_ts, min_power_ts, parameters, model,
+                node,
+                portfolio,
+                power_ts,
+                min_power_ts,
+                parameters,
+                model,
                 shutdown_duration=pendulum.duration(hours=2),
                 startup_duration=pendulum.duration(hours=2),
                 minimum_stable_power_duration=pendulum.duration(hours=3),
@@ -203,19 +238,43 @@ class TestThermalDispatchVariables:
         d = ThermalDispatch(comb1_equipment)
         d.setup(model, parameters)
 
-        assert d.power_level_var is not None
-        assert d.off_var is not None
-        assert d.on_up_var is not None
-        assert d.on_down_var is not None
+        assert d.power_level is not None
+        assert d.off is not None
+        assert d.on_up is not None
+        assert d.on_down is not None
         assert d.turned_on is not None
         assert d.turned_off is not None
+
+    def test_setup_fixes_day_zero_initial_conditions(self, comb1_equipment, model, parameters, start_date, timestep):
+        d = ThermalDispatch(comb1_equipment)
+        d.setup(model, parameters)
+        prev = start_date - timestep
+
+        # without a power forecast, the unit starts from an off state before the horizon
+        assert d.off.is_fixed(prev) and d.off[prev] == 1
+        assert d.power_level.is_fixed(prev) and d.power_level[prev] == 0
+        assert d.turned_on[prev] == 0 and d.turned_off[prev] == 0
+
+    def test_flat_variables_are_named_after_the_unit_then_the_time(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters, time_window
+    ):
+        eq = _make_equipment(
+            node, portfolio, power_ts, min_power_ts, minimum_stable_power_duration=pendulum.duration(hours=3)
+        )
+        d = ThermalDispatch(eq)
+        d.setup(model, parameters)
+        t = time_window[0]
+        d.add_variables([t])
+
+        for prefix in ("stable", "entered_up", "entered_down", "up_grad", "down_grad", "aux_up_grad", "aux_down_grad"):
+            assert f"{prefix}_{eq.name}_{t}" in model.variables
 
     def test_add_variables_creates_correct_names(self, comb1_equipment, model, parameters, time_window):
         d = ThermalDispatch(comb1_equipment)
         d.setup(model, parameters)
         n = comb1_equipment.name
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
 
         assert f"{n}_power_level_{t}" in model.variables
         assert f"off_{n}_{t}" in model.variables
@@ -228,7 +287,7 @@ class TestThermalDispatchVariables:
         d = ThermalDispatch(comb1_equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
 
         var = model.get_variable(f"{comb1_equipment.name}_power_level_{t}")
         assert var.lb() == 0
@@ -238,7 +297,7 @@ class TestThermalDispatchVariables:
         d = ThermalDispatch(comb1_equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
 
         var = model.get_variable(f"off_{comb1_equipment.name}_{t}")
         assert var.lb() == 0
@@ -248,46 +307,61 @@ class TestThermalDispatchVariables:
         d = ThermalDispatch(comb1_equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
 
         n = comb1_equipment.name
         assert f"on_start_{n}_{t}" not in model.variables
         assert f"stop_{n}_{t}" not in model.variables
         assert f"on_flat_{n}_{t}" not in model.variables
 
-    def test_stop_var_present_for_combination_2(self, node, portfolio, power_ts, min_power_ts, model, parameters, time_window):
+    def test_stop_var_present_for_combination_2(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters, time_window
+    ):
         eq = _make_equipment(
-            node, portfolio, power_ts, min_power_ts,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
             shutdown_duration=pendulum.duration(hours=2),
         )
         d = ThermalDispatch(eq)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
 
         assert f"stop_{eq.name}_{t}" in model.variables
 
-    def test_start_var_present_for_combination_4(self, node, portfolio, power_ts, min_power_ts, model, parameters, time_window):
+    def test_start_var_present_for_combination_4(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters, time_window
+    ):
         eq = _make_equipment(
-            node, portfolio, power_ts, min_power_ts,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
             startup_duration=pendulum.duration(hours=2),
         )
         d = ThermalDispatch(eq)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
 
         assert f"on_start_{eq.name}_{t}" in model.variables
 
-    def test_flat_var_present_for_combination_3(self, node, portfolio, power_ts, min_power_ts, model, parameters, time_window):
+    def test_flat_var_present_for_combination_3(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters, time_window
+    ):
         eq = _make_equipment(
-            node, portfolio, power_ts, min_power_ts,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
             minimum_stable_power_duration=pendulum.duration(hours=3),
         )
         d = ThermalDispatch(eq)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
 
         assert f"on_flat_{eq.name}_{t}" in model.variables
 
@@ -297,7 +371,7 @@ class TestThermalDispatchConstraints:
         d = ThermalDispatch(equipment)
         d.setup(model, parameters)
         for t in time_window:
-            d.add_variables(t)
+            d.add_variables([t])
         return d
 
     def test_mutual_exclusion_constraint_added(self, comb1_equipment, model, parameters, time_window):
@@ -380,7 +454,10 @@ class TestThermalDispatchConstraintsAcrossCombinations:
 
     def _build(self, node, portfolio, power_ts, min_power_ts, model, parameters, combination):
         eq = _make_equipment(
-            node, portfolio, power_ts, min_power_ts,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
             **REALISTIC_MIN_TIMES,
             **DURATION_BY_COMBINATION[combination],
         )
@@ -388,7 +465,7 @@ class TestThermalDispatchConstraintsAcrossCombinations:
         d.setup(model, parameters)
         window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
         for t in window:
-            d.add_variables(t)
+            d.add_variables([t])
         for t in window:
             d.add_constraints(model, t, parameters)
         return d
@@ -425,21 +502,24 @@ class TestThermalDispatchMinimumTimeConstraints:
         d.setup(model, parameters)
         window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
         for t in window:
-            d.add_variables(t)
+            d.add_variables([t])
         for t in window:
             d.add_constraints(model, t, parameters)
         return d
 
-    def test_zero_minimum_time_emits_no_constraint(
-        self, node, portfolio, power_ts, min_power_ts, model, parameters
-    ):
+    def test_zero_minimum_time_emits_no_constraint(self, node, portfolio, power_ts, min_power_ts, model, parameters):
         self._build(node, portfolio, power_ts, min_power_ts, model, parameters)
 
         assert not any("minimum_time_on" in c or "minimum_time_off" in c for c in model.constraints)
 
     def test_minimum_time_on_emits_constraints(self, node, portfolio, power_ts, min_power_ts, model, parameters):
         d = self._build(
-            node, portfolio, power_ts, min_power_ts, model, parameters,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            model,
+            parameters,
             minimum_time_on=pendulum.duration(hours=4),
         )
 
@@ -449,7 +529,12 @@ class TestThermalDispatchMinimumTimeConstraints:
 
     def test_minimum_time_off_emits_constraints(self, node, portfolio, power_ts, min_power_ts, model, parameters):
         d = self._build(
-            node, portfolio, power_ts, min_power_ts, model, parameters,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            model,
+            parameters,
             minimum_time_off=pendulum.duration(hours=2),
         )
 
@@ -473,7 +558,12 @@ class TestThermalDispatchSubTimestepDurations:
         self, node, portfolio, power_ts, min_power_ts, model, parameters
     ):
         d = self._combination(
-            node, portfolio, power_ts, min_power_ts, model, parameters,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            model,
+            parameters,
             minimum_stable_power_duration=pendulum.duration(minutes=30),
         )
 
@@ -484,7 +574,12 @@ class TestThermalDispatchSubTimestepDurations:
         self, node, portfolio, power_ts, min_power_ts, model, parameters
     ):
         d = self._combination(
-            node, portfolio, power_ts, min_power_ts, model, parameters,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            model,
+            parameters,
             startup_duration=pendulum.duration(minutes=30),
         )
 
@@ -495,7 +590,12 @@ class TestThermalDispatchSubTimestepDurations:
         self, node, portfolio, power_ts, min_power_ts, model, parameters
     ):
         d = self._combination(
-            node, portfolio, power_ts, min_power_ts, model, parameters,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            model,
+            parameters,
             minimum_stable_power_duration=pendulum.duration(hours=1),
         )
 
@@ -516,7 +616,10 @@ class TestThermalDispatchLongStableDuration:
         self, node, portfolio, power_ts, min_power_ts, model, parameters, stable_hours
     ):
         eq = _make_equipment(
-            node, portfolio, power_ts, min_power_ts,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
             **REALISTIC_MIN_TIMES,
             startup_duration=pendulum.duration(hours=2),
             minimum_stable_power_duration=pendulum.duration(hours=stable_hours),
@@ -525,7 +628,7 @@ class TestThermalDispatchLongStableDuration:
         d.setup(model, parameters)
         window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
         for t in window:
-            d.add_variables(t)
+            d.add_variables([t])
         for t in window:
             d.add_constraints(model, t, parameters)
 
@@ -543,7 +646,7 @@ class TestThermalDispatchLongStableDuration:
         d.setup(model, parameters)
         window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
         for t in window:
-            d.add_variables(t)
+            d.add_variables([t])
         for t in window:
             d.add_constraints(model, t, parameters)
 
@@ -572,7 +675,10 @@ class TestThermalDispatchDailyEnergyConstraint:
     def test_constraint_added_when_active(self, node, portfolio, power_ts, min_power_ts, model, start_date, timestep):
         daily_energy_ts = self._make_daily_energy_ts(start_date, timestep)
         eq = _make_equipment(
-            node, portfolio, power_ts, min_power_ts,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
             has_daily_energy_constraint=True,
             maximum_daily_energy=daily_energy_ts,
         )
@@ -581,21 +687,23 @@ class TestThermalDispatchDailyEnergyConstraint:
         d.setup(model, params)
         time_window = [start_date.add(hours=h) for h in range(48)]
         for t in time_window:
-            d.add_variables(t)
+            d.add_variables([t])
 
         d.add_daily_energy_constraint(model, time_window, timestep)
 
         day0 = datetime(start_date.year, start_date.month, start_date.day)
         assert f"energy_limit_of_{eq.name}_at_{day0}" in model.constraints
 
-    def test_constraint_skipped_when_inactive(self, node, portfolio, power_ts, min_power_ts, model, start_date, timestep):
+    def test_constraint_skipped_when_inactive(
+        self, node, portfolio, power_ts, min_power_ts, model, start_date, timestep
+    ):
         eq = _make_equipment(node, portfolio, power_ts, min_power_ts, has_daily_energy_constraint=False)
         params = self._make_daily_params(start_date, timestep)
         d = ThermalDispatch(eq)
         d.setup(model, params)
         time_window = [start_date.add(hours=h) for h in range(24)]
         for t in time_window:
-            d.add_variables(t)
+            d.add_variables([t])
 
         d.add_daily_energy_constraint(model, time_window, timestep)
 
@@ -604,7 +712,10 @@ class TestThermalDispatchDailyEnergyConstraint:
     def test_one_constraint_per_day(self, node, portfolio, power_ts, min_power_ts, model, start_date, timestep):
         daily_energy_ts = self._make_daily_energy_ts(start_date, timestep)
         eq = _make_equipment(
-            node, portfolio, power_ts, min_power_ts,
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
             has_daily_energy_constraint=True,
             maximum_daily_energy=daily_energy_ts,
         )
@@ -613,7 +724,7 @@ class TestThermalDispatchDailyEnergyConstraint:
         d.setup(model, params)
         time_window = [start_date.add(hours=h) for h in range(48)]
         for t in time_window:
-            d.add_variables(t)
+            d.add_variables([t])
 
         d.add_daily_energy_constraint(model, time_window, timestep)
 

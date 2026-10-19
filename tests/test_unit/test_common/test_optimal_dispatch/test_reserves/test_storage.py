@@ -30,7 +30,7 @@ def handler():
 class TestStorageReserveHandlerVariables:
     def test_add_variables_creates_all_reserve_vars(self, handler, model, time):
         handler.setup(model)
-        handler.add_variables(time, max_power=100.0, min_power=-50.0)
+        handler.add_variables([time], max_power=100.0, min_power=-50.0)
 
         assert f"reserves_up_bat_1_{time}" in model.variables
         assert f"reserves_down_bat_1_{time}" in model.variables
@@ -41,7 +41,7 @@ class TestStorageReserveHandlerVariables:
 
     def test_reserves_up_bounds(self, handler, model, time):
         handler.setup(model)
-        handler.add_variables(time, max_power=100.0, min_power=-50.0)
+        handler.add_variables([time], max_power=100.0, min_power=-50.0)
 
         var = model.get_variable(f"reserves_up_bat_1_{time}")
         assert var.lb() == 0
@@ -50,7 +50,7 @@ class TestStorageReserveHandlerVariables:
     def test_reserves_down_lower_bound_is_negative(self, handler, model, time):
         """reserves_down lower bound matches min_power (negative) to preserve original LP bounds."""
         handler.setup(model)
-        handler.add_variables(time, max_power=100.0, min_power=-50.0)
+        handler.add_variables([time], max_power=100.0, min_power=-50.0)
 
         var = model.get_variable(f"reserves_down_bat_1_{time}")
         assert var.lb() == pytest.approx(-50.0)
@@ -59,7 +59,7 @@ class TestStorageReserveHandlerVariables:
     def test_automated_reserves_down_is_bidirectional(self, handler, model, time):
         """automated_reserves_down for storage is bidirectional [-max_automated, max_automated]."""
         handler.setup(model)
-        handler.add_variables(time, max_power=100.0, min_power=-50.0)
+        handler.add_variables([time], max_power=100.0, min_power=-50.0)
 
         var = model.get_variable(f"automated_reserves_down_bat_1_{time}")
         assert var.lb() == pytest.approx(-10.0)
@@ -67,13 +67,13 @@ class TestStorageReserveHandlerVariables:
 
     def test_requires_setup_before_add_variables(self, handler, time):
         with pytest.raises(RuntimeError):
-            handler.add_variables(time, max_power=100.0, min_power=-50.0)
+            handler.add_variables([time], max_power=100.0, min_power=-50.0)
 
 
 class TestStorageReserveHandlerConstraints:
     def _setup_with_vars(self, handler, model, time, max_power=100.0, sell_var=None, buy_var=None):
         handler.setup(model)
-        handler.add_variables(time, max_power=max_power, min_power=-max_power)
+        handler.add_variables([time], max_power=max_power, min_power=-max_power)
         _sell = sell_var or model.add_continuous_variable("sell", 0, max_power)
         _buy = buy_var or model.add_continuous_variable("buy", -max_power, 0)
         return _sell, _buy
@@ -112,21 +112,25 @@ class TestStorageReserveHandlerCapacitySolved:
 
     def _pin_reserves(self, handler, model, time, up: float, automated_up: float, down: float, automated_down: float):
         handler.setup(model)
-        handler.add_variables(time, max_power=100.0, min_power=-100.0)
+        handler.add_variables([time], max_power=100.0, min_power=-100.0)
         for prefix, value in (
             ("reserves_up", up),
             ("automated_reserves_up", automated_up),
             ("reserves_down", down),
             ("automated_reserves_down", automated_down),
         ):
-            model.add_constraint(model.get_variable(handler.var(prefix, time)) == value, f"pin_{prefix}")
+            model.add_constraint(getattr(handler, prefix)[time] == value, f"pin_{prefix}")
 
     def test_min_storage_level_accounts_for_up_reserves(self, handler, model, time):
         self._pin_reserves(handler, model, time, up=4.0, automated_up=6.0, down=0.0, automated_down=0.0)
         stored_energy = model.add_continuous_variable("stored_energy", 0, 500.0)
         handler.add_capacity_constraints(
-            time, stored_energy, max_energy=500.0, min_soc=0.1,
-            reserve_duration_h=2.0, automated_reserve_duration_h=0.5,
+            time,
+            stored_energy,
+            max_energy=500.0,
+            min_soc=0.1,
+            reserve_duration_h=2.0,
+            automated_reserve_duration_h=0.5,
         )
 
         model.set_direction("minimize")
@@ -134,14 +138,18 @@ class TestStorageReserveHandlerCapacitySolved:
         assert model.solve().status == SolverStatus.OPTIMAL
 
         # floor = min_soc * max_energy + up * 2 h + automated_up * 0.5 h = 50 + 8 + 3
-        assert stored_energy.solution_value() == pytest.approx(61.0)
+        assert model.get_variable_value("stored_energy") == pytest.approx(61.0)
 
     def test_max_storage_level_accounts_for_down_reserves(self, handler, model, time):
         self._pin_reserves(handler, model, time, up=0.0, automated_up=0.0, down=4.0, automated_down=6.0)
         stored_energy = model.add_continuous_variable("stored_energy", 0, 500.0)
         handler.add_capacity_constraints(
-            time, stored_energy, max_energy=500.0, min_soc=0.1,
-            reserve_duration_h=2.0, automated_reserve_duration_h=0.5,
+            time,
+            stored_energy,
+            max_energy=500.0,
+            min_soc=0.1,
+            reserve_duration_h=2.0,
+            automated_reserve_duration_h=0.5,
         )
 
         model.set_direction("maximize")
@@ -149,4 +157,4 @@ class TestStorageReserveHandlerCapacitySolved:
         assert model.solve().status == SolverStatus.OPTIMAL
 
         # ceiling = max_energy - (down * 2 h + automated_down * 0.5 h) = 500 - 11
-        assert stored_energy.solution_value() == pytest.approx(489.0)
+        assert model.get_variable_value("stored_energy") == pytest.approx(489.0)

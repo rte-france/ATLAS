@@ -111,5 +111,5 @@ class LoadOrdersFormulator(AbstractOrdersFormulator[LoadIDO]):
         time: DateTime,
         parameters: IntradayOrdersParameters,
     ) -> Order:
-        bid_name = f"{order_type.value.lower()}_id_order_{parameters.temporal.execution_date.format('DD_MM_YYYY_HH_mm_ss')}_{equipment.name}_{time.format('DD_MM_YYYY_HH_mm_ss')}"
+        bid_name = f"{order_type.value.lower()}_id_order_{parameters.temporal.execution_date}_{equipment.name}_{time}"
         return build_intraday_order(equipment, bid_name, price, 0.0, qmax, order_type, time, parameters)

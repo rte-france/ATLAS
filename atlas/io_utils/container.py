@@ -34,7 +34,10 @@ class Container[T: BusinessModel]:
             raise KeyError(f"'{name}' not found") from None
 
     def remove(self, name: str) -> None:
-        self._items.pop(name, None)
+        try:
+            del self._items[name]
+        except KeyError:
+            raise KeyError(f"'{name}' not found") from None
 
     def all(self) -> list[T]:
         return list(self._items.values())
@@ -46,6 +49,12 @@ class Container[T: BusinessModel]:
     def is_empty(self) -> bool:
         """Return True if the container has no items."""
         return not self._items
+
+    def __copy__(self) -> "Container[T]":
+        """Return a new container holding the same items, in the same order."""
+        copied = type(self)()
+        copied._items = self._items.copy()
+        return copied
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Container):

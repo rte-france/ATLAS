@@ -145,6 +145,39 @@ def build_datetime(dt: str | datetime | pendulum.DateTime, date_format="YYYY-MM-
     raise TypeError(f"Unsupported type for dt: {type(dt)}. Expected str, datetime, or pendulum.DateTime.")
 
 
+def epoch_key(
+    dt: str | datetime | pendulum.DateTime,
+    date_format: str = "YYYY-MM-DD HH:mm:ss",
+    timezone: str = "UTC",
+) -> int:
+    """
+    Return the instant represented by ``dt`` as microseconds since the Unix epoch (UTC).
+
+    Aware datetimes keep their instant, so two datetimes representing the same instant in
+    different timezones give the same key. Strings and naive datetimes are converted
+    with :func:`build_datetime` then moved to ``timezone``, which is the rule used by
+    ``Timeseries.get_value``.
+
+    :param dt: Datetime to convert
+    :type dt: str or datetime or pendulum.DateTime
+    :param date_format: Date format string used to parse strings, defaults to "YYYY-MM-DD HH:mm:ss"
+    :type date_format: str, optional
+    :param timezone: Timezone applied to strings and naive datetimes, defaults to "UTC"
+    :type timezone: str, optional
+    :return: Microseconds since 1970-01-01T00:00:00 UTC
+    :rtype: int
+
+    Example:
+        >>> epoch_key(pendulum.datetime(2025, 1, 1, 1, tz="Europe/Paris"))
+        1735689600000000
+        >>> epoch_key("2025-01-01 00:00:00")
+        1735689600000000
+    """
+    if not (isinstance(dt, pendulum.DateTime) and dt.tzinfo is not None):
+        dt = build_datetime(dt, date_format).in_tz(timezone)
+    return dt.int_timestamp * 1_000_000 + dt.microsecond
+
+
 def generate_datetimes(
     start: str | datetime,
     end: str | datetime,

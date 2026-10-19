@@ -19,15 +19,14 @@ from atlas.modules.intraday_orders.orders_formulation.solar import SolarOrdersFo
 from atlas.modules.intraday_orders.orders_formulation.storage import StorageOrdersFormulator
 from atlas.modules.intraday_orders.orders_formulation.thermal import ThermalOrdersFormulator
 from atlas.modules.intraday_orders.orders_formulation.wind import WindOrdersFormulator
-from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
+from atlas.modules.intraday_orders.result import IntradayOrdersResult
 from atlas.timing import generate_datetimes
 
 
-class IntradayOrdersModule(
-    AbstractModule[IntradayOrdersParameters, IntradayOrdersInputDataset, IntradayOrdersOutputDataset]
-):
-    def get_parameters_class(self) -> type[IntradayOrdersParameters]:
+class IntradayOrdersModule(AbstractModule[IntradayOrdersParameters, IntradayOrdersInputDataset, IntradayOrdersResult]):
+    @classmethod
+    def get_parameters_class(cls) -> type[IntradayOrdersParameters]:
         return IntradayOrdersParameters
 
     def import_data(self, input_data: AtlasDataset, parameters: IntradayOrdersParameters) -> IntradayOrdersInputDataset:
@@ -39,9 +38,9 @@ class IntradayOrdersModule(
 
     def execute(
         self, parameters: IntradayOrdersParameters, input_dataset: IntradayOrdersInputDataset
-    ) -> IntradayOrdersOutputDataset:
+    ) -> IntradayOrdersResult:
         cfg.logger.info("Initialization of the Intraday Orders module...")
-        dataset = IntradayOrdersOutputDataset(input_dataset)
+        dataset = IntradayOrdersResult(input_dataset)
         orders_timestamps = generate_datetimes(
             parameters.temporal.start_date, parameters.penultimate_date, parameters.temporal.timestep
         )
@@ -72,7 +71,7 @@ class IntradayOrdersModule(
         self,
         parameters: IntradayOrdersParameters,
         input_dataset: IntradayOrdersInputDataset,
-        output_dataset: IntradayOrdersOutputDataset,
+        result: IntradayOrdersResult,
     ) -> bool:
         return True
 
@@ -80,6 +79,6 @@ class IntradayOrdersModule(
         self,
         parameters: IntradayOrdersParameters,
         input_dataset: IntradayOrdersInputDataset,
-        output_dataset: IntradayOrdersOutputDataset,
+        result: IntradayOrdersResult,
     ) -> None:
         pass

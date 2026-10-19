@@ -10,6 +10,8 @@ After installing ATLAS, the `atlas` command is available. Run `atlas --help` at 
 | [`atlas module list`](#atlas-module-list) | List all available modules |
 | [`atlas workflow run`](#atlas-workflow-run) | Run a full workflow |
 | [`atlas workflow list`](#atlas-workflow-list) | List the steps declared in a workflow file |
+| [`atlas action-plan run`](#atlas-action-plan-run) | Run a full action plan |
+| [`atlas action-plan list`](#atlas-action-plan-list) | List the tasks declared in an action plan file |
 | [`atlas version`](#atlas-version) | Print the installed version |
 | [`atlas prometheus-to-atlas run`](#atlas-prometheus-to-atlas-run) | Convert a single Prometheus dataset to Atlas format |
 | [`atlas prometheus-to-atlas batch`](#atlas-prometheus-to-atlas-batch) | Convert multiple Prometheus datasets at once |
@@ -91,6 +93,46 @@ atlas workflow list <WORKFLOW_FILE>
 
 ```bash
 atlas workflow list workflow.yaml
+```
+
+---
+
+## `atlas action-plan run`
+
+Runs a full Atlas action plan defined in a YAML file.
+
+```bash
+atlas action-plan run <ACTION_PLAN_FILE>
+```
+
+| Argument | Required | Description |
+|---|---|---|
+| `ACTION_PLAN_FILE` | Yes | Path to the action plan configuration YAML file |
+
+**Example:**
+
+```bash
+atlas action-plan run action_plan.yaml
+```
+
+---
+
+## `atlas action-plan list`
+
+Lists the tasks declared in an action plan file without executing it.
+
+```bash
+atlas action-plan list <ACTION_PLAN_FILE>
+```
+
+| Argument | Required | Description |
+|---|---|---|
+| `ACTION_PLAN_FILE` | Yes | Path to the action plan configuration YAML file |
+
+**Example:**
+
+```bash
+atlas action-plan list action_plan.yaml
 ```
 
 ---

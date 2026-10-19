@@ -16,8 +16,8 @@ from pendulum import DateTime
 import atlas.config as cfg
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.result import DayAheadOrdersResult
 from atlas.objects.equipment.equipment import Equipment
 
 U = TypeVar("U", bound=Equipment)
@@ -33,7 +33,7 @@ class StepResult:
 class AbstractOrderStep(ABC):
     def __init__(
         self,
-        dataset: DayAheadOrdersOutput,
+        dataset: DayAheadOrdersResult,
         orders_time: list[DateTime],
         parameters: DayAheadOrdersParameters,
     ) -> None:
@@ -62,8 +62,8 @@ class AbstractOrderStep(ABC):
         copies rather than the dataset's own objects. The *unit* yielded is always the
         caller's instance, so it can be mutated in place.
 
-        A unit whose worker raises is logged and skipped: one failing unit must not abort
-        the whole session.
+        A unit whose worker raises is propagated as a ``RuntimeError`` naming the unit: dropping
+        it would leave the step result silently short of orders for that unit.
 
         :param units: Units to process
         :type units: Sequence[U]
@@ -78,7 +78,11 @@ class AbstractOrderStep(ABC):
         if not self.parameters.multiprocessing.enable:
             cfg.logger.info(f"Starting sequential {label} optimization for {len(units)} units")
             for unit in units:
-                yield unit, worker(unit, *worker_args)
+                try:
+                    result = worker(unit, *worker_args)
+                except Exception as e:
+                    raise RuntimeError(f"Optimisation failed for {label} unit {unit.name}") from e
+                yield unit, result
             return
 
         cfg.logger.info(f"Starting parallel {label} optimization for {len(units)} units")
@@ -90,6 +94,5 @@ class AbstractOrderStep(ABC):
                 try:
                     result = future.result()
                 except Exception as e:
-                    cfg.logger.error(f"Error processing {label} {unit.name}: {e}")
-                    continue
+                    raise RuntimeError(f"Optimisation failed for {label} unit {unit.name}") from e
                 yield unit, result

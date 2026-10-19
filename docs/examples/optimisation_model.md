@@ -128,7 +128,7 @@ all_constraints = model.constraints  # Returns set of constraint names
 ### Set Direction First
 
 ```python
-# Must set direction before adding objective
+# Must set direction before adding objective, and only once per model
 model.set_direction("maximize")  # or "minimize"
 ```
 
@@ -136,7 +136,6 @@ model.set_direction("maximize")  # or "minimize"
 
 ```python
 # Set entire objective at once
-model.set_direction("maximize")
 model.set_objective(3 * x + 2 * y)
 ```
 
@@ -144,7 +143,6 @@ model.set_objective(3 * x + 2 * y)
 
 ```python
 # Add objective terms one by one
-model.set_direction("minimize")
 model.add_objective(x + 2 * y)      # First term
 model.add_objective(3 * num_units)  # Adds to existing objective
 ```
@@ -316,9 +314,16 @@ model.set_objective(sum(production))
 solution = model.solve()
 ```
 
+## Working with Temporal Variables
+
+Most variables are indexed by time. `add_temporal_variable` declares a `TemporalVariable` that groups them under a single name, with fixed values for initial conditions, vectorised sums and picklable solutions. See the dedicated [Temporal Variables](temporal_variable.md) examples.
+
 ## Error Handling
 
 ```python
+# Fresh model: the one above has already been solved
+model = OptimisationModel(solver_name=SolverEnum.SCIP, name="error_handling")
+
 # Handle variable/constraint errors
 try:
     var = model.get_variable("nonexistent")

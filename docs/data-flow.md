@@ -31,7 +31,7 @@ sequenceDiagram
 
 1. The orchestrator passes the CIS to the current module.
 2. The module reads data from `cis.data` (the underlying `AtlasDataset`) through its `InputDataset`.
-3. The module executes its logic and populates its `OutputDataset`, then calls `build_change_sets()`.
+3. The module executes its logic and populates its `ModuleResult`, then calls `build_change_sets()`.
 4. The orchestrator calls `CISHandler.apply(change_sets, cis)`.
 5. `CISHandler` orders the change sets (dependency order), detects duplicates, then delegates each to `ChangeSetHandler.apply()`.
 6. The updated CIS is passed to the next module.
@@ -78,12 +78,16 @@ diff = cis.diff(label="before_module_3")
 print(diff["thermal"]["modified"])  # ['thermal_1', 'thermal_2']
 ```
 
-For transactional safety within a single batch, `CISHandler` uses `cis.transaction()` internally — the affected containers are backed up cheaply (only the touched types, not the entire dataset) and restored on any error.
+For transactional safety within a single batch, `CISHandler` keeps an undo log: before each change set, the touched container is copied shallowly (references only, once per batch) and an updated object keeps its previous field values. On any error the very same instances are put back, so references between objects stay valid. An `UpdateObject` is also atomic on its own: the whole object is validated before any field is written.
+
+### Copy cost
+
+Copying a dataset never duplicates timeseries or matrices: their Polars frames are shared (see `atlas/math/copying.py`). A deep copy therefore costs about 2 KB and 50 µs per business object (measured on `tests/dataset`), and scales with the number of objects, mostly orders. Per job, the orchestrator still deep copies the dataset given to the module (`cis.get_data(copy=True)`), plus one copy per snapshot when `create_job_snapshots` is enabled. Replacing the module input copy with read-only views is left as a follow-up.
 
 ## Implementing a Module: Checklist
 
 - [ ] `InputDataset.__init__` — extract from `AtlasDataset`, never hold a reference to the CIS itself.
-- [ ] `OutputDataset.build_change_sets()` — emit `UpdateObject` / `AddObject` / `DeleteObject` for every mutated object.
+- [ ] `ModuleResult.build_change_sets()` — emit `UpdateObject` / `AddObject` / `DeleteObject` for every mutated object.
 - [ ] Never call `CISHandler` or `ChangeSetHandler` from inside a module — the orchestrator does this.
 - [ ] Use module-specific wrapper objects (`input_objects/`) to add computed properties; don't mutate the raw business objects during `import_data`.
 

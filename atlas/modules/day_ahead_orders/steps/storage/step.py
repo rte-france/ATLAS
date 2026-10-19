@@ -47,7 +47,7 @@ class StorageStep(AbstractOrderStep):
     ) -> None:
         """Build the orders of a solved unit and merge them into the step result."""
         if unit_result is None:
-            cfg.logger.warning(f"Optimization skipped or failed for storage: {storage.name}")
+            cfg.logger.info(f"Storage {storage.name} skipped: no available capacity over the time window")
             return
 
         bids = build_storage_bids(storage, unit_result, self.parameters, local_timewindow)

@@ -19,8 +19,8 @@ params = {
     "solver": {
         "solver_name": "XPRESS",
     },
-    "output": {
-        "export_result": True,
+    "export": {
+        "export_results": True,
     },
 }
 
@@ -47,8 +47,8 @@ temporal:
   timestep: "PT1H"
 solver:
   solver_name: "XPRESS"
-output:
-  export_result: true
+export:
+  export_results: true
 ```
 
 ```python
