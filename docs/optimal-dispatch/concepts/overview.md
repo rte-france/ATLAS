@@ -21,7 +21,8 @@ on the technology, that headline decision drags in companions:
 | Load | power level (negative), bounded by forecast |
 
 When reserves are modelled, each unit additionally decides how much **capacity it holds back**
-for upward and downward reserve — see [Reserves](../reserves/index.md).
+for upward and downward reserve. Usually, they contracted before a given volume of reserves,
+and face harsh penalties if they can't provide it in real time — see [Reserves](../reserves/index.md).
 
 The result is a mixed-integer linear program: continuous power and energy variables, binary
 state variables, linear constraints. ATLAS builds it through
@@ -32,11 +33,11 @@ state variables, linear constraints. ATLAS builds it through
 These hold throughout the layer, and violating them silently produces a wrong model rather than
 an error.
 
-**Sign.** Power is positive when injected into the grid and negative when withdrawn from it.
-So a load's power variable is bounded by $[\,\overline{P}_t,\, 0\,]$ with $\overline{P}_t \le 0$,
-and a storage unit's *buy* variable is bounded above by zero. A consequence worth internalising:
-storage charging energy is written $-P^{\text{buy}}_t$, and reading that minus sign as an error
-is a common first mistake.
+**Sign.** Power is positive when injected into the grid (i.e. producting) and negative
+when withdrawn from it (i.e. consumming). So a load's power variable is bounded by
+$[\,\overline{P}_t,\, 0\,]$ with $\overline{P}_t \le 0$, and a storage unit's *buy* variable
+is bounded above by zero. A consequence worth internalising: storage charging energy is written
+$-P^{\text{buy}}_t *\Delta t$, and reading that minus sign as an error is a common first mistake.
 
 **Units.** Power in MW, energy in MWh, durations as `pendulum` objects. Converting between the
 two always goes through the timestep: $E = P \cdot \Delta t$, with $\Delta t$ expressed in hours
@@ -68,8 +69,10 @@ The common layer owns the constraints. The objective $f$ stays with the module:
 - **Portfolio Optimisation** minimises $\sum_t c_t \cdot P_t$ plus imbalance penalties, under a
   portfolio balance constraint tying each unit's power to the portfolio's market commitment.
 
-That is the whole reason the split exists: the two modules disagree on $f$ and agree on
-everything else.
+That is the whole reason the split exists: the two modules disagree on $f$ and agree on almost
+everything else. A notable exception is the main balance constraint only existing in the
+**Portfolio Optimisation**, linking the sum of dispatches, the market commitments and the
+imbalance level of a given portfolio.
 
 
 ## Next

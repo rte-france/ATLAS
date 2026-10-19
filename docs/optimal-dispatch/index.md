@@ -1,17 +1,17 @@
 # Optimal Dispatch
 
-**Optimal dispatch** is the problem of deciding how much power every unit of a fleet produces
-or consumes at every timestep of a horizon, subject to the physical limits of each unit.
+**Optimal dispatch** is an unit commitment problem, used in ATLAS to determine the optimal generation or consumption plan of a unit or a fleet of units, given a certain system state. The Optimal Dispatch always ensures that the physical limits of each unit are respected.
 
-Two ATLAS modules solve that problem:
+The objective function of the Optimal Dispatch, and some of its main constraints, depend on its execution context. In the current release of ATLAS, two modules use that problem:
 
-- [Day-Ahead Orders](../modules/day-ahead-orders/index.md) dispatches against a *price forecast*
-  and turns the result into market orders.
-- [Portfolio Optimisation](../modules/portfolio-optimisation/index.md) dispatches against
+- [Day-Ahead Orders](../modules/day-ahead-orders/index.md) use it to maximize revenues based on a *price forecast*
+  and turns the output dispatches into market orders.
+- [Portfolio Optimisation](../modules/portfolio-optimisation/index.md) instead takes as inputs market commitments,
+  and defines generation and consumption plans that minimize costs while being as close as possible to market commitments.
   *market commitments* and penalises deviation from them.
 
-They ask different questions, but they obey the same physics. A thermal unit has the same
-minimum up-time whether you are bidding it into the day-ahead auction or re-optimising it
+These two use cases answer different questions, but the units they deal with still obey the same physics.
+A thermal unit has the same minimum up-time whether you are bidding it into the day-ahead auction or re-optimising it
 after clearing. `atlas/common/optimal_dispatch/` is where that shared physics lives.
 
 !!! quote "The guiding principle"
@@ -26,6 +26,7 @@ Concretely, the split is:
 | Decision variables (power, on/off state, stored energy, reserves) | `common/optimal_dispatch/` |
 | Physical constraints (ramps, min up/down, SOC evolution, energy balance) | `common/optimal_dispatch/` |
 | Objective function (maximise revenue / minimise cost) | the calling module |
+| Specific constraints (i.e. imbalance relative to market commitments for Portfolio Optimisation)| the calling module |
 | Post-processing (order formulation, imbalance accounting) | the calling module |
 
 There is deliberately no `add_objective()` and no `add_reserves()` on a dispatch class. Modules

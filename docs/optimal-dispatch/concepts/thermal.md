@@ -1,16 +1,16 @@
 # Thermal
 
-A thermal unit cannot simply follow a price signal. It takes time to start, it must run for a
+A thermal unit cannot easily follow a price signal. It takes time to start, it must run for a
 while once started, it cannot change output arbitrarily fast, and it takes time to shut down.
 `ThermalDispatch` encodes those limits as a small state machine plus a set of inter-temporal
 constraints.
 
-This is the longest formulation in the layer. If you read one concept page in depth, read this
-one — storage and hydro are considerably simpler.
+This is the longest formulation in the layer. Others, such as storage and hydro, are considerably simpler.
 
 ## The operating states
 
-At every timestep a unit sits in exactly one state:
+At every timestep a unit sits in exactly one state, identified with the values
+taken by binary **state variables**:
 
 | State | Binary variable | Meaning |
 |---|---|---|
@@ -31,9 +31,11 @@ $$
 The bracketed terms appear only when the corresponding phase exists for that unit — which is
 what the [combinations](#the-eight-combinations) below are about.
 
-Two derived indicators mark the transitions:
+In addition, the optimisation problem tracks the transition between state using **auxilliary variables**,
+which are once again binaries. For example:
 
-- `turned_on` — fires on the timestep the unit leaves the off state.
+- `turned_on` — fires on the timestep the unit leaves the off state, taking the value 1 at
+  the exact time step. At any other time, is is always equal to 0.
 - `turned_off` — fires on the timestep the unit begins shutting down.
 
 Both are the standard linearisation of a rising edge on a binary $y$, i.e.
@@ -46,20 +48,22 @@ pair. Which pairs are forbidden depends on the combination.
 
 ## Time parameters
 
-Five integers, computed once in `setup()` from the unit's durations and the timestep, drive the
-whole formulation:
+Five integers, computed once in `setup()` from the unit's characteristics and the timestep,
+describe the constraints applied to the unit and drive the whole formulation. They are always
+expressed as a number of timesteps:
 
 | Symbol | Source field | Meaning |
 |---|---|---|
-| $T^{\text{on}}$ | `minimum_time_on` | Timesteps the unit must stay online once started |
-| $T^{\text{off}}$ | `minimum_time_off` | Timesteps the unit must stay offline once stopped |
+| $T^{\text{on}}$ | `minimum_time_on` | The unit must must stay online for that duration after its starting phase is completed |
+| $T^{\text{off}}$ | `minimum_time_off` | The unit must must stay offline for that duration after its shutdown phase is completed |
 | $T^{\text{start}}$ | `startup_duration` | Length of the startup ramp |
 | $T^{\text{stop}}$ | `shutdown_duration` | Length of the shutdown ramp |
-| $T^{\text{stable}}$ | `minimum_stable_power_duration` | Timesteps the unit must hold a constant output once it stops ramping |
+| $T^{\text{stable}}$ | `minimum_stable_power_duration` | Timesteps the unit must hold a constant output after a ramping phase |
 
 Durations that do not fill a whole timestep round away: a 20-minute startup on an hourly
 timestep gives $T^{\text{start}} = 0$, and the unit is modelled as having no startup ramp.
 A stable duration shorter than one timestep likewise collapses to $T^{\text{stable}} = 0$.
+FC : arreté ici, il n'y a pas des ceil parfois ce qui contredirait le paragraphe précédent ?
 
 The gradient limit becomes a per-timestep power swing:
 
