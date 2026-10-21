@@ -63,7 +63,6 @@ expressed as a number of timesteps:
 Durations that do not fill a whole timestep round away: a 20-minute startup on an hourly
 timestep gives $T^{\text{start}} = 0$, and the unit is modelled as having no startup ramp.
 A stable duration shorter than one timestep likewise collapses to $T^{\text{stable}} = 0$.
-FC : arreté ici, il n'y a pas des ceil parfois ce qui contredirait le paragraphe précédent ?
 
 The gradient limit becomes a per-timestep power swing:
 
@@ -94,7 +93,7 @@ and constraints, and `ThermalDispatch` exposes the resulting index as `combinati
 | 7 | ✓ | ✓ | — | Both ramps, no stable phase |
 | 8 | ✓ | ✓ | ✓ | Full formulation |
 
-The combination is not a configuration switch — it is derived from the unit's physical data.
+**The combination is not a configuration switch — it is derived from the unit's physical data.**
 It matters mostly when debugging: two units with the same nameplate can generate very different
 constraint sets because one has a 45-minute startup and the other a 20-minute one.
 
