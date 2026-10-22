@@ -1,0 +1,29 @@
+dataset_path: tests/dataset/day_ahead/day_ahead_input
+path_from_action_plan: false
+name: action_plan
+export_final_state: false
+tasks:
+  - module: DayAheadOrders
+    parameters: tests/dataset/parameters/day_ahead/day_ahead_orders.yml
+    from: '2028-09-26 12:00:00'
+    until: '2028-09-26 12:00:00'
+    frequency: '1d'
+    offset_start_date: '12h'
+    offset_end_date: '36h'
+    priority: 1
+  - module: MarketClearing
+    parameters: tests/dataset/parameters/day_ahead/market_clearing.yml
+    from: '2028-09-26 12:00:00'
+    until: '2028-09-26 12:00:00'
+    frequency: '1d'
+    offset_start_date: '12h'
+    offset_end_date: '36h'
+    priority: 2
+  - module: PortfolioOptimisation
+    parameters: tests/dataset/parameters/day_ahead/portfolio_optimisation.yml
+    from: '2028-09-26 12:00:00'
+    until: '2028-09-26 12:00:00'
+    frequency: '1d'
+    offset_start_date: '12h'
+    offset_end_date: '36h'
+    priority: 3
