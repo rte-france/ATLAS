@@ -28,7 +28,6 @@ from atlas.modules.portfolio_optimisation.utils.manual_activation import (
 )
 from atlas.objects.equipment.equipment import Equipment
 from atlas.objects.market_operator.portfolio import Portfolio
-from atlas.timing import generate_datetimes
 
 
 class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationParameters]):
@@ -60,7 +59,6 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         self.portfolios_manual_activation: list[PortfolioPO] = []
 
         self._create_portfolios()
-        self._set_equipments_time_window()
 
     def _equipment_fields(self, equipment: Equipment) -> dict[str, Any]:
         """
@@ -75,19 +73,6 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         if equipment.additional_hours is not None:
             fields["additional_hours"] = equipment.additional_hours.for_market(self.parameters.market)
         return fields
-
-    def _set_equipments_time_window(self) -> None:
-        """Set the optimisation time window on each equipment individually."""
-        start = self.parameters.temporal.start_date
-        end = self.parameters.temporal.end_date - self.parameters.temporal.timestep
-        timestep = self.parameters.temporal.timestep
-        for p in self.portfolios + self.portfolios_manual_activation:
-            for e in p.equipments.get_all_equipment():
-                e.optimisation_time_window = generate_datetimes(
-                    start=start,
-                    end=end + e.additional_hours,
-                    freq=timestep,
-                )
 
     def _create_portfolios(self):
         """Collect and classify all equipment into PortfolioPO objects with manual activation handling"""
