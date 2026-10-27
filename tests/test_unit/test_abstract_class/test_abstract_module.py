@@ -9,16 +9,21 @@ Test AbstractModule
 from unittest.mock import Mock
 
 from atlas import BusinessModel
-from atlas.abstract_class.dataset import ID, OD
+from atlas.abstract_class.dataset import AbstractDataset, ModuleResult
 from atlas.abstract_class.module import AbstractModule
-from atlas.abstract_class.parameters import P
+from atlas.abstract_class.parameters import AbstractModuleParameters
+
+type P = AbstractModuleParameters
+type ID = AbstractDataset
+type R = ModuleResult
 
 
-class ModuleTest(AbstractModule[P, ID, OD]):
+class ModuleTest(AbstractModule[P, ID, R]):
     def __init__(self):
         pass
 
-    def get_parameters_class(self) -> type[P]:
+    @classmethod
+    def get_parameters_class(cls) -> type[P]:
         return Mock
 
     def import_data(self, raw_data: dict[str, list[BusinessModel]], parameters: P) -> ID:
@@ -29,14 +34,14 @@ class ModuleTest(AbstractModule[P, ID, OD]):
             return False
         return True
 
-    def execute(self, parameters: P, input_dataset: ID) -> OD:
+    def execute(self, parameters: P, input_dataset: ID) -> R:
         return Mock()
 
     def validates_results(
         self,
         parameters: P,
         input_dataset: ID,
-        output_dataset: OD,
+        result: R,
     ) -> bool:
         if parameters.valid_result:
             return True
@@ -46,7 +51,7 @@ class ModuleTest(AbstractModule[P, ID, OD]):
         self,
         parameters: P,
         input_dataset: ID,
-        output_dataset: OD,
+        result: R,
     ) -> None:
         print("Export of results")
 
@@ -73,3 +78,24 @@ def test_validate_results_is_false():
     invalid_result_parameters = Mock()
     invalid_result_parameters.valid_result = False
     assert not ModuleTest().validates_results(invalid_result_parameters, Mock(), Mock())
+
+
+class _OneChangeSetResult(ModuleResult):
+    def build_change_sets(self) -> list:
+        return [Mock()]
+
+
+class _OneChangeSetModule(ModuleTest):
+    def import_data(self, raw_data: dict[str, list[BusinessModel]], parameters: P) -> ID:
+        return Mock(loads=[1])
+
+    def execute(self, parameters: P, input_dataset: ID) -> R:
+        return _OneChangeSetResult()
+
+
+def test_run_stores_change_sets_per_result():
+    first = _OneChangeSetModule().run(Mock(), Mock())
+    second = _OneChangeSetModule().run(Mock(), Mock())
+    assert len(first.change_sets) == 1
+    assert len(second.change_sets) == 1
+    assert first.change_sets is not second.change_sets

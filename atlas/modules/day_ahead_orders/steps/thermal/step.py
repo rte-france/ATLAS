@@ -5,7 +5,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import traceback
 from collections import defaultdict
 
 import atlas.config as cfg
@@ -50,22 +49,20 @@ def optimize_single_thermal_unit(
     :param parameters: Order formulation parameters
     :type parameters: DayAheadOrdersParameters
     :return: Solved states keyed by price scenario, or ``None`` when the unit needs no
-        optimisation or the solve failed
+        optimisation
     :rtype: SolvedScenarios | None
+    :raises ValueError: If the unit has no known bidding strategy
     """
+    if thermal.strategy in (ThermalStrategy.BASE, ThermalStrategy.PEAK):
+        return None
     if thermal.strategy != ThermalStrategy.INTERMEDIATE:
-        return None
+        raise ValueError(f"Unknown thermal strategy {thermal.strategy} for unit {thermal.name}")
 
-    try:
-        cfg.logger.debug(f"Optimizing thermal unit {thermal.name}")
-        return {
-            price_type: solve_thermal_unit(thermal, parameters, price_type)
-            for price_type in parameters.price_forecasts_types
-        }
-    except Exception as e:
-        cfg.logger.error(f"Optimization failed for thermal unit {thermal.name}: {e}")
-        cfg.logger.info(traceback.format_exc())
-        return None
+    cfg.logger.debug(f"Optimizing thermal unit {thermal.name}")
+    return {
+        price_type: solve_thermal_unit(thermal, parameters, price_type)
+        for price_type in parameters.price_forecasts_types
+    }
 
 
 class Coupling:
@@ -100,15 +97,15 @@ class ThermalBiddingStep(AbstractOrderStep):
         """
         Formulate the orders of one unit according to its strategy.
 
-        A unit whose formulation raises is logged and skipped, so that one inconsistent
-        unit does not cost the whole session.
+        A unit whose formulation raises is propagated as a ``RuntimeError`` naming the unit:
+        dropping it would leave the step result silently short of orders for that unit.
+
+        :raises RuntimeError: If the formulation of the unit fails
         """
         try:
             orders, couplings = self._formulate_strategy(thermal, solved)
         except Exception as e:
-            cfg.logger.error(f"Order formulation failed for thermal unit {thermal.name}: {e}")
-            cfg.logger.info(traceback.format_exc())
-            return [], []
+            raise RuntimeError(f"Order formulation failed for thermal unit {thermal.name}") from e
 
         cfg.logger.info(f"Completed order formulation for thermal unit: {thermal.name} ({thermal.strategy})")
         return orders, couplings
@@ -124,13 +121,11 @@ class ThermalBiddingStep(AbstractOrderStep):
 
         if thermal.strategy == ThermalStrategy.INTERMEDIATE:
             if solved is None:
-                cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal.name}")
-                return [], []
+                raise RuntimeError(f"No solved scenario for the intermediate-load thermal unit {thermal.name}")
             self._store_state_sequences(thermal, solved)
             return ThermalIntermediateLoadOrders(self.orders_time, self.parameters).formulate(thermal, solved)
 
-        cfg.logger.warning(f"Unknown thermal strategy {thermal.strategy} for unit {thermal.name}")
-        return [], []
+        raise ValueError(f"Unknown thermal strategy {thermal.strategy} for unit {thermal.name}")
 
     def _store_state_sequences(self, thermal: ThermalDAO, solved: SolvedScenarios) -> None:
         """Record the solved dispatch of every scenario on the unit, for downstream modules."""

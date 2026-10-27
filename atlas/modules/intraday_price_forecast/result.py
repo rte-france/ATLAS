@@ -1,0 +1,24 @@
+from atlas.abstract_class.dataset import ModuleResult
+from atlas.modules.intraday_price_forecast.input_dataset import IntradayPriceForecastInputDataset
+from atlas.modules.intraday_price_forecast.input_objects.market_area import MarketAreaIDPF
+from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
+from atlas.orchestrator.change_set import ChangeSet, UpdateObject
+
+
+class IntradayPriceForecastResult(ModuleResult[IntradayPriceForecastParameters]):
+    def __init__(self, parameters: IntradayPriceForecastParameters, input_dataset: IntradayPriceForecastInputDataset):
+        self.market_area: list[MarketAreaIDPF] = input_dataset.market_area
+
+    def build_change_sets(self) -> list[ChangeSet]:
+        change_sets: list[ChangeSet] = []
+        for market_area in self.market_area:
+            change_sets.append(
+                UpdateObject(
+                    {
+                        "name": market_area.name,
+                        "id_price_forecast": market_area.id_price_forecast,
+                    },
+                    type(market_area),
+                )
+            )
+        return change_sets

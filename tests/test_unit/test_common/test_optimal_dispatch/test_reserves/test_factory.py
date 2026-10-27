@@ -84,16 +84,14 @@ class TestReserveFactoryMaximumAutomated:
     )
     def test_unset_capacities_count_as_zero(self, node, portfolio, afrr, fcr, expected):
         """Both fields are optional on Equipment — an unset one must not poison the sum."""
-        handler = ReserveFactory.for_thermal(
-            _thermal(node, portfolio, maximum_afrr=afrr, maximum_fcr=fcr), DISPATCH
-        )
+        handler = ReserveFactory.for_thermal(_thermal(node, portfolio, maximum_afrr=afrr, maximum_fcr=fcr), DISPATCH)
         assert handler._maximum_automated == pytest.approx(expected)
 
 
 class TestReserveFactoryWiring:
     def test_name_is_propagated(self, node, portfolio):
         handler = ReserveFactory.for_storage(_storage(node, portfolio))
-        assert handler.var("reserves_up", "T") == "reserves_up_st_T"
+        assert handler._name == "st"
 
     def test_dispatch_is_forwarded(self, node, portfolio):
         handler = ReserveFactory.for_thermal(_thermal(node, portfolio), DISPATCH)

@@ -59,7 +59,7 @@ def convert_other_non_dispatchable_units(
 
     areas = study.get_areas()
     study_output = study.get_output(parameters.output_name)
-    col_names = parameters.output.misc_gen_column_names
+    col_names = parameters.columns.misc_gen_column_names
     non_disp_units = []
 
     for area_name in parameters.market_areas:

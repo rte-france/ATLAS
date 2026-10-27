@@ -24,7 +24,7 @@ import polars as pl
 
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.timing import build_datetime, check_timezone, get_duration, infer_frequency
+from atlas.timing import build_datetime, check_timezone, epoch_key, get_duration, infer_frequency
 from atlas.type import TimeseriesDict
 
 
@@ -222,8 +222,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :rtype: bool
         """
         try:
-            dt = build_datetime(item).in_tz(self.timezone)
-            return self.timeseries.filter(pl.col("time") == dt).height > 0
+            return epoch_key(item, timezone=self.timezone) in self._get_epoch_lookup()
         except Exception:
             return False
 
@@ -242,7 +241,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         elif isinstance(other, Timeseries):
             if self.frequency != other.frequency:
                 raise ValueError("Could not perform multiplication on Timeseries because frequencies don't match")
-            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+            elif not other.dataframe["time"].is_in(self.dataframe["time"].implode()).all():
                 raise ValueError(
                     "Could not perform multiplication on Timeseries because indexes of Timeseries to add "
                     "are not in current Timeseries"
@@ -283,7 +282,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         elif isinstance(other, Timeseries):
             if self.frequency != other.frequency:
                 raise ValueError("Could not perform addition on Timeseries because frequencies don't match")
-            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+            elif not other.dataframe["time"].is_in(self.dataframe["time"].implode()).all():
                 raise ValueError(
                     "Could not perform addition on Timeseries because indexes of Timeseries to add are "
                     "not in current Timeseries. Addition is deliberately restrictive: use 'add_on_union' "
@@ -323,7 +322,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         elif isinstance(other, Timeseries):
             if self.frequency != other.frequency:
                 raise ValueError("Could not perform subtraction on Timeseries because frequencies don't match")
-            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+            elif not other.dataframe["time"].is_in(self.dataframe["time"].implode()).all():
                 raise ValueError(
                     "Could not perform subtraction on Timeseries because indexes of Timeseries to add are "
                     "not in current Timeseries"
@@ -362,7 +361,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         elif isinstance(other, Timeseries):
             if self.frequency != other.frequency:
                 raise ValueError("Could not perform division on Timeseries because frequencies don't match")
-            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+            elif not other.dataframe["time"].is_in(self.dataframe["time"].implode()).all():
                 raise ValueError(
                     "Could not perform division on Timeseries because indexes of Timeseries to add are "
                     "not in current Timeseries"
@@ -540,12 +539,12 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         other_ts = Timeseries(other)
         if self.frequency != other_ts.frequency:
             raise ValueError("Could not perform set values on Timeseries because frequencies don't match")
-        if not other_ts.dataframe["time"].is_in(self.dataframe["time"]).all():
+        if not other_ts.dataframe["time"].is_in(self.dataframe["time"].implode()).all():
             raise ValueError(
                 "Could not set values on Timeseries because indexes to set are not all present in Timeseries"
             )
 
-        df = self.timeseries.filter(~pl.col("time").is_in(other_ts.dataframe["time"]))
+        df = self.timeseries.filter(~pl.col("time").is_in(other_ts.dataframe["time"].implode()))
         df = pl.concat([df, other_ts.dataframe])
 
         return self._return(df, inplace)
@@ -985,11 +984,12 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         """
         if len(self.timeseries) == 0:
             raise ValueError("Can't get value on empty timeseries.")
-        dt = build_datetime(datetime, date_format).in_tz(self.timezone)
-        lookup = self._get_lookup()
-        if dt not in lookup:
+        key = epoch_key(datetime, date_format, self.timezone)
+        lookup = self._get_epoch_lookup()
+        if key not in lookup:
+            dt = build_datetime(datetime, date_format).in_tz(self.timezone)
             raise KeyError(f"Value for {dt.to_datetime_string()} not found in the Timeseries.")
-        return lookup[dt]
+        return lookup[key]
 
     def plot(
         self,

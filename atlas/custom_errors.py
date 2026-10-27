@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from atlas.enums import SolverStatus
 from atlas.orchestrator.change_set import ChangeSet
 
 if TYPE_CHECKING:
     from atlas.io_utils.atlas_dataset import AtlasDataset
+    from atlas.io_utils.parameters import ContextParameters
     from atlas.orchestrator.current_input_state import CurrentInputState
 
 
@@ -76,6 +78,73 @@ class WorkflowJobError(RuntimeError):
         self.job_name = job_name
         self.cis = cis
         self.input_dataset = input_dataset
+
+
+class SolverError(RuntimeError):
+    """Base exception for optimisation solver errors."""
+
+    pass
+
+
+class ModelNotSolvedError(SolverError):
+    """Raised when a solution is read from a model that has never been solved."""
+
+    pass
+
+
+class UnsuccessfulSolveError(SolverError):
+    """Raised when a solution is read from a model whose last solve did not succeed.
+
+    OR-Tools returns ``0.0`` for every variable of an ``INFEASIBLE`` / ``UNBOUNDED`` / ``ABNORMAL``
+    model instead of failing, so reading the solution would silently produce a plausible-looking
+    but meaningless result.
+
+    :param status: The status of the last solve
+    :type status: SolverStatus
+    :param model_name: Name of the optimisation model, when it has one
+    :type model_name: str | None
+    """
+
+    def __init__(self, status: SolverStatus, model_name: str | None = None):
+        model = f" '{model_name}'" if model_name else ""
+        super().__init__(
+            f"Optimisation model{model} has no usable solution: last solve finished with status "
+            f"{status.name}. Reading the solution would return solver defaults, not optimisation results."
+        )
+        self.status = status
+        self.model_name = model_name
+
+
+class UseContextError(RuntimeError):
+    """Raised when a context cannot be resolved on an orchestrator's already-built
+    steps/tasks against the new context.
+
+    The orchestrator is left completely unchanged, as if `use_context()` had never been called:
+    its context is rolled back to what it was right before the call.
+
+    Example:
+        >>> try:
+        ...     workflow.use_context(new_context)
+        ... except UseContextError as e:
+        ...     print(f"{e.job_name!r} could not be resolved with the new context")
+        ...     print(e.previous_context)   # this orchestrator's context before the failed call
+        ...     print(e.attempted_context)  # the context that was passed to use_context()
+        ...     print(e.original_error)     # the underlying resolution failure
+    """
+
+    def __init__(
+        self,
+        message: str,
+        job_name: str,
+        previous_context: ContextParameters,
+        attempted_context: ContextParameters,
+        original_error: Exception,
+    ):
+        super().__init__(message)
+        self.job_name = job_name
+        self.previous_context = previous_context
+        self.attempted_context = attempted_context
+        self.original_error = original_error
 
 
 class DataQualityWarning(UserWarning):

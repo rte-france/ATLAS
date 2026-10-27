@@ -7,21 +7,18 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-
 from loguru import logger
 
 import atlas.config as cfg
 from atlas.abstract_class.module import AbstractModule
-from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.input_objects.portfolio_equipments import PortfolioEquipments
-from atlas.modules.portfolio_optimisation.output_dataset import PortfolioOptimisationOutputDataset
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.result import PortfolioOptimisationResult
 from atlas.modules.portfolio_optimisation.utils.orchestration import (
-    PortfolioOptimisationResult,
+    SinglePortfolioResult,
     optimise_portfolio_manual_activated,
     run_parallel,
     run_sequential,
@@ -32,10 +29,11 @@ class PortfolioOptimisationModule(
     AbstractModule[
         PortfolioOptimisationParameters,
         PortfolioOptimisationInputDataset,
-        PortfolioOptimisationOutputDataset,
+        PortfolioOptimisationResult,
     ]
 ):
-    def get_parameters_class(self):
+    @classmethod
+    def get_parameters_class(cls) -> type[PortfolioOptimisationParameters]:
         """
         Returns the concrete Parameters class for this module.
 
@@ -84,7 +82,7 @@ class PortfolioOptimisationModule(
         self,
         parameters: PortfolioOptimisationParameters,
         input_dataset: PortfolioOptimisationInputDataset,
-        output_dataset: PortfolioOptimisationOutputDataset,
+        result: PortfolioOptimisationResult,
     ) -> bool:
         """
         Validates results.
@@ -93,8 +91,8 @@ class PortfolioOptimisationModule(
         :type parameters: PortfolioOptimisationParameters
         :param input_dataset: Input dataset
         :type input_dataset: PortfolioOptimisationInputDataset
-        :param output_dataset: Output dataset to validate
-        :type output_dataset: PortfolioOptimisationOutputDataset
+        :param result: Output dataset to validate
+        :type result: PortfolioOptimisationResult
         :return: True if validation passes
         :rtype: bool
         """
@@ -104,7 +102,7 @@ class PortfolioOptimisationModule(
         self,
         parameters: PortfolioOptimisationParameters,
         input_dataset: PortfolioOptimisationInputDataset,
-        output_dataset: PortfolioOptimisationOutputDataset,
+        result: PortfolioOptimisationResult,
     ) -> None:
         """
         Exports results.
@@ -113,8 +111,8 @@ class PortfolioOptimisationModule(
         :type parameters: PortfolioOptimisationParameters
         :param input_dataset: Input dataset
         :type input_dataset: PortfolioOptimisationInputDataset
-        :param output_dataset: Output dataset to export
-        :type output_dataset: PortfolioOptimisationOutputDataset
+        :param result: Output dataset to export
+        :type result: PortfolioOptimisationResult
         """
         logger.debug("Exporting Portfolio Optimisation results ..")
 
@@ -122,7 +120,7 @@ class PortfolioOptimisationModule(
         self,
         parameters: PortfolioOptimisationParameters,
         input_dataset: PortfolioOptimisationInputDataset,
-    ) -> PortfolioOptimisationOutputDataset:
+    ) -> PortfolioOptimisationResult:
         """
         Executes the module's main logic.
 
@@ -131,7 +129,7 @@ class PortfolioOptimisationModule(
         :param dataset: Input dataset
         :type dataset: PortfolioOptimisationInputDataset
         :return: Output dataset containing optimization results
-        :rtype: PortfolioOptimisationOutputDataset
+        :rtype: PortfolioOptimisationResult
         """
 
         cfg.logger.info(
@@ -143,7 +141,7 @@ class PortfolioOptimisationModule(
             f"  Manual Activation:   {len(input_dataset.portfolios_manual_activation)}\n"
             f"  Mode:                {'Portfolio Bidding' if parameters.is_portfolio_bidding else 'Individual Equipment'}\n"
         )
-        optimisation_results: list[PortfolioOptimisationResult] = []
+        optimisation_results: list[SinglePortfolioResult] = []
 
         if parameters.is_portfolio_bidding:
             portfolios = input_dataset.portfolios
@@ -178,11 +176,9 @@ class PortfolioOptimisationModule(
                             optimise_portfolio_manual_activated(portfolio=equipment_portfolio, parameters=parameters)
                         )
 
-        output_dataset = PortfolioOptimisationOutputDataset(
-            parameters=parameters, optimisation_results=optimisation_results
-        )
+        result = PortfolioOptimisationResult(parameters=parameters, optimisation_results=optimisation_results)
 
-        return output_dataset
+        return result
 
     def _prepare_equipment_portfolios(
         self, input_dataset: PortfolioOptimisationInputDataset, parameters: PortfolioOptimisationParameters
@@ -218,19 +214,3 @@ class PortfolioOptimisationModule(
                     equipment_portfolios.append(equipment_portfolio)
 
         return equipment_portfolios
-
-    @staticmethod
-    def get_business_model_class_used() -> Iterable[BusinessModelName]:
-        """Return list of business model classes used in this dataset."""
-        return [
-            BusinessModelName.MARKET_AREA,
-            BusinessModelName.CONTROL_BLOCK,
-            BusinessModelName.PORTFOLIO,
-            BusinessModelName.THERMAL,
-            BusinessModelName.LOAD,
-            BusinessModelName.HYDRO,
-            BusinessModelName.STORAGE,
-            BusinessModelName.WIND,
-            BusinessModelName.SOLAR,
-            BusinessModelName.OTHER_NON_DISPATCHABLE,
-        ]

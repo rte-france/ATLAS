@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 import atlas.config as cfg
 from atlas.enums import SolverStatus
+from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.optim import PortfolioOptimisationModel
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
@@ -19,7 +20,7 @@ from atlas.solver.models import SolutionInfo, SolverOptions
 
 
 @dataclass
-class PortfolioOptimisationResult:
+class SinglePortfolioResult:
     """
     This class stores the optimization results without the unpicklable solver object,
     making it suitable for multiprocessing with ProcessPoolExecutor.
@@ -28,28 +29,15 @@ class PortfolioOptimisationResult:
     :type portfolio: PortfolioPO
     :param solution_info: Dictionary containing solver status, objective value, and solve time
     :type solution_info: SolutionInfo | None
-    :param variable_values: Dictionary mapping variable names to their optimized values
-    :type variable_values: dict[str, float]
+    :param solution: Solved values of each temporal variable over the portfolio time window, keyed
+        by its name (see :meth:`~atlas.solver.solver_interface.OptimisationModel.solution`)
+    :type solution: dict[str, Timeseries]
     """
 
     portfolio: PortfolioPO
     solution_info: SolutionInfo | None
-    variable_values: dict[str, float] = field(default_factory=dict)
+    solution: dict[str, Timeseries] = field(default_factory=dict)
     is_manual_activation: bool = False
-
-    def get_variable_value(self, var_name: str) -> float:
-        """
-        Get the value of an optimization variable by name.
-
-        This method provides the same interface as PortfolioOptimisationModel.get_variable_value(),
-        allowing transparent usage in the output dataset.
-
-        :param var_name: Name of the variable
-        :type var_name: str
-        :return: The variable's optimized value, or 0.0 if the variable doesn't exist
-        :rtype: float
-        """
-        return self.variable_values.get(var_name, 0.0)
 
     @property
     def name(self) -> str:
@@ -57,24 +45,26 @@ class PortfolioOptimisationResult:
         return self.portfolio.name
 
     def __repr__(self) -> str:
-        return f"PortfolioOptimisationResult(portfolio={self.portfolio.name}, is_manual_activation={self.is_manual_activation})"
+        return (
+            f"SinglePortfolioResult(portfolio={self.portfolio.name}, is_manual_activation={self.is_manual_activation})"
+        )
 
 
 def optimise_single_portfolio(
     portfolio: PortfolioPO, parameters: PortfolioOptimisationParameters
-) -> PortfolioOptimisationResult:
+) -> SinglePortfolioResult:
     """
     Worker function for portfolio optimization (works for both multiprocessing and sequential).
 
     Builds and solves the optimization model, then extracts results into a picklable
-    PortfolioOptimisationResult object (avoiding SWIG solver objects).
+    SinglePortfolioResult object (avoiding SWIG solver objects).
 
     :param portfolio: Portfolio to optimize
     :type portfolio: PortfolioPO
     :param parameters: Optimization parameters
     :type parameters: PortfolioOptimisationParameters
     :return: Optimization result
-    :rtype: PortfolioOptimisationResult
+    :rtype: SinglePortfolioResult
     """
     solver_options = SolverOptions(
         presolve=parameters.solver.use_presolve,
@@ -88,20 +78,17 @@ def optimise_single_portfolio(
         model.build()
 
         if parameters.solver.export_lp:
-            output_path = parameters.get_lp_dir()
+            output_path = parameters.lp_dir
             output_path.mkdir(parents=True, exist_ok=True)
             model.export_model(output_path / f"po_{portfolio.name}.lp")
 
         solution_info = model.solve()
+        model.require_solution()
 
-        if solution_info.status not in (SolverStatus.OPTIMAL, SolverStatus.FEASIBLE):
-            raise RuntimeError(f"Solver returned status {solution_info.status.name}")
-
-        variable_values = {var_name: model.get_variable_value(var_name) for var_name in model._variables_name}
-
-        result = PortfolioOptimisationResult(
+        start, end = min(parameters.portfolio_time_window), max(parameters.portfolio_time_window)
+        result = SinglePortfolioResult(
             portfolio=model.portfolio,
-            variable_values=variable_values,
+            solution={name: values.slice(start, end, inplace=False) for name, values in model.solution().items()},
             solution_info=solution_info,
             is_manual_activation=False,
         )
@@ -116,9 +103,8 @@ def optimise_single_portfolio(
 
         set_manual_activation(portfolio.equipments.get_all_equipment(), parameters)
 
-        result = PortfolioOptimisationResult(
+        result = SinglePortfolioResult(
             portfolio=portfolio,
-            variable_values={},
             solution_info=SolutionInfo(status=SolverStatus.NOT_SOLVED),
             is_manual_activation=True,
         )
@@ -129,7 +115,7 @@ def optimise_single_portfolio(
 def run_parallel(
     portfolios: list[PortfolioPO],
     parameters: PortfolioOptimisationParameters,
-) -> list[PortfolioOptimisationResult]:
+) -> list[SinglePortfolioResult]:
     """
     Generic function to run optimization using multiprocessing.
 
@@ -137,10 +123,12 @@ def run_parallel(
     :type portfolios: list[PortfolioPO]
     :param parameters: Optimization parameters
     :type parameters: PortfolioOptimisationParameters
-    :return: List of optimization results
-    :rtype: list[PortfolioOptimisationResult]
+    :return: List of optimization results, one per portfolio
+    :rtype: list[SinglePortfolioResult]
+    :raises RuntimeError: any worker failure is propagated, named after the failing portfolio,
+        so a partial result never flows on
     """
-    optimisation_results: list[PortfolioOptimisationResult] = []
+    optimisation_results: list[SinglePortfolioResult] = []
 
     with ProcessPoolExecutor(max_workers=parameters.multiprocessing.max_workers) as executor:
         future_to_portfolio = {
@@ -150,12 +138,14 @@ def run_parallel(
 
         for future in as_completed(future_to_portfolio):
             portfolio_name = future_to_portfolio[future]
+            # Solver failures are already handled in optimise_single_portfolio (degraded result);
+            # anything reaching here is a worker crash and must not silently shrink the result list.
             try:
                 result = future.result()
-                optimisation_results.append(result)
-                cfg.logger.info(f"Completed optimization for: {portfolio_name}")
             except Exception as e:
-                cfg.logger.error(f"Error processing {portfolio_name}: {e}")
+                raise RuntimeError(f"Optimisation failed for portfolio {portfolio_name}") from e
+            optimisation_results.append(result)
+            cfg.logger.info(f"Completed optimization for: {portfolio_name}")
 
     return optimisation_results
 
@@ -163,7 +153,7 @@ def run_parallel(
 def run_sequential(
     portfolios: list[PortfolioPO],
     parameters: PortfolioOptimisationParameters,
-) -> list[PortfolioOptimisationResult]:
+) -> list[SinglePortfolioResult]:
     """
     Generic function to run optimization sequentially.
 
@@ -171,38 +161,38 @@ def run_sequential(
     :type portfolios: list[PortfolioPO]
     :param parameters: Optimization parameters
     :type parameters: PortfolioOptimisationParameters
-    :return: List of optimization results
-    :rtype: list[PortfolioOptimisationResult]
+    :return: List of optimization results, one per portfolio
+    :rtype: list[SinglePortfolioResult]
+    :raises RuntimeError: any failure is propagated, named after the failing portfolio,
+        so a partial result never flows on
     """
-    optimisation_results: list[PortfolioOptimisationResult] = []
+    optimisation_results: list[SinglePortfolioResult] = []
 
     for portfolio in portfolios:
         try:
             result = optimise_single_portfolio(portfolio, parameters)
-            optimisation_results.append(result)
-            cfg.logger.info(f"Completed optimization for: {result.name}")
         except Exception as e:
-            cfg.logger.error(f"Error processing {portfolio.name}: {e}")
+            raise RuntimeError(f"Optimisation failed for portfolio {portfolio.name}") from e
+        optimisation_results.append(result)
+        cfg.logger.info(f"Completed optimization for: {result.name}")
 
     return optimisation_results
 
 
 def optimise_portfolio_manual_activated(
     portfolio: PortfolioPO, parameters: PortfolioOptimisationParameters
-) -> PortfolioOptimisationResult:
+) -> SinglePortfolioResult:
     """
     Create a result object for manually activated portfolios.
 
     :param portfolio: Portfolio to manually activate
     :type portfolio: PortfolioPO
-    :return: PortfolioOptimisationResult with manual activation applied
-    :rtype: PortfolioOptimisationResult
+    :return: SinglePortfolioResult with manual activation applied
+    :rtype: SinglePortfolioResult
     """
     cfg.logger.info(f"Manual activation for portfolio: {portfolio.name}")
     cfg.logger.debug("Manual activation optimisation not yet implemented")
 
     set_manual_activation(portfolio.equipments.get_all_equipment(), parameters)
 
-    return PortfolioOptimisationResult(
-        portfolio=portfolio, variable_values={}, solution_info=None, is_manual_activation=True
-    )
+    return SinglePortfolioResult(portfolio=portfolio, solution_info=None, is_manual_activation=True)

@@ -118,10 +118,10 @@ class ThermalDAOStep(AbstractOptimStep[ThermalDAO, DayAheadOrdersParameters]):
         self._reserves.setup(model)
         self._reserves.setup_reserve_forecasts(*self._reserve_forecasts(parameters))
 
+        self.dispatch.add_variables(self._time_frame)
+        self._reserves.add_variables(self._time_frame, self.equipment.maximum_power, self.equipment.minimum_power)
         for time in self._time_frame:
-            self.dispatch.add_variables(time)
             max_power = self.equipment.maximum_power.get_value(time)
-            self._reserves.add_variables(time, max_power, self.equipment.minimum_power.get_value(time))
             for prefix in _CONTRACTED_DIFFERENCE_PREFIXES:
                 model.add_continuous_variable(self._var(prefix, time), 0, max_power)
 
@@ -135,7 +135,7 @@ class ThermalDAOStep(AbstractOptimStep[ThermalDAO, DayAheadOrdersParameters]):
             min_power = self.equipment.minimum_power.get_value(time)
             self._reserves.add_fill_up_constraints(
                 time,
-                self.dispatch.power_level_var.get_value(time),
+                self.dispatch.power_level[time],
                 max_power,
                 min_power,
                 parameters.allowed_round_off_error,
@@ -170,10 +170,10 @@ class ThermalDAOStep(AbstractOptimStep[ThermalDAO, DayAheadOrdersParameters]):
         model.add_objective(
             objective_expr=(
                 sum(
-                    self.dispatch.power_level_var.get_value(time)
+                    self.dispatch.power_level[time]
                     * dt_hours
                     * (self._prices.get_value(time) - self.equipment.variable_cost.get_value(time))
-                    - self.dispatch.turned_on.get_value(time) * self.equipment.startup_cost.get_value(time)
+                    - self.dispatch.turned_on[time] * self.equipment.startup_cost.get_value(time)
                     - manual_penalty
                     * (
                         model.get_variable(self._var("contracted_difference_up", time))
@@ -209,9 +209,9 @@ class ThermalDAOStep(AbstractOptimStep[ThermalDAO, DayAheadOrdersParameters]):
             )
 
         def state(var) -> Timeseries:
-            return solution(lambda time: var.get_model_var(time).solution_value())
+            return solution(var.solution_value)
 
-        power = solution(lambda time: dispatch.power_level_var.get_model_var(time).solution_value())
+        power = solution(dispatch.power_level.solution_value)
         if abs(power.min()) <= 1e-6 and abs(power.max()) <= 1e-6:
             cfg.logger.debug(
                 f"*** Info *** The optimal solution for the unit {self.equipment.name} is such that "
@@ -219,12 +219,12 @@ class ThermalDAOStep(AbstractOptimStep[ThermalDAO, DayAheadOrdersParameters]):
             )
 
         return ThermalOptimisationResult(
-            on_up=state(dispatch.on_up_var),
-            on_down=state(dispatch.on_down_var),
-            off=state(dispatch.off_var),
-            start=state(dispatch.on_start_var) if dispatch.has_start else None,
-            stop=state(dispatch.stop_var) if dispatch.has_stop else None,
-            on_flat=state(dispatch.on_flat_var) if dispatch.has_flat else None,
+            on_up=state(dispatch.on_up),
+            on_down=state(dispatch.on_down),
+            off=state(dispatch.off),
+            start=state(dispatch.on_start) if dispatch.has_start else None,
+            stop=state(dispatch.stop) if dispatch.has_stop else None,
+            on_flat=state(dispatch.on_flat) if dispatch.has_flat else None,
         )
 
     def _var(self, prefix: str, time: DateTime) -> str:
@@ -234,22 +234,21 @@ class ThermalDAOStep(AbstractOptimStep[ThermalDAO, DayAheadOrdersParameters]):
         """Bound each contracted difference below by ``procured - provided`` (it is null otherwise)."""
         reserves = self._reserves
         for prefix, procured, provided in (
-            ("contracted_difference_up", reserves.reserves_up_procured, "reserves_up"),
-            ("contracted_difference_down", reserves.reserves_down_procured, "reserves_down"),
+            ("contracted_difference_up", reserves.reserves_up_procured, reserves.reserves_up),
+            ("contracted_difference_down", reserves.reserves_down_procured, reserves.reserves_down),
             (
                 "automated_contracted_difference_up",
                 reserves.feasible_automated_reserves_up_procured,
-                "automated_reserves_up",
+                reserves.automated_reserves_up,
             ),
             (
                 "automated_contracted_difference_down",
                 reserves.feasible_automated_reserves_down_procured,
-                "automated_reserves_down",
+                reserves.automated_reserves_down,
             ),
         ):
             model.add_constraint(
-                model.get_variable(self._var(prefix, time))
-                >= procured.get_value(time) - model.get_variable(reserves.var(provided, time)),
+                model.get_variable(self._var(prefix, time)) >= procured.get_value(time) - provided[time],
                 f"def_{prefix}_{self.equipment.name}_{time}",
             )
 
@@ -339,7 +338,7 @@ def solve_thermal_unit(
     step.add_objective(model, parameters)
 
     if parameters.solver.export_lp:
-        lp_dir = parameters.get_lp_dir()
+        lp_dir = parameters.lp_dir
         lp_dir.mkdir(parents=True, exist_ok=True)
         model.export_model(str(lp_dir / f"{unit.name}_price_{price_type}.lp"))
 

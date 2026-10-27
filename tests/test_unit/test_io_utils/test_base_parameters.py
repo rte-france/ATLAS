@@ -13,8 +13,8 @@ from atlas.io_utils.parameters import DateParameters, Parameters
 def test_from_yaml_file():
     """Test loading parameters from a YAML file"""
     yaml_content = {
-        "export_result": True,
-        "export_output_dataset": False,
+        "export_results": True,
+        "export_dataset": False,
     }
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as temp_file:

@@ -1,11 +1,10 @@
 [project]
 name = "atlas-model"
-version = "0.1.0"
+version = "0.1.2"
 description = "A tool for simulating power market such as day-ahead, intraday, and reserves markets."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "fastparquet>=2024.11.0",
     "h5py>=3.13.0",
     "loguru>=0.7.3",
     "numpy>=2.0.1",
@@ -21,8 +20,6 @@ dependencies = [
     "pytz>=2025.1",
     "pyyaml>=6.0.1",
     "typer>=0.15.2",
-    "typing-extensions>=4.13.2",
-    "dictdiffer>=0.9.0",
     "pyinstrument>=5.1.2",
     "antares-craft>=0.14.0",
 ]
@@ -31,7 +28,7 @@ dependencies = [
 atlas = "atlas.app:app"
 
 [build-system]
-requires = ["uv_build>=0.7.19,<0.8.0"]
+requires = ["uv_build>=0.7.19,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -71,7 +68,6 @@ dev = [
     "ipython>=8.35.0",
     "jupyter>=1.1.1",
     "pandas-stubs>=2.2.3.250308",
-    "coverage>=7.8.0",
     "mypy>=1.15.0",
     "pytest>=8.3.5",
     "pytest-cov>=6.1.1",
@@ -81,7 +77,6 @@ dev = [
     "plotly-stubs>=0.0.5",
     "ortools-stubs>=8.0.0",
     "types-pytz>=2025.2.0.20251108",
-    "pyinstrument>=5.1.2",
 ]
 docs = [
     "mkdocs-jupyter>=0.25.1",
@@ -94,19 +89,18 @@ docs = [
 plugins = ["pydantic.mypy"]
 disable_error_code = ["operator"]
 [[tool.mypy.overrides]]
-module = ["atlas.solver.solver_interface",
-          "atlas.solver.solver_helper"]
+module = ["atlas.solver.solver_interface"]
 ignore_errors = true
 
 [tool.coverage.run]
 omit = ['atlas/io_utils/prometheus_transformer.py']
 
-[[tool.mypy.overrides]]
-module = ["dictdiffer.*"]
-follow_untyped_imports = true
+[tool.coverage.report]
+fail_under = 80
 
 [tool.pytest.ini_options]
 addopts = "-m 'not integration'"
 markers = [
     "integration: marks tests as integration tests (run only on pull requests)",
+    "perf: execution time checked against tests/dataset/performance_thresholds.json (run in the CI perf job)",
 ]

@@ -1,7 +1,7 @@
 dataset_path: tests/dataset/intraday/intraday_price_forecast_input
 path_from_workflow: false
 name: workflow
-export_output: false
+export_final_state: false
 steps:
     - module: IntradayPriceForecast
       parameters: tests/dataset/parameters/intraday/intraday_price_forecast.yml
