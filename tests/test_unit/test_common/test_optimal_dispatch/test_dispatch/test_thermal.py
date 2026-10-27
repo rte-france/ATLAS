@@ -19,6 +19,7 @@ from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
 from atlas.objects.network_operator.control_block import ControlBlock
+from atlas.solver.models import SolverStatus
 from atlas.solver.solver_interface import OptimisationModel
 
 
@@ -918,3 +919,101 @@ class TestBannedTransitionsTable:
         """`x(t-1) + x(t) <= 1` would forbid a unit from staying where it is."""
         for from_state, to_state in ThermalDispatch._BANNED_TRANSITIONS[flags]:
             assert from_state != to_state
+
+
+class TestThermalDispatchSolvedBehaviour:
+    """Solve the model on a forced dispatch: the unit must accept what it can physically do."""
+
+    HOURS = 8
+
+    def _solve(self, node, portfolio, start_date, timestep, maximum_power, forced, history=None, **durations):
+        """Build the unit like the portfolio does, force ``power_level`` at the given hours, and solve."""
+        parameters = AbstractModuleParameters(
+            temporal=DateParameters(
+                start_date=start_date,
+                end_date=start_date.add(hours=self.HOURS),
+                execution_date=start_date.subtract(days=1),
+                timestep=timestep,
+            )
+        )
+        minimum_power = Timeseries.from_index(
+            start_date=start_date.subtract(days=1),
+            frequency=timestep,
+            end_date=start_date.add(days=2),
+            default_value=50.0,
+        )
+        power = None
+        if history is not None:
+            power = ForecastingMatrix()
+            power.add(history, parameters.temporal.execution_date)
+        eq = _make_equipment(node, portfolio, maximum_power, minimum_power, power=power, **durations)
+        model = OptimisationModel("SCIP", "test_thermal_dispatch_solved")
+        dispatch = ThermalDispatch(eq)
+        dispatch.setup(model, parameters)
+        window = [start_date.add(hours=h) for h in range(self.HOURS)]
+        dispatch.add_variables(window)
+        for time in window:
+            dispatch.add_constraints(model, time, parameters)
+            if time in window[:-2]:
+                dispatch.add_dd_and_gradient_constraints(model, time, time - timestep)
+        for hour, value in forced.items():
+            model.add_constraint(dispatch.power_level[window[hour]] == value, f"force_{hour}")
+        model.set_direction("minimize")
+        model.set_objective(dispatch.power_level[window[0]])
+        return model.solve().status
+
+    @staticmethod
+    def _constant(start_date, timestep, value, **overrides):
+        series = Timeseries.from_index(
+            start_date=start_date.subtract(days=1),
+            frequency=timestep,
+            end_date=start_date.add(days=2),
+            default_value=value,
+        )
+        for hour, hour_value in overrides.items():
+            series.set_value(start_date.add(hours=int(hour.removeprefix("h"))), hour_value)
+        return series
+
+    def test_a_power_derating_during_a_ramp_down_stays_feasible(self, node, portfolio, start_date, timestep):
+        """The maximum power falls from 200 to 100 while the unit steps down by 150 (<= its 180 per step)."""
+        maximum_power = self._constant(start_date, timestep, 200.0, **{f"h{h}": 100.0 for h in range(2, 24)})
+        history = self._constant(start_date, timestep, 200.0)
+
+        status = self._solve(
+            node,
+            portfolio,
+            start_date,
+            timestep,
+            maximum_power,
+            {0: 200.0, 1: 200.0, 2: 50.0},
+            history=history,
+            maximum_gradient=3.0,
+            minimum_stable_power_duration=pendulum.duration(hours=2),
+            **REALISTIC_MIN_TIMES,
+        )
+
+        assert status == SolverStatus.OPTIMAL
+
+    @pytest.mark.parametrize("target", [170.0, 150.0, 140.0])
+    def test_a_running_unit_can_step_down_within_its_gradient_at_the_first_step(
+        self, node, portfolio, start_date, timestep, target
+    ):
+        """Running at 200 with 1 MW/min (60 per step), any first power down to 140 is reachable."""
+        flat = self._constant(start_date, timestep, 200.0)
+
+        status = self._solve(
+            node, portfolio, start_date, timestep, flat, {0: target}, history=flat, maximum_gradient=1.0
+        )
+
+        assert status == SolverStatus.OPTIMAL
+
+    def test_a_running_unit_cannot_step_down_beyond_its_gradient_at_the_first_step(
+        self, node, portfolio, start_date, timestep
+    ):
+        flat = self._constant(start_date, timestep, 200.0)
+
+        status = self._solve(
+            node, portfolio, start_date, timestep, flat, {0: 139.0}, history=flat, maximum_gradient=1.0
+        )
+
+        assert status == SolverStatus.INFEASIBLE
