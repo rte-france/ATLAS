@@ -108,11 +108,15 @@ def run_workflow_cmd(
         raise typer.Exit(code=1)
 
     logger.info(f"Running workflow: {parameters_path}")
-    with timer() as t:
-        wf = Workflow.from_file(parameters_path)
-        wf.execute()
-    logger.info(f"Workflow completed in {t()} seconds")
-    logger.info("✓ Workflow completed successfully.")
+    try:
+        with timer() as t:
+            wf = Workflow.from_file(parameters_path)
+            wf.execute()
+        logger.info(f"Workflow completed in {t()} seconds")
+        rprint("[bold green]✓[/bold green] Workflow completed successfully.")
+    except Exception as e:
+        logger.exception(f"✗ Workflow failed: {e}")
+        raise typer.Exit(code=1) from e
 
 
 @workflow_app.command("list")
@@ -166,11 +170,15 @@ def run_action_plan_cmd(
         raise typer.Exit(code=1)
 
     logger.info(f"Running action plan: {parameters_path}")
-    with timer() as t:
-        action_plan = ActionPlan.from_file(parameters_path)
-        action_plan.execute()
-    logger.info(f"Action plan completed in {t()} seconds")
-    logger.info("✓ Action plan completed successfully.")
+    try:
+        with timer() as t:
+            action_plan = ActionPlan.from_file(parameters_path)
+            action_plan.execute()
+        logger.info(f"Action plan completed in {t()} seconds")
+        rprint("[bold green]✓[/bold green] Action plan completed successfully.")
+    except Exception as e:
+        logger.exception(f"✗ Action plan failed: {e}")
+        raise typer.Exit(code=1) from e
 
 
 @action_plan_app.command("list")
