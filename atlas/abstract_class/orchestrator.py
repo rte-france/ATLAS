@@ -136,40 +136,50 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
             try:
                 self._execute_job(job, cis)
                 last_executed_job = job
-            except WorkflowJobError as e:
-                logger.error(
-                    f"Job {job_idx + 1}: {job.name.strip("'")} failed due to: {type(e.__cause__).__name__}: {e.__cause__}"
-                )
-                if self.parameters.rollback_on_job_failure:
-                    logger.error(f"Current Input State automatically rolled back to state before '{job}'")
-                if e.input_dataset is not None:
-                    debug_dir = (
-                        self.parameters.resolve_path(self.parameters.output_dir)
-                        / "failed_job"
-                        / f"{job.name.strip("'")}_job_{job_idx + 1}"
-                    )
-                    try:
-                        e.input_dataset.to_directory(debug_dir)
-                        logger.info(f"Input dataset of '{job.name}' exported to {debug_dir}")
-                    except InputLoaderError:  # Issue when exporting dataset, this issue is not treated yet
-                        logger.error(f"unable to export input datasaet of job {job.name}")
-
-                if self.parameters.create_job_snapshots:
-                    logger.info(f"Available snapshots: {cis.list_snapshots()}")
-
-                raise
 
             except Exception as e:
-                logger.error(f"Job {job.name.strip("'")} failed due to: {type(e).__name__}: {e}")
                 if self.parameters.rollback_on_job_failure:
                     logger.error(f"Current Input State automatically rolled back to state before '{job}'")
                 if self.parameters.create_job_snapshots:
                     logger.info(f"Available snapshots: {cis.list_snapshots()}")
-                raise WorkflowJobError(
-                    f"{self.__class__.__name__} failed at job '{job}'",
-                    job_name=job.name,
-                    cis=cis,
-                ) from e
+
+                if isinstance(e, WorkflowJobError):
+                    logger.error(
+                        f"Job {job_idx + 1}: {job.name.strip("'")} failed due to : {type(e.__cause__).__name__}: {e.__cause__}"
+                    )
+                elif isinstance(e, InputLoaderError):
+                    logger.error(
+                        f"Failed to export changes post computation of job {job_idx + 1}: {job.name.strip("'")}"
+                    )
+                    raise WorkflowJobError(
+                        f"{self.__class__.__name__} failed at job '{job}' while trying to export dataset: {type(e).__name__}",
+                        job_name=job.name,
+                        cis=cis,
+                    ) from e
+
+                else:
+                    logger.error(f"Job {job.name.strip("'")} failed due to: {type(e).__name__}: {e}")
+                    raise WorkflowJobError(
+                        f"{self.__class__.__name__} failed at job '{job}', error not from module",
+                        job_name=job.name,
+                        cis=cis,
+                    ) from e
+
+                # export input dataset of failing job before
+                dataset_before_crashing = cis.get_data(copy=True)
+                debug_dir = (
+                    self.parameters.resolve_path(self.parameters.output_dir)
+                    / "failed_job"
+                    / f"{job.name.strip("'")}_job_{job_idx + 1}"
+                )
+                try:
+                    dataset_before_crashing.to_directory(debug_dir)
+                    logger.warning(f"Exported input dataset of failing '{job.name}' to folder {debug_dir}")
+
+                except InputLoaderError:  # Issue when exporting dataset, this issue is not treated yet
+                    logger.error(f"unable to export input datasaet of failing job {job.name}")
+
+                raise
 
             logger.info(f"Finishing job :'{job.name}'")
 
