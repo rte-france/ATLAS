@@ -99,23 +99,22 @@ constraint sets because one has a 45-minute startup and the other a 20-minute on
 
 ## Power bounds
 
-Between minimum and maximum power *while online*, and pinned toward zero during the ramps:
+Between minimum and maximum power *while online*, and between zero and the minimum power during the ramps:
 
 $$
+\begin{aligned}
 \underbrace{\underline{P}_t \cdot \sigma_t}_{\text{lower}}
-\;\le\; P_t \;\le\;
-\underbrace{\overline{P}_t \cdot \sigma_t}_{\text{upper}}
-\qquad
-\sigma_t = \text{on_up}_t + \text{on_down}_t \;[+\; \text{on_flat}_t]
+\;\le\; P_t & \;\le\;
+\underbrace{\overline{P}_t \cdot \sigma_t + \underline{P}_t \cdot \sigma^{SU/SD}_t}_{\text{upper}}, \\
+\sigma_t = \text{on_up}_t + & \text{on_down}_t \;[+\; \text{on_flat}_t],\\
+\sigma^{SU/SD}_t = & \;\text{start}_t + \text{stop}_t
+\end{aligned}
 $$
 
 $\sigma_t$ is 1 exactly when the unit is online and out of its ramps, so the bounds collapse to
-$0 \le P_t \le 0$ when it is off, starting or stopping. The ramps then relax that pin: with a
-shutdown ramp the upper bound gains $\text{stop}_t \cdot Q^{\min}$, letting the unit sit below
-minimum power on its way down, and with a startup ramp it gains
-$\text{on_start}_t \cdot Q^{\min}$, where $Q^{\min} = \max_t \underline{P}_t$. Additional
-`turned_off` terms step the bound down by $Q^{\min} / T^{\text{stop}}$ per timestep so the
-descent is gradual rather than a cliff.
+$0 \le P_t \le 0$ when it is off, and to $0 \le P_t \le \underline{P}_t$ when it is starting or stopping.
+The stepwise evolution between 0 and minimum power during startups
+(or conversely, during shutdowns) is then managed by gradient constraints.
 
 ## Gradient constraints
 
@@ -130,11 +129,12 @@ $$
 The bounds are not constants — they are linear expressions in the state variables, because the
 allowed swing depends on what the unit is doing. Ramping up under a gradient limit allows
 $\Delta Q$; climbing the startup ramp allows $Q^{\min}/T^{\text{start}}$ per step; a unit with
-no gradient limit that has just turned on may jump straight to its bound.
+no gradient limit that has just turned on may jump straight to its maximum bound.
 
 Units with a stable phase need one more layer. Whether a swing is allowed at $t$ depends on
-whether the unit was *already* ramping in the same direction at $t-1$, and that product of
-binary and continuous terms is not linear. It is linearised with auxiliary variables — `up_grad`
+whether the unit was *already* ramping in the same direction at $t-1$ (or whether the minimum
+duration at a stable power output has been fulfilled). This can lead to immplementing a product of
+binary and continuous terms, which is not linear. It is linearised with auxiliary variables — `up_grad`
 and `down_grad` for the two directions, `aux_up_grad` and `aux_down_grad` as intermediates, and
 `dd_grad` for the stable→down→stop chain — each pinned by the standard big-M bracket
 
