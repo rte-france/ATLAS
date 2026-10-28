@@ -12,7 +12,7 @@ import pendulum
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.enums import CouplingType, OrderType, Product
+from atlas.enums import CouplingType, OrderType, Product, ThermalOrderState
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
@@ -61,12 +61,12 @@ class ThermalUnitOrders:
 
         scenario_suffix = f"_with_price_{case}" if case else "_with_price"
 
-        # Determine if the unit is offline or not. A sufficient condition is that the online_timeframe doesn't contain a 1
-        # since by construction the unit is ON for at least one time step.
+        # Determine if the unit is offline or not. A sufficient condition is that the online_timeframe
+        # holds an OFF timestep, since by construction the unit is ON for at least one time step.
         # JL excludes an online sequence with an incomplete start-up ramp. For now, we will leave it as such.
         # Cache index/values once: each access on Timeseries rebuilds a Python list from polars.
         online_values = online_timeframe.values
-        offline = 0 in online_values
+        offline = ThermalOrderState.OFF in online_values
 
         # If the unit is offline, no orders are formulated.
         if offline:
@@ -111,18 +111,16 @@ class ThermalUnitOrders:
 
         ## See whether there is a startup or not. Used to know if we need to amortise startup cost over the inflexible
         # orders or not.
-        startup = 2 in online_values
+        startup = ThermalOrderState.STARTUP in online_values
 
         ## See whether the ramps are complete or not.
-        # Single pass over consecutive value pairs to detect both transitions:
-        #   1 -> 3 (incomplete shutdown ramp start, diff +2; 0 is excluded by the offline check)
-        #   2 -> 1 (end of startup ramp, diff -1)
+        # Single pass over consecutive value pairs to detect both transitions.
         T_startSD_in_sim = False
         T_endSU_in_sim = False
-        for a, b in zip(online_values[:-1], online_values[1:], strict=False):
-            if b - a == 2:
+        for previous, current in zip(online_values[:-1], online_values[1:], strict=False):
+            if previous == ThermalOrderState.ON and current == ThermalOrderState.SHUTDOWN:
                 T_startSD_in_sim = True
-            if a - b == 1:
+            if previous == ThermalOrderState.STARTUP and current == ThermalOrderState.ON:
                 T_endSU_in_sim = True
             if T_startSD_in_sim and T_endSU_in_sim:
                 break
@@ -144,14 +142,14 @@ class ThermalUnitOrders:
         for t in self.orders_time:
             if t not in online_index_set:
                 continue
-            v = online_timeframe.get_value(t)
-            if v == 1:
+            state = online_timeframe.get_value(t)
+            if state == ThermalOrderState.ON:
                 flexible_time_frame.append(t)
-            elif v == 2:
+            elif state == ThermalOrderState.STARTUP:
                 K_start += 1
                 if begin_of_startTimeFrame is None:
                     begin_of_startTimeFrame = t
-            elif v == 3:
+            elif state == ThermalOrderState.SHUTDOWN:
                 K_stop += 1
                 if begin_of_stopTimeFrame is None:
                     begin_of_stopTimeFrame = t

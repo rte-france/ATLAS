@@ -56,6 +56,27 @@ class StorageType(StrEnum):
     ELECTRIC_VEHICLE = "ElectricVehicle"
 
 
+class ThermalOrderState(IntEnum):
+    """
+    Operating regime of a thermal unit over a timestep, as order formulation reads it.
+
+    Coarser than :class:`ThermalDispatchState`: a market module formulating orders only
+    needs to know whether the unit is producing and whether it is ramping, not in which
+    direction. Any module deriving orders from a thermal state sequence — day-ahead,
+    intraday, balancing — shares this encoding.
+
+    :cvar OFF: Unit offline.
+    :cvar ON: Unit online, free to move within its gradient.
+    :cvar STARTUP: Unit climbing its startup ramp.
+    :cvar SHUTDOWN: Unit descending its shutdown ramp.
+    """
+
+    OFF = 0
+    ON = 1
+    STARTUP = 2
+    SHUTDOWN = 3
+
+
 class ThermalDispatchState(IntEnum):
     """
     State encoding stored in the :class:`~atlas.math.matrix.ScenarioMatrix` after LP solving.

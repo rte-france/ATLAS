@@ -14,8 +14,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from atlas.modules.day_ahead_orders.steps.storage import StorageStep
-from atlas.modules.day_ahead_orders.steps.thermal.thermal_bidding_step import ThermalBiddingStep
-from atlas.modules.day_ahead_orders.steps.thermal.thermal_worker import optimize_single_thermal_unit
+from atlas.modules.day_ahead_orders.steps.thermal.step import ThermalBiddingStep, optimize_single_thermal_unit
 
 
 def _step(step_class, dataset_attribute: str, unit_name: str, parallel: bool):
@@ -74,7 +73,7 @@ def test_thermal_step_propagates_unit_failure():
     step = _step(ThermalBiddingStep, "thermal", "a_thermal", parallel=False)
 
     with patch(
-        "atlas.modules.day_ahead_orders.steps.thermal.thermal_bidding_step.optimize_single_thermal_unit",
+        "atlas.modules.day_ahead_orders.steps.thermal.step.optimize_single_thermal_unit",
         side_effect=RuntimeError("solver crashed"),
     ):
         with pytest.raises(RuntimeError, match="a_thermal") as error:
@@ -101,4 +100,4 @@ def test_thermal_worker_rejects_unknown_strategy():
     thermal.strategy = None
 
     with pytest.raises(ValueError, match="Unknown thermal strategy"):
-        optimize_single_thermal_unit(thermal, orders_time=[], parameters=Mock())
+        optimize_single_thermal_unit(thermal, parameters=Mock())
