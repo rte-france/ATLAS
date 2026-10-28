@@ -9,7 +9,7 @@ from atlas.abstract_class.dataset import AbstractDataset
 from atlas.abstract_class.job import AbstractJob
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.config import logger
-from atlas.custom_errors import WorkflowJobError
+from atlas.custom_errors import InputLoaderError, WorkflowJobError
 from atlas.io_utils.parameters import ContextParameters, RunPaths
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
@@ -136,24 +136,50 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
             try:
                 self._execute_job(job, cis)
                 last_executed_job = job
-            except WorkflowJobError as e:
-                logger.error(f"'{job}' failed: {e}")
-                if self.parameters.rollback_on_job_failure:
-                    logger.error(f"Current Input State automatically rolled back to state before '{job}'")
-                if self.parameters.create_job_snapshots:
-                    logger.info(f"Available snapshots: {cis.list_snapshots()}")
-                raise
+
             except Exception as e:
-                logger.error(f"'{job}' failed: {e}")
                 if self.parameters.rollback_on_job_failure:
                     logger.error(f"Current Input State automatically rolled back to state before '{job}'")
                 if self.parameters.create_job_snapshots:
                     logger.info(f"Available snapshots: {cis.list_snapshots()}")
-                raise WorkflowJobError(
-                    f"{self.__class__.__name__} failed at job '{job}'",
-                    job_name=job.name,
-                    cis=cis,
-                ) from e
+
+                if isinstance(e, WorkflowJobError):
+                    logger.error(
+                        f"Job {job_idx + 1}: {job.name.strip("'")} failed due to : {type(e.__cause__).__name__}: {e.__cause__}"
+                    )
+                elif isinstance(e, InputLoaderError):
+                    logger.error(
+                        f"Failed to export changes post computation of job {job_idx + 1}: {job.name.strip("'")}"
+                    )
+                    raise WorkflowJobError(
+                        f"{self.__class__.__name__} failed at job '{job}' while trying to export dataset: {type(e).__name__}",
+                        job_name=job.name,
+                        cis=cis,
+                    ) from e
+
+                else:
+                    logger.error(f"Job {job.name.strip("'")} failed due to: {type(e).__name__}: {e}")
+                    raise WorkflowJobError(
+                        f"{self.__class__.__name__} failed at job '{job}', error not from module",
+                        job_name=job.name,
+                        cis=cis,
+                    ) from e
+
+                # export input dataset of failing job before
+                dataset_before_crashing = cis.get_data(copy=True)
+                debug_dir = (
+                    self.parameters.resolve_path(self.parameters.output_dir)
+                    / "failed_job"
+                    / f"{job.name.strip("'")}_job_{job_idx + 1}"
+                )
+                try:
+                    dataset_before_crashing.to_directory(debug_dir)
+                    logger.warning(f"Exported input dataset of failing '{job.name}' to folder {debug_dir}")
+
+                except InputLoaderError:  # Issue when exporting dataset, this issue is not treated yet
+                    logger.error(f"unable to export input datasaet of failing job {job.name}")
+
+                raise
 
             logger.info(f"Finishing job :'{job.name}'")
 
@@ -165,6 +191,18 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
             export_dir = self.parameters.resolve_path(self.parameters.output_dir) / f"{export_name}-output"
             logger.info(f"Exporting final {self.__class__.__name__.lower()} state to {export_dir.resolve()}")
             cis.to_directory(export_dir)
+            logger.info(
+                f"Exporting final {self.__class__.__name__.lower()} state to {self.parameters.resolve_path(self.parameters.output_dir)}"
+            )
+            try:
+                cis.to_directory(
+                    self.parameters.resolve_path(self.parameters.output_dir)
+                    / f"{self.__class__.__name__.lower()}_output"
+                )
+
+            except InputLoaderError:  # Issue when exporting dataset, this issue is not treated yet
+                logger.error("Failed to export final Current Input State")
+                raise
 
         logger.info(f"{self.__class__.__name__} '{self.parameters.name}' completed successfully")
 
@@ -191,7 +229,8 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
                     f"{self.__class__.__name__} failed at job '{job}' during module execution",
                     job_name=job.name,
                     cis=cis,
-                    input_dataset=input_dataset,
+                    # The input_dataset is potentially modified during the job.run?
+                    input_dataset=cis.get_data(copy=True),
                 ) from e
         logger.info(f"'{job.name}' completed in {t()} seconds")
 
