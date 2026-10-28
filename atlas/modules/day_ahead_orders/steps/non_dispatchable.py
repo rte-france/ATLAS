@@ -27,7 +27,9 @@ class NonDispatchableStep(AbstractOrderStep):
                 )
 
                 if not formulated_volume:
-                    print(f"No volume for equipment {unit.name}")
+                    cfg.logger.debug(
+                        f"No maximum_power_forecast available for {unit.name}, hence no order is formulated"
+                    )
                     continue
 
                 if unit.da_sell_submitted_volume is None:
@@ -38,9 +40,10 @@ class NonDispatchableStep(AbstractOrderStep):
                     )
 
                 for t in self.orders_time:
-                    if formulated_volume.get_value(t) == 0:
+                    qmax = formulated_volume.get_value(t)
+                    if qmax == 0:
                         continue
-                    elif formulated_volume.get_value(t) > 0:
+                    elif qmax > 0:
                         order_direction = OrderType.Sell
                     else:
                         order_direction = OrderType.Buy
@@ -50,7 +53,7 @@ class NonDispatchableStep(AbstractOrderStep):
                             market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                             portfolio=unit.portfolio,
                             equipment=unit,
-                            qmax=abs(formulated_volume.get_value(t)),
+                            qmax=abs(qmax),
                             qmin=0,
                             price=0.0 if unit.variable_cost is None else unit.variable_cost.get_value(t),
                             product=Product.DayAhead,
