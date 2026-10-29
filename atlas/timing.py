@@ -160,7 +160,7 @@ def epoch_key(
 
     :param dt: Datetime to convert
     :type dt: str or datetime or pendulum.DateTime
-    :param date_format: Date format string used to parse strings, defaults to "YYYY-MM-DD HH:mm:ss"
+    :param date_format: Date format string used to parse strings, defaults to `YYYY-MM-DD HH:mm:ss`
     :type date_format: str, optional
     :param timezone: Timezone applied to strings and naive datetimes, defaults to "UTC"
     :type timezone: str, optional
@@ -197,7 +197,7 @@ def generate_datetimes(
     :type freq: str
     :param timezone: Timezone string, defaults to "UTC"
     :type timezone: str, optional
-    :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+    :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
     :type date_format: str, optional
     :param closed: Define which sides of the range are closed (inclusive).
     :type closed: {"both", "left", "right", "none"}
