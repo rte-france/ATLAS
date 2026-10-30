@@ -1,0 +1,6 @@
+from atlas.abstract_class.dataset import AbstractDataset
+from atlas.modules.price_forecast_orders_creation.parameters import PriceForecastOrdersCreationParameters
+
+
+class PriceForecastOrdersCreationInputDataset(AbstractDataset[PriceForecastOrdersCreationParameters]):
+    pass
