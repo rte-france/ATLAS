@@ -121,14 +121,20 @@ The stepwise evolution between 0 and minimum power during startups
 The power swing between two consecutive timesteps is capped in both directions:
 
 $$
-P_t - P_{t-1} \;\le\; \text{up_base}_t
-\qquad
-P_t - P_{t-1} \;\ge\; \text{down_base}_t
+\text{down_bound}_t \;\le\; P_t - P_{t-1} \;\le\; \text{up_bound}_t
 $$
 
 The bounds are not constants — they are linear expressions in the state variables, because the
-allowed swing depends on what the unit is doing. Ramping up under a gradient limit allows
-$\Delta Q$; climbing the startup ramp allows $Q^{\min}/T^{\text{start}}$ per step; a unit with
+allowed swing depends on what the unit is doing. Consequently, they are defined separately for
+each combination, since these combinations define specific variables. A few examples, depending
+on the unit state:
+
+- If the unit is in the on_up state, then the power variation is bounded as positive. Additionnaly,
+if it is subject to 'flat' constraints (combinations 3, 5, 6 and 8), the variation has to be constant
+across time steps (it can be fixed by the previous variation if the unit was already on_up)
+- If the unit is in the on_flat state, then the power variation is forced at 0 ($\text{down_bound}_t = \text{up_bound}_t = 0$).
+
+Ramping up under a gradient limit allows $\Delta Q$; climbing the startup ramp allows $Q^{\min}/T^{\text{start}}$ per step; a unit with
 no gradient limit that has just turned on may jump straight to its maximum bound.
 
 Units with a stable phase need one more layer. Whether a swing is allowed at $t$ depends on
