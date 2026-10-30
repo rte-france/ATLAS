@@ -1,8 +1,8 @@
 # Storage
 
 A storage unit is an energy accumulator: it withdraws power from the grid to fill up, injects
-power to empty out, and loses a fraction of the energy in each direction. `StorageDispatch`
-tracks its state of charge and forbids it from doing both at once.
+power to empty out, and loses a fraction of the energy in each direction because of charge/discharge
+inefficiencies. `StorageDispatch` tracks its state of charge and forbids it from doing both at once.
 
 The same class covers batteries, pumped hydro and electric-vehicle fleets — the last of those
 with a few specifics, flagged below.
@@ -16,10 +16,11 @@ Four variables per timestep:
 | $P^{\text{sell}}_t$ | $[0,\ \overline{P}_t]$ | Discharge power, injected into the grid |
 | $P^{\text{buy}}_t$ | $[\underline{P}_t,\ 0]$ | Charge power, withdrawn from the grid (**negative**) |
 | $s_t$ | binary | 1 when discharging, 0 when charging |
-| $E_t$ | $[\text{SOC}^{\min}_t \cdot \overline{E}_t,\ \overline{E}_t]$ | Stored energy at the end of the timestep |
+| $E_t$ | $[\text{SOC}^{\min}_t \cdot \overline{E}_t,\ \overline{E}_t]$ | Stored energy at the end of the timestep (i.e. including generation and consumption at `t`) |
 
 The sign convention from the [overview](overview.md#conventions) is doing real work here:
-$P^{\text{buy}}_t$ is negative, so energy entering the unit is written $-P^{\text{buy}}_t$.
+$P^{\text{buy}}_t$ is negative, so energy entering the unit is written $-P^{\text{buy}}_t * \eta^{c}$,
+with $\eta^{c}$ being the charge efficiency.
 
 ## State of charge
 
@@ -37,18 +38,24 @@ Four things to note:
 
 - **Efficiencies bite in opposite directions.** Charging *multiplies* by $\eta^{\text{c}}$
   (part of what you draw never reaches the store); discharging *divides* by $\eta^{\text{d}}$
-  (you must drain more than you deliver). Both are constrained strictly positive in the input
-  contract, because the formulation divides by one of them.
+  (you must drain more than you deliver). Both are bounded between 0 and 1: $0 \leq \eta^{\text{c/d}} \leq 1$
 - **$\rho_t = \overline{E}_t / \overline{E}_{t-1}$** rescales the carried-over energy when the
   unit's capacity varies over time — the case that matters for an EV fleet whose size changes
-  hour to hour. It is 1 for a fixed-capacity battery, and falls back to 1 when
+  hour to hour (because the number of vehicles connected to the grid may significantly vary).
+  It is 1 for a fixed-capacity battery, and falls back to 1 when
   $\overline{E}_{t-1}$ is zero or negative.
 - **$\Delta D_t$** is the change in `displacement_energy`: energy that left the unit without
   passing through the grid. For an EV fleet, this is the energy consumed by driving.
   `displacement_energy` is a *cumulative* series, so only its increments enter the balance, and
   each reading is truncated to a whole MWh (`int()`) before the subtraction.
+  **NB**: The cumulative aspect will be removed in future Atlas versions, as it is cumbersome to use,
+   and does not carry any meaningful physical sense (it was done this way for data format convenience).
+   Additionaly, the `displacement_energy` concept can be extended to any energy withdrawn or added
+   to the storage unit outside of market processes. It could be used for other purposes than
+   the electric vehicles case (such as battery self-depletion, or even water inflows going to the
+   reservoir for pumped hydro storage by putting negative values in the timeseries).
 - **At the first timestep**, $E_{t-1}$ is replaced by the initial stock — read from the unit's
-  `stored_energy` forecast when available, otherwise `storage_initial_level` × maximum energy.
+  `stored_energy` forecast when available (still taken at $t-1$), otherwise `storage_initial_level` × maximum energy.
 
 ## No simultaneous charge and discharge
 

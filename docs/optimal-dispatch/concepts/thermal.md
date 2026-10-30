@@ -129,27 +129,44 @@ allowed swing depends on what the unit is doing. Consequently, they are defined 
 each combination, since these combinations define specific variables. A few examples, depending
 on the unit state:
 
-- If the unit is in the on_up state, then the power variation is bounded as positive. Additionnaly,
+- If the unit is in the **on_up** state, then the power variation is bounded as positive. Additionnaly,
 if it is subject to 'flat' constraints (combinations 3, 5, 6 and 8), the variation has to be constant
 across time steps (it can be fixed by the previous variation if the unit was already on_up)
-- If the unit is in the on_flat state, then the power variation is forced at 0 ($\text{down_bound}_t = \text{up_bound}_t = 0$).
-
-Ramping up under a gradient limit allows $\Delta Q$; climbing the startup ramp allows $Q^{\min}/T^{\text{start}}$ per step; a unit with
-no gradient limit that has just turned on may jump straight to its maximum bound.
+- If the unit is in the **on_flat** state, then the power variation is forced at 0
+($\text{down_bound}_t = \text{up_bound}_t = 0$).
+- In **start** or **stop** states, the variation is deterministic so bounds are set to
+(for **start**): $\text{down_bound}_t = \text{up_bound}_t = \Delta P^{step,up}$
 
 Units with a stable phase need one more layer. Whether a swing is allowed at $t$ depends on
 whether the unit was *already* ramping in the same direction at $t-1$ (or whether the minimum
 duration at a stable power output has been fulfilled). This can lead to immplementing a product of
 binary and continuous terms, which is not linear. It is linearised with auxiliary variables — `up_grad`
 and `down_grad` for the two directions, `aux_up_grad` and `aux_down_grad` as intermediates, and
-`dd_grad` for the stable→down→stop chain — each pinned by the standard big-M bracket
+`dd_grad` for the stable→down→stop chain — each pinned by the standard big-M bracket method.
+For example for upward gradients:
 
 $$
-v \le M y,\quad v \ge -M y,\quad v \le u + M(1-y),\quad v \ge u - M(1-y)
+\begin{cases}
+\text{aux_up_grad}_t \le M \cdot \text{on_up}_{t-1} \\
+\text{aux_up_grad}_t \ge -M \cdot \text{on_up}_{t-1} \\
+\text{aux_up_grad}_t \le (P_t - P_{t-1}) + M \cdot (1-\text{on_up}_{t-1}) \\
+\text{aux_up_grad}_t \ge (P_t - P_{t-1}) - M \cdot (1-\text{on_up}_{t-1})
+\end{cases}
 $$
 
-which forces $v = u \cdot y$ for binary $y$. Big-M is the unit's maximum power, so the bracket
-stays tight.
+Which forces $\text{aux_up_grad} = (P_t - P_{t-1}) \cdot \text{on_up}_{t-1}$. Then:
+
+$$
+\begin{cases}
+\text{up_grad}_t \le M \cdot \text{on_up}_{t-1} \\
+\text{up_grad}_t \ge -M \cdot \text{on_up}_{t-1} \\
+\text{up_grad}_t \le \text{aux_up_grad}_t + M \cdot (1-\text{on_up}_{t-1}) \\
+\text{up_grad}_t \ge \text{aux_up_grad}_t - M \cdot (1-\text{on_up}_{t-1})
+\end{cases}
+$$
+
+Big-M should always be greater than the term of the last two equations ($(P_t - P_{t-1})$
+in the first bracket cases). To ensure this, it is set to the unit's maximum power.
 
 !!! note "Window edges"
 
@@ -191,26 +208,19 @@ This is added once over the whole window by `add_daily_energy_constraint()`, not
 
 ## Initial conditions
 
-Constraints at the first timestep reach back before the window — the minimum-time constraints as
+Constraints at the first timestep may reach back before the window — the 'minimum-time' constraints as
 far as $\max(T^{\text{on}} + T^{\text{start}},\; T^{\text{off}} + T^{\text{stop}})$ steps. Those
 past values are not decisions; they are facts, and they are fixed rather than optimised.
 
 `setup()` reconstructs them from the unit's own `power` forecast:
 
-- **Warm start** — the forecast reaches the timestep just before the window. Each past state is
+- **Unit already initialized** — the forecast reaches the timestep just before the window. Each past state is
   inferred from the power level: at or above minimum power the unit was online, strictly between
   zero and minimum it was on a ramp, at zero it was off. Comparing consecutive levels then
   recovers the up/flat/down distinction and the transition indicators.
 - **Day zero** — no usable history (`power` is absent, or ends before the window). Everything is
   initialised to *off at zero power*. This is the cold-start case at the beginning of a
   simulation.
-
-!!! warning "Day zero is a modelling choice, not a fallback"
-
-    A unit assumed off before the window cannot be constrained by a minimum up-time it was
-    already serving. On a chained simulation this is exactly right for the first module run and
-    wrong for every subsequent one — which is why the layer keys the decision on whether the
-    power forecast actually reaches the window boundary, rather than on a flag.
 
 ## In code
 
