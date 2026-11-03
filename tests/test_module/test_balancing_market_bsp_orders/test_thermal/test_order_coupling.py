@@ -217,12 +217,15 @@ class TestTwoPassStructureLinksAcrossTimesteps:
         assert len(matching) == 1
 
     def test_no_exclusion_coupling_when_gradient_disabled(self, thermal_equipment, parameters):
-        """maximum_gradient=0 (default) -> no EXCLUSION couplings for downward
-        orders at all, even though adjacent upward orders exist.
+        """maximum_gradient=0 (default) -> no EXCLUSION coupling between orders of
+        different timesteps, even though adjacent upward orders exist. (The shutdown's
+        EXCLUSION with the downward order of its own timestep does not depend on the gradient.)
         """
         t1 = parameters.temporal.start_date
         t2 = t1.add(minutes=15)
         formulator = _make_formulator(thermal_equipment, [t1, t2], parameters)
 
         _, couplings = formulator.formulate()
-        assert not any(c.coupling_type == CouplingType.EXCLUSION for c in couplings)
+        assert not any(
+            c.coupling_type == CouplingType.EXCLUSION and len({o.start_date for o in c.orders}) > 1 for c in couplings
+        )

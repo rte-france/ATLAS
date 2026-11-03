@@ -126,7 +126,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
                 couplings.extend(order_couplings)
 
             if self._is_shutdown_eligible(time, forecasted_power, min_power, upward_procured, downward_procured):
-                shutdown_order, shutdown_couplings = self._formulate_shutdown_order(time, next_time)
+                shutdown_order, shutdown_couplings = self._formulate_shutdown_order(time, next_time, order)
                 if shutdown_order is not None:
                     orders.append(shutdown_order)
                     couplings.extend(shutdown_couplings)
@@ -483,6 +483,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
         self,
         time: DateTime,
         next_time: DateTime,
+        downward_order: Order | None = None,
     ) -> tuple[Order | None, list[OrderCoupling]]:
         """
         Formulate the shutdown order for this timestep, if any. Assumes the
@@ -501,11 +502,15 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
             (_startup_fits_within_timestep). Priced with the shutdown cost (an
             implied future restart).
         Also gated by _shutdown_min_stable_power_duration_gate — see that method for why.
+        The shutdown is exclusive with the downward order of the same timestep (legacy's
+        EXCLUSION with the downward orders starting during the order's index).
 
         :param time: Order start/end time (single timestep)
         :type time: DateTime
         :param next_time: Order end boundary (time + timestep)
         :type next_time: DateTime
+        :param downward_order: Downward order formulated at the same timestep, if any
+        :type downward_order: Order | None
         :return: The shutdown order (or None if invalid) and its EXCLUSION couplings
         :rtype: tuple[Order | None, list[OrderCoupling]]
         """
@@ -561,8 +566,16 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
             return None, []
 
         couplings: list[OrderCoupling] = []
+        if downward_order is not None:
+            couplings.append(
+                OrderCoupling(
+                    name=self._next_coupling_name(CouplingType.EXCLUSION, order),
+                    orders=[downward_order, order],
+                    coupling_type=CouplingType.EXCLUSION,
+                )
+            )
         if self.equipment.maximum_gradient != 0:
-            couplings = self._exclusion_couplings_with_adjacent_upward_orders(time, order)
+            couplings.extend(self._exclusion_couplings_with_adjacent_upward_orders(time, order))
 
         return order, couplings
 

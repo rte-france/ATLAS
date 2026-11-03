@@ -284,3 +284,20 @@ class TestFormulateShutdownOrder:
             c.coupling_type == CouplingType.EXCLUSION and previous_order in c.orders and order in c.orders
             for c in couplings
         )
+
+    def test_exclusion_coupling_with_same_timestep_downward_order(self, thermal_equipment, parameters):
+        """The shutdown is exclusive with the downward order of its own timestep, gradient or not."""
+        test_time = parameters.temporal.start_date.add(minutes=15)
+        next_time = test_time.add(minutes=15)
+        formulator = _make_formulator(thermal_equipment, [test_time], parameters)
+        downward_order = formulator.build_order(
+            order_type=OrderType.Buy, start=test_time, end=next_time, price=10.0, qmin=0.0, qmax=10.0
+        )
+
+        order, couplings = formulator._formulate_shutdown_order(test_time, next_time, downward_order)
+
+        assert order is not None
+        assert len(couplings) == 1
+        assert couplings[0].coupling_type == CouplingType.EXCLUSION
+        assert couplings[0].orders == [downward_order, order]
+        assert couplings[0].name == f"exclusion1_{order.name}"
