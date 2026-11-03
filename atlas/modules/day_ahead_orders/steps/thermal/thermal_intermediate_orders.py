@@ -12,7 +12,7 @@ import polars as pl
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.enums import CouplingType
+from atlas.enums import CouplingType, OrderType, Product
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
@@ -97,6 +97,11 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                             )
                         )
 
+        # If the unit failed to have any online timeframe with the standard formulation,
+        # it goes through the semi-peak formulation to still generate orders
+        if not online_timeframes:
+            orders, couplings = self.formulate_semi_peak(unit)
+
         return orders, couplings
 
     def get_unique_cases(
@@ -118,7 +123,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         # Quick sanity check on the class of the equipment supplied as input.
         if not isinstance(thermal_unit, Thermal):
-            cfg.logger.error(f"Equipement {thermal_unit.name} is not of type thermic.")
+            cfg.logger.error(f"Equipment {thermal_unit.name} is not of type thermic.")
             raise ValueError("Wrong equipment type for the thermic optimization program.")
 
         # extract the list of scenarios.
@@ -340,3 +345,97 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                 )
 
         return results
+
+    def formulate_semi_peak(self, unit: ThermalDAO) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
+
+        orders: list[OrderDAO] = []
+        couplings: list[OrderCouplingDAO] = []
+
+        # Get the time step
+        time_step = self.parameters.temporal.timestep
+
+        # --- Define order durations
+        T_on = int(max(1, math.ceil(unit.minimum_time_on / time_step)))
+        order_duration_list = [T_on, 12, 24]
+
+        # Exclude units that are offline or with an infeasible maximum_power
+        if not unit.maximum_power.index:
+            cfg.logger.warning(f"Equipment {unit.name} is unavailable for semi-peak (offline).")
+            return orders, couplings
+
+        local_pmax = unit.maximum_power.filter(self.orders_time)
+        local_pmin = unit.minimum_power.filter(self.orders_time)
+        if (local_pmax.min() == 0) or ((local_pmax - unit.minimum_power.filter(self.orders_time)).min() < 0):
+            cfg.logger.warning(f"Equipment {unit.name} is unavailable for semi-peak (offline).")
+            return orders, couplings
+
+        # Define if the unit was started before
+        if not unit.power.index:
+            started_before = False
+        else:
+            prev_power = unit.power.get_forecast(
+                execution_date=self.parameters.temporal.execution_date,
+                start_date=self.parameters.temporal.start_date - time_step,
+                end_date=self.parameters.temporal.start_date,
+                timestep=time_step,
+            )
+            started_before = prev_power.sum() != 0
+
+        # --- Loop on time steps in orders_time, and formulate all orders
+        for time_enum, time in enumerate(self.orders_time):
+            # Reads the minimum power and decides whether or not an inflexible order should be generated
+            generate_inflex_order = local_pmin > 0
+
+            if generate_inflex_order:
+                pmin_at_t = local_pmin.get_value(time)
+
+                # Create one inflexible order per hour, for each duration in orders_duration_list
+                for order_duration in order_duration_list:
+                    # FC: Specific cases for 12 hours duration orders. Very simple for now,
+                    # only formulated for [Oh,12h] and [12h,24h]. Could (should) be refined later on
+                    if order_duration == 12 and time.hour not in [0, 12]:
+                        continue
+
+                    # If the end date of the inflexible order is later than the considered end date,
+                    # no inflexible order is created
+                    if time + time_step * order_duration > self.parameters.temporal.end_date:
+                        continue
+
+                    # Create identical volume constraints between all the inflexible orders of a given duration
+                    identical_volume_orders = []
+
+                    for time_start in range(order_duration):
+                        # Define the order price
+                        price = unit.variable_cost.get_value(time)
+                        if not (time_enum == 0 and started_before):
+                            price += unit.startup_cost.get_value(time) / (pmin_at_t * order_duration)
+
+                        new_order = OrderDAO(
+                            name=f"inflex_order_n_{time_start}_start_at_{time}_for_unit_{unit.name}_of_duration_{order_duration}",
+                            market_area=unit.portfolio.market_area,
+                            portfolio=unit.portfolio,
+                            equipment=unit,
+                            qmax=pmin_at_t,
+                            qmin=pmin_at_t,
+                            price=price,
+                            product=Product.DayAhead,
+                            order_type=OrderType.Sell,
+                            is_agent_tso=False,
+                            execution_date=self.parameters.temporal.execution_date,
+                            start_date=time + time_step * time_start,  # type: ignore [arg-type]
+                            end_date=time + time_step * (time_start + 1),  # type: ignore [arg-type]
+                        )
+
+                        orders.append(new_order)
+                        identical_volume_orders.append(new_order)
+
+                    # Create an identical volume coupling between all orders
+                    couplings.append(
+                        OrderCouplingDAO(
+                            name=f"IDV_inflex_semi_peak_orders_start_at_{time}_for_unit_{unit.name}_of_duration_{order_duration}",
+                            coupling_type=CouplingType.IDENTICAL_VOLUME,
+                            orders=identical_volume_orders,  # type: ignore [arg-type]
+                        )
+                    )
+
+        return orders, couplings
