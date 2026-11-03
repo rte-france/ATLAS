@@ -1,11 +1,15 @@
-from atlas import AtlasDataset
+import atlas.config as cfg
+from atlas import AtlasDataset, generate_datetimes
 from atlas.abstract_class.module import AbstractModule
 from atlas.modules.price_forecast_orders_creation.input_dataset import PriceForecastOrdersCreationInputDataset
 from atlas.modules.price_forecast_orders_creation.parameters import PriceForecastOrdersCreationParameters
 from atlas.modules.price_forecast_orders_creation.result import PriceForecastOrdersCreationResult
+from atlas.modules.price_forecast_orders_creation.steps.abstract_step import AbstractOrderStep
+from atlas.modules.price_forecast_orders_creation.steps.non_dispatchable import NonDispatchableStep
+from atlas.modules.price_forecast_orders_creation.steps.storage import StorageStep
 
 
-class DayAheadOrdersModule(
+class PriceForecastOrdersCreationModule(
     AbstractModule[
         PriceForecastOrdersCreationParameters,
         PriceForecastOrdersCreationInputDataset,
@@ -49,5 +53,21 @@ class DayAheadOrdersModule(
     def execute(
         self, parameters: PriceForecastOrdersCreationParameters, input_dataset: PriceForecastOrdersCreationInputDataset
     ) -> PriceForecastOrdersCreationResult:
+
+        orders_time = generate_datetimes(
+            parameters.temporal.start_date, parameters.penultimate_date, parameters.temporal.timestep
+        )
+        result = PriceForecastOrdersCreationResult(input_dataset)
+
+        steps: list[tuple[str, AbstractOrderStep]] = [
+            ("non-dispatchable", NonDispatchableStep(result, orders_time, parameters)),
+        ]
+
+        for name, step in steps:
+            cfg.logger.info(f"Formulation of the {name} orders...")
+            step_result = step.formulate()
+            result.order.extend(step_result.orders)
+            result.order_coupling.extend(step_result.order_couplings)
+            cfg.logger.info(f"{name.capitalize()} orders formulated.")
         """Executes the module's main logic."""
         pass

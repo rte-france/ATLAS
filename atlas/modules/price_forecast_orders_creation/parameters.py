@@ -1,6 +1,6 @@
-from xmlrpc.client import DateTime
 
 from pydantic import Field
+from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.enums import Enum
@@ -36,7 +36,7 @@ class PriceForecastOrdersCreationParameters(AbstractModuleParameters):
         0.001,
         description="Round off error permitted. If the difference between, two values is below Epsilon, they are considered identical.",
     )
-    default_load_execution_date: DateTime = Field(
+    default_exec_date: DateTime = Field(
         default_factory=lambda: DateTime("30/06/2023 23:50:00"),
         description="FIXME MISSING DESCRIPTION.",
     )
