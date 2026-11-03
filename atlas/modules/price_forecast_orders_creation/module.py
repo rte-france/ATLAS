@@ -61,6 +61,7 @@ class PriceForecastOrdersCreationModule(
 
         steps: list[tuple[str, AbstractOrderStep]] = [
             ("non-dispatchable", NonDispatchableStep(result, orders_time, parameters)),
+            ("storage", StorageStep(result, orders_time, parameters)),
         ]
 
         for name, step in steps:

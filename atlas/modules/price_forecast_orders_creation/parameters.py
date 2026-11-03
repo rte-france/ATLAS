@@ -1,3 +1,4 @@
+from functools import cached_property
 
 from pydantic import Field
 from pydantic_extra_types.pendulum_dt import DateTime
@@ -24,8 +25,8 @@ class StoragePriceMethodType(str, Enum):
 
 class PriceForecastOrdersCreationParameters(AbstractModuleParameters):
     # Market parameters
-    market: str = Field(
-        "DayAhead",
+    market: str = Field(  # FIXME str type sound not appropriate
+        "DayAhead",  # FIXME-1 - sounds like we can only use DayAhead right now... see others FIXME-1
         description="Type of market re-simulated. 'DayAhead' is advised, and should be passed to the Clearing as well",
     )
     market_price_cap: float = Field(
@@ -58,3 +59,7 @@ class PriceForecastOrdersCreationParameters(AbstractModuleParameters):
         StoragePriceMethodType.buy_unbounded,
         description="Type of price determination method for storage orders. Possible values: 'standard', 'median', 'buy_unbounded', 'precompute'",
     )
+
+    @cached_property
+    def penultimate_date(self) -> DateTime:
+        return self.temporal.end_date - self.temporal.timestep
