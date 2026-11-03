@@ -730,3 +730,29 @@ class TestThermalDispatchDailyEnergyConstraint:
 
         energy_constraints = [c for c in model.constraints if "energy_limit_of" in c]
         assert len(energy_constraints) == 2
+
+HOURS = pendulum.duration(hours=1)
+
+
+@pytest.mark.parametrize(
+    ("startup", "shutdown", "stable", "has_dd"),
+    [
+        pytest.param(0, 0, 3, False, id="stable_only"),
+        pytest.param(2, 0, 3, False, id="startup_ramp_and_stable"),
+        pytest.param(0, 2, 3, True, id="shutdown_ramp_and_stable"),
+        pytest.param(2, 2, 3, True, id="both_ramps_and_stable"),
+        pytest.param(0, 2, 0, False, id="shutdown_ramp_without_stable"),
+    ],
+)
+def test_dd_grad_exists_only_with_a_stable_phase_and_a_shutdown_ramp(
+        build_thermal_dispatch, model, startup, shutdown, stable, has_dd
+):
+    """The DD rows need both, so the variable is created for no other unit."""
+    build_thermal_dispatch(
+        startup_duration=startup * HOURS,
+        shutdown_duration=shutdown * HOURS,
+        minimum_stable_power_duration=stable * HOURS,
+    )
+
+    assert any(name.startswith("dd_grad_") for name in model.variables) is has_dd
+    assert any(name.startswith("DD_evol_") for name in model.constraints) is has_dd
