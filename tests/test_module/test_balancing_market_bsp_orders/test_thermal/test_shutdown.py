@@ -5,10 +5,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 import pendulum
+import pytest
 
 from atlas import ForecastingMatrix, Timeseries
 from atlas.enums import CouplingType, OrderType
 from atlas.modules.balancing_market_bsp_orders.order_formulators.thermal import ShutdownCase, ThermalOrderFormulator
+from tests.test_module.test_balancing_market_bsp_orders.conftest import make_forecasting_matrix
 
 
 def _make_formulator(equipment, time_index, parameters) -> ThermalOrderFormulator:
@@ -43,45 +45,37 @@ def _ts(parameters, value):
 
 
 class TestIsShutdownEligible:
-    def test_eligible_when_running_above_minimum_with_no_procured(self, thermal_equipment, parameters):
+    def test_eligible_when_running_above_minimum(self, thermal_equipment, parameters):
         test_time = parameters.temporal.start_date
         formulator = _make_formulator(thermal_equipment, [test_time], parameters)
 
-        assert formulator._is_shutdown_eligible(
-            test_time, _ts(parameters, 50.0), _ts(parameters, 20.0), _ts(parameters, 0.0), _ts(parameters, 0.0)
-        )
+        assert formulator._is_shutdown_eligible(test_time, _ts(parameters, 50.0), _ts(parameters, 20.0))
 
     def test_not_eligible_when_below_minimum_power(self, thermal_equipment, parameters):
         test_time = parameters.temporal.start_date
         formulator = _make_formulator(thermal_equipment, [test_time], parameters)
 
-        assert not formulator._is_shutdown_eligible(
-            test_time, _ts(parameters, 15.0), _ts(parameters, 20.0), _ts(parameters, 0.0), _ts(parameters, 0.0)
-        )
+        assert not formulator._is_shutdown_eligible(test_time, _ts(parameters, 15.0), _ts(parameters, 20.0))
 
     def test_not_eligible_when_minimum_power_not_positive(self, thermal_equipment, parameters):
         test_time = parameters.temporal.start_date
         formulator = _make_formulator(thermal_equipment, [test_time], parameters)
 
-        assert not formulator._is_shutdown_eligible(
-            test_time, _ts(parameters, 50.0), _ts(parameters, 0.0), _ts(parameters, 0.0), _ts(parameters, 0.0)
-        )
+        assert not formulator._is_shutdown_eligible(test_time, _ts(parameters, 50.0), _ts(parameters, 0.0))
 
-    def test_not_eligible_with_upward_procured(self, thermal_equipment, parameters):
+    @pytest.mark.parametrize("procured_attribute", ["fcr_up_procured", "fcr_down_procured"])
+    def test_shutdown_formulated_with_procured_reserves(self, thermal_equipment, parameters, procured_attribute):
+        """Procured reserves reduce the regular orders but do not prevent the shutdown: legacy's
+        timestep-by-timestep formulation applies no procured filter to it.
+        """
+        object.__setattr__(thermal_equipment, procured_attribute, make_forecasting_matrix(parameters, 5.0))
         test_time = parameters.temporal.start_date
         formulator = _make_formulator(thermal_equipment, [test_time], parameters)
 
-        assert not formulator._is_shutdown_eligible(
-            test_time, _ts(parameters, 50.0), _ts(parameters, 20.0), _ts(parameters, 5.0), _ts(parameters, 0.0)
-        )
+        orders, _ = formulator.formulate()
 
-    def test_not_eligible_with_downward_procured(self, thermal_equipment, parameters):
-        test_time = parameters.temporal.start_date
-        formulator = _make_formulator(thermal_equipment, [test_time], parameters)
-
-        assert not formulator._is_shutdown_eligible(
-            test_time, _ts(parameters, 50.0), _ts(parameters, 20.0), _ts(parameters, 0.0), _ts(parameters, 5.0)
-        )
+        shutdown_name = formulator._build_shutdown_order_name(test_time, test_time.add(minutes=15))
+        assert shutdown_name in {order.name for order in orders}
 
 
 class TestClassifyShutdownCase:

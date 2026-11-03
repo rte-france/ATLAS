@@ -125,7 +125,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
                 orders.append(order)
                 couplings.extend(order_couplings)
 
-            if self._is_shutdown_eligible(time, forecasted_power, min_power, upward_procured, downward_procured):
+            if self._is_shutdown_eligible(time, forecasted_power, min_power):
                 shutdown_order, shutdown_couplings = self._formulate_shutdown_order(time, next_time, order)
                 if shutdown_order is not None:
                     orders.append(shutdown_order)
@@ -410,14 +410,14 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
         time: DateTime,
         forecasted_power,
         min_power,
-        upward_procured,
-        downward_procured,
     ) -> bool:
         """
         Mirrors legacy's find_consecutive_available_shutdown_orders_timesteps: a
         shutdown order only makes sense if the equipment is actually running at or
-        above minimum_power, and isn't already committed to any procured reserve
-        at this timestep (shutting it down would break that commitment).
+        above minimum_power. Its procured-reserves condition is deliberately left
+        out: legacy only calls that function for combinatorial options, while the
+        timestep-by-timestep formulation (the only one here) offers the shutdown
+        whatever is procured at the timestep.
 
         :param time: The timestep being evaluated
         :type time: DateTime
@@ -425,20 +425,11 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
         :type forecasted_power: Timeseries
         :param min_power: Minimum power timeseries
         :type min_power: Timeseries
-        :param upward_procured: Upward procured power timeseries
-        :type upward_procured: Timeseries
-        :param downward_procured: Downward procured power timeseries
-        :type downward_procured: Timeseries
         :return: True if a shutdown order can be considered at this timestep
         :rtype: bool
         """
         min_power_at_time = min_power.get_value(time)
-        return (
-            min_power_at_time > 0
-            and forecasted_power.get_value(time) >= min_power_at_time
-            and upward_procured.get_value(time) == 0
-            and downward_procured.get_value(time) == 0
-        )
+        return min_power_at_time > 0 and forecasted_power.get_value(time) >= min_power_at_time
 
     def _startup_fits_within_timestep(self) -> bool:
         """

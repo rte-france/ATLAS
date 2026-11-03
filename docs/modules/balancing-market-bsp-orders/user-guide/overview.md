@@ -40,7 +40,7 @@ When `maximum_gradient` is non-zero, the available power is further limited so t
 - **Thermal**: The formulation depends on the unit's on/off status around each timestep:
     - **Running unit**: regular upward and downward orders, subject to the minimum stable power duration.
     - **Stopped unit**: upward orders that restart it, bounded by the neighbouring powers and the gradient. A full startup is offered as an indivisible order up to `minimum_power` carrying the startup cost, plus a divisible order above it, linked by a `PARENT_CHILDREN` coupling.
-    - **Shutdown**: indivisible downward orders buying the whole output, priced with or without the startup cost depending on the on/off pattern and the minimum on/off times.
+    - **Shutdown**: indivisible downward orders buying the whole output, priced with or without the startup cost depending on the on/off pattern and the minimum on/off times. Procured reserves only reduce the regular upward and downward orders: they do not prevent a shutdown order.
 
 ## Next Steps
 

@@ -32,7 +32,7 @@ for coupling in result.order_coupling:
 - **Orders**: Balancing buy/sell orders per equipment and timestep (stored in `result.order`).
 - **Order couplings**: Links between thermal orders (stored in `result.order_coupling`):
     - `PARENT_CHILDREN`: the indivisible `_start1` order and the divisible `_start2` order of a full startup.
-    - `EXCLUSION`: prevents a thermal order from being accepted together with an upward order of the adjacent timestep.
+    - `EXCLUSION`: prevents a thermal order from being accepted together with an upward order of the adjacent timestep. A shutdown order is also exclusive with the downward order of its own timestep.
 
 ## Order Naming
 
