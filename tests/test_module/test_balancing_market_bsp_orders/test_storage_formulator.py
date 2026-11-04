@@ -151,6 +151,47 @@ class TestStorageOrderFormulatorOrders:
         assert couplings == []
 
 
+class TestStorageLevelConstraintTimestep:
+    """The storage level bounds are read at each timestep, as Prometheus does, not only at start_date."""
+
+    def test_upward_minimum_energy_is_read_at_each_timestep(self, time_index, parameters, market_objects_with_prices):
+        """minimum_state_of_charge rises from 0.1 to 0.6 after the first timestep.
+
+        stored_energy = 500, max_energy = 1000 -> minimum energy 100 then 600: only the first Sell is valid
+        """
+        minimum_state_of_charge = make_timeseries(parameters, 0.6)
+        minimum_state_of_charge.set_value(time_index[0], 0.1)
+        equipment = _make_storage_equipment(
+            parameters,
+            market_objects_with_prices,
+            stored_energy=make_forecasting_matrix(parameters, 500.0),
+            maximum_energy=make_timeseries(parameters, 1000.0),
+            minimum_state_of_charge=minimum_state_of_charge,
+        )
+
+        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+
+        assert [o.start_date for o in orders if o.order_type == OrderType.Sell] == [time_index[0]]
+
+    def test_downward_capacity_is_read_at_each_timestep(self, time_index, parameters, market_objects_with_prices):
+        """maximum_energy rises from 1000 to 2000 after the first timestep.
+
+        stored_energy = 1000 -> full on the first timestep only: every Buy but the first is valid
+        """
+        maximum_energy = make_timeseries(parameters, 2000.0)
+        maximum_energy.set_value(time_index[0], 1000.0)
+        equipment = _make_storage_equipment(
+            parameters,
+            market_objects_with_prices,
+            stored_energy=make_forecasting_matrix(parameters, 1000.0),
+            maximum_energy=maximum_energy,
+        )
+
+        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+
+        assert [o.start_date for o in orders if o.order_type == OrderType.Buy] == time_index[1:]
+
+
 class TestStoragePHSTransitionConstraint:
     def test_no_phs_constraint_for_battery(self, time_index, parameters, market_objects_with_prices):
         """PHS transition constraint is not applied for BATTERY storage type."""

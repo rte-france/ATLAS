@@ -168,9 +168,11 @@ class StorageOrderFormulator(AbstractOrderFormulator[BalancingStorage]):
             if self.equipment.maximum_gradient != 0:
                 qmax_up, qmax_down = self._apply_gradient_constraint(forecasted_power, time, qmax_up, qmax_down)
 
-            qmax_up, upward_valid = self._apply_upward_storage_level_constraint(qmax_up, storage_constraint_end_date)
+            qmax_up, upward_valid = self._apply_upward_storage_level_constraint(
+                time, qmax_up, storage_constraint_end_date
+            )
             qmax_down, downward_valid = self._apply_downward_storage_level_constraint(
-                qmax_down, storage_constraint_end_date
+                time, qmax_down, storage_constraint_end_date
             )
 
             if self.equipment.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
@@ -237,6 +239,7 @@ class StorageOrderFormulator(AbstractOrderFormulator[BalancingStorage]):
 
     def _apply_upward_storage_level_constraint(
         self,
+        time: DateTime,
         upward_available: float,
         storage_constraint_end_date: DateTime,
     ) -> tuple[float, bool]:
@@ -246,8 +249,11 @@ class StorageOrderFormulator(AbstractOrderFormulator[BalancingStorage]):
         Limits upward orders so that the equipment's stored energy never falls below
         minimum_state_of_charge * maximum_energy over the storage constraint horizon.
         If the stored energy is already at or below this minimum at any point in the
-        horizon, no upward order can be formulated.
+        horizon, no upward order can be formulated. The minimum energy is evaluated at the
+        studied timestep.
 
+        :param time: The timestep being evaluated
+        :type time: DateTime
         :param upward_available: Upward available power before the storage level constraint
         :type upward_available: float
         :param storage_constraint_end_date: End date of the storage constraint horizon
@@ -258,7 +264,6 @@ class StorageOrderFormulator(AbstractOrderFormulator[BalancingStorage]):
         execution_date = self.parameters.temporal.execution_date
         start = self.parameters.temporal.start_date
         timestep = self.parameters.temporal.timestep
-        time = self.parameters.temporal.start_date
 
         stored_energy = self.equipment.stored_energy.get_forecast(
             execution_date, start - timestep, storage_constraint_end_date
@@ -281,6 +286,7 @@ class StorageOrderFormulator(AbstractOrderFormulator[BalancingStorage]):
 
     def _apply_downward_storage_level_constraint(
         self,
+        time: DateTime,
         downward_available: float,
         storage_constraint_end_date: DateTime,
     ) -> tuple[float, bool]:
@@ -290,8 +296,10 @@ class StorageOrderFormulator(AbstractOrderFormulator[BalancingStorage]):
         Limits downward orders so that the equipment's stored energy never exceeds
         maximum_energy over the storage constraint horizon. If the maximum stored energy
         already reaches maximum_energy at any point in the horizon, no downward order
-        can be formulated.
+        can be formulated. The storage capacity is evaluated at the studied timestep.
 
+        :param time: The timestep being evaluated
+        :type time: DateTime
         :param downward_available: Downward available power before the storage level constraint
         :type downward_available: float
         :param storage_constraint_end_date: End date of the storage constraint horizon
@@ -301,7 +309,6 @@ class StorageOrderFormulator(AbstractOrderFormulator[BalancingStorage]):
         """
         execution_date = self.parameters.temporal.execution_date
         start = self.parameters.temporal.start_date
-        time = self.parameters.temporal.start_date
 
         stored_energy = self.equipment.stored_energy.get_forecast(execution_date, start, storage_constraint_end_date)
 
