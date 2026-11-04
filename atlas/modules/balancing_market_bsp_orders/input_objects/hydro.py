@@ -24,8 +24,8 @@ class BalancingHydro(Hydro):
     maximum_gradient: float
     maximum_power: AbstractTimeseries
     minimum_power: AbstractTimeseries
-    maximum_daily_energy: AbstractTimeseries
-    minimum_daily_energy: AbstractTimeseries
+    maximum_daily_energy: AbstractTimeseries | None = None
+    minimum_daily_energy: AbstractTimeseries | None = None
     has_daily_energy_constraint: bool
     stored_energy: ForecastingMatrix | LazyForecastingMatrix
     storage_marginal_value: AbstractScenarioMatrix
