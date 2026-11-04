@@ -732,23 +732,46 @@ class TestThermalDispatchDailyEnergyConstraint:
         assert len(energy_constraints) == 2
 
 
-    def test_stable_is_barred_when_the_unit_was_already_flat(
-            self, node, portfolio, power_ts, min_power_ts, parameters, model
-    ):
-        """At the boundary, stable is bounded by 1 - on_flat(t-2), as it is inside the window."""
-        eq, _, _ = self._build(
+class TestThermalDispatchStableBoundary:
+    """
+    At the window boundary, ``stable`` marks the step the unit enters the flat state, as it does inside the
+    window: it is barred when the unit was already flat at ``t-2`` and left free otherwise.
+    """
+
+    def _stable_boundary_upper_bound(self, node, portfolio, power_ts, min_power_ts, model, parameters, **kwargs):
+        eq = _make_equipment(
             node,
             portfolio,
             power_ts,
             min_power_ts,
-            parameters,
-            model,
+            **REALISTIC_MIN_TIMES,
             startup_duration=pendulum.duration(hours=2),
             shutdown_duration=pendulum.duration(hours=2),
             minimum_stable_power_duration=pendulum.duration(hours=3),
+            **kwargs,
         )
+        d = ThermalDispatch(eq)
+        d.setup(model, parameters)
+        window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
+        for t in window:
+            d.add_variables([t])
+        for t in window:
+            d.add_constraints(model, t, parameters)
         previous = parameters.temporal.start_date - parameters.temporal.timestep
+        return model.get_constraint(f"stable_evol_1_{previous}_{eq.name}").ub()
 
-        # the unit enters the window offline, so on_flat(t-2) is 0 and the row leaves
-        # stable free; bounding it by on_flat(t-2) instead would pin it to 0
-        assert model.get_constraint(f"stable_evol_1_{previous}_{eq.name}").ub() == 1
+    def test_stable_is_free_when_the_unit_was_not_flat(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters
+    ):
+        upper_bound = self._stable_boundary_upper_bound(node, portfolio, power_ts, min_power_ts, model, parameters)
+
+        assert upper_bound == 1
+
+    def test_stable_is_barred_when_the_unit_was_already_flat(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters, power_history
+    ):
+        upper_bound = self._stable_boundary_upper_bound(
+            node, portfolio, power_ts, min_power_ts, model, parameters, power=power_history([120.0] * 10)
+        )
+
+        assert upper_bound == 0
