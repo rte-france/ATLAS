@@ -9,7 +9,7 @@ import itertools
 import math
 
 import polars as pl
-from pendulum import DateTime
+from pendulum import DateTime, Duration
 
 import atlas.config as cfg
 from atlas.enums import CouplingType, OrderType, Product
@@ -56,6 +56,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         # Create a list that will hold all online time frames across all scenarios
         online_timeframes: list[tuple[Timeseries, str]] = []
+        is_offline = True
         for case in cases:
             # Encode the outcome as a state sequence
             states_sequence = self.determine_intermediate_load_states_sequence(unit, res, case)
@@ -67,6 +68,8 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
             for online_timeframe, case_name in list_of_online_timeframes:
                 online_timeframes.append((online_timeframe, case_name))
                 unit_orders, unit_couplings = self.formulate_unit_orders(online_timeframe, unit, case=case_name)
+                if unit_orders:
+                    is_offline = False
                 orders.extend(unit_orders)
                 couplings.extend(unit_couplings)
 
@@ -99,7 +102,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         # If the unit failed to have any online timeframe with the standard formulation,
         # it goes through the semi-peak formulation to still generate orders
-        if not online_timeframes:
+        if is_offline:
             orders, couplings = self.formulate_semi_peak(unit)
 
         return orders, couplings
@@ -346,17 +349,31 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         return results
 
+    @staticmethod
+    def _semi_peak_order_name(kind: str, n: int, time: DateTime, unit_name: str, duration: Duration) -> str:
+        """Build the unique name of a semi-peak order (``kind`` is ``"inflex"`` or ``"flex"``)."""
+        return (
+            f"{kind}_order_n_{n}_start_at_{time.format('DD_MM_YYYY_HH_mm_ss')}"
+            f"_for_unit_{unit_name}_of_duration_{duration.total_hours():g}h"
+        )
+
     def formulate_semi_peak(self, unit: ThermalDAO) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
 
+        # Here, we store orders in a dict since we have to extract them later on based on their name
+        orders_dict: dict[str, OrderDAO] = {}
         orders: list[OrderDAO] = []
         couplings: list[OrderCouplingDAO] = []
 
-        # Get the time step
+        # Extract relevant repeated info
+        start_date = self.parameters.temporal.start_date
+        end_date = self.parameters.temporal.end_date
         time_step = self.parameters.temporal.timestep
 
-        # --- Define order durations
-        T_on = int(max(1, math.ceil(unit.minimum_time_on / time_step)))
-        order_duration_list = [T_on, 12, 24]
+        # --- Define order durations rounded up to a whole number of time steps
+        half_day = Duration(hours=12)
+        full_day = Duration(hours=24)
+        min_on_duration = time_step * max(1, math.ceil(unit.minimum_time_on / time_step))
+        order_duration_list = sorted({min_on_duration, half_day, full_day})
 
         # Exclude units that are offline or with an infeasible maximum_power
         if not unit.maximum_power.index:
@@ -365,77 +382,242 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         local_pmax = unit.maximum_power.filter(self.orders_time)
         local_pmin = unit.minimum_power.filter(self.orders_time)
-        if (local_pmax.min() == 0) or ((local_pmax - unit.minimum_power.filter(self.orders_time)).min() < 0):
+        if (local_pmax.min() == 0) or ((local_pmax - local_pmin).min() < 0):
             cfg.logger.warning(f"Equipment {unit.name} is unavailable for semi-peak (offline).")
             return orders, couplings
 
         # Define if the unit was started before
-        if not unit.power.index:
+        if not unit.power:
             started_before = False
         else:
             prev_power = unit.power.get_forecast(
                 execution_date=self.parameters.temporal.execution_date,
-                start_date=self.parameters.temporal.start_date - time_step,
-                end_date=self.parameters.temporal.start_date,
+                start_date=start_date - time_step,
+                end_date=start_date,
                 timestep=time_step,
             )
             started_before = prev_power.sum() != 0
 
         # --- Loop on time steps in orders_time, and formulate all orders
         for time_enum, time in enumerate(self.orders_time):
+            formatted_time = time.format("DD_MM_YYYY_HH_mm_ss")
+
+            # Inflexible order
+            # ==============
+
             # Reads the minimum power and decides whether or not an inflexible order should be generated
-            generate_inflex_order = local_pmin > 0
+            pmin_at_t = local_pmin.get_value(time)
+            generate_inflex_order = pmin_at_t > 0
 
             if generate_inflex_order:
-                pmin_at_t = local_pmin.get_value(time)
-
                 # Create one inflexible order per hour, for each duration in orders_duration_list
                 for order_duration in order_duration_list:
+                    n_steps = int(order_duration / time_step)
+
                     # FC: Specific cases for 12 hours duration orders. Very simple for now,
                     # only formulated for [Oh,12h] and [12h,24h]. Could (should) be refined later on
-                    if order_duration == 12 and time.hour not in [0, 12]:
+                    if order_duration == half_day and not (time.hour in [0, 12] and time.minute == 0):
                         continue
 
                     # If the end date of the inflexible order is later than the considered end date,
                     # no inflexible order is created
-                    if time + time_step * order_duration > self.parameters.temporal.end_date:
+                    if time + order_duration > end_date:
                         continue
 
                     # Create identical volume constraints between all the inflexible orders of a given duration
                     identical_volume_orders = []
 
-                    for time_start in range(order_duration):
+                    for time_start in range(n_steps):
                         # Define the order price
-                        price = unit.variable_cost.get_value(time)
+                        price = unit.variable_cost.get_value(time + time_step * time_start)
                         if not (time_enum == 0 and started_before):
-                            price += unit.startup_cost.get_value(time) / (pmin_at_t * order_duration)
+                            price += unit.startup_cost.get_value(time + time_step * time_start) / (
+                                pmin_at_t * order_duration.total_hours()
+                            )
 
                         new_order = OrderDAO(
-                            name=f"inflex_order_n_{time_start}_start_at_{time}_for_unit_{unit.name}_of_duration_{order_duration}",
+                            name=self._semi_peak_order_name(
+                                kind="inflex", n=time_start, time=time, unit_name=unit.name, duration=order_duration
+                            ),
                             market_area=unit.portfolio.market_area,
                             portfolio=unit.portfolio,
                             equipment=unit,
                             qmax=pmin_at_t,
                             qmin=pmin_at_t,
-                            price=price,
+                            price=round(price, 2),
                             product=Product.DayAhead,
                             order_type=OrderType.Sell,
                             is_agent_tso=False,
                             execution_date=self.parameters.temporal.execution_date,
-                            start_date=time + time_step * time_start,  # type: ignore [arg-type]
-                            end_date=time + time_step * (time_start + 1),  # type: ignore [arg-type]
+                            start_date=time + time_step * time_start,
+                            end_date=time + time_step * (time_start + 1),
                         )
 
-                        orders.append(new_order)
+                        orders_dict[new_order.name] = new_order
                         identical_volume_orders.append(new_order)
 
                     # Create an identical volume coupling between all orders
                     couplings.append(
                         OrderCouplingDAO(
-                            name=f"IDV_inflex_semi_peak_orders_start_at_{time}_for_unit_{unit.name}_of_duration_{order_duration}",
+                            name=f"IDV_inflex_semi_peak_orders_start_at_{formatted_time}"
+                            f"_for_unit_{unit.name}_of_duration_{order_duration}",
                             coupling_type=CouplingType.IDENTICAL_VOLUME,
                             orders=identical_volume_orders,  # type: ignore [arg-type]
                         )
                     )
 
-        return orders, couplings
+                    ### Create exclusion links with overlapping previous orders
+                    # Loop over the order duration types
+                    overlapping_orders: dict[Duration, list[OrderDAO]] = {}
+
+                    for previous_order_duration in order_duration_list:
+                        n_steps_prev = int(previous_order_duration / time_step)
+
+                        if previous_order_duration not in overlapping_orders.keys():
+                            overlapping_orders[previous_order_duration] = []
+
+                        # FC: new method to create overlapping orders, to correct an error observed (empty couplings)
+                        for time_diff in range(1, n_steps_prev):
+                            studied_time = time - time_step * time_diff
+
+                            if studied_time < start_date:
+                                continue
+
+                            if studied_time + previous_order_duration > end_date:
+                                continue
+
+                            wanted_name = self._semi_peak_order_name(
+                                kind="inflex",
+                                n=0,
+                                time=studied_time,
+                                unit_name=unit.name,
+                                duration=previous_order_duration,
+                            )
+
+                            if wanted_name not in orders_dict.keys():
+                                continue
+                            local_order = orders_dict[wanted_name]
+
+                            overlapping_orders[previous_order_duration].append(local_order)
+
+                    # Create all exclusion links
+
+                    current_order_name = self._semi_peak_order_name(
+                        kind="inflex", n=0, time=time, unit_name=unit.name, duration=order_duration
+                    )
+
+                    current_order = orders_dict[current_order_name]
+
+                    for previous_order_duration in overlapping_orders.keys():
+                        for overlapping_order in overlapping_orders[previous_order_duration]:
+                            couplings.append(
+                                OrderCouplingDAO(
+                                    name=f"EXCL_inflex_semi_peak_between_order_at_{overlapping_order.start_date.format('DD_MM_YYYY_HH_mm_ss')}"
+                                    f"_of_duration_{previous_order_duration}_and_order_at_{formatted_time}_of"
+                                    f"_duration_{order_duration.total_hours()}_for_unit_{unit.name}",
+                                    coupling_type=CouplingType.EXCLUSION,
+                                    orders=[current_order, overlapping_order],  # type: ignore [arg-type]
+                                )
+                            )
+
+            ### Create exclusion links between the different orders starting at the same timestamp
+            # Fc: Deal with potential empty couplings
+            exclusion_order_list = []
+            for order_duration in order_duration_list:
+                # If the end date of the inflexible order is later than the considered end date,
+                # no inflexible order exists so nothing is added to the exclusion list
+                if time + order_duration > end_date:
+                    continue
+
+                wanted_name = self._semi_peak_order_name(
+                    kind="inflex", n=0, time=time, unit_name=unit.name, duration=order_duration
+                )
+
+                if wanted_name not in orders_dict.keys():
+                    continue
+
+                added_order = orders_dict[wanted_name]
+
+                exclusion_order_list.append(added_order)
+
+            if exclusion_order_list:
+                couplings.append(
+                    OrderCouplingDAO(
+                        name="EXCL_between_all_inflex_semi_peak_orders_n_0"
+                        f"_starting_at_{formatted_time}_for_unit_{unit.name}",
+                        coupling_type=CouplingType.EXCLUSION,
+                        orders=exclusion_order_list,  # type: ignore [arg-type]
+                    )
+                )
+
+            # Flexible order
+            # ==============
+
+            # Compute the maximum power of the flexible order
+            q_max = unit.maximum_power.get_value(time) - unit.minimum_power.get_value(time)
+
+            # We only formulate the order if its maximal power is positive
+            if q_max <= 0.0:
+                cfg.logger.info(
+                    "*** WARNING ***\n No capacity available for the "
+                    "flexible part of semi peak orders for "
+                    f"unit {unit.name} at time {time}. The order will therefore not be created."
+                )
+
+            else:
+                for order_duration in order_duration_list:
+                    n_steps = int(order_duration / time_step)
+
+                    # FC: Specific cases for 12 hours duration orders. Very simple for now,
+                    # only formulated for [Oh,12h] and [12h,24h]. Could (should) be refined later on
+                    if order_duration == half_day and not (time.hour in [0, 12] and time.minute == 0):
+                        continue
+
+                    # If the end date of the corresponding inflexible order is later than the considered end date, no flexible order is created
+                    if time + order_duration > end_date:
+                        continue
+
+                    # Create one flexible order per hour for each duration in orders_duration_list
+                    for offset_from_start in range(n_steps):
+                        flexible_order = OrderDAO(
+                            name=self._semi_peak_order_name(
+                                kind="flex",
+                                n=offset_from_start,
+                                time=time,
+                                unit_name=unit.name,
+                                duration=order_duration,
+                            ),
+                            market_area=unit.portfolio.market_area,
+                            portfolio=unit.portfolio,
+                            equipment=unit,
+                            qmax=q_max,
+                            qmin=0,
+                            price=round(unit.variable_cost.get_value(time + time_step * offset_from_start), 2),
+                            product=Product.DayAhead,
+                            order_type=OrderType.Sell,
+                            is_agent_tso=False,
+                            execution_date=self.parameters.temporal.execution_date,
+                            start_date=time + time_step * offset_from_start,
+                            end_date=time + time_step * (offset_from_start + 1),
+                        )
+                        orders_dict[flexible_order.name] = flexible_order
+
+                        if generate_inflex_order:
+                            inflex_name = self._semi_peak_order_name(
+                                kind="inflex", n=0, time=time, unit_name=unit.name, duration=order_duration
+                            )
+
+                            # Retrieve the inflexible order
+                            inflex_order = orders_dict[inflex_name]
+
+                            # Parent-children link between the flexible and inflexible parts
+                            couplings.append(
+                                OrderCouplingDAO(
+                                    name=f"PC_inflex_flex_orders_n_{offset_from_start}_at_{formatted_time}_"
+                                    f"for_unit_{unit.name}_of_duration_{order_duration.total_hours()}",
+                                    coupling_type=CouplingType.PARENT_CHILDREN,
+                                    orders=[inflex_order, flexible_order],  # type: ignore [arg-type]
+                                )
+                            )
+
+        return list(orders_dict.values()), couplings
