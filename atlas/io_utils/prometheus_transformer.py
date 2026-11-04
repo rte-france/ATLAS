@@ -9,6 +9,7 @@ This module handles the conversion of Prometheus HDF5 data files into Atlas-comp
 datasets, including objects, timeseries, scenario matrices, and forecasting matrices.
 """
 
+import multiprocessing
 import os
 import shutil
 import tempfile
@@ -242,7 +243,11 @@ class PrometheusToAtlasDataParser:
             n_workers = n_workers or min(os.cpu_count() or 1, len(instances))
             logger.info(f"Processing {len(instances)} instances in parallel using {n_workers} workers")
 
-            with ProcessPoolExecutor(max_workers=n_workers) as executor:
+            # "spawn" instead of the Linux default "fork": the parent already used polars (multi-threaded),
+            # and forking after that deadlocks the workers.
+            with ProcessPoolExecutor(
+                max_workers=n_workers, mp_context=multiprocessing.get_context("spawn")
+            ) as executor:
                 futures = [
                     executor.submit(self._process_instance_wrapper, instance, object_type, object_type_snake)
                     for instance in instances
