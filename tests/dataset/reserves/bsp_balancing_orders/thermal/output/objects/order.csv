@@ -1,0 +1,12 @@
+name;accepted_power;end_date;equipment;execution_date;individual_spread;is_agent_tso;market_area;order_type;portfolio;price;price_group;product;qmax;qmin;start_date
+th_case_1_mfrr_u_10_00_10_15_at_09_45;;2028-09-27T10:15:00Z;th_case_1;2028-09-27T09:45:00Z;;False;a;Sell;a;0.0;;MFRRActivation;350.0;100.0;2028-09-27T10:00:00Z
+th_case_2_mfrr_u_10_00_10_15_at_09_45;;2028-09-27T10:15:00Z;th_case_2;2028-09-27T09:45:00Z;;False;a;Sell;a;0.0;;MFRRActivation;350.0;100.0;2028-09-27T10:00:00Z
+th_case_3_mfrr_u_10_00_10_15_at_09_45;;2028-09-27T10:15:00Z;th_case_3;2028-09-27T09:45:00Z;;False;a;Sell;a;50.0;;MFRRActivation;350.0;200.0;2028-09-27T10:00:00Z
+th_case_4_mfrr_d_10_00_10_15_at_09_45;;2028-09-27T10:15:00Z;th_case_4;2028-09-27T09:45:00Z;;False;a;Buy;a;50.0;;MFRRActivation;100.0;0.0;2028-09-27T10:00:00Z
+th_case_4_mfrr_s_10_00_10_15_at_09_45;;2028-09-27T10:15:00Z;th_case_4;2028-09-27T09:45:00Z;;False;a;Buy;a;150.0;;MFRRActivation;200.0;200.0;2028-09-27T10:00:00Z
+th_case_4_mfrr_u_10_00_10_15_at_09_45;;2028-09-27T10:15:00Z;th_case_4;2028-09-27T09:45:00Z;;False;a;Sell;a;50.0;;MFRRActivation;300.0;0.0;2028-09-27T10:00:00Z
+th_case_4_procured_mfrr_d_10_00_10_15_at_09_45;;2028-09-27T10:15:00Z;th_case_4_procured;2028-09-27T09:45:00Z;;False;a;Buy;a;50.0;;MFRRActivation;50.0;0.0;2028-09-27T10:00:00Z
+th_case_4_procured_mfrr_s_10_00_10_15_at_09_45;;2028-09-27T10:15:00Z;th_case_4_procured;2028-09-27T09:45:00Z;;False;a;Buy;a;150.0;;MFRRActivation;200.0;200.0;2028-09-27T10:00:00Z
+th_case_4_procured_mfrr_u_10_00_10_15_at_09_45;;2028-09-27T10:15:00Z;th_case_4_procured;2028-09-27T09:45:00Z;;False;a;Sell;a;50.0;;MFRRActivation;150.0;0.0;2028-09-27T10:00:00Z
+th_case_5_mfrr_u_10_00_10_15_at_09_45_start1;;2028-09-27T10:15:00Z;th_case_5;2028-09-27T09:45:00Z;;False;a;Sell;a;250.0;;MFRRActivation;100.0;100.0;2028-09-27T10:00:00Z
+th_case_5_mfrr_u_10_00_10_15_at_09_45_start2;;2028-09-27T10:15:00Z;th_case_5;2028-09-27T09:45:00Z;;False;a;Sell;a;50.0;;MFRRActivation;400.0;0.0;2028-09-27T10:00:00Z
