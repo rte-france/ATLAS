@@ -44,6 +44,10 @@ class BSPBalancingOrdersParameters(AbstractModuleParameters):
     :param res_self_balancing: Whether wind and solar units use the self-balancing strategy,
         enabling upward orders and specific downward self-balancing orders. Default: False
     :type res_self_balancing: bool
+    :param hydro_storage_quantity_percentage: Share of the available power formulated by hydraulic
+        and storage units. Should be kept at 1 unless BSPs do not offer their entire power on
+        balancing markets. Default: 1.0
+    :type hydro_storage_quantity_percentage: float
     """
 
     product_type: MarketType = Field(
@@ -112,6 +116,16 @@ class BSPBalancingOrdersParameters(AbstractModuleParameters):
         description=(
             "Whether wind and solar units use the self-balancing strategy. "
             "When True, enables upward orders and specific downward self-balancing orders for RES."
+        ),
+    )
+
+    hydro_storage_quantity_percentage: float = Field(
+        1.0,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Share of the available power formulated by hydraulic and storage units. "
+            "Should be kept at 1 unless BSPs do not offer their entire power on balancing markets."
         ),
     )
 

@@ -189,3 +189,19 @@ class TestBalancingHydroValidation:
 
         with pytest.raises(ValueError, match="maximum_daily_energy must be provided"):
             BalancingHydro.model_validate(dict(equipment))
+
+
+
+class TestHydraulicQuantityPercentage:
+    def test_volumes_scaled_by_hydro_storage_quantity_percentage(
+        self, time_index, parameters, real_market_objects
+    ):
+        equipment = _make_hydro_equipment(parameters, real_market_objects)
+        parameters = parameters.model_copy(update={"hydro_storage_quantity_percentage": 0.5})
+        formulator = _make_formulator(equipment, time_index, parameters)
+        start = parameters.temporal.start_date
+
+        result = formulator.build_order(OrderType.Sell, start, start.add(minutes=15), price=10.0, qmin=10.0, qmax=50.0)
+
+        assert result.qmin == 5
+        assert result.qmax == 25

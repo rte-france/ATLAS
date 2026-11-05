@@ -130,6 +130,28 @@ class StorageOrderFormulator(AbstractOrderFormulator[BalancingStorage]):
     ) -> None:
         super().__init__(equipment, target_times, parameters)
 
+    def build_order(
+        self,
+        order_type: OrderType,
+        start: DateTime,
+        end: DateTime,
+        price: float,
+        qmin: float,
+        qmax: float,
+        suffix: str = "",
+    ) -> Order | None:
+        """
+        Build an order whose volumes are scaled by hydro_storage_quantity_percentage.
+
+        The scaled volumes are then rounded by AbstractOrderFormulator.build_order, which
+        documents the other parameters.
+
+        :return: The order, or None if the scaled qmax rounds to 0
+        :rtype: Order | None
+        """
+        percentage = self.parameters.hydro_storage_quantity_percentage
+        return super().build_order(order_type, start, end, price, qmin * percentage, qmax * percentage, suffix)
+
     def formulate(self) -> tuple[list[Order], list[OrderCoupling]]:
         """
         Formulate upward and downward orders for the storage equipment.

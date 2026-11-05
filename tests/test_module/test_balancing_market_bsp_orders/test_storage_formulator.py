@@ -273,3 +273,28 @@ class TestStoragePHSTransitionConstraint:
         # upward_available = 100 - 0 = 100 -> orders should be formulated
         upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
         assert len(upward_orders) == len(time_index)
+
+
+class TestStorageQuantityPercentage:
+    def test_volumes_scaled_by_hydro_storage_quantity_percentage(
+        self, time_index, parameters, market_objects_with_prices
+    ):
+        equipment = _make_storage_equipment(parameters, market_objects_with_prices)
+        parameters = parameters.model_copy(update={"hydro_storage_quantity_percentage": 0.5})
+        formulator = _make_formulator(equipment, time_index, parameters)
+        start = parameters.temporal.start_date
+
+        result = formulator.build_order(OrderType.Sell, start, start.add(minutes=15), price=10.0, qmin=10.0, qmax=50.0)
+
+        assert result.qmin == 5
+        assert result.qmax == 25
+
+    def test_returns_none_when_scaled_qmax_rounds_to_zero(self, time_index, parameters, market_objects_with_prices):
+        equipment = _make_storage_equipment(parameters, market_objects_with_prices)
+        parameters = parameters.model_copy(update={"hydro_storage_quantity_percentage": 0.4})
+        formulator = _make_formulator(equipment, time_index, parameters)
+        start = parameters.temporal.start_date
+
+        result = formulator.build_order(OrderType.Sell, start, start.add(minutes=15), price=10.0, qmin=0.0, qmax=1.0)
+
+        assert result is None
