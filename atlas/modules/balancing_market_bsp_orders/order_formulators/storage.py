@@ -58,12 +58,34 @@ def compute_average_clearing_prices(market_area: MarketArea, local_time: DateTim
     return round(total_price / number_of_reference_prices, 2)
 
 
+ACTIVATED_POWER_FIELDS = (
+    "rr_activated",
+    "mfrr_activated",
+    "afrr_activated",
+    "fcr_activated",
+    "specific_activated_power",
+)
+
+
+def missing_activated_powers(equipment: BalancingStorage) -> list[str]:
+    """
+    List the activated power fields the equipment does not provide.
+
+    :param equipment: The storage equipment to check
+    :type equipment: BalancingStorage
+    :return: Names of the activated power fields that are None
+    :rtype: list[str]
+    """
+    return [field for field in ACTIVATED_POWER_FIELDS if getattr(equipment, field) is None]
+
+
 def compute_daily_balancing_energy(equipment: BalancingStorage, parameters: BSPBalancingOrdersParameters) -> float:
     """
     Compute the total energy activated for balancing processes over the current day.
 
     Sums RR, mFRR, aFRR, FCR activated power, and specific activated power over the
-    current day, then integrates at the market timestep.
+    current day, then integrates at the market timestep. An activated power the
+    equipment does not provide counts as 0.
 
     # timestep regardless of the market timestep. Here we integrate at the market
     # timestep directly for simplicity; unclear whether this distinction matters.
@@ -84,13 +106,26 @@ def compute_daily_balancing_energy(equipment: BalancingStorage, parameters: BSPB
 
     # TODO : the original prometheus implementation integrates at a fixed 5-minute
     # If timesteps are not equal, there will be an error
-    energy_timeframe_power = (
-        equipment.rr_activated.slice(current_day_start, current_day_end)
-        + equipment.mfrr_activated.slice(current_day_start, current_day_end)
-        + equipment.afrr_activated.slice(current_day_start, current_day_end)
-        + equipment.fcr_activated.slice(current_day_start, current_day_end)
-        + equipment.specific_activated_power.get_forecast(execution_date, current_day_start, current_day_end)
-    )
+    activated_powers = [
+        activated.slice(current_day_start, current_day_end)
+        for activated in (
+            equipment.rr_activated,
+            equipment.mfrr_activated,
+            equipment.afrr_activated,
+            equipment.fcr_activated,
+        )
+        if activated is not None
+    ]
+    if equipment.specific_activated_power is not None:
+        activated_powers.append(
+            equipment.specific_activated_power.get_forecast(execution_date, current_day_start, current_day_end)
+        )
+    if not activated_powers:
+        return 0.0
+
+    energy_timeframe_power = activated_powers[0]
+    for activated in activated_powers[1:]:
+        energy_timeframe_power = energy_timeframe_power + activated
 
     return energy_timeframe_power.sum() * timestep.total_hours()
 
@@ -175,6 +210,12 @@ class StorageOrderFormulator(AbstractOrderFormulator[BalancingStorage]):
         downward_available = forecasted_power - min_power - downward_procured
 
         storage_constraint_end_date = self._compute_storage_constraint_end_date()
+
+        missing = missing_activated_powers(self.equipment)
+        if missing:
+            cfg.logger.info(
+                f"Activated powers {', '.join(missing)} not provided for equipment {self.equipment.name}, counted as 0"
+            )
 
         orders: list[Order] = []
 

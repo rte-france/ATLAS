@@ -10,7 +10,11 @@ import pytest
 
 from atlas.enums import OrderType, StorageType
 from atlas.modules.balancing_market_bsp_orders.input_objects.storage import BalancingStorage
-from atlas.modules.balancing_market_bsp_orders.order_formulators.storage import StorageOrderFormulator
+import atlas.config as cfg
+from atlas.modules.balancing_market_bsp_orders.order_formulators.storage import (
+    StorageOrderFormulator,
+    compute_daily_balancing_energy,
+)
 from tests.test_module.test_balancing_market_bsp_orders.conftest import make_forecasting_matrix, make_timeseries
 
 
@@ -190,6 +194,77 @@ class TestStorageLevelConstraintTimestep:
         orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
 
         assert [o.start_date for o in orders if o.order_type == OrderType.Buy] == time_index[1:]
+
+
+NO_ACTIVATED_POWERS = {
+    "rr_activated": None,
+    "mfrr_activated": None,
+    "afrr_activated": None,
+    "fcr_activated": None,
+    "specific_activated_power": None,
+}
+
+
+class TestStorageMissingActivatedPowers:
+    """An activated power the equipment does not provide counts as 0, and is reported in an info log."""
+
+    def test_activated_powers_are_optional(self, parameters, market_objects_with_prices):
+        equipment = _make_storage_equipment(parameters, market_objects_with_prices, **NO_ACTIVATED_POWERS)
+
+        validated = BalancingStorage.model_validate(dict(equipment))
+
+        assert all(getattr(validated, field) is None for field in NO_ACTIVATED_POWERS)
+
+    def test_no_activated_power_gives_no_balancing_energy(self, parameters, market_objects_with_prices):
+        equipment = _make_storage_equipment(parameters, market_objects_with_prices, **NO_ACTIVATED_POWERS)
+
+        assert compute_daily_balancing_energy(equipment, parameters) == 0.0
+
+    def test_missing_activated_powers_count_as_zero(self, parameters, market_objects_with_prices):
+        provided = _make_storage_equipment(
+            parameters, market_objects_with_prices, rr_activated=make_timeseries(parameters, 10.0)
+        )
+        partly_missing = _make_storage_equipment(
+            parameters,
+            market_objects_with_prices,
+            **{**NO_ACTIVATED_POWERS, "rr_activated": make_timeseries(parameters, 10.0)},
+        )
+
+        energy = compute_daily_balancing_energy(partly_missing, parameters)
+
+        assert energy > 0.0
+        assert energy == compute_daily_balancing_energy(provided, parameters)
+
+    def test_missing_activated_powers_are_logged(self, time_index, parameters, market_objects_with_prices):
+        equipment = _make_storage_equipment(
+            parameters,
+            market_objects_with_prices,
+            **{**NO_ACTIVATED_POWERS, "rr_activated": make_timeseries(parameters, 0.0)},
+        )
+        messages: list[str] = []
+        sink = cfg.logger.add(lambda message: messages.append(message.record["message"]), level="INFO")
+        try:
+            _make_formulator(equipment, time_index, parameters).formulate()
+        finally:
+            cfg.logger.remove(sink)
+
+        assert (
+            "Activated powers mfrr_activated, afrr_activated, fcr_activated, specific_activated_power "
+            "not provided for equipment test_storage, counted as 0"
+        ) in messages
+
+    def test_nothing_is_logged_when_all_activated_powers_are_provided(
+        self, time_index, parameters, market_objects_with_prices
+    ):
+        equipment = _make_storage_equipment(parameters, market_objects_with_prices)
+        messages: list[str] = []
+        sink = cfg.logger.add(lambda message: messages.append(message.record["message"]), level="INFO")
+        try:
+            _make_formulator(equipment, time_index, parameters).formulate()
+        finally:
+            cfg.logger.remove(sink)
+
+        assert not any(message.startswith("Activated powers") for message in messages)
 
 
 class TestStoragePHSTransitionConstraint:

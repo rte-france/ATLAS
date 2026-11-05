@@ -32,6 +32,7 @@ For common parameters (`temporal`, `export`), see [Common Parameters](../../comm
 | `conservative_stored_energy` | `bool` | `true` | If `true`, storage units only offer reserves if their stored energy constraints are respected until the next Day-Ahead or Intraday market execution. If `false`, the constraint only covers the balancing time frame. |
 | `with_fixed_id_markets` | `bool` | `true` | Whether the simulation includes fixed intraday markets. Sets the horizon of the conservative storage constraint: when `true`, 12:00 the same day if `execution_date` is before 10:00, otherwise the next midnight; when `false`, the next midnight if `execution_date` is before 12:00, otherwise the midnight after. |
 | `storage_price_threshold` | `float` | `0.1` | Fraction of the average `maximum_energy` above which the energy already activated for balancing during the day is considered excessive. Beyond it, storage order prices are increased proportionally to the activated energy. Must be ≥ 0. |
+| `hydro_storage_quantity_percentage` | `float` | `1.0` | Share of the available power formulated by hydraulic and storage units, applied to `qmin` and `qmax` before rounding. Keep at `1.0` unless BSPs do not offer their entire power on balancing markets. Must be between 0 and 1. |
 
 ---
 
@@ -62,6 +63,7 @@ excluded_technologies: None
 conservative_stored_energy: true
 with_fixed_id_markets: true
 storage_price_threshold: 0.1
+hydro_storage_quantity_percentage: 1.0
 res_self_balancing: false
 ```
 
