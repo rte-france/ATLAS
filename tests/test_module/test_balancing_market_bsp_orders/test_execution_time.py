@@ -7,7 +7,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.balancing_market_bsp_orders.module import BSPBalancingOrdersModule
 from tests.utils import check_execution_time
 
-INPUT_DIR = Path("tests/dataset/intraday/bsp_orders_input")
+INPUT_DIR = Path("tests/dataset/reserves/bsp_balancing_orders/input")
 PARAMETERS_PATH = Path("tests/dataset/parameters/intraday/bsp_balancing_orders.yml")
 
 
