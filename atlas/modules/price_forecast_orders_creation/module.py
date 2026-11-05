@@ -64,6 +64,7 @@ class PriceForecastOrdersCreationModule(
             ("non-dispatchable", NonDispatchableStep(result, orders_time, parameters)),
             ("storage", StorageStep(result, orders_time, parameters)),
             ("hydro", HydraulicStep(result, orders_time, parameters)),
+            ("wind/solar", WindAndSolarStep(result, orders_time, parameters)),
         ]
 
         for name, step in steps:

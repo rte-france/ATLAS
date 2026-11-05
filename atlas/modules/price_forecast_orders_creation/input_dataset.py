@@ -15,5 +15,6 @@ class PriceForecastOrdersCreationInputDataset(AbstractDataset[PriceForecastOrder
         self.storage: list[StoragePFOC] = [StoragePFOC(**obj) for obj in input_data.storage]
         self.hydro: list[HydroPFOC] = [HydroPFOC(**obj) for obj in input_data.hydro]
         self.wind: list[WindPFOC] = [WindPFOC(**obj) for obj in input_data.wind]
+        self.solar: list[SolarPFOC] = [SolarPFOC(**obj) for obj in input_data.solar]
         self.thermal: list[ThermalPFOC] = [ThermalPFOC(**obj) for obj in input_data.thermal]
         self.load: list[LoadPFOC] = [LoadPFOC(**obj) for obj in input_data.load]

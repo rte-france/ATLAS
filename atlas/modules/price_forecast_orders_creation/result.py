@@ -27,6 +27,7 @@ class PriceForecastOrdersCreationResult(ModuleResult[PriceForecastOrdersCreation
         self.storage: list[StoragePFOC] = input_dataset.storage
         self.hydro: list[HydroPFOC] = input_dataset.hydro
         self.wind: list[WindPFOC] = input_dataset.wind
+        self.solar: list[SolarPFOC] = input_dataset.solar
         self.thermal: list[ThermalPFOC] = input_dataset.thermal
         self.load: list[LoadPFOC] = input_dataset.load
 
