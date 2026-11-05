@@ -15,10 +15,9 @@ from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalV
 from atlas.enums import OrderType
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.modules.balancing_market_bsp_orders.input_objects.hydro import BalancingHydro
-from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator
+from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator, StepResult
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
 from atlas.objects.market.order import Order
-from atlas.objects.market.order_coupling import OrderCoupling
 
 
 class HydraulicOrderFormulator(AbstractOrderFormulator[BalancingHydro]):
@@ -65,12 +64,12 @@ class HydraulicOrderFormulator(AbstractOrderFormulator[BalancingHydro]):
         percentage = self.parameters.hydro_storage_quantity_percentage
         return super().build_order(order_type, start, end, price, qmin * percentage, qmax * percentage, suffix)
 
-    def formulate(self) -> tuple[list[Order], list[OrderCoupling]]:
+    def formulate(self) -> StepResult:
         """
         Formulate upward and downward orders for the hydraulic equipment.
 
-        :return: Tuple of formulated orders and an empty coupling list
-        :rtype: tuple[list[Order], list[OrderCoupling]]
+        :return: The formulated orders, without order couplings
+        :rtype: StepResult
         """
         start = self.parameters.temporal.start_date
         end = self.parameters.temporal.end_date - self.parameters.temporal.timestep
@@ -118,7 +117,7 @@ class HydraulicOrderFormulator(AbstractOrderFormulator[BalancingHydro]):
             if qmax_down >= 1.0:
                 orders.extend(self._build_downward_fragment_orders(time, next_time, qmax_down, water_value))
 
-        return orders, []
+        return StepResult(orders=orders)
 
     def _compute_maximum_daily_energy_bound(self, upward_available: float) -> float:
         """

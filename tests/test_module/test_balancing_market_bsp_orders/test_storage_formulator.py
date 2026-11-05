@@ -71,7 +71,7 @@ class TestStorageOrderFormulatorOrders:
         """No orders are formulated when setup_delay exceeds the entire time frame."""
         equipment = _make_storage_equipment(parameters, market_objects_with_prices, setup_delay=24.0)
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         assert orders == []
 
     def test_upward_order_formulated_when_available(self, time_index, parameters, market_objects_with_prices):
@@ -90,7 +90,7 @@ class TestStorageOrderFormulatorOrders:
             minimum_state_of_charge=make_timeseries(parameters, 0.0),
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
         assert len(upward_orders) == len(time_index)
 
@@ -108,7 +108,7 @@ class TestStorageOrderFormulatorOrders:
             minimum_state_of_charge=make_timeseries(parameters, 0.1),
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
         assert upward_orders == []
 
@@ -126,7 +126,7 @@ class TestStorageOrderFormulatorOrders:
             maximum_energy=make_timeseries(parameters, 1000.0),
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         downward_orders = [o for o in orders if o.order_type == OrderType.Buy]
         assert len(downward_orders) == len(time_index)
 
@@ -143,7 +143,7 @@ class TestStorageOrderFormulatorOrders:
             maximum_energy=make_timeseries(parameters, 1000.0),
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         downward_orders = [o for o in orders if o.order_type == OrderType.Buy]
         assert downward_orders == []
 
@@ -151,7 +151,7 @@ class TestStorageOrderFormulatorOrders:
         """Storage formulator never returns order couplings."""
         equipment = _make_storage_equipment(parameters, market_objects_with_prices)
 
-        _, couplings = _make_formulator(equipment, time_index, parameters).formulate()
+        couplings = _make_formulator(equipment, time_index, parameters).formulate().order_couplings
         assert couplings == []
 
 
@@ -173,7 +173,7 @@ class TestStorageLevelConstraintTimestep:
             minimum_state_of_charge=minimum_state_of_charge,
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
 
         assert [o.start_date for o in orders if o.order_type == OrderType.Sell] == [time_index[0]]
 
@@ -191,7 +191,7 @@ class TestStorageLevelConstraintTimestep:
             maximum_energy=maximum_energy,
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
 
         assert [o.start_date for o in orders if o.order_type == OrderType.Buy] == time_index[1:]
 
@@ -278,7 +278,7 @@ class TestStoragePHSTransitionConstraint:
             maximum_power=make_timeseries(parameters, 100.0),
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         # Battery with zero forecasted power: downward only (PHS would block upward)
         # For battery, constraint doesn't apply -> both directions possible if power available
         upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
@@ -295,7 +295,7 @@ class TestStoragePHSTransitionConstraint:
             minimum_power=make_timeseries(parameters, -100.0),
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
         assert upward_orders == []
 
@@ -310,7 +310,7 @@ class TestStoragePHSTransitionConstraint:
             minimum_power=make_timeseries(parameters, -100.0),
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         downward_orders = [o for o in orders if o.order_type == OrderType.Buy]
         assert downward_orders == []
 
@@ -328,7 +328,7 @@ class TestStoragePHSTransitionConstraint:
             minimum_power=make_timeseries(parameters, -100.0),
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
         assert all(o.qmax <= 30 for o in upward_orders)
 
@@ -343,7 +343,7 @@ class TestStoragePHSTransitionConstraint:
             minimum_power=make_timeseries(parameters, -100.0),
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         # With zero transition duration, PHS constraint doesn't apply
         # upward_available = 100 - 0 = 100 -> orders should be formulated
         upward_orders = [o for o in orders if o.order_type == OrderType.Sell]

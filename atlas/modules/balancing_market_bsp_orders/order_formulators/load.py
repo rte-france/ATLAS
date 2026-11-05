@@ -11,10 +11,9 @@ from pendulum import DateTime
 import atlas.config as cfg
 from atlas.enums import OrderType
 from atlas.modules.balancing_market_bsp_orders.input_objects.load import BalancingLoad
-from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator
+from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator, StepResult
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
 from atlas.objects.market.order import Order
-from atlas.objects.market.order_coupling import OrderCoupling
 
 
 class LoadOrderFormulator(AbstractOrderFormulator[BalancingLoad]):
@@ -36,12 +35,12 @@ class LoadOrderFormulator(AbstractOrderFormulator[BalancingLoad]):
     ) -> None:
         super().__init__(equipment, target_times, parameters)
 
-    def formulate(self) -> tuple[list[Order], list[OrderCoupling]]:
+    def formulate(self) -> StepResult:
         """
         Formulate upward and downward orders for the load equipment.
 
-        :return: Tuple of formulated orders and an empty coupling list
-        :rtype: tuple[list[Order], list[OrderCoupling]]
+        :return: The formulated orders, without order couplings
+        :rtype: StepResult
         """
         start = self.parameters.temporal.start_date
         end = self.parameters.temporal.end_date - self.parameters.temporal.timestep
@@ -94,4 +93,4 @@ class LoadOrderFormulator(AbstractOrderFormulator[BalancingLoad]):
                 if order is not None:
                     orders.append(order)
         cfg.logger.info(f"Formulation of orders on equipment {self.equipment.name} completed")
-        return orders, []
+        return StepResult(orders=orders)

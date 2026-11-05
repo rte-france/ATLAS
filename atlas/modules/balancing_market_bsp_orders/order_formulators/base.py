@@ -7,6 +7,7 @@ Module that implements AbstractOrderFormulator.
 """
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 
 from pendulum import DateTime, Duration
 
@@ -16,6 +17,15 @@ from atlas.math.timeseries import Timeseries
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
 from atlas.objects.equipment.equipment import Equipment
 from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
+
+
+@dataclass
+class StepResult:
+    """Orders and order couplings formulated for one equipment."""
+
+    orders: list[Order] = field(default_factory=list)
+    order_couplings: list[OrderCoupling] = field(default_factory=list)
 
 
 class AbstractOrderFormulator[E: Equipment](ABC):
@@ -45,12 +55,12 @@ class AbstractOrderFormulator[E: Equipment](ABC):
         self.parameters = parameters
 
     @abstractmethod
-    def formulate(self) -> tuple[list[Order], list]:
+    def formulate(self) -> StepResult:
         """
         Formulate upward and downward orders for the equipment.
 
-        :return: Tuple of formulated Order instances and OrderCoupling instances
-        :rtype: tuple[list[Order], list]
+        :return: The formulated orders and order couplings
+        :rtype: StepResult
         """
 
     def _get_forecast_or_zero(

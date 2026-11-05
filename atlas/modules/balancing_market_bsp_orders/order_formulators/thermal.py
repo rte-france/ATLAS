@@ -13,7 +13,7 @@ from pendulum import DateTime, Duration
 import atlas.config as cfg
 from atlas.enums import CouplingType, OrderType
 from atlas.modules.balancing_market_bsp_orders.input_objects.thermal import BalancingThermal
-from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator
+from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator, StepResult
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
@@ -51,12 +51,12 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
         self._coupling_counters: dict[CouplingType, int] = {}
         self._upward_orders_by_time: dict[DateTime, list[Order]] = {}
 
-    def formulate(self) -> tuple[list[Order], list[OrderCoupling]]:
+    def formulate(self) -> StepResult:
         """
         Formulate upward and downward orders for the thermal equipment.
 
-        :return: Tuple of formulated orders and their couplings
-        :rtype: tuple[list[Order], list[OrderCoupling]]
+        :return: The formulated orders and their order couplings
+        :rtype: StepResult
         """
         start = self.parameters.temporal.start_date
         end = self.parameters.temporal.end_date - self.parameters.temporal.timestep
@@ -101,9 +101,9 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
             startup_case = self._classify_startup_case(forecasted_power, time)
 
             if startup_case == StartupCase.FULL_STARTUP:
-                start_orders, start_couplings = self._formulate_case_5_orders(time, next_time)
-                orders.extend(start_orders)
-                couplings.extend(start_couplings)
+                startup = self._formulate_case_5_orders(time, next_time)
+                orders.extend(startup.orders)
+                couplings.extend(startup.order_couplings)
             else:
                 if startup_case == StartupCase.ON_BOTH_SIDES:
                     order = self._formulate_case_1_order(time, next_time)
@@ -132,7 +132,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
                     couplings.extend(shutdown_couplings)
 
         cfg.logger.info(f"Formulation of orders on equipment {self.equipment.name} completed")
-        return orders, couplings
+        return StepResult(orders=orders, order_couplings=couplings)
 
     def _forecasted_power_at(self, time: DateTime) -> float:
         """
@@ -891,7 +891,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
         self,
         time: DateTime,
         next_time: DateTime,
-    ) -> tuple[list[Order], list[OrderCoupling]]:
+    ) -> StepResult:
         """
         Formulate the split startup orders for a full startup (Case 5): an indivisible
         '_start1' order up to minimum_power, priced with the startup cost spread over
@@ -902,8 +902,8 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
         :type time: DateTime
         :param next_time: Order end boundary (time + timestep)
         :type next_time: DateTime
-        :return: Tuple of (orders, couplings), both empty if the startup is not valid
-        :rtype: tuple[list[Order], list[OrderCoupling]]
+        :return: The startup orders and their order couplings, both empty if the startup is not valid
+        :rtype: StepResult
         """
         execution_date = self.parameters.temporal.execution_date
 
@@ -913,14 +913,14 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
             or not self._check_on_off_time_requirement(time, searching_on=False, searching_backwards=False)
             or self.parameters.temporal.timestep < self.equipment.minimum_time_on
         ):
-            return [], []
+            return StepResult()
 
         max_power = self.equipment.maximum_power.get_value(time)
         min_power = self.equipment.minimum_power.get_value(time)
 
         _, is_valid, _ = self._apply_minimum_stable_power_duration_constraint(time, OrderType.Sell, max_power)
         if not is_valid:
-            return [], []
+            return StepResult()
 
         duration_hours = self.parameters.temporal.timestep.total_hours()
         startup_cost = self._startup_cost_at(time)
@@ -951,7 +951,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
         )
 
         if order_1 is None or order_2 is None:
-            return [], []
+            return StepResult()
 
         coupling = OrderCoupling(
             name=self._next_coupling_name(CouplingType.PARENT_CHILDREN, order_1),
@@ -973,7 +973,7 @@ class ThermalOrderFormulator(AbstractOrderFormulator[BalancingThermal]):
         self._record_upward_order(time, order_1)
         self._record_upward_order(time, order_2)
 
-        return [order_1, order_2], couplings
+        return StepResult(orders=[order_1, order_2], order_couplings=couplings)
 
     def _classify_startup_case(
         self,

@@ -151,7 +151,8 @@ class TestCase5FullStartup:
         next_time = test_time.add(minutes=15)
         formulator = _make_formulator(thermal_equipment, [test_time], parameters)
 
-        orders, couplings = formulator._formulate_case_5_orders(test_time, next_time)
+        startup = formulator._formulate_case_5_orders(test_time, next_time)
+        orders, couplings = startup.orders, startup.order_couplings
 
         assert len(orders) == 2
         start1, start2 = orders
@@ -175,7 +176,8 @@ class TestCase5FullStartup:
         next_time = test_time.add(minutes=15)
         formulator = _make_formulator(thermal_equipment, [test_time], parameters)
 
-        orders, couplings = formulator._formulate_case_5_orders(test_time, next_time)
+        startup = formulator._formulate_case_5_orders(test_time, next_time)
+        orders, couplings = startup.orders, startup.order_couplings
         assert orders == []
         assert couplings == []
 
@@ -187,7 +189,8 @@ class TestCase5FullStartup:
         next_time = test_time.add(minutes=15)
         formulator = _make_formulator(thermal_equipment, [test_time], parameters)
 
-        orders, couplings = formulator._formulate_case_5_orders(test_time, next_time)
+        startup = formulator._formulate_case_5_orders(test_time, next_time)
+        orders, couplings = startup.orders, startup.order_couplings
         assert orders == []
         assert couplings == []
 

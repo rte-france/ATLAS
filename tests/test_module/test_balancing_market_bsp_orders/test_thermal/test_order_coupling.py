@@ -167,8 +167,8 @@ class TestCase5CouplingCounter:
         t2 = t1.add(minutes=15)
         formulator = _make_formulator(thermal_equipment, [t1, t2], parameters)
 
-        _, couplings_1 = formulator._formulate_case_5_orders(t1, t1.add(minutes=15))
-        _, couplings_2 = formulator._formulate_case_5_orders(t2, t2.add(minutes=15))
+        couplings_1 = formulator._formulate_case_5_orders(t1, t1.add(minutes=15)).order_couplings
+        couplings_2 = formulator._formulate_case_5_orders(t2, t2.add(minutes=15)).order_couplings
 
         assert couplings_1[0].name.startswith("parent_children1_")
         assert couplings_2[0].name.startswith("parent_children2_")
@@ -186,7 +186,8 @@ class TestTwoPassStructureLinksAcrossTimesteps:
         t2 = t1.add(minutes=15)
         formulator = _make_formulator(thermal_equipment, [t1, t2], parameters)
 
-        orders, couplings = formulator.formulate()
+        result = formulator.formulate()
+        orders, couplings = result.orders, result.order_couplings
 
         t1_downward = next(o for o in orders if o.start_date == t1 and o.order_type == OrderType.Buy and "_d_" in o.name)
         t2_upward = next(o for o in orders if o.start_date == t2 and o.order_type == OrderType.Sell and "_u_" in o.name)
@@ -204,7 +205,8 @@ class TestTwoPassStructureLinksAcrossTimesteps:
         t2 = t1.add(minutes=15)
         formulator = _make_formulator(thermal_equipment, [t1, t2], parameters)
 
-        orders, couplings = formulator.formulate()
+        result = formulator.formulate()
+        orders, couplings = result.orders, result.order_couplings
 
         t2_downward = next(o for o in orders if o.start_date == t2 and o.order_type == OrderType.Buy and "_d_" in o.name)
         t1_upward = next(o for o in orders if o.start_date == t1 and o.order_type == OrderType.Sell and "_u_" in o.name)
@@ -225,7 +227,7 @@ class TestTwoPassStructureLinksAcrossTimesteps:
         t2 = t1.add(minutes=15)
         formulator = _make_formulator(thermal_equipment, [t1, t2], parameters)
 
-        _, couplings = formulator.formulate()
+        couplings = formulator.formulate().order_couplings
         assert not any(
             c.coupling_type == CouplingType.EXCLUSION and len({o.start_date for o in c.orders}) > 1 for c in couplings
         )

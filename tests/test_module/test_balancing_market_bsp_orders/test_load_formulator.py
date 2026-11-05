@@ -20,7 +20,7 @@ class TestLoadOrderFormulatorOrders:
     def test_no_orders_when_setup_delay_not_elapsed(self, mock_equipment, time_index, parameters):
         object.__setattr__(mock_equipment, 'setup_delay', 24.0)
 
-        orders, _ = _make_formulator(mock_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(mock_equipment, time_index, parameters).formulate().orders
         assert orders == []
 
     def test_upward_order_formulated_when_available(self, mock_equipment, time_index, parameters):
@@ -31,7 +31,7 @@ class TestLoadOrderFormulatorOrders:
         """
         object.__setattr__(mock_equipment, 'power', make_forecasting_matrix(parameters, -60.0))
 
-        orders, _ = _make_formulator(mock_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(mock_equipment, time_index, parameters).formulate().orders
         upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
         assert len(upward_orders) == len(time_index)
 
@@ -43,7 +43,7 @@ class TestLoadOrderFormulatorOrders:
         """
         object.__setattr__(mock_equipment, 'power', make_forecasting_matrix(parameters, 50.0))
 
-        orders, _ = _make_formulator(mock_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(mock_equipment, time_index, parameters).formulate().orders
         upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
         assert upward_orders == []
 
@@ -56,7 +56,7 @@ class TestLoadOrderFormulatorOrders:
         object.__setattr__(mock_equipment, 'power', make_forecasting_matrix(parameters, 100.0))
         object.__setattr__(mock_equipment, 'maximum_power_forecast', make_forecasting_matrix(parameters, 50.0))
 
-        orders, _ = _make_formulator(mock_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(mock_equipment, time_index, parameters).formulate().orders
         downward_orders = [o for o in orders if o.order_type == OrderType.Buy]
         assert len(downward_orders) == len(time_index)
 
@@ -69,7 +69,7 @@ class TestLoadOrderFormulatorOrders:
         object.__setattr__(mock_equipment, 'power', make_forecasting_matrix(parameters, 50.0))
         object.__setattr__(mock_equipment, 'maximum_power_forecast', make_forecasting_matrix(parameters, 50.0))
 
-        orders, _ = _make_formulator(mock_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(mock_equipment, time_index, parameters).formulate().orders
         downward_orders = [o for o in orders if o.order_type == OrderType.Buy]
         assert downward_orders == []
 
@@ -82,10 +82,10 @@ class TestLoadOrderFormulatorOrders:
         object.__setattr__(mock_equipment, 'power', make_forecasting_matrix(parameters, -60.0))
         object.__setattr__(mock_equipment, 'maximum_power_forecast', make_forecasting_matrix(parameters, -110.0))
 
-        orders, _ = _make_formulator(mock_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(mock_equipment, time_index, parameters).formulate().orders
         assert len([o for o in orders if o.order_type == OrderType.Sell]) == len(time_index)
         assert len([o for o in orders if o.order_type == OrderType.Buy]) == len(time_index)
 
     def test_no_order_couplings_returned(self, mock_equipment, time_index, parameters):
-        _, couplings = _make_formulator(mock_equipment, time_index, parameters).formulate()
+        couplings = _make_formulator(mock_equipment, time_index, parameters).formulate().order_couplings
         assert couplings == []

@@ -27,7 +27,7 @@ def _downward_orders(orders):
 class TestUpwardAvailablePower:
     def test_upward_order_formulated_with_available_power(self, thermal_equipment, time_index, parameters):
         """upward_available = maximum_power - forecasted_power = 100 - 50 = 50."""
-        orders, _ = _make_formulator(thermal_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(thermal_equipment, time_index, parameters).formulate().orders
         upward_orders = _upward_orders(orders)
         assert len(upward_orders) == len(time_index)
         assert all(o.qmax == 50 for o in upward_orders)
@@ -38,21 +38,21 @@ class TestUpwardAvailablePower:
         """upward_available = 100 - 100 = 0 -> no Sell order."""
         object.__setattr__(thermal_equipment, "power", make_forecasting_matrix(parameters, 100.0))
 
-        orders, _ = _make_formulator(thermal_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(thermal_equipment, time_index, parameters).formulate().orders
         assert _upward_orders(orders) == []
 
     def test_no_upward_order_below_one_mw_threshold(self, thermal_equipment, time_index, parameters):
         """upward_available = 100 - 99.4 = 0.6 < 1 MW -> no Sell order, even though > 0."""
         object.__setattr__(thermal_equipment, "power", make_forecasting_matrix(parameters, 99.4))
 
-        orders, _ = _make_formulator(thermal_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(thermal_equipment, time_index, parameters).formulate().orders
         assert _upward_orders(orders) == []
 
 
 class TestDownwardAvailablePower:
     def test_downward_order_formulated_with_available_power(self, thermal_equipment, time_index, parameters):
         """downward_available = forecasted_power - minimum_power = 50 - 20 = 30."""
-        orders, _ = _make_formulator(thermal_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(thermal_equipment, time_index, parameters).formulate().orders
         downward_orders = _downward_orders(orders)
         assert len(downward_orders) == len(time_index)
         assert all(o.qmax == 30 for o in downward_orders)
@@ -63,7 +63,7 @@ class TestDownwardAvailablePower:
         """downward_available = 20.6 - 20 = 0.6 < 1 MW -> no regular Buy order."""
         object.__setattr__(thermal_equipment, "power", make_forecasting_matrix(parameters, 20.6))
 
-        orders, _ = _make_formulator(thermal_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(thermal_equipment, time_index, parameters).formulate().orders
         assert _downward_orders(orders) == []
 
 
@@ -72,7 +72,7 @@ class TestStartupRampGuard:
         """0 < power(10) < minimum_power(20) -> both directions forced to 0."""
         object.__setattr__(thermal_equipment, "power", make_forecasting_matrix(parameters, 10.0))
 
-        orders, _ = _make_formulator(thermal_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(thermal_equipment, time_index, parameters).formulate().orders
         assert _upward_orders(orders) == []
         assert _downward_orders(orders) == []
 
@@ -82,7 +82,7 @@ class TestProcuredPower:
         """upward_available = 100 - 50 - 10(FCR up procured) = 40."""
         object.__setattr__(thermal_equipment, "fcr_up_procured", make_forecasting_matrix(parameters, 10.0))
 
-        orders, _ = _make_formulator(thermal_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(thermal_equipment, time_index, parameters).formulate().orders
         upward_orders = _upward_orders(orders)
         assert len(upward_orders) == len(time_index)
         assert all(o.qmax == 40 for o in upward_orders)
@@ -91,7 +91,7 @@ class TestProcuredPower:
         """downward_available = 50 - 20 - 10(FCR down procured) = 20."""
         object.__setattr__(thermal_equipment, "fcr_down_procured", make_forecasting_matrix(parameters, 10.0))
 
-        orders, _ = _make_formulator(thermal_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(thermal_equipment, time_index, parameters).formulate().orders
         downward_orders = _downward_orders(orders)
         assert len(downward_orders) == len(time_index)
         assert all(o.qmax == 20 for o in downward_orders)
@@ -102,7 +102,7 @@ class TestSetupDelay:
         """setup_delay (24h) exceeds the entire balancing time frame -> no orders at all."""
         object.__setattr__(thermal_equipment, "setup_delay", 24.0)
 
-        orders, _ = _make_formulator(thermal_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(thermal_equipment, time_index, parameters).formulate().orders
         assert orders == []
 
 
@@ -137,7 +137,7 @@ class TestGradientConstraint:
             thermal_equipment, "power", self._make_forecasted_power(parameters, {next_time: 90.0})
         )
 
-        orders, _ = _make_formulator(thermal_equipment, [test_time], parameters).formulate()
+        orders = _make_formulator(thermal_equipment, [test_time], parameters).formulate().orders
 
         upward_orders = _upward_orders(orders)
         assert len(upward_orders) == 1

@@ -67,7 +67,7 @@ class TestHydraulicOrderFormulatorOrders:
         """No orders are formulated when setup_delay exceeds the entire time frame"""
         equipment = _make_hydro_equipment(parameters, real_market_objects, setup_delay=24.0)
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         assert orders == []
 
     def test_upward_orders_formulated_when_available(self, time_index, parameters, real_market_objects):
@@ -82,7 +82,7 @@ class TestHydraulicOrderFormulatorOrders:
             minimum_power=make_timeseries(parameters, 0.0),
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
         assert len(upward_orders) > 0
 
@@ -98,7 +98,7 @@ class TestHydraulicOrderFormulatorOrders:
             minimum_power=make_timeseries(parameters, 0.0),
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
         assert upward_orders == []
 
@@ -114,7 +114,7 @@ class TestHydraulicOrderFormulatorOrders:
             minimum_power=make_timeseries(parameters, 0.0),
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         downward_orders = [o for o in orders if o.order_type == OrderType.Buy]
         assert len(downward_orders) > 0
 
@@ -130,7 +130,7 @@ class TestHydraulicOrderFormulatorOrders:
             minimum_power=make_timeseries(parameters, 50.0),
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         downward_orders = [o for o in orders if o.order_type == OrderType.Buy]
         assert downward_orders == []
 
@@ -143,14 +143,14 @@ class TestHydraulicOrderFormulatorOrders:
             minimum_power=make_timeseries(parameters, 0.0),
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         assert all("_frag_" in o.name for o in orders)
 
     def test_no_order_couplings_returned(self, time_index, parameters, real_market_objects):
         """Hydraulic formulator never returns order couplings."""
         equipment = _make_hydro_equipment(parameters, real_market_objects)
 
-        _, couplings = _make_formulator(equipment, time_index, parameters).formulate()
+        couplings = _make_formulator(equipment, time_index, parameters).formulate().order_couplings
         assert couplings == []
 
     def test_order_price_includes_water_value(self, time_index, parameters, real_market_objects):
@@ -168,7 +168,7 @@ class TestHydraulicOrderFormulatorOrders:
             fragment_prices=[5.0, 10.0],
         )
 
-        orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
         upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
         assert all(o.price >= 15.0 for o in upward_orders)
 

@@ -87,11 +87,9 @@ class BSPBalancingOrdersModule(
         for name, formulator_class, equipments in steps:
             cfg.logger.info(f"Formulation of the {name} orders...")
             for equipment in equipments:
-                orders, order_couplings = formulator_class(
-                    equipment, input_dataset.target_times, parameters
-                ).formulate()
-                output_dataset.orders.extend(orders)
-                output_dataset.couplings.extend(order_couplings)
+                result = formulator_class(equipment, input_dataset.target_times, parameters).formulate()
+                output_dataset.orders.extend(result.orders)
+                output_dataset.couplings.extend(result.order_couplings)
             cfg.logger.info(f"{name.capitalize()} orders formulated.")
 
         cfg.logger.info("Formulation of orders successfully completed.")

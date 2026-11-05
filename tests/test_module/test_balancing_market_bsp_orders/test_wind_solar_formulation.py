@@ -45,7 +45,7 @@ class TestWindSolarOrderFormulatorOrders:
         """No orders are formulated when setup_delay exceeds the entire time frame."""
         object.__setattr__(wind_equipment, 'setup_delay', 24.0)
 
-        orders, _ = _make_formulator(wind_equipment, time_index, parameters_self_balancing).formulate()
+        orders = _make_formulator(wind_equipment, time_index, parameters_self_balancing).formulate().orders
         assert orders == []
 
     def test_no_upward_order_when_res_self_balancing_is_false(self, wind_equipment, time_index, parameters):
@@ -55,7 +55,7 @@ class TestWindSolarOrderFormulatorOrders:
         """
         object.__setattr__(wind_equipment, 'power', make_forecasting_matrix(parameters, 50.0))
 
-        orders, _ = _make_formulator(wind_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(wind_equipment, time_index, parameters).formulate().orders
         upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
         assert upward_orders == []
 
@@ -70,7 +70,7 @@ class TestWindSolarOrderFormulatorOrders:
         object.__setattr__(wind_equipment, 'maximum_power_forecast', make_forecasting_matrix(parameters_self_balancing, 100.0))
         object.__setattr__(wind_equipment, 'maximum_curtailment_ratio', make_timeseries(parameters_self_balancing, 0.0))
 
-        orders, _ = _make_formulator(wind_equipment, time_index, parameters_self_balancing).formulate()
+        orders = _make_formulator(wind_equipment, time_index, parameters_self_balancing).formulate().orders
         upward_orders = [o for o in orders if o.order_type == OrderType.Sell and "_selfbal" in o.name]
         assert len(upward_orders) == len(time_index)
 
@@ -82,7 +82,7 @@ class TestWindSolarOrderFormulatorOrders:
         """
         object.__setattr__(wind_equipment, 'maximum_curtailment_ratio', make_timeseries(parameters, 0.5))
 
-        orders, _ = _make_formulator(wind_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(wind_equipment, time_index, parameters).formulate().orders
         regular_orders = [o for o in orders if o.order_type == OrderType.Buy and "_selfbal" not in o.name]
         assert len(regular_orders) == len(time_index)
 
@@ -94,7 +94,7 @@ class TestWindSolarOrderFormulatorOrders:
         object.__setattr__(wind_equipment, 'power', make_forecasting_matrix(parameters, 100.0))
         object.__setattr__(wind_equipment, 'maximum_curtailment_ratio', make_timeseries(parameters, 0.0))
 
-        orders, _ = _make_formulator(wind_equipment, time_index, parameters).formulate()
+        orders = _make_formulator(wind_equipment, time_index, parameters).formulate().orders
         downward_orders = [o for o in orders if o.order_type == OrderType.Buy]
         assert downward_orders == []
 
@@ -109,7 +109,7 @@ class TestWindSolarOrderFormulatorOrders:
         object.__setattr__(wind_equipment, 'maximum_power_forecast', make_forecasting_matrix(parameters_self_balancing, 100.0))
         object.__setattr__(wind_equipment, 'maximum_curtailment_ratio', make_timeseries(parameters_self_balancing, 0.0))
 
-        orders, _ = _make_formulator(wind_equipment, time_index, parameters_self_balancing).formulate()
+        orders = _make_formulator(wind_equipment, time_index, parameters_self_balancing).formulate().orders
         self_bal_orders = [o for o in orders if o.order_type == OrderType.Buy and "_selfbal" in o.name]
         assert len(self_bal_orders) == len(time_index)
 
@@ -120,10 +120,10 @@ class TestWindSolarOrderFormulatorOrders:
         object.__setattr__(wind_equipment, 'maximum_power_forecast', make_forecasting_matrix(parameters_self_balancing, 100.0))
         object.__setattr__(wind_equipment, 'maximum_curtailment_ratio', make_timeseries(parameters_self_balancing, 0.0))
 
-        orders, _ = _make_formulator(wind_equipment, time_index, parameters_self_balancing).formulate()
+        orders = _make_formulator(wind_equipment, time_index, parameters_self_balancing).formulate().orders
         self_bal_orders = [o for o in orders if o.order_type == OrderType.Buy and "_selfbal" in o.name]
         assert all(o.price == parameters_self_balancing.market_price_cap for o in self_bal_orders)
 
     def test_no_order_couplings_returned(self, wind_equipment, time_index, parameters):
-        _, couplings = _make_formulator(wind_equipment, time_index, parameters).formulate()
+        couplings = _make_formulator(wind_equipment, time_index, parameters).formulate().order_couplings
         assert couplings == []

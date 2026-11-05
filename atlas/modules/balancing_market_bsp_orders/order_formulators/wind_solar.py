@@ -10,9 +10,8 @@ import atlas.config as cfg
 from atlas.enums import OrderType
 from atlas.modules.balancing_market_bsp_orders.input_objects.solar import BalancingSolar
 from atlas.modules.balancing_market_bsp_orders.input_objects.wind import BalancingWind
-from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator
+from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator, StepResult
 from atlas.objects.market.order import Order
-from atlas.objects.market.order_coupling import OrderCoupling
 
 
 class WindPvOrderFormulator(AbstractOrderFormulator[BalancingWind | BalancingSolar]):
@@ -34,12 +33,12 @@ class WindPvOrderFormulator(AbstractOrderFormulator[BalancingWind | BalancingSol
           where min_power = maximum_power_forecast * (1 - maximum_curtailment_ratio)
     """
 
-    def formulate(self) -> tuple[list[Order], list[OrderCoupling]]:
+    def formulate(self) -> StepResult:
         """
         Formulate upward and downward orders for the wind or solar equipment.
 
-        :return: Tuple of formulated orders and an empty coupling list
-        :rtype: tuple[list[Order], list[OrderCoupling]]
+        :return: The formulated orders, without order couplings
+        :rtype: StepResult
         """
         start = self.parameters.temporal.start_date
         end = self.parameters.temporal.end_date - self.parameters.temporal.timestep
@@ -121,4 +120,4 @@ class WindPvOrderFormulator(AbstractOrderFormulator[BalancingWind | BalancingSol
                 orders.append(order)
 
         cfg.logger.info(f"Formulation of orders on equipment {self.equipment.name} completed")
-        return orders, []
+        return StepResult(orders=orders)

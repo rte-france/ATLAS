@@ -72,7 +72,7 @@ class TestIsShutdownEligible:
         test_time = parameters.temporal.start_date
         formulator = _make_formulator(thermal_equipment, [test_time], parameters)
 
-        orders, _ = formulator.formulate()
+        orders = formulator.formulate().orders
 
         shutdown_name = formulator._build_shutdown_order_name(test_time, test_time.add(minutes=15))
         assert shutdown_name in {order.name for order in orders}
