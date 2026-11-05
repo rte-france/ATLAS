@@ -34,7 +34,7 @@ from atlas.modules.module_run import ModuleRun
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
-PROMETHEUS_DATASET_DIR = Path("tests/dataset/reserves/bsp_balancing_orders/thermal")
+PROMETHEUS_DATASET_DIR = Path("tests/dataset/reserves/bsp_balancing_orders/prometheus_thermal")
 INPUT_DIR = PROMETHEUS_DATASET_DIR / "input"
 REFERENCE_DIR = PROMETHEUS_DATASET_DIR / "output"
 NUMERICAL_TOLERANCE = 1e-6
@@ -80,6 +80,14 @@ ORDER_VALUES = (
     "individual_spread",
 )
 
+# Values on which ATLAS deliberately departs from Prometheus, as (field, key, attribute): (Prometheus, ATLAS).
+# The values test only accepts a drift listed here with these exact values, and a deviation that no longer
+# occurs fails test_known_deviations_still_occur, so that the list stays up to date.
+KNOWN_DEVIATIONS: dict[tuple[str, str, str], tuple[object, object]] = {
+    # Intentional evolution of ATLAS on the upward volume of a unit running on both sides of the step.
+    ("order", "th_case_4_mfrr_u_10_00_10_15_at_09_45", "qmax"): (300.0, 150.0),
+}
+
 # Prometheus exports an unset duration of a thermal unit as PT0S, the input holds None.
 PROMETHEUS_ZERO_DURATIONS = (
     "startup_duration",
@@ -122,6 +130,14 @@ def _value_matches(field: str, actual: object, expected: object) -> bool:
     if field in ORDER_FLOATS and actual is not None and expected is not None:
         return abs(float(actual) - float(expected)) <= NUMERICAL_TOLERANCE  # type: ignore[arg-type]
     return actual == expected
+
+
+def _is_known_deviation(field: str, key: str, attribute: str, expected: object, actual: object) -> bool:
+    deviation = KNOWN_DEVIATIONS.get((field, key, attribute))
+    if deviation is None:
+        return False
+    prometheus_value, atlas_value = deviation
+    return _value_matches(attribute, expected, prometheus_value) and _value_matches(attribute, actual, atlas_value)
 
 
 def _zero_if_none(duration: Duration | None) -> Duration:
@@ -200,7 +216,7 @@ class TestThermalPrometheusComparison:
 
     @pytest.mark.parametrize("field", COMPARISON_FIELDS)
     def test_field_values_match_reference_within_tolerance(
-        self, result: AtlasDataset, reference: AtlasDataset, field: str
+            self, result: AtlasDataset, reference: AtlasDataset, field: str
     ) -> None:
         actual = _dump_snapshot(result)[field]
         expected = _dump_snapshot(reference)[field]
@@ -211,12 +227,30 @@ class TestThermalPrometheusComparison:
                 continue  # reported by test_field_keys_match_reference
             for attribute, expected_value in expected_snapshot.items():
                 actual_value = actual[key][attribute]
-                if not _value_matches(attribute, actual_value, expected_value):
+                if _value_matches(attribute, actual_value, expected_value):
+                    continue
+                if not _is_known_deviation(field, key, attribute, expected_value, actual_value):
                     drifted.append((key, attribute, expected_value, actual_value))
 
         assert not drifted, (
             f"{field}: {len(drifted)} values drifted beyond tolerance {NUMERICAL_TOLERANCE}, e.g. {drifted[:3]}"
         )
+
+    def test_known_deviations_still_occur(self, result: AtlasDataset, reference: AtlasDataset) -> None:
+        actual = _dump_snapshot(result)
+        expected = _dump_snapshot(reference)
+
+        stale = [
+            (field, key, attribute)
+            for field, key, attribute in KNOWN_DEVIATIONS
+            if key not in actual[field]
+               or key not in expected[field]
+               or not _is_known_deviation(
+                field, key, attribute, expected[field][key][attribute], actual[field][key][attribute]
+            )
+        ]
+
+        assert not stale, f"{len(stale)} known deviations no longer occur, remove them: {stale}"
 
     def test_other_objects_are_left_unchanged(self, result: AtlasDataset, reference: AtlasDataset) -> None:
         differences = _unexplained_differences(result, reference)
