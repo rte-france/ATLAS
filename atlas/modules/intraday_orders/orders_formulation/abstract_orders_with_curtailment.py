@@ -74,14 +74,14 @@ class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
             curtailment_value = curtailment_delta.get_value(t)
 
             bid_name = self.ORDER_NAME_TEMPLATE.format(
-                parameters.temporal.execution_date.format("DD_MM_YYYY_HH_mm_ss"),
+                parameters.temporal.execution_date,
                 equipment.name,
-                t.format("DD_MM_YYYY_HH_mm_ss"),
+                t,
             )
             curtailment_bid_name = self.CURTAILMENT_ORDER_NAME_TEMPLATE.format(
-                parameters.temporal.execution_date.format("DD_MM_YYYY_HH_mm_ss"),
+                parameters.temporal.execution_date,
                 equipment.name,
-                t.format("DD_MM_YYYY_HH_mm_ss"),
+                t,
             )
 
             if abs(curtailment_value) >= parameters.allowed_round_off_error:

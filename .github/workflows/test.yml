@@ -6,12 +6,16 @@ on:
   pull_request:
     branches: ["**"]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -21,7 +25,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --locked
 
       - name: Test with pytest and coverage (without integration tests)
         if: github.event_name == 'push'
@@ -38,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
@@ -46,7 +50,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --locked
 
       - name: Check execution times against thresholds
         env:
@@ -55,7 +59,7 @@ jobs:
 
       - name: Upload timings
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: perf-timings-${{ github.run_attempt }}
           path: perf-timings.json

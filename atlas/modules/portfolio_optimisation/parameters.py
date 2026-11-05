@@ -8,12 +8,13 @@ from __future__ import annotations
 
 from functools import cached_property
 
-from pendulum import DateTime, duration
+from pendulum import DateTime, Duration, duration
 from pydantic import Field
 
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.enums import MarketType, StorageType
 from atlas.io_utils.parameters import MultiProcessingParameters, SolverParameters
+from atlas.objects.equipment.equipment import Equipment
 from atlas.timing import generate_datetimes
 from atlas.validators import DurationField, ExclusionList, ThermalStrategyList
 
@@ -116,11 +117,26 @@ class PortfolioOptimisationParameters(AbstractModuleParameters):
     )
 
     @cached_property
-    def target_times(self) -> list[DateTime]:
-        """Datetime index for the main optimization period."""
+    def portfolio_time_window(self) -> list[DateTime]:
+        """Datetime index for the main optimization period (portfolio balance window)."""
         return generate_datetimes(
             self.temporal.start_date, self.temporal.end_date, self.temporal.timestep, closed="left"
         )
+
+    @cached_property
+    def _equipment_time_window_cache(self) -> dict[Duration, list[DateTime]]:
+        return {}
+
+    def equipment_time_window(self, equipment: Equipment) -> list[DateTime]:
+        """Per-equipment dispatch window: portfolio_time_window extended by the equipment's `additional_hours` lookahead."""
+        cache = self._equipment_time_window_cache
+        # the window depends on the equipment only through additional_hours, so units sharing
+        # the same lookahead share a cache entry
+        key = equipment.additional_hours or duration()
+        if key not in cache:
+            end = self.temporal.end_date - self.temporal.timestep + key
+            cache[key] = generate_datetimes(self.temporal.start_date, end, self.temporal.timestep)
+        return cache[key]
 
     @property
     def init_battery_time(self) -> DateTime:

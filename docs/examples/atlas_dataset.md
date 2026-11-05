@@ -218,7 +218,6 @@ dataset.to_directory("data/atlas-dataset/")
 ```python
 from atlas import AtlasDataset, Hydro
 from atlas.math.timeseries import Timeseries
-import pandas as pd
 
 dataset = AtlasDataset.from_directory("data/atlas-dataset/")
 
@@ -228,9 +227,10 @@ portfolio_fr = dataset.portfolio.get("generator_fr")
 # Build inflows timeseries
 inflows_ts = Timeseries.from_values(
     start_date="2024-01-01 00:00:00",
-    frequency="1h"
-    values=[120.0] * 8760 ,# constant 120 MWh/h inflows (example)
-    timezone="UTC")
+    frequency="1h",
+    values=[120.0] * 8760,  # constant 120 MWh/h inflows (example)
+    timezone="UTC",
+)
 
 hydro = Hydro(
     name="fr_mountain_hydro",
@@ -249,28 +249,25 @@ dataset.to_directory("data/atlas-dataset/")
 ```python
 from atlas import AtlasDataset, Wind
 from atlas.math.timeseries import Timeseries
-import pandas as pd
-import numpy as np
 
 dataset = AtlasDataset.from_directory("data/atlas-dataset/")
 
 node_de      = dataset.node.get("node_de")
 portfolio_de = dataset.portfolio.get("generator_de")
 
-availability = Timeseries.from_values(
-    start_date="2024-01-01 00:00:00",
-    frequency="1h"
-    values=np.random.uniform(0, 1, 8760).tolist(),
-    timezone="UTC")
-
 wind_farm = Wind(
     name="de_offshore_wind",
     node=node_de,
     portfolio=portfolio_de,
-    variable_cost=None,
+    installed_capacity=600.0,
 )
 # Attach timeseries after construction
-wind_farm.variable_cost = availability
+wind_farm.curtailment_cost = Timeseries.from_values(
+    start_date="2024-01-01 00:00:00",
+    frequency="1h",
+    values=[5.0] * 8760,  # constant 5 €/MWh (example)
+    timezone="UTC",
+)
 
 dataset.wind.add(wind_farm)
 dataset.to_directory("data/atlas-dataset/")
@@ -321,6 +318,8 @@ dataset.to_directory("data/atlas-dataset/")
 `include_equipments` returns a new dataset containing only the named equipment units, `exclude_equipments` one without them, and `exclude_technologies` one without any equipment of the given technologies. All other object types (market areas, nodes, portfolios…) are preserved.
 
 ```python
+from atlas.enums import BusinessModelName
+
 dataset = AtlasDataset.from_directory("data/atlas-dataset/")
 
 # Keep only these two units across all equipment types

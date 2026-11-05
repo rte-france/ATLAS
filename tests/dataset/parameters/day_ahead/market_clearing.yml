@@ -6,7 +6,6 @@ temporal:
 activate_constrained_tso_quantity: False
 prevent_adverse_flows: False
 fb_branch_load_slack_penalty: 200
-control_block_names: "All"
 market_area_names: "All"
 exchange_constraints_type: "ATC"
 price_modifier_lambda_1: 0

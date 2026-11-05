@@ -16,7 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Self, cast
+from typing import TYPE_CHECKING, Any, Self, cast
 
 import pendulum
 import polars as pl
@@ -183,6 +183,10 @@ class _ForecastCache:
         self._indexes: tuple[list[datetime], list[str]] | None = None
         self._frequencies: dict[str, pendulum.Duration] = {}
         self._resolved: OrderedDict[_ForecastKey, _ResolvedForecast] = OrderedDict()
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> _ForecastCache:
+        """A copy starts empty: its content is derived from the frame and rebuilt on demand."""
+        return _ForecastCache()
 
     def sync(self, frame: pl.DataFrame | pl.LazyFrame) -> None:
         """Drop everything if ``frame`` is not the frame the cache was built from."""

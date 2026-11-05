@@ -25,7 +25,8 @@ from atlas.timing import generate_datetimes
 
 
 class IntradayOrdersModule(AbstractModule[IntradayOrdersParameters, IntradayOrdersInputDataset, IntradayOrdersResult]):
-    def get_parameters_class(self) -> type[IntradayOrdersParameters]:
+    @classmethod
+    def get_parameters_class(cls) -> type[IntradayOrdersParameters]:
         return IntradayOrdersParameters
 
     def import_data(self, input_data: AtlasDataset, parameters: IntradayOrdersParameters) -> IntradayOrdersInputDataset:

@@ -77,7 +77,7 @@ def _run(da: dict, plan: dict, prices: dict, discharge_eff: float = 0.9, charge_
         variable_cost=_ts(0.0),
     )
     timestamps = generate_datetimes(START, params.penultimate_date, STEP)
-    return compute_efficiency_adjusted_prices(storage, timestamps, params)
+    return compute_efficiency_adjusted_prices(storage, da_ts, plan_ts, timestamps, params)
 
 
 class TestComputeEfficiencyAdjustedPrices:
@@ -166,4 +166,4 @@ class TestComputeEfficiencyAdjustedPrices:
         assert all(buy_volume.get_value(t) == 0.0 for t in timestamps)
 
         with pytest.raises(AssertionError):
-            compute_efficiency_adjusted_prices(storage, timestamps, params)
+            compute_efficiency_adjusted_prices(storage, _ts(0.0), _ts(0.0), timestamps, params)

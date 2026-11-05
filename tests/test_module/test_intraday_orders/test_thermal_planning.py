@@ -25,6 +25,7 @@ from atlas.modules.intraday_orders.input_objects.thermal import ThermalIDO
 from atlas.modules.intraday_orders.models.enums import PlanningDelta, WindowType
 from atlas.modules.intraday_orders.orders_formulation.thermal import build_order_windows, compute_planning_delta
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
+from atlas.modules.intraday_orders.utils import engaged_quantity
 from atlas.timing import generate_datetimes
 
 from .conftest import EXEC_DATE, const_ts, make_fm, make_node, make_portfolio
@@ -114,7 +115,8 @@ class TestComputePlanningDelta:
         params = _params()
         thermal = _make_thermal(da_values, new_plan_values)
         timestamps = generate_datetimes(START, params.penultimate_date, STEP)
-        result = compute_planning_delta(thermal, timestamps, params)
+        target_planning = thermal.id_po_for_orders.get_forecast(EXEC_DATE, START, params.penultimate_date)
+        result = compute_planning_delta(thermal, engaged_quantity(thermal, params), target_planning, timestamps, params)
         return int(result.get_value(T2))
 
     def test_modulation_up(self):
@@ -158,7 +160,7 @@ class TestBuildOrderWindows:
         thermal = _make_thermal(da_values={T1: da_t1, T3: da_t3}, new_plan_values={T2: 80.0})
         delta = _planning_delta_ts(code, T2)
         orders_time = generate_datetimes(START, params.penultimate_date, STEP)
-        return build_order_windows(thermal, delta, orders_time, params)
+        return build_order_windows(thermal, delta, engaged_quantity(thermal, params), orders_time, params)
 
     # ---- STARTUP scenarios ------------------------------------------------
 
@@ -231,7 +233,7 @@ class TestBuildOrderWindows:
         thermal = _make_thermal(da_values={}, new_plan_values={})
         delta = Timeseries.from_index(START, STEP, params.penultimate_date, PlanningDelta.NO_CHANGE)
         orders_time = generate_datetimes(START, params.penultimate_date, STEP)
-        windows = build_order_windows(thermal, delta, orders_time, params)
+        windows = build_order_windows(thermal, delta, engaged_quantity(thermal, params), orders_time, params)
         assert windows == []
 
     def test_consecutive_timestamps_form_one_window(self):
@@ -242,6 +244,6 @@ class TestBuildOrderWindows:
         delta.set_value(T2, PlanningDelta.STARTUP)
         delta.set_value(T3, PlanningDelta.STARTUP)
         orders_time = generate_datetimes(START, params.penultimate_date, STEP)
-        windows = build_order_windows(thermal, delta, orders_time, params)
+        windows = build_order_windows(thermal, delta, engaged_quantity(thermal, params), orders_time, params)
         assert len(windows) == 1
         assert len(windows[0].index) == 2

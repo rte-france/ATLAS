@@ -29,7 +29,7 @@ class ActionPlanJob(AbstractJob):
     """
 
     def __repr__(self) -> str:
-        """Return a detailed string representation of the workflow job."""
+        """Return a detailed string representation of the action plan job."""
         module_name = self.module.__class__.__name__
         has_output = self._result is not None
         return f"ActionPlanStep(name={self.name!r}, module={module_name}, executed={has_output})"
@@ -177,7 +177,10 @@ class WorkflowTaskJobsGenerator(TaskJobsGenerator):
 
     def _build_parameters(self, iteration) -> WorkflowParameters:
         """Build and return parameters to use for the workflow for the given iteration."""
-        parameters = self.parameters.model_copy(deep=True)
+        # The workflow derives each step's run_dir from its own output_dir, so redirect that rather than export.run_dir.
+        parameters = self.parameters.model_copy(
+            update={"output_dir": self.root_run_dir / str(self.execution_date(iteration).isoformat())}, deep=True
+        )
         deep_update(  # Update only the forced context of parameters
             parameters.context.forced,
             {
@@ -185,9 +188,6 @@ class WorkflowTaskJobsGenerator(TaskJobsGenerator):
                     "execution_date": self.execution_date(iteration),
                     "start_date": self.start_date(iteration),
                     "end_date": self.end_date(iteration),
-                },
-                "export": {
-                    "run_dir": self.root_run_dir / str(self.execution_date(iteration).isoformat()),
                 },
             },
             override=True,

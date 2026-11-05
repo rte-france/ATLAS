@@ -20,14 +20,18 @@ matrix = ScenarioMatrix.from_file("data/scenarios.parquet", timezone="UTC")
 #### From DataFrame
 
 ```python
+from datetime import datetime
+
 import polars as pl
 
 # Create from Polars DataFrame with multiple scenarios
+time = pl.datetime_range(start=datetime(2024, 1, 1), end=datetime(2024, 1, 2), interval="1h", eager=True)
+n = len(time)
 df = pl.DataFrame({
-    "time": pl.datetime_range(start="2024-01-01", end="2024-01-02", interval="1h"),
-    "scenario_1": [10.0, 12.0, 15.0, ...],
-    "scenario_2": [11.0, 13.0, 14.0, ...],
-    "scenario_3": [9.0, 11.0, 16.0, ...]
+    "time": time,
+    "scenario_1": [10.0] * n,
+    "scenario_2": [11.0] * n,
+    "scenario_3": [9.0] * n,
 })
 
 matrix = ScenarioMatrix(df, timezone="UTC")

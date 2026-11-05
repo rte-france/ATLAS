@@ -269,23 +269,23 @@ class OrderLinkResolver:
     # Finds global parent_child links between orders (including the links between parents to merge them as a single
     # parent), defines the resulting sets and stores them in a dictionary
     def _compute_parent_child_sets(
-        self, dict_linked_orders: dict[int, list[OrderMC]]
+        self, linked_orders: dict[int, list[OrderMC]]
     ) -> dict[int, tuple[list[OrderMC], list[OrderMC]]]:
-        dict_parent_child_orders = self._group_parent_child_couplings(dict_linked_orders)
-        self._assign_full_pc_and_child_ids(dict_parent_child_orders)
+        parent_child_orders = self._group_parent_child_couplings(linked_orders)
+        self._assign_full_pc_and_child_ids(parent_child_orders)
 
-        logger.debug(f"Final linked bids dict : {dict_linked_orders}")
-        logger.debug(f"Final parent_child bids dict : {dict_parent_child_orders}")
+        logger.debug(f"Final linked bids dict : {linked_orders}")
+        logger.debug(f"Final parent_child bids dict : {parent_child_orders}")
 
-        return dict_parent_child_orders
+        return parent_child_orders
 
     def _group_parent_child_couplings(
-        self, dict_linked_orders: dict[int, list[OrderMC]]
+        self, linked_orders: dict[int, list[OrderMC]]
     ) -> dict[int, tuple[list[OrderMC], list[OrderMC]]]:
         """Group PARENT_CHILDREN couplings into parent/children sets, merging a parent's whole
         linked-order group into the parent set when the parent itself is IDV/IDR-linked.
         """
-        dict_parent_child_orders: dict[int, tuple[list[OrderMC], list[OrderMC]]] = {}
+        parent_child_orders: dict[int, tuple[list[OrderMC], list[OrderMC]]] = {}
         index_pc = 0
         for order_coupling in self._order_couplings.values():
             if order_coupling.coupling_type != CouplingType.PARENT_CHILDREN:
@@ -295,25 +295,25 @@ class OrderLinkResolver:
             # Check if the parent is linked to other bids to consider them as parent as well
             full_link_id = self._full_link_id.get(parent_order.name)
             if full_link_id is None:
-                dict_parent_child_orders[index_pc] = ([parent_order], [child_order])
-            elif full_link_id in dict_linked_orders:
-                parent_link_orders = dict_linked_orders[full_link_id]
+                parent_child_orders[index_pc] = ([parent_order], [child_order])
+            elif full_link_id in linked_orders:
+                parent_link_orders = linked_orders[full_link_id]
                 child_orders = self._get_children(parent_link_orders)
-                dict_parent_child_orders[index_pc] = (parent_link_orders, child_orders)
+                parent_child_orders[index_pc] = (parent_link_orders, child_orders)
                 # The initial parent set is removed from global linked sets
                 # as it is now part of a global parent/child link
-                dict_linked_orders.pop(full_link_id)
+                linked_orders.pop(full_link_id)
             else:
                 # One parent has already been browsed and enabled to gather all the parent orders into one set
                 continue
             index_pc += 1
 
-        return dict_parent_child_orders
+        return parent_child_orders
 
     def _assign_full_pc_and_child_ids(
-        self, dict_parent_child_orders: dict[int, tuple[list[OrderMC], list[OrderMC]]]
+        self, parent_child_orders: dict[int, tuple[list[OrderMC], list[OrderMC]]]
     ) -> None:
-        for index_pc, (parent_orders, children_orders) in dict_parent_child_orders.items():
+        for index_pc, (parent_orders, children_orders) in parent_child_orders.items():
             for order in parent_orders:
                 if order.name not in self._full_pc_id:
                     self._full_pc_id[order.name] = index_pc

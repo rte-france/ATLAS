@@ -85,7 +85,7 @@ class ReserveFactory:
         :param equipment: Hydro reservoir equipment. ``maximum_afrr`` and ``maximum_fcr``
             are looked up via ``getattr`` so the dispatch input contract stays purely
             physical — reserve-procurement fields are module-specific extensions.
-        :param dispatch: The hydro dispatch component — used to access ``stored_energy_var``
+        :param dispatch: The hydro dispatch component — used to access ``stored_energy``
             when adding storage-level reserve coupling constraints.
         """
         maximum_automated = (getattr(equipment, "maximum_afrr", None) or 0.0) + (

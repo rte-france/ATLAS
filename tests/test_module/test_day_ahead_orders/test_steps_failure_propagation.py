@@ -13,17 +13,19 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from atlas.modules.day_ahead_orders.steps.storage.storage_step import StorageStep
+from atlas.modules.day_ahead_orders.steps.storage import StorageStep
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_bidding_step import ThermalBiddingStep
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_worker import optimize_single_thermal_unit
 
 
-def _step(step_class, dataset_attribute: str, unit_name: str):
+def _step(step_class, dataset_attribute: str, unit_name: str, parallel: bool):
     dataset = Mock()
     unit = Mock()
     unit.name = unit_name
     setattr(dataset, dataset_attribute, [unit])
-    return step_class(dataset, orders_time=[], parameters=Mock())
+    parameters = Mock()
+    parameters.multiprocessing.enable = parallel
+    return step_class(dataset, orders_time=[], parameters=parameters)
 
 
 def _crashed_executor(executor_class: MagicMock) -> None:
@@ -38,53 +40,57 @@ def _crashed_executor(executor_class: MagicMock) -> None:
 
 
 def test_storage_step_propagates_unit_failure():
-    step = _step(StorageStep, "storage", "a_battery")
+    step = _step(StorageStep, "storage", "a_battery", parallel=False)
 
-    with patch(
-        "atlas.modules.day_ahead_orders.steps.storage.storage_step.optimize_single_storage",
-        side_effect=RuntimeError("solver crashed"),
+    with (
+        patch("atlas.modules.day_ahead_orders.steps.storage.step.generate_datetimes", return_value=[]),
+        patch(
+            "atlas.modules.day_ahead_orders.steps.storage.step.optimize_single_storage",
+            side_effect=RuntimeError("solver crashed"),
+        ),
     ):
         with pytest.raises(RuntimeError, match="a_battery") as error:
-            step._formulate_sequential(local_timewindow=[])
+            step.formulate()
 
     assert str(error.value.__cause__) == "solver crashed"
 
 
 def test_storage_step_parallel_names_the_failing_unit():
-    step = _step(StorageStep, "storage", "a_battery")
+    step = _step(StorageStep, "storage", "a_battery", parallel=True)
 
-    with patch("atlas.modules.day_ahead_orders.steps.storage.storage_step.ProcessPoolExecutor") as executor_class:
+    with (
+        patch("atlas.modules.day_ahead_orders.steps.storage.step.generate_datetimes", return_value=[]),
+        patch("atlas.modules.day_ahead_orders.steps.abstract_step.ProcessPoolExecutor") as executor_class,
+    ):
         _crashed_executor(executor_class)
 
         with pytest.raises(RuntimeError, match="a_battery") as error:
-            step._formulate_parallel(local_timewindow=[])
+            step.formulate()
 
     assert str(error.value.__cause__) == "solver crashed"
 
 
 def test_thermal_step_propagates_unit_failure():
-    step = _step(ThermalBiddingStep, "thermal", "a_thermal")
+    step = _step(ThermalBiddingStep, "thermal", "a_thermal", parallel=False)
 
     with patch(
         "atlas.modules.day_ahead_orders.steps.thermal.thermal_bidding_step.optimize_single_thermal_unit",
         side_effect=RuntimeError("solver crashed"),
     ):
         with pytest.raises(RuntimeError, match="a_thermal") as error:
-            step._formulate_sequential()
+            step.formulate()
 
     assert str(error.value.__cause__) == "solver crashed"
 
 
 def test_thermal_step_parallel_names_the_failing_unit():
-    step = _step(ThermalBiddingStep, "thermal", "a_thermal")
+    step = _step(ThermalBiddingStep, "thermal", "a_thermal", parallel=True)
 
-    with patch(
-        "atlas.modules.day_ahead_orders.steps.thermal.thermal_bidding_step.ProcessPoolExecutor"
-    ) as executor_class:
+    with patch("atlas.modules.day_ahead_orders.steps.abstract_step.ProcessPoolExecutor") as executor_class:
         _crashed_executor(executor_class)
 
         with pytest.raises(RuntimeError, match="a_thermal") as error:
-            step._formulate_parallel()
+            step.formulate()
 
     assert str(error.value.__cause__) == "solver crashed"
 

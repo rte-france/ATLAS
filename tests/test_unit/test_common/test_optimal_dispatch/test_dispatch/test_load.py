@@ -49,12 +49,13 @@ def forecast_ts(start_date, timestep):
 
 
 @pytest.fixture
-def equipment(node, portfolio, forecast_ts):
+def equipment(node, portfolio, forecast_ts, parameters):
     from atlas.enums import LoadType
     from atlas.math.forecasting_matrix import ForecastingMatrix
 
     fm = ForecastingMatrix()
-    eq = LoadDispatchInput(
+    fm.add(forecast_ts, parameters.temporal.execution_date)
+    return LoadDispatchInput(
         name="load_1",
         node=node,
         portfolio=portfolio,
@@ -62,8 +63,6 @@ def equipment(node, portfolio, forecast_ts):
         maximum_power_forecast=fm,
         additional_hours=pendulum.duration(hours=0),
     )
-    eq._cached_forecast = forecast_ts
-    return eq
 
 
 @pytest.fixture
@@ -72,23 +71,23 @@ def model():
 
 
 class TestLoadDispatchVariables:
-    def test_setup_creates_power_level_var(self, equipment, model, parameters):
+    def test_setup_declares_power_level(self, equipment, model, parameters):
         d = LoadDispatch(equipment)
         d.setup(model, parameters)
-        assert d.power_level_var is not None
+        assert d.power_level is not None
 
     def test_add_variables_creates_expected_name(self, equipment, model, parameters, time_window):
         d = LoadDispatch(equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
         assert f"{equipment.name}_power_level_{t}" in model.variables
 
     def test_power_level_bounds_negative_floor(self, equipment, model, parameters, time_window):
         d = LoadDispatch(equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
         var = model.get_variable(f"{equipment.name}_power_level_{t}")
         assert var.lb() == pytest.approx(-50.0)
         assert var.ub() == 0
@@ -108,7 +107,7 @@ class TestLoadDispatchVariables:
         d = LoadDispatch(eq)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
         var = model.get_variable(f"{eq.name}_power_level_{t}")
         assert var.lb() == 0
         assert var.ub() == 0
@@ -118,32 +117,15 @@ class TestLoadDispatchHelpers:
     def test_max_power_returns_signed_forecast(self, equipment, model, parameters, time_window):
         d = LoadDispatch(equipment)
         d.setup(model, parameters)
+        d.add_variables(time_window)
         assert d.max_power(time_window[0]) == pytest.approx(-50.0)
 
-    def test_max_power_returns_zero_when_time_missing(self, equipment, model, parameters):
+    def test_max_power_returns_zero_when_time_missing(self, equipment, model, parameters, time_window):
         d = LoadDispatch(equipment)
         d.setup(model, parameters)
-        outside = pendulum.datetime(2099, 1, 1)
+        outside = time_window[-1].add(hours=5)
+        d.add_variables([*time_window, outside])
         assert d.max_power(outside) == 0.0
-
-    def test_max_power_fallback_to_forecasting_matrix(self, node, portfolio, model, parameters, start_date, timestep):
-        from atlas.enums import LoadType
-        from atlas.math.forecasting_matrix import ForecastingMatrix
-
-        ts = Timeseries.from_index(start_date, timestep, start_date.add(hours=3), -30.0)
-        fm = ForecastingMatrix()
-        fm.add(ts, parameters.temporal.execution_date)
-        eq = LoadDispatchInput(
-            name="load_fb",
-            node=node,
-            portfolio=portfolio,
-            load_type=LoadType.BASE_LOAD,
-            maximum_power_forecast=fm,
-            additional_hours=pendulum.duration(hours=0),
-        )
-        d = LoadDispatch(eq)
-        d.setup(model, parameters)
-        assert d.max_power(start_date) == pytest.approx(-30.0)
 
 
 class TestLoadDispatchConstraints:
@@ -151,7 +133,7 @@ class TestLoadDispatchConstraints:
         d = LoadDispatch(equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
         d.add_constraints(model, t)
         n = equipment.name
         assert f"power_max_{t}_{n}" in model.constraints

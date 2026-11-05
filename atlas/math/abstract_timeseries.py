@@ -9,6 +9,7 @@ This module provides AbstractTimeseries base class for Timeseries and LazyTimese
 
 from __future__ import annotations
 
+import copy
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Sequence
 from datetime import datetime, timedelta
@@ -22,6 +23,7 @@ import plotly.graph_objects
 import polars as pl
 from pydantic_core import core_schema
 
+from atlas.math.copying import deepcopy_sharing_frames
 from atlas.timing import build_datetime, generate_datetimes, get_duration
 
 
@@ -38,6 +40,10 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
     frequency: pendulum.Duration
     timeseries: TBackend
     _epoch_lookup_cache: dict[int, float] | None
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        """Deep copy sharing the underlying frame, see :func:`deepcopy_sharing_frames`."""
+        return deepcopy_sharing_frames(self, memo, reset={"_epoch_lookup_cache"})
 
     @abstractmethod
     def _get_data(self) -> TBackend:
@@ -98,7 +104,7 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         :type frequency: str or pendulum.Duration
         :param values: List of values corresponding to the time intervals
         :type values: list[float]
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param timezone: Timezone string, defaults to "UTC"
         :type timezone: str, optional
@@ -145,7 +151,7 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         :type end_date: str or datetime or pendulum.DateTime
         :param default_value: A scalar value or a list of values to fill the timeseries
         :type default_value: list[float] or float, optional
-        :param date_format: Format to interpret date strings, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Format to interpret date strings, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param timezone: Timezone string, defaults to "UTC"
         :type timezone: str, optional
@@ -206,6 +212,33 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         :rtype: Self
         """
         ...
+
+    def with_values(self, values: Sequence[float] | pl.Series) -> Self:
+        """
+        Return a new timeseries on the same index, holding *values*.
+
+        The index is reused as it is: nothing is sorted, cast or inferred again. This is the cheap
+        way to build several series sharing a known index.
+
+        **Example**
+
+            index = Timeseries.from_values("2025-01-01 00:00:00", "1h", [0.0, 0.0, 0.0])
+            index.with_values([1.0, 2.0, 3.0]).values  # [1.0, 2.0, 3.0]
+
+        :param values: One value per timestamp, in index order
+        :type values: Sequence[float] | pl.Series
+        :return: A new timeseries, the current one is left unchanged
+        :rtype: Self
+        :raises ValueError: If the number of values differs from the length of the timeseries
+        """
+        if len(values) != len(self):
+            raise ValueError(f"Expected {len(self)} values to match the index, got {len(values)}")
+
+        # the index is already sorted and typed: skip the checks and conversions of __init__
+        result = copy.copy(self)
+        result.timeseries = self.timeseries.with_columns(pl.lit(pl.Series("value", values, dtype=pl.Float64)))
+        result._invalidate_cache()
+        return result
 
     @property
     @abstractmethod
@@ -326,7 +359,7 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
 
         :param datetimes: Datetimes to get values for; duplicates are allowed
         :type datetimes: Sequence[str | datetime | pendulum.DateTime]
-        :param date_format: Date format string for string datetimes, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string for string datetimes, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :return: The values at the requested datetimes
         :rtype: list[float]
@@ -377,7 +410,7 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
 
         :param item: Datetime to filter the Timeseries
         :type item: list[datetime] or datetime or pendulum.DateTime or str
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -529,7 +562,7 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
             polars Series of datetimes, or a list of datetime / pendulum.DateTime / str.
         :param default: Value used for rows missing from self, defaults to 0.0
         :param date_format: Date format string for parsing string entries, defaults to
-            "YYYY-MM-DD HH:mm:ss"
+            `YYYY-MM-DD HH:mm:ss`
         :param inplace: Whether to modify the current instance, defaults to True
         :return: Reindexed timeseries
         :rtype: Self
@@ -656,7 +689,7 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         :type time: datetime or str
         :param value: Value to set
         :type value: float or int
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -697,7 +730,7 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         :type time: datetime or str
         :param value: Value to add
         :type value: float
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -782,7 +815,7 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         :type time: datetime or str
         :param value: Value to add to the precedent value
         :type value: float
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -806,7 +839,7 @@ class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
         :type time: datetime or str
         :param value: Value to multiply to the precedent value
         :type value: float
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional

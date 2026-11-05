@@ -16,6 +16,7 @@ import pytest
 from pendulum import Timezone
 
 from atlas import Timeseries
+from atlas.timing import build_datetime
 
 
 @pytest.fixture
@@ -363,6 +364,42 @@ class TestTimeseriesBasicOperations:
         assert (123 in sample_ts) is False
         assert (None in sample_ts) is False
         assert ([] in sample_ts) is False
+        assert ("not a date" in sample_ts) is False
+
+    @pytest.mark.parametrize(
+        "item",
+        [
+            datetime(2023, 1, 1, 0, 0, 0),
+            datetime(2023, 1, 1, 0, 30, 0),
+            "2023-01-01 03:00:00",
+            "2023-01-01 04:00:00",
+            pendulum.datetime(2023, 1, 1, 2, 0, 0, tz="UTC"),
+            pendulum.datetime(2023, 1, 1, 2, 0, 0, tz="Europe/Paris"),
+            pendulum.datetime(2023, 1, 1, 3, 0, 0, tz="Europe/Paris"),
+        ],
+    )
+    @pytest.mark.parametrize("timezone", ["UTC", "Europe/Paris"])
+    def test_contains_matches_a_search_in_the_frame(self, sample_ts, item, timezone):
+        """__contains__ finds exactly the instants of the time column, whatever the input type and timezones."""
+        sample_ts.set_timezone(timezone)
+        expected = sample_ts.timeseries.filter(pl.col("time") == build_datetime(item).in_tz(timezone)).height > 0
+
+        assert (item in sample_ts) is expected
+
+    def test_contains_follows_inplace_operations(self, sample_ts):
+        """A lookup done before an inplace operation does not hide the indexes it adds or removes."""
+        added, removed = datetime(2023, 1, 1, 4, 0, 0), datetime(2023, 1, 1, 0, 0, 0)
+        assert added not in sample_ts
+
+        sample_ts.add_index(added, 50.0)
+        sample_ts.slice(datetime(2023, 1, 1, 1, 0, 0), added)
+
+        assert added in sample_ts
+        assert removed not in sample_ts
+
+    def test_contains_on_empty_timeseries(self):
+        """An empty timeseries contains no index."""
+        assert (datetime(2023, 1, 1) in Timeseries()) is False
 
     def test_mul_with_value(self, sample_ts):
         """Test multiplication operation between a timeseries and a value."""

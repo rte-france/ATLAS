@@ -6,11 +6,13 @@ This file is part of the ATLAS project.
 """
 
 import pickle
+from unittest.mock import patch
 
 import pendulum
 import pytest
 
 from atlas.enums import VariableType
+from atlas.math.timeseries import Timeseries
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.solver.temporal_variable import TemporalVariable
 
@@ -118,6 +120,49 @@ class TestSolution:
 
         assert restored.keys() == solution.keys()
         assert all(restored[name] == solution[name] for name in solution)
+
+    def test_variables_over_the_same_times_share_one_index(self, solved):
+        """Only the values are read per variable: the index is converted once for power and on."""
+        with patch("atlas.solver.temporal_variable.Timeseries", wraps=Timeseries) as constructor:
+            solution = solved.solution()
+
+        assert constructor.call_count == 1
+        assert solution["power"].index == solution["on"].index
+
+    def test_the_shared_index_is_built_once_per_model(self, solved):
+        solved.solution()
+
+        with patch("atlas.solver.temporal_variable.Timeseries", wraps=Timeseries) as constructor:
+            solved.solution()
+
+        assert constructor.call_count == 0
+
+    def test_modifying_a_solution_leaves_the_others_unchanged(self, solved):
+        solution = solved.solution()
+        solution["power"].clip(upper_bound=1.0)
+
+        assert solved.solution()["power"].values == pytest.approx([0.0, 10.0, 20.0])
+        assert solution["on"].values == pytest.approx([0.0, 1.0, 1.0])
+
+    def test_same_instants_in_another_timezone_keep_their_timezone(self, model):
+        paris = model.add_temporal_variable("paris", [t.in_tz("Europe/Paris") for t in TIMES])
+        utc = model.add_temporal_variable("utc", TIMES)
+        model.set_direction("minimize")
+        model.solve()
+
+        assert paris.solution().timezone == "Europe/Paris"
+        assert utc.solution().timezone == "UTC"
+
+    def test_clear_drops_the_shared_indexes(self, solved):
+        solved.clear()
+        power = solved.add_temporal_variable("power", TIMES)
+        solved.set_direction("minimize")
+        solved.solve()
+
+        with patch("atlas.solver.temporal_variable.Timeseries", wraps=Timeseries) as constructor:
+            power.solution()
+
+        assert constructor.call_count == 1
 
     def test_matches_name_based_access(self, solved):
         """Temporal variables stay reachable by name, so migrated and legacy code can coexist."""

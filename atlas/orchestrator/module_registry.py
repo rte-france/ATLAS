@@ -8,8 +8,10 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 from enum import Enum
+from typing import Any
 
 from atlas.abstract_class.module import AbstractModule
+from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.modules.balancing_market_bsp_orders.module import BSPBalancingOrdersModule
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.modules.intraday_orders.module import IntradayOrdersModule
@@ -29,7 +31,7 @@ class ModuleRegistry(Enum):
     IntradayOrders = IntradayOrdersModule
 
     @classmethod
-    def get(cls, name: str) -> type[AbstractModule]:
+    def get(cls, name: str) -> type[AbstractModule[AbstractModuleParameters, Any, Any]]:
         try:
             return cls[name].value
         except KeyError:

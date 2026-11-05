@@ -8,7 +8,6 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TypeVar
 
 from pydantic import AliasChoices, Field, model_validator
 
@@ -103,6 +102,3 @@ class AbstractOrchestratorParameters(Parameters):
         if path.is_absolute():
             return path
         return self.base_path / path
-
-
-PO = TypeVar("PO", bound=AbstractOrchestratorParameters)

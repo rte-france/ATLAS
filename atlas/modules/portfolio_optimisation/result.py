@@ -18,7 +18,7 @@ from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
 from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.result_extraction import EquipmentSchedule, extract_equipment_schedule
-from atlas.orchestrator.change_set import UpdateObject
+from atlas.orchestrator.change_set import ChangeSet, UpdateObject
 
 if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
@@ -42,8 +42,9 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
         self.optimisation_results = optimisation_results
         self.parameters = parameters
 
-    def build_change_sets(self) -> None:
+    def build_change_sets(self) -> list[ChangeSet]:
         """Run in-place mutations then export each modified object as an UpdateObject changeset."""
+        change_sets: list[ChangeSet] = []
         self.update_equipments()
         self.update_portfolios()
 
@@ -56,11 +57,12 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
                     "imbalance": portfolio.imbalance,
                     "power": portfolio.power,
                 }
-                self.change_sets.append(UpdateObject(portfolio_data, type(portfolio)))
+                change_sets.append(UpdateObject(portfolio_data, type(portfolio)))
 
             for _, equipment_list in portfolio.equipments.iter_by_type():
                 for equipment in equipment_list:
-                    self.change_sets.append(UpdateObject(self._equipment_data(equipment), type(equipment)))
+                    change_sets.append(UpdateObject(self._equipment_data(equipment), type(equipment)))
+        return change_sets
 
     def _equipment_data(self, equipment: EquipmentPO) -> dict:
         """
@@ -129,18 +131,13 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
         :param optimisation_result: Solved optimisation holding the variable values.
         :type optimisation_result: SinglePortfolioResult
         """
-        schedule = extract_equipment_schedule(
-            equipment,
-            optimisation_result,
-            self.parameters.target_times,
-            self.parameters.allowed_round_off_error,
-        )
+        schedule = extract_equipment_schedule(equipment, optimisation_result)
 
         if self.parameters.use_forecast:
             equipment.id_po_for_orders = self._upsert_forecast(equipment.id_po_for_orders, schedule.power)
         else:
             equipment.power = self._upsert_forecast(equipment.power, schedule.power)
-            if isinstance(equipment, (HydroPO, StoragePO)):
+            if isinstance(equipment, (HydroPO, StoragePO)) and schedule.stored_energy is not None:
                 equipment.stored_energy = self._upsert_forecast(equipment.stored_energy, schedule.stored_energy)
 
         if isinstance(equipment, ThermalPO):
@@ -155,15 +152,14 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
         :param schedule: Optimised schedule holding the state sequence.
         :type schedule: EquipmentSchedule
         """
-        if not schedule.state_sequence:
+        if schedule.state_sequence is None:
             return
 
-        state_sequence_ts = self._to_timeseries([float(state) for state in schedule.state_sequence])
         execution_date = self.parameters.temporal.execution_date.to_datetime_string()
 
         if equipment.state_sequence is None:
             equipment.state_sequence = ScenarioMatrix()
-        equipment.state_sequence.upsert(execution_date, state_sequence_ts)
+        equipment.state_sequence.upsert(execution_date, schedule.state_sequence)
 
     def _write_portfolio_imbalance(self, portfolio: PortfolioPO, optimisation_result: SinglePortfolioResult) -> None:
         """
@@ -174,15 +170,16 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
         :param optimisation_result: Solved optimisation holding the variable values.
         :type optimisation_result: SinglePortfolioResult
         """
-        imbalance_values = [
-            optimisation_result.get_variable_value(f"{portfolio.name}_large_imbalance_down_{time}")
-            + optimisation_result.get_variable_value(f"{portfolio.name}_small_imbalance_down_{time}")
-            - optimisation_result.get_variable_value(f"{portfolio.name}_large_imbalance_up_{time}")
-            - optimisation_result.get_variable_value(f"{portfolio.name}_small_imbalance_up_{time}")
-            for time in self.parameters.target_times
-        ]
 
-        portfolio.imbalance = self._upsert_forecast(portfolio.imbalance, imbalance_values)
+        solution = optimisation_result.solution
+        imbalance_ts = (
+            solution[f"{portfolio.name}_large_imbalance_down"]
+            + solution[f"{portfolio.name}_small_imbalance_down"]
+            - solution[f"{portfolio.name}_large_imbalance_up"]
+            - solution[f"{portfolio.name}_small_imbalance_up"]
+        )
+
+        portfolio.imbalance = self._upsert_forecast(portfolio.imbalance, imbalance_ts)
 
     def _write_portfolio_power(self, portfolio: PortfolioPO) -> None:
         """
@@ -193,48 +190,31 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
         :param portfolio: Portfolio to update.
         :type portfolio: PortfolioPO
         """
-        power_ts = self._to_timeseries([0.0] * len(self.parameters.target_times))
+        start, end = min(self.parameters.portfolio_time_window), max(self.parameters.portfolio_time_window)
+        power_ts = Timeseries.from_index(start, self.parameters.temporal.timestep, end, default_value=0.0)
 
         for _, equipment_list in portfolio.equipments.iter_by_type():
             for equipment in equipment_list:
                 if equipment.power:
                     power_ts = power_ts + equipment.power.get_forecast(
-                        self.parameters.temporal.execution_date,
-                        min(self.parameters.target_times),
-                        max(self.parameters.target_times),
+                        self.parameters.temporal.execution_date, start, end
                     )
 
         portfolio.power = self._upsert_forecast(portfolio.power, power_ts)
 
-    def _to_timeseries(self, values: list[float]) -> Timeseries:
-        """
-        Build a timeseries spanning the target times.
-
-        :param values: One value per target time.
-        :type values: list[float]
-        :return: The corresponding timeseries.
-        :rtype: Timeseries
-        """
-        return Timeseries.from_values(
-            start_date=self.parameters.target_times[0],
-            frequency=self.parameters.temporal.timestep,
-            values=values,
-        )
-
     def _upsert_forecast(
-        self, matrix: ForecastingMatrix | LazyForecastingMatrix | None, values: list[float] | Timeseries
+        self, matrix: ForecastingMatrix | LazyForecastingMatrix | None, timeseries: Timeseries
     ) -> ForecastingMatrix | LazyForecastingMatrix:
         """
         Write a forecast at the execution date, creating the matrix if the attribute is still empty.
 
         :param matrix: Existing forecasting matrix, or None if the object carries none yet.
         :type matrix: ForecastingMatrix | LazyForecastingMatrix | None
-        :param values: One value per target time, or an already-built timeseries.
-        :type values: list[float] | Timeseries
+        :param timeseries: Values over the target times.
+        :type timeseries: Timeseries
         :return: The matrix holding the new forecast.
         :rtype: ForecastingMatrix | LazyForecastingMatrix
         """
-        timeseries = values if isinstance(values, Timeseries) else self._to_timeseries(values)
         execution_date = self.parameters.temporal.execution_date
 
         if matrix is None:

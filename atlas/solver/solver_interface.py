@@ -30,7 +30,7 @@ from atlas.solver.solver_parameters import (
     SolverParameterBuilder,
     XPRESSParameterBuilder,
 )
-from atlas.solver.temporal_variable import Bound, TemporalVariable
+from atlas.solver.temporal_variable import Bound, TemporalVariable, TemporalVariableRegistry
 from atlas.timing import timer
 
 
@@ -63,7 +63,7 @@ class OptimisationModel:
         self._solver = None
         self._variables_name: set[str] = set()
         self._constraints_name: set[str] = set()
-        self._temporal_variables: dict[str, TemporalVariable] = {}
+        self._temporal_variables = TemporalVariableRegistry()
         self._objective: Any | None = None
         self._objective_direction: Literal["maximize", "minimize"] | None = None
         self._objective_pending: bool = False
@@ -178,7 +178,7 @@ class OptimisationModel:
         :return: OR-Tools variable object that can be used in expressions
         :rtype: pywraplp.Variable
         """
-        logger.debug(f"Adding continuous variable '{name}' with bounds [{lower_bound}, {upper_bound}]")
+        logger.debug("Adding continuous variable '{}' with bounds [{}, {}]", name, lower_bound, upper_bound)
         if name in self._variables_name:
             raise ValueError(f"Variable '{name}' already exists")
 
@@ -204,7 +204,7 @@ class OptimisationModel:
         :return: OR-Tools variable object that can be used in expressions
         :rtype: pywraplp.Variable
         """
-        logger.debug(f"Adding integer variable '{name}' with bounds [{lower_bound}, {upper_bound}]")
+        logger.debug("Adding integer variable '{}' with bounds [{}, {}]", name, lower_bound, upper_bound)
         if name in self._variables_name:
             raise ValueError(f"Variable '{name}' already exists")
 
@@ -221,7 +221,7 @@ class OptimisationModel:
         :return: OR-Tools variable object that can be used in expressions
         :rtype: pywraplp.Variable
         """
-        logger.debug(f"Adding boolean variable '{name}'")
+        logger.debug("Adding boolean variable '{}'", name)
         if name in self._variables_name:
             raise ValueError(f"Variable '{name}' already exists")
 
@@ -242,7 +242,7 @@ class OptimisationModel:
 
         This is the only way to create a :class:`~atlas.solver.temporal_variable.TemporalVariable`:
         registration is what makes it part of :meth:`solution`. Keep the returned object to build
-        constraints, the model does not expose temporal variables by name.
+        constraints, or get it back by name with :meth:`get_temporal_variable`.
 
         **Example**
 
@@ -267,13 +267,24 @@ class OptimisationModel:
         :raises ValueError: If a temporal variable with the same name already exists, or if bounds
             are given for a boolean variable
         """
-        if name in self._temporal_variables:
-            raise ValueError(f"Temporal variable '{name}' already exists")
+        logger.debug("Adding {} temporal variable '{}'", variable_type.value, name)
+        return self._temporal_variables.add(self, name, times, variable_type, lower_bound, upper_bound)
 
-        logger.debug(f"Adding {variable_type.value} temporal variable '{name}'")
-        temporal_variable = TemporalVariable(self, name, times, variable_type, lower_bound, upper_bound)
-        self._temporal_variables[name] = temporal_variable
-        return temporal_variable
+    def get_temporal_variable(self, name: str) -> TemporalVariable:
+        """
+        Get a temporal variable by name, as returned by :meth:`add_temporal_variable`.
+
+        **Example**
+
+            model.get_temporal_variable("unit_power").set_bounds(horizon, upper_bound=max_power)
+
+        :param name: Name of the temporal variable
+        :type name: str
+        :return: The registered temporal variable
+        :rtype: TemporalVariable
+        :raises ValueError: If no temporal variable has this name
+        """
+        return self._temporal_variables.get(name)
 
     def solution(self, include_fixed: bool = False) -> dict[str, Timeseries]:
         """
@@ -286,20 +297,18 @@ class OptimisationModel:
         :type include_fixed: bool
         :return: Solved values keyed by temporal variable name
         :rtype: dict[str, Timeseries]
-        :raises RuntimeError: If the model hasn't been solved
+        :raises ModelNotSolvedError: If the model has not been solved yet
+        :raises UnsuccessfulSolveError: If the last solve did not produce a solution
         """
-        if not self._solution_info:
-            raise RuntimeError("Optimisation model has not been solved yet")
+        self.require_solution()
 
-        return {
-            name: temporal_variable.solution(include_fixed)
-            for name, temporal_variable in self._temporal_variables.items()
-            if (temporal_variable.times if include_fixed else temporal_variable.model_times)
-        }
+        return self._temporal_variables.solution(include_fixed)
 
     def get_variable(self, name: str) -> Any:
         """
         Get a variable object by name for use in expressions.
+
+        For temporal variables, use :meth:`get_temporal_variable`.
 
         :param name: Variable name
         :type name: str
@@ -315,6 +324,33 @@ class OptimisationModel:
         if name not in self._variables_name:
             raise ValueError(f"Variable '{name}' not found")
         return self._solver.LookupVariable(name)
+
+    def set_variable_bounds(
+        self, name: str, lower_bound: float | None = None, upper_bound: float | None = None
+    ) -> None:
+        """
+        Change the bounds of a variable by name, typically to tighten a model before a new solve.
+
+        For temporal variables, use :meth:`~atlas.solver.temporal_variable.TemporalVariable.set_bounds`
+        on :meth:`get_temporal_variable`.
+
+        **Example**
+
+            model.set_variable_bounds("price", upper_bound=3000.0)   # lower bound kept
+
+        :param name: Variable name
+        :type name: str
+        :param lower_bound: New lower bound, None keeps the current one
+        :type lower_bound: float | None
+        :param upper_bound: New upper bound, None keeps the current one
+        :type upper_bound: float | None
+        :raises ValueError: If variable doesn't exist
+        """
+        variable = self.get_variable(name)
+        variable.SetBounds(
+            variable.lb() if lower_bound is None else lower_bound,
+            variable.ub() if upper_bound is None else upper_bound,
+        )
 
     def get_constraint(self, name: str) -> Any:
         """
@@ -366,7 +402,7 @@ class OptimisationModel:
         if name in self._constraints_name:
             raise ValueError(f"Constraint '{name}' already exists")
 
-        logger.debug(f"Adding constraint: {name}")
+        logger.debug("Adding constraint: {}", name)
 
         self._solver.Add(constraint_expr, name)
         self._constraints_name.add(name)

@@ -137,7 +137,7 @@ execute()
   ↓
 validates_results() → Check all market areas have forecasts
   ↓
-export_results() → Update market areas in place via change sets
+export_results() → nothing
 ```
 
 ## Algorithm Details

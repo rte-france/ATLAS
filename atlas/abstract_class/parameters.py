@@ -7,9 +7,6 @@ Module that implements AbstractModuleParameters
 """
 
 from pathlib import Path
-from typing import TypeVar
-
-from pydantic import ConfigDict
 
 from atlas.io_utils.parameters import DateParameters, ExportParameters, Parameters, RunPaths
 
@@ -22,8 +19,6 @@ class AbstractModuleParameters(Parameters):
     :param export: What the module writes to disk, and the run directory it writes into
     :type export: ExportParameters
     """
-
-    ConfigDict(arbitrary_types_allowed=True)
 
     temporal: DateParameters
     export: ExportParameters = ExportParameters()
@@ -47,6 +42,3 @@ class AbstractModuleParameters(Parameters):
     def lp_dir(self) -> Path:
         """Directory the solver exports its LP files into."""
         return self.run_paths.lp_export
-
-
-P = TypeVar("P", bound=AbstractModuleParameters)

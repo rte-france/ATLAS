@@ -8,11 +8,9 @@ This file is part of the ATLAS project.
 import cProfile
 import pstats
 from pathlib import Path
-from typing import cast
 
 from pyinstrument import Profiler
 
-from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.modules.module_run import ModuleRun
 from atlas.orchestrator.module_registry import ModuleRegistry
 
@@ -23,7 +21,7 @@ def run(config_path: Path, module_name: str, dataset_path: Path, output: Path | 
     stats_output = stem.parent / (stem.name + "_stats.txt")
 
     module_class = ModuleRegistry.get(module_name)
-    parameters = cast(AbstractModuleParameters, module_class().get_parameters_class()).from_file(config_path)
+    parameters = module_class.get_parameters_class().from_file(config_path)
     module_run = ModuleRun(module_name, dataset_path, parameters)
 
     profiler = Profiler()

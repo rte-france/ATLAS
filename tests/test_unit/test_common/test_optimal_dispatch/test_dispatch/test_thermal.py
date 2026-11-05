@@ -238,19 +238,43 @@ class TestThermalDispatchVariables:
         d = ThermalDispatch(comb1_equipment)
         d.setup(model, parameters)
 
-        assert d.power_level_var is not None
-        assert d.off_var is not None
-        assert d.on_up_var is not None
-        assert d.on_down_var is not None
+        assert d.power_level is not None
+        assert d.off is not None
+        assert d.on_up is not None
+        assert d.on_down is not None
         assert d.turned_on is not None
         assert d.turned_off is not None
+
+    def test_setup_fixes_day_zero_initial_conditions(self, comb1_equipment, model, parameters, start_date, timestep):
+        d = ThermalDispatch(comb1_equipment)
+        d.setup(model, parameters)
+        prev = start_date - timestep
+
+        # without a power forecast, the unit starts from an off state before the horizon
+        assert d.off.is_fixed(prev) and d.off[prev] == 1
+        assert d.power_level.is_fixed(prev) and d.power_level[prev] == 0
+        assert d.turned_on[prev] == 0 and d.turned_off[prev] == 0
+
+    def test_flat_variables_are_named_after_the_unit_then_the_time(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters, time_window
+    ):
+        eq = _make_equipment(
+            node, portfolio, power_ts, min_power_ts, minimum_stable_power_duration=pendulum.duration(hours=3)
+        )
+        d = ThermalDispatch(eq)
+        d.setup(model, parameters)
+        t = time_window[0]
+        d.add_variables([t])
+
+        for prefix in ("stable", "entered_up", "entered_down", "up_grad", "down_grad", "aux_up_grad", "aux_down_grad"):
+            assert f"{prefix}_{eq.name}_{t}" in model.variables
 
     def test_add_variables_creates_correct_names(self, comb1_equipment, model, parameters, time_window):
         d = ThermalDispatch(comb1_equipment)
         d.setup(model, parameters)
         n = comb1_equipment.name
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
 
         assert f"{n}_power_level_{t}" in model.variables
         assert f"off_{n}_{t}" in model.variables
@@ -263,7 +287,7 @@ class TestThermalDispatchVariables:
         d = ThermalDispatch(comb1_equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
 
         var = model.get_variable(f"{comb1_equipment.name}_power_level_{t}")
         assert var.lb() == 0
@@ -273,7 +297,7 @@ class TestThermalDispatchVariables:
         d = ThermalDispatch(comb1_equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
 
         var = model.get_variable(f"off_{comb1_equipment.name}_{t}")
         assert var.lb() == 0
@@ -283,7 +307,7 @@ class TestThermalDispatchVariables:
         d = ThermalDispatch(comb1_equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
 
         n = comb1_equipment.name
         assert f"on_start_{n}_{t}" not in model.variables
@@ -303,7 +327,7 @@ class TestThermalDispatchVariables:
         d = ThermalDispatch(eq)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
 
         assert f"stop_{eq.name}_{t}" in model.variables
 
@@ -320,7 +344,7 @@ class TestThermalDispatchVariables:
         d = ThermalDispatch(eq)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
 
         assert f"on_start_{eq.name}_{t}" in model.variables
 
@@ -337,7 +361,7 @@ class TestThermalDispatchVariables:
         d = ThermalDispatch(eq)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
 
         assert f"on_flat_{eq.name}_{t}" in model.variables
 
@@ -347,7 +371,7 @@ class TestThermalDispatchConstraints:
         d = ThermalDispatch(equipment)
         d.setup(model, parameters)
         for t in time_window:
-            d.add_variables(t)
+            d.add_variables([t])
         return d
 
     def test_mutual_exclusion_constraint_added(self, comb1_equipment, model, parameters, time_window):
@@ -441,7 +465,7 @@ class TestThermalDispatchConstraintsAcrossCombinations:
         d.setup(model, parameters)
         window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
         for t in window:
-            d.add_variables(t)
+            d.add_variables([t])
         for t in window:
             d.add_constraints(model, t, parameters)
         return d
@@ -478,7 +502,7 @@ class TestThermalDispatchMinimumTimeConstraints:
         d.setup(model, parameters)
         window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
         for t in window:
-            d.add_variables(t)
+            d.add_variables([t])
         for t in window:
             d.add_constraints(model, t, parameters)
         return d
@@ -604,7 +628,7 @@ class TestThermalDispatchLongStableDuration:
         d.setup(model, parameters)
         window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
         for t in window:
-            d.add_variables(t)
+            d.add_variables([t])
         for t in window:
             d.add_constraints(model, t, parameters)
 
@@ -622,7 +646,7 @@ class TestThermalDispatchLongStableDuration:
         d.setup(model, parameters)
         window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
         for t in window:
-            d.add_variables(t)
+            d.add_variables([t])
         for t in window:
             d.add_constraints(model, t, parameters)
 
@@ -663,7 +687,7 @@ class TestThermalDispatchDailyEnergyConstraint:
         d.setup(model, params)
         time_window = [start_date.add(hours=h) for h in range(48)]
         for t in time_window:
-            d.add_variables(t)
+            d.add_variables([t])
 
         d.add_daily_energy_constraint(model, time_window, timestep)
 
@@ -679,7 +703,7 @@ class TestThermalDispatchDailyEnergyConstraint:
         d.setup(model, params)
         time_window = [start_date.add(hours=h) for h in range(24)]
         for t in time_window:
-            d.add_variables(t)
+            d.add_variables([t])
 
         d.add_daily_energy_constraint(model, time_window, timestep)
 
@@ -700,7 +724,7 @@ class TestThermalDispatchDailyEnergyConstraint:
         d.setup(model, params)
         time_window = [start_date.add(hours=h) for h in range(48)]
         for t in time_window:
-            d.add_variables(t)
+            d.add_variables([t])
 
         d.add_daily_energy_constraint(model, time_window, timestep)
 

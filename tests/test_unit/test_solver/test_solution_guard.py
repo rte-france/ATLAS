@@ -9,6 +9,7 @@ Run with: pytest tests/test_unit/test_solver/test_solution_guard.py -v
 
 from io import StringIO
 
+import pendulum
 import pytest
 from loguru import logger as loguru_logger
 
@@ -150,6 +151,32 @@ class TestSolutionAccessorsGuard:
 
         with pytest.raises(UnsuccessfulSolveError):
             model.get_constraint_slack_value("impossible")
+
+    def test_model_solution_raises_instead_of_returning_zeros(self):
+        model = build_infeasible_model()
+        model.add_temporal_variable("power", [pendulum.datetime(2025, 1, 1)], upper_bound=1)
+        model.solve()
+
+        with pytest.raises(UnsuccessfulSolveError):
+            model.solution()
+
+    @pytest.mark.parametrize(
+        "read",
+        [
+            lambda power, t: power.solution_value(t),
+            lambda power, t: power.solution(),
+            lambda power, t: power.solution_values(),
+        ],
+        ids=["solution_value", "solution", "solution_values"],
+    )
+    def test_temporal_variable_raises_instead_of_returning_zeros(self, read):
+        model = build_infeasible_model()
+        t = pendulum.datetime(2025, 1, 1)
+        power = model.add_temporal_variable("power", [t], upper_bound=1)
+        model.solve()
+
+        with pytest.raises(UnsuccessfulSolveError):
+            read(power, t)
 
     def test_accessors_work_on_a_solved_model(self):
         model = build_feasible_model()

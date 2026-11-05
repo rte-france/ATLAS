@@ -106,9 +106,15 @@ def hydro_equipment(node, portfolio, power_ts, min_power_ts, energy_ts, initial_
     )
 
 
+class _Parameters(AbstractModuleParameters):
+    """Stands in for a real module's parameters, which always declare this field."""
+
+    hydraulic_minimal_fragment_size: float = 0.0
+
+
 @pytest.fixture
 def parameters(start_date, timestep):
-    return AbstractModuleParameters(
+    return _Parameters(
         temporal=DateParameters(
             start_date=start_date,
             end_date=start_date.add(hours=4),
@@ -129,16 +135,16 @@ def time_window(start_date):
 
 
 class TestHydroDispatchVariables:
-    def test_setup_creates_stored_energy_var(self, hydro_equipment, model, parameters):
+    def test_setup_declares_stored_energy(self, hydro_equipment, model, parameters):
         d = HydroDispatch(hydro_equipment)
         d.setup(model, parameters)
-        assert d.stored_energy_var is not None
+        assert d.stored_energy is not None
 
     def test_add_variables_creates_stored_energy_and_fragments(self, hydro_equipment, model, parameters, time_window):
         d = HydroDispatch(hydro_equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
         n = hydro_equipment.name
         assert f"{n}_stored_energy_{t}" in model.variables
         # Two fragments declared in fragment_prices/volumes → indices 0 and 1.
@@ -149,7 +155,7 @@ class TestHydroDispatchVariables:
         d = HydroDispatch(hydro_equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
         var = model.get_variable(f"{hydro_equipment.name}_stored_energy_{t}")
         assert var.lb() == 0
         assert var.ub() == pytest.approx(500.0)
@@ -158,12 +164,24 @@ class TestHydroDispatchVariables:
         d = HydroDispatch(hydro_equipment)
         d.setup(model, parameters)
         t = time_window[0]
-        d.add_variables(t)
+        d.add_variables([t])
         # max_power = 100, fragment_volumes = [0.5, 0.5] → bounds [0, 50].
         for idx in (0, 1):
             var = model.get_variable(f"{hydro_equipment.name}_power_level_frag_{idx}_{t}")
             assert var.lb() == 0
             assert var.ub() == pytest.approx(50.0)
+
+    def test_minimal_fragment_size_drops_small_fragments(self, hydro_equipment, model, parameters, time_window):
+        hydro_equipment.fragment_volumes = [0.05, 0.95]
+        d = HydroDispatch(hydro_equipment)
+        d.setup(model, parameters.model_copy(update={"hydraulic_minimal_fragment_size": 10.0}))
+        t = time_window[0]
+        d.add_variables([t])
+        n = hydro_equipment.name
+        # max_power = 100 → the 5 MW fragment is dropped, its volume goes to the other one.
+        assert f"{n}_power_level_frag_0_{t}" not in model.variables
+        assert model.get_variable(f"{n}_power_level_frag_1_{t}").ub() == pytest.approx(100.0)
+        assert d.fragment_volumes(t) == {1: pytest.approx(100.0)}
 
 
 class TestHydroDispatchEnergyBalance:
@@ -171,7 +189,7 @@ class TestHydroDispatchEnergyBalance:
         d = HydroDispatch(hydro_equipment)
         d.setup(model, parameters)
         for t in time_window:
-            d.add_variables(t)
+            d.add_variables([t])
         return d
 
     def test_balance_constraint_at_start_uses_initial_level(self, hydro_equipment, model, parameters, time_window):

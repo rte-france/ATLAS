@@ -22,7 +22,8 @@ class MarketClearingModule(AbstractModule[MarketClearingParameters, MarketCleari
     the clearing of short-term markets of electricity at the European scale.
     """
 
-    def get_parameters_class(self):
+    @classmethod
+    def get_parameters_class(cls) -> type[MarketClearingParameters]:
         """Returns the concrete Parameters class for this module."""
         return MarketClearingParameters
 

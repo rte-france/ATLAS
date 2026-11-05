@@ -42,7 +42,11 @@ class ModuleRun:
         return CurrentInputState(dataset)
 
     def run(self) -> AtlasDataset:
-        cis = self.cis
-        result = self.module.run(cis.get_data(), self.parameters)
+        """Run the module and return the resulting dataset.
+
+        Change sets are applied on a clone, so ``self.cis`` is left untouched and ``run`` can be called again.
+        """
+        result = self.module.run(self.cis.get_data(), self.parameters)
+        cis = self.cis.clone()
         CISHandler.apply(result.change_sets, cis)
-        return cis.get_data(copy=False)
+        return cis.data

@@ -34,11 +34,11 @@ multiprocessing: # Parallel execution (optional, has defaults)
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `solver_name` | string | `"XPRESS"` | Solver to use (e.g. `"XPRESS"`, `"SCIP"`, `"HiGHS"`) |
+| `solver_name` | string | `"XPRESS"` | Solver to use (e.g. `"XPRESS"`, `"SCIP"`, `"HIGHS"`) |
 | `timeout` | ISO 8601 duration | `"PT4M"` | Maximum solving time |
 | `duality_gap` | float | `0.0001` | MIP optimality tolerance |
 | `use_presolve` | boolean | `false` | Enable solver presolve |
-| `export_lp` | boolean | `false` | Export LP file for debugging |
+| `export_lp` | boolean | `false` | Export LP files for debugging, to `<export.run_dir>/lp_export/` |
 
 ---
 
@@ -48,7 +48,7 @@ multiprocessing: # Parallel execution (optional, has defaults)
 |-----------|------|---------|-------------|
 | `export_results` | boolean | `false` | Write results back to business model objects |
 | `export_dataset` | boolean | `false` | Serialize the dataset produced by the module |
-| `run_dir` | path | `"output"` | Root directory of the run tree (holds `results/`, `output_dataset/`, `lp_export/`) |
+| `run_dir` | path | `"output"` | Root directory of the run tree (holds `results/`, `output_dataset/`, `lp_export/`). Overrided by the orchestrator when the module runs by one |
 
 ---
 

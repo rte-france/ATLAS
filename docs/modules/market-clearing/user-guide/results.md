@@ -39,7 +39,7 @@ for order in result.orders:
 
 - Verify that orders exist in the input dataset (run Day-Ahead Orders first).
 - Check that the temporal parameters are correct (`start_date`, `end_date` and `execution_date`)
-- Check the parameters `market_area_names` and `control_block_names`, to ensure that there is no error on filters applied to areas.
+- Check the parameter `market_area_names`, to ensure that there is no error on filters applied to areas.
 
 **Infeasible clearing**:
 

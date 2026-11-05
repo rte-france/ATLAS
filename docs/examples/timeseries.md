@@ -41,12 +41,15 @@ ts = Timeseries.from_index(
 ### From DataFrame
 
 ```python
+from datetime import datetime
+
 import polars as pl
 
 # Create from Polars DataFrame
+time = pl.datetime_range(start=datetime(2024, 1, 1), end=datetime(2024, 1, 2), interval="1h", eager=True)
 df = pl.DataFrame({
-    "time": pl.datetime_range(start="2024-01-01", end="2024-01-02", interval="1h"),
-    "value": [1.0, 2.0, 3.0, ...]
+    "time": time,
+    "value": [float(i) for i in range(len(time))],
 })
 
 ts = Timeseries.from_dataframe(df, timezone="UTC")
@@ -109,11 +112,17 @@ ts.set_values(other_ts)
 ### Add Indexes
 
 ```python
-# Add new timestamp with value
-ts.add_index(time="2024-01-03 00:00:00", value=30.0)
+# Add new timestamp with value (keep the index regular: the next timestep)
+ts.add_index(time="2024-01-02 01:00:00", value=30.0)
 
-# Add multiple indexes from another timeseries
-ts.add_indexes(other_ts)
+# Add multiple indexes from another timeseries (same frequency, timestamps not already in ts)
+next_ts = Timeseries.from_values(
+    start_date="2024-01-02 02:00:00",
+    frequency="1h",
+    values=[31.0, 32.0],
+    timezone="UTC"
+)
+ts.add_indexes(next_ts)
 ```
 
 ## Arithmetic Operations
@@ -181,7 +190,7 @@ ts.to_file("output/timeseries.pickle", file_format="pickle")
 
 # Export with attribute column
 ts.to_file_with_attribute(
-    path="output/timeseries.parquet",
+    path="output/timeseries_by_attribute.parquet",
     attribute="my_equipment",
     file_format="parquet",
     concatenate=True  # Append to existing file

@@ -21,7 +21,6 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
 
     parameters: PO
     final_result: AbstractDataset | None = None
-    PARAMETERS_CLASS: type[PO]
 
     def __init__(self, parameters: PO):
         """Initialize a Orchestrator instance.
@@ -47,7 +46,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
 
     @classmethod
     @abstractmethod
-    def get_param_class(cls) -> PO:
+    def get_param_class(cls) -> type[PO]:
         """
         Return the parameter class
         """
@@ -162,12 +161,10 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
             self.final_result = last_executed_job.result
 
         if self.parameters.export_final_state:
-            logger.info(
-                f"Exporting final {self.__class__.__name__.lower()} state to {self.parameters.resolve_path(self.parameters.output_dir)}"
-            )
-            cis.to_directory(
-                self.parameters.resolve_path(self.parameters.output_dir) / f"{self.__class__.__name__.lower()}_output"
-            )
+            export_name = self.parameters.name or self.__class__.__name__.lower()
+            export_dir = self.parameters.resolve_path(self.parameters.output_dir) / f"{export_name}-output"
+            logger.info(f"Exporting final {self.__class__.__name__.lower()} state to {export_dir.resolve()}")
+            cis.to_directory(export_dir)
 
         logger.info(f"{self.__class__.__name__} '{self.parameters.name}' completed successfully")
 

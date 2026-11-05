@@ -18,8 +18,7 @@ For common parameters (`temporal`, `solver`, `output`), see [Common Parameters](
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `market_area_names` | `str \| list[str]` | `"All"` | Market areas included in clearing. `"All"` includes everything; pass a list for explicit selection (e.g. `["FR", "DE"]`). |
-| `control_block_names` | `str \| list[str]` | `"All"` | Control blocks included in clearing. Same syntax as `market_area_names`. |
+| `market_area_names` | `str \| list[str]` | `"All"` | Market areas (and their control blocks) included in clearing. `"All"` includes everything; pass a list for explicit selection (e.g. `["FR", "DE"]`). |
 
 ## Exchange & Network Constraints
 
@@ -76,7 +75,6 @@ export:
 market: DayAhead
 exchange_constraints_type: ATC
 market_area_names: "All"
-control_block_names: "All"
 prevent_adverse_flows: false
 activate_constrained_tso_quantity: false
 price_modifier_lambda_1: 0

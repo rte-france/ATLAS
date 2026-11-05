@@ -6,9 +6,16 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pendulum import DateTime
+from typing import TYPE_CHECKING
 
 from atlas.common.optimal_dispatch.reserves.handler import ReserveHandler
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from pendulum import DateTime
+
+    from atlas.solver.temporal_variable import Bound
 
 
 class StorageReserveHandler(ReserveHandler):
@@ -21,21 +28,21 @@ class StorageReserveHandler(ReserveHandler):
     Instantiate via :meth:`ReserveFactory.for_storage`, not directly.
     """
 
-    def add_variables(self, time: DateTime, max_power: float, min_power: float) -> None:
+    def add_variables(self, times: Iterable[DateTime], max_power: Bound, min_power: Bound) -> None:
         """
         :param min_power: Minimum power of the storage unit — expected to be *negative*
             (charging draws power from the grid). Used as lower bound for down-reserve
             variables to preserve the same LP bounds as the original formulation.
         """
-        m = self._require_model()
-        m.add_continuous_variable(self.var("reserves_up", time), 0, max_power)
-        m.add_continuous_variable(self.var("reserves_down", time), min_power, max_power)
-        m.add_continuous_variable(self.var("unprovided_reserves_up", time), 0, max_power)
-        m.add_continuous_variable(self.var("unprovided_reserves_down", time), min_power, max_power)
-        m.add_continuous_variable(self.var("automated_reserves_up", time), 0, self._maximum_automated)
+        times = list(times)
+        self.reserves_up = self._declare("reserves_up", times, 0, max_power)
+        self.reserves_down = self._declare("reserves_down", times, min_power, max_power)
+        self.unprovided_reserves_up = self._declare("unprovided_reserves_up", times, 0, max_power)
+        self.unprovided_reserves_down = self._declare("unprovided_reserves_down", times, min_power, max_power)
+        self.automated_reserves_up = self._declare("automated_reserves_up", times, 0, self._maximum_automated)
         # bidirectional: storage can provide automated down-reserve in either direction
-        m.add_continuous_variable(
-            self.var("automated_reserves_down", time), -self._maximum_automated, self._maximum_automated
+        self.automated_reserves_down = self._declare(
+            "automated_reserves_down", times, -self._maximum_automated, self._maximum_automated
         )
 
     def add_bound_constraints(self, time: DateTime, max_power: float) -> None:
@@ -51,10 +58,10 @@ class StorageReserveHandler(ReserveHandler):
         - ``reserves_down ≤ max_power``
         """
         m = self._require_model()
-        aru = m.get_variable(self.var("automated_reserves_up", time))
-        ard = m.get_variable(self.var("automated_reserves_down", time))
-        ru = m.get_variable(self.var("reserves_up", time))
-        rd = m.get_variable(self.var("reserves_down", time))
+        aru = self.automated_reserves_up[time]
+        ard = self.automated_reserves_down[time]
+        ru = self.reserves_up[time]
+        rd = self.reserves_down[time]
 
         m.add_constraint(aru <= self._maximum_automated, f"automated_reserves_up_max_{time}_{self._name}")
         m.add_constraint(ard <= self._maximum_automated, f"automated_reserves_down_max_{time}_{self._name}")
@@ -86,12 +93,12 @@ class StorageReserveHandler(ReserveHandler):
         :type min_buy: float
         """
         m = self._require_model()
-        ru = m.get_variable(self.var("reserves_up", time))
-        aru = m.get_variable(self.var("automated_reserves_up", time))
-        uru = m.get_variable(self.var("unprovided_reserves_up", time))
-        rd = m.get_variable(self.var("reserves_down", time))
-        ard = m.get_variable(self.var("automated_reserves_down", time))
-        urd = m.get_variable(self.var("unprovided_reserves_down", time))
+        ru = self.reserves_up[time]
+        aru = self.automated_reserves_up[time]
+        uru = self.unprovided_reserves_up[time]
+        rd = self.reserves_down[time]
+        ard = self.automated_reserves_down[time]
+        urd = self.unprovided_reserves_down[time]
 
         m.add_constraint(
             power_sell_var + ru + aru + uru <= max_sell,
@@ -137,10 +144,10 @@ class StorageReserveHandler(ReserveHandler):
         :type automated_reserve_duration_h: float
         """
         m = self._require_model()
-        ru = m.get_variable(self.var("reserves_up", time))
-        aru = m.get_variable(self.var("automated_reserves_up", time))
-        rd = m.get_variable(self.var("reserves_down", time))
-        ard = m.get_variable(self.var("automated_reserves_down", time))
+        ru = self.reserves_up[time]
+        aru = self.automated_reserves_up[time]
+        rd = self.reserves_down[time]
+        ard = self.automated_reserves_down[time]
 
         reserve_soc_up = ru * reserve_duration_h + aru * automated_reserve_duration_h
         reserve_soc_down = rd * reserve_duration_h + ard * automated_reserve_duration_h

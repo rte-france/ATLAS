@@ -6,6 +6,8 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+from unittest.mock import Mock
+
 import pendulum
 from pendulum import duration
 
@@ -188,11 +190,11 @@ class TestPortfolioOptimisationParametersExcludedThermalStrategies:
         assert params.excluded_thermal_strategies == [ThermalStrategy.BASE, ThermalStrategy.PEAK]
 
 
-class TestPortfolioOptimisationParametersTargetTimes:
-    """Test suite for target_times property."""
+class TestPortfolioOptimisationParametersPortfolioTimeWindow:
+    """Test suite for portfolio_time_window property."""
 
-    def test_target_times_one_hour_timestep(self):
-        """Test target_times with 1-hour timestep."""
+    def test_portfolio_time_window_one_hour_timestep(self):
+        """Test portfolio_time_window with 1-hour timestep."""
         params = PortfolioOptimisationParameters(
             temporal=DateParameters(
                 start_date=pendulum.datetime(2024, 1, 1, 0, 0),
@@ -207,10 +209,10 @@ class TestPortfolioOptimisationParametersTargetTimes:
             pendulum.datetime(2024, 1, 1, 1, 0),
             pendulum.datetime(2024, 1, 1, 2, 0),
         ]
-        assert params.target_times == expected
+        assert params.portfolio_time_window == expected
 
-    def test_target_times_thirty_minute_timestep(self):
-        """Test target_times with 30-minute timestep."""
+    def test_portfolio_time_window_thirty_minute_timestep(self):
+        """Test portfolio_time_window with 30-minute timestep."""
         params = PortfolioOptimisationParameters(
             temporal=DateParameters(
                 start_date=pendulum.datetime(2024, 1, 1, 0, 0),
@@ -224,10 +226,10 @@ class TestPortfolioOptimisationParametersTargetTimes:
             pendulum.datetime(2024, 1, 1, 0, 0),
             pendulum.datetime(2024, 1, 1, 0, 30),
         ]
-        assert params.target_times == expected
+        assert params.portfolio_time_window == expected
 
-    def test_target_times_closed_left(self):
-        """Test that target_times excludes end_date (closed='left')."""
+    def test_portfolio_time_window_closed_left(self):
+        """Test that portfolio_time_window excludes end_date (closed='left')."""
         params = PortfolioOptimisationParameters(
             temporal=DateParameters(
                 start_date=pendulum.datetime(2024, 1, 1, 0, 0),
@@ -238,8 +240,59 @@ class TestPortfolioOptimisationParametersTargetTimes:
         )
 
         # Should NOT include the end_date
-        assert pendulum.datetime(2024, 1, 1, 2, 0) not in params.target_times
-        assert len(params.target_times) == 2
+        assert pendulum.datetime(2024, 1, 1, 2, 0) not in params.portfolio_time_window
+        assert len(params.portfolio_time_window) == 2
+
+
+class TestPortfolioOptimisationParametersEquipmentTimeWindow:
+    """Test suite for equipment_time_window method."""
+
+    def test_equipment_time_window_extends_portfolio_time_window_by_additional_hours(self):
+        """Test that the window extends beyond portfolio_time_window by the equipment's additional_hours."""
+        params = PortfolioOptimisationParameters(
+            temporal=DateParameters(
+                start_date=pendulum.datetime(2024, 1, 1, 0, 0),
+                end_date=pendulum.datetime(2024, 1, 1, 3, 0),
+                execution_date=pendulum.datetime(2024, 1, 1),
+                timestep=duration(hours=1),
+            )
+        )
+        equipment = Mock(additional_hours=duration(hours=2))
+
+        window = params.equipment_time_window(equipment)
+
+        expected = [
+            pendulum.datetime(2024, 1, 1, 0, 0),
+            pendulum.datetime(2024, 1, 1, 1, 0),
+            pendulum.datetime(2024, 1, 1, 2, 0),
+            pendulum.datetime(2024, 1, 1, 3, 0),
+            pendulum.datetime(2024, 1, 1, 4, 0),
+        ]
+        assert window == expected
+
+    def test_equipment_time_window_zero_additional_hours_matches_portfolio_time_window(self):
+        """Test that a zero lookahead reproduces portfolio_time_window exactly."""
+        params = PortfolioOptimisationParameters(
+            temporal=DateParameters(
+                start_date=pendulum.datetime(2024, 1, 1, 0, 0),
+                end_date=pendulum.datetime(2024, 1, 1, 2, 0),
+                execution_date=pendulum.datetime(2024, 1, 1),
+                timestep=duration(hours=1),
+            )
+        )
+        equipment = Mock(additional_hours=duration(hours=0))
+
+        assert params.equipment_time_window(equipment) == params.portfolio_time_window
+
+    def test_equipment_time_window_is_cached_per_equipment(self):
+        """Test that repeated calls for the same equipment reuse the cached result."""
+        params = PortfolioOptimisationParameters(temporal=make_date())
+        equipment = Mock(additional_hours=duration(hours=0))
+
+        first = params.equipment_time_window(equipment)
+        second = params.equipment_time_window(equipment)
+
+        assert first is second
 
 
 class TestPortfolioOptimisationParametersInitBatteryTime:

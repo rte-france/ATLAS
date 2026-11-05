@@ -24,7 +24,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
     Each job processes the output of the previous one, starting from the input dataset."""
 
     @classmethod
-    def get_param_class(cls):
+    def get_param_class(cls) -> type[WorkflowParameters]:
         return WorkflowParameters
 
     def __init__(self, parameters: WorkflowParameters, prefix_job_name: str | None = None):
@@ -78,11 +78,11 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
         :raises ValueError: if the step's parameters cannot be resolved.
         """
-        # Rename before resolving: the step output directory is derived from step.name, and iterations of a same
-        # action plan task only differ by this prefix.
+        # The prefix only names the job: the step output directory keeps the raw step name, iterations of a same
+        # action plan task being already separated by the workflow's output_dir.
         named_step = step.model_copy(update={"name": f"{prefix_job_name} {step.name}"}) if prefix_job_name else step
         try:
-            resolved_parameters = self._build_step_parameters(named_step)
+            resolved_parameters = self._build_step_parameters(step)
         except Exception as exc:
             raise ValueError(f"Step {named_step.name!r}: unable to resolve parameters ({exc})") from exc
 
@@ -90,7 +90,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
     def _build_step_parameters(self, step: Step) -> AbstractModuleParameters:
         """Build a step's parameters against the workflow's context."""
-        parameters_class = step.module.value().get_parameters_class()
+        parameters_class = step.module.value.get_parameters_class()
         if isinstance(step.parameters, (str, Path)):
             contextualized_parameters = parameters_class.from_file(
                 self.parameters.resolve_path(Path(step.parameters)), self.context

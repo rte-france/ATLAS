@@ -76,7 +76,7 @@ modules/my_module/
 
 ## Solver (OR-Tools)
 
-The main interface is `OptimisationModel` — always go through it, never call OR-Tools directly. Helpers in `solver/solver_helper.py` are used for tests.
+The main interface is `OptimisationModel` — always go through it, never call OR-Tools directly. Test helpers (LP comparison) live in `tests/solver_helper.py`.
 
 ## Math objects (Timeseries / Matrices)
 
