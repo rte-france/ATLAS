@@ -8,7 +8,7 @@ from atlas.modules.balancing_market_bsp_orders.module import BSPBalancingOrdersM
 from tests.utils import check_execution_time
 
 INPUT_DIR = Path("tests/dataset/reserves/bsp_balancing_orders/input")
-PARAMETERS_PATH = Path("tests/dataset/parameters/intraday/bsp_balancing_orders.yml")
+PARAMETERS_PATH = Path("tests/dataset/parameters/reserves/bsp_balancing_orders.yml")
 
 
 @pytest.mark.perf
