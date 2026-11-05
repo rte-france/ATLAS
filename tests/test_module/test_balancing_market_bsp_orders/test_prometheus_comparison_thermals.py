@@ -34,7 +34,7 @@ from atlas.modules.module_run import ModuleRun
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
-PROMETHEUS_DATASET_DIR = Path("tests/dataset/reserves/bsp_balancing_orders/prometheus_thermal")
+PROMETHEUS_DATASET_DIR = Path("tests/dataset/reserves/bsp_balancing_orders/hermal")
 INPUT_DIR = PROMETHEUS_DATASET_DIR / "input"
 REFERENCE_DIR = PROMETHEUS_DATASET_DIR / "output"
 NUMERICAL_TOLERANCE = 1e-6
