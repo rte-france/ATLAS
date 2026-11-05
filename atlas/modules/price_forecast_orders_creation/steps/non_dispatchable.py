@@ -29,5 +29,15 @@ class NonDispatchableStep(AbstractOrderStep):
 
                 qmax = abs(local_power.get_value(time))
 
-                result.orders.append(self.create_order(time, equipment, order_type, price_ond, qmax, qmax, False))
+                order = self.create_order(
+                    time=time,
+                    equipment=equipment,
+                    order_type=order_type,
+                    price=price_ond,
+                    qmin=qmax,
+                    qmax=qmax,
+                    is_agent_tso=False,
+                )
+                if order is not None:
+                    result.orders.append(order)
         return result
