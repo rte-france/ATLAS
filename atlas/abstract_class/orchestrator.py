@@ -125,6 +125,9 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
 
         last_executed_job = None
         for job_idx, job in enumerate(self.jobs):
+            if self.parameters._skip_until > job_idx:
+                logger.info(f"Skipping :'{job.name}' ({job_idx + 1}/{self.jobs_count})")
+                continue
             logger.info(f"Launching :'{job.name}' ({job_idx + 1}/{self.jobs_count})")
 
             # Create snapshot before job if requested
@@ -178,6 +181,10 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
 
                 except InputLoaderError:  # Issue when exporting dataset, this issue is not treated yet
                     logger.error(f"unable to export input datasaet of failing job {job.name}")
+
+                # export the workflow parameters with added index of jobs to skip
+                self.parameters._skip_until = job_idx
+                # the rest is to be done once the export of orchestrators' parameters to yaml is done.
 
                 raise
 
