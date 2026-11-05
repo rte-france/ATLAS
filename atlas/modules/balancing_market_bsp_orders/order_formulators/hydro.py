@@ -6,11 +6,14 @@ This file is part of the ATLAS project.
 Module that implements HydraulicOrderFormulator.
 """
 
+from typing import cast
+
 from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.common.optimal_dispatch.marginal_pricing import InterpolatedMarginalValue
 from atlas.enums import OrderType
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.modules.balancing_market_bsp_orders.input_objects.hydro import BalancingHydro
 from atlas.modules.balancing_market_bsp_orders.order_formulators.base import AbstractOrderFormulator
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
@@ -109,7 +112,9 @@ class HydraulicOrderFormulator(AbstractOrderFormulator[BalancingHydro]):
         :rtype: float
         """
         start = self.parameters.temporal.start_date
-        local_maximum_daily_energy = self.equipment.maximum_daily_energy.get_value(start)
+        # set when has_daily_energy_constraint, enforced by the BalancingHydro validator
+        maximum_daily_energy = cast(AbstractTimeseries, self.equipment.maximum_daily_energy)
+        local_maximum_daily_energy = maximum_daily_energy.get_value(start)
         total_daily_energy_produced = self._compute_daily_energy()
         remaining_margin = local_maximum_daily_energy - total_daily_energy_produced
 
@@ -134,7 +139,9 @@ class HydraulicOrderFormulator(AbstractOrderFormulator[BalancingHydro]):
         :rtype: float
         """
         start = self.parameters.temporal.start_date
-        local_minimum_daily_energy = self.equipment.minimum_daily_energy.get_value(start)
+        # set when has_daily_energy_constraint, enforced by the BalancingHydro validator
+        minimum_daily_energy = cast(AbstractTimeseries, self.equipment.minimum_daily_energy)
+        local_minimum_daily_energy = minimum_daily_energy.get_value(start)
         total_daily_energy_produced = self._compute_daily_energy()
         remaining_margin = total_daily_energy_produced - local_minimum_daily_energy
 

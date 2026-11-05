@@ -4,6 +4,8 @@ Copyright (c) 2025, RTE (www.rte-france.com)
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+import pytest
+
 from atlas.math.matrix import ScenarioMatrix
 from atlas.enums import OrderType
 from atlas.math.forecasting_matrix import ForecastingMatrix
@@ -169,3 +171,21 @@ class TestHydraulicOrderFormulatorOrders:
         orders, _ = _make_formulator(equipment, time_index, parameters).formulate()
         upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
         assert all(o.price >= 15.0 for o in upward_orders)
+
+
+class TestBalancingHydroValidation:
+    """The module validates its equipments with ``model_validate``, which ``model_construct`` above skips."""
+
+    def test_daily_energies_are_optional_without_the_daily_energy_constraint(self, parameters, real_market_objects):
+        equipment = _make_hydro_equipment(parameters, real_market_objects)
+
+        validated = BalancingHydro.model_validate(dict(equipment))
+
+        assert validated.maximum_daily_energy is None
+        assert validated.minimum_daily_energy is None
+
+    def test_daily_energies_are_required_with_the_daily_energy_constraint(self, parameters, real_market_objects):
+        equipment = _make_hydro_equipment(parameters, real_market_objects, has_daily_energy_constraint=True)
+
+        with pytest.raises(ValueError, match="maximum_daily_energy must be provided"):
+            BalancingHydro.model_validate(dict(equipment))
