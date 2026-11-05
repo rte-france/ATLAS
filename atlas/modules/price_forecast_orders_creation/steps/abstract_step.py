@@ -49,6 +49,7 @@ class AbstractOrderStep(ABC):
         qmin: float,
         qmax: float,
         is_agent_tso: bool,
+        suffix_name: str = "",
     ) -> OrderPFOC | None:
         if order_type == OrderType.Buy:
             qmax = math.floor(qmax)
@@ -68,7 +69,7 @@ class AbstractOrderStep(ABC):
         price = min(self.parameters.market_price_cap, round(price, 2))
         price = max(-self.parameters.market_price_cap, price)
 
-        name = equipment.Name + "_" + self.parameters.market + "_" + {time.format("DD_MM_YYYY_HH_mm_ss")}
+        name = equipment.Name + "_" + self.parameters.market + "_" + {time.format("DD_MM_YYYY_HH_mm_ss")} + suffix_name
         return OrderPFOC(
             name=name,
             market_area=equipment.portfolio.market_area,

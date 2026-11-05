@@ -1,6 +1,7 @@
 import atlas.config as cfg
 from atlas import AtlasDataset, generate_datetimes
 from atlas.abstract_class.module import AbstractModule
+from atlas.modules.day_ahead_orders.steps.hydro import HydraulicStep
 from atlas.modules.price_forecast_orders_creation.input_dataset import PriceForecastOrdersCreationInputDataset
 from atlas.modules.price_forecast_orders_creation.parameters import PriceForecastOrdersCreationParameters
 from atlas.modules.price_forecast_orders_creation.result import PriceForecastOrdersCreationResult
@@ -62,6 +63,7 @@ class PriceForecastOrdersCreationModule(
         steps: list[tuple[str, AbstractOrderStep]] = [
             ("non-dispatchable", NonDispatchableStep(result, orders_time, parameters)),
             ("storage", StorageStep(result, orders_time, parameters)),
+            ("hydro", HydraulicStep(result, orders_time, parameters)),
         ]
 
         for name, step in steps:
