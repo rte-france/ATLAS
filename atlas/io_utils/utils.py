@@ -15,8 +15,10 @@ from typing import Any, Self
 import pandas as pd
 import pendulum
 import polars as pl
+import yaml
 from loguru import logger
 from pydantic import BaseModel, ConfigDict
+from pydantic_core import to_jsonable_python
 
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
@@ -410,3 +412,23 @@ class FrozenBaseModel(BaseModel):
     def evolve(self, **changes) -> Self:
         """Return a validated copy with the given fields replaced."""
         return type(self).model_validate({**self.__dict__, **changes})
+
+    def explicit_values(self) -> dict:
+        explicit_parameters = {}
+        for name in type(self).model_fields:
+            val = getattr(self, name)
+            # If the parameter in val is another type of parameter (ExportParameter):
+            if isinstance(val, FrozenBaseModel):
+                val = val.explicit_values()
+            else:
+                val = to_jsonable_python(val)
+            # print(f"type:{type(val)},   val:{val} ")
+            explicit_parameters[name] = val
+        return explicit_parameters
+
+    def parameters_to_yaml(self, file_path: Path = None) -> None:
+        parameters_dict = self.explicit_values()
+        parameters_text = yaml.dump(parameters_dict)
+        if file_path is None:
+            file_path = self.__class__.__name__.removesuffix("Parameters") + "_export_parameters.yaml"
+        Path(file_path).write_text(parameters_text, encoding="utf-8")
