@@ -145,30 +145,16 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                 is_on += unit_res["ON_FLAT"]
             collapsed_outcomes.append((is_on, case))
 
-        # Now based on the collapsed time series, we are able to do pairwise comparisons across all scenarios and determine whether two of them
+        # Now based on the collapsed time series, we are able to do pairwise
+        # comparisons across all scenarios and determine whether two of them
         # are overlapping or not.
 
-        # list of scenarios to be discarded (if already marked as overlapping)
-        to_discard: list[tuple[Timeseries, str]] = []
-        for pair in itertools.combinations(collapsed_outcomes, 2):
-            if self.is_overlapping((pair[0][0], pair[1][0])):
-                # add the first scenario (arbitrarily) to the list of scenarios to be discarded if
-                # the current scenario pair is perfectly overlapping
-                to_discard.append(pair[0])
+        unique_outcomes: list[tuple[Timeseries, str]] = []
+        for is_on, case in collapsed_outcomes:
+            if not any(self.is_overlapping((is_on, kept)) for kept, _ in unique_outcomes):
+                unique_outcomes.append((is_on, case))
 
-        # Remove scenarios to be discarded from the initial list. By construction, at least one scenario
-        # will not be discarded.
-        for scenario in to_discard:
-            collapsed_outcomes.remove(scenario)
-
-        if len(collapsed_outcomes) == 0 and len(to_discard) > 0:  # If all scenarios are removed (i.e. all identical)
-            # arbitrarily add one scenario to collapsed_outcomes
-            collapsed_outcomes = [to_discard[0]]
-
-        # Keep the name of the unique scenarios only.
-        cases: list[str] = [case_name for _, case_name in collapsed_outcomes]
-
-        return cases
+        return [case_name for _, case_name in unique_outcomes]
 
     def determine_intermediate_load_states_sequence(
         self, unit: ThermalDAO, res: dict[str, dict[str, dict[str, Timeseries]]], case: str
