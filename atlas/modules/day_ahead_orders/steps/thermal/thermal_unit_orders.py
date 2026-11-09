@@ -9,7 +9,7 @@ import math
 from typing import cast
 
 import pendulum
-from pendulum import DateTime
+from pendulum import DateTime, Duration
 
 import atlas.config as cfg
 from atlas.enums import CouplingType, OrderType, Product
@@ -34,6 +34,20 @@ class ThermalUnitOrders:
         """
         self.orders_time = orders_time
         self.parameters = parameters
+
+    # Order names, important for consistency
+    @staticmethod
+    def _generic_order_name(kind: str, time: DateTime, unit_name: str, case: str | None = None) -> str:
+        name = f"{kind}_order_at_{time.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit_name}"
+        return f"{name}_under_price_{case}" if case else name
+
+    @staticmethod
+    def _semi_peak_order_name(kind: str, n: int, time: DateTime, unit_name: str, duration: Duration) -> str:
+        """Build the unique name of a semi-peak order (``kind`` is ``"inflex"`` or ``"flex"``)."""
+        return (
+            f"{kind}_order_n_{n}_start_at_{time.format('DD_MM_YYYY_HH_mm_ss')}"
+            f"_for_unit_{unit_name}_of_duration_{duration.total_hours():g}h"
+        )
 
     def formulate_unit_orders(
         self,
@@ -241,7 +255,6 @@ class ThermalUnitOrders:
             flex_man_up,
             strict=True,
         ):
-            formatted_t = t.format("DD_MM_YYYY_HH_mm_ss")
             t_end = t + step
 
             # Part 1: flexible order
@@ -254,7 +267,7 @@ class ThermalUnitOrders:
             else:
                 orders.append(
                     OrderDAO(
-                        name=f"flexible_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
+                        name=self._generic_order_name("flexible", t, unit.name, case),
                         market_area=market_area,
                         portfolio=portfolio,
                         equipment=unit,
@@ -275,7 +288,7 @@ class ThermalUnitOrders:
             if auto_dn > 0.0:
                 orders.append(
                     OrderDAO(
-                        name=f"automated_downward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
+                        name=self._generic_order_name("automated_downward_reserve", t, unit.name, case),
                         market_area=market_area,
                         portfolio=portfolio,
                         equipment=unit,
@@ -295,7 +308,7 @@ class ThermalUnitOrders:
             if man_dn > 0.0:
                 orders.append(
                     OrderDAO(
-                        name=f"manual_downward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
+                        name=self._generic_order_name("manual_downward_reserve", t, unit.name, case),
                         market_area=market_area,
                         portfolio=portfolio,
                         equipment=unit,
@@ -315,7 +328,7 @@ class ThermalUnitOrders:
             if auto_up > 0.0:
                 orders.append(
                     OrderDAO(
-                        name=f"automated_upward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
+                        name=self._generic_order_name("automated_upward_reserve", t, unit.name, case),
                         market_area=market_area,
                         portfolio=portfolio,
                         equipment=unit,
@@ -335,7 +348,7 @@ class ThermalUnitOrders:
             if man_up > 0.0:
                 orders.append(
                     OrderDAO(
-                        name=f"manual_upward_reserve_order_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}",
+                        name=self._generic_order_name("manual_upward_reserve", t, unit.name, case),
                         market_area=market_area,
                         portfolio=portfolio,
                         equipment=unit,
@@ -388,7 +401,7 @@ class ThermalUnitOrders:
                         q_sell = round(i * q_step_up)
 
                     bid_output = OrderDAO(
-                        name=f"startup_ramp_order_at_{t}_for_unit_{unit.name}{scenario_suffix}",
+                        name=self._generic_order_name("startup_ramp", t, unit.name, case),
                         market_area=market_area,
                         portfolio=portfolio,
                         equipment=unit,
@@ -419,7 +432,7 @@ class ThermalUnitOrders:
                         q_sell = round(q_min - (T_stop - K_stop + i) * q_step_down)
 
                     bid_output = OrderDAO(
-                        name=f"shutdown_ramp_order_at_{t}_for_unit_{unit.name}{scenario_suffix}",
+                        name=self._generic_order_name("shutdown_ramp", t, unit.name, case),
                         market_area=market_area,
                         portfolio=portfolio,
                         equipment=unit,
@@ -443,7 +456,7 @@ class ThermalUnitOrders:
             # Build a name->order index once to look up flexible bids in O(1) instead of O(N) per check.
             orders_by_name: dict[str, OrderDAO] = {bid.name: bid for bid in orders}
             flexible_types = (
-                "flexible_order",
+                "flexible",
                 "manual_upward_reserve_order",
                 "automated_upward_reserve_order",
                 "manual_downward_reserve_order",
@@ -454,13 +467,8 @@ class ThermalUnitOrders:
                 formatted_t = t.format("DD_MM_YYYY_HH_mm_ss")
                 min_p = unit.minimum_power.get_value(t)
                 variable_cost = unit.variable_cost.get_value(t)
-                name = (
-                    f"order_at_{formatted_t}_for_unit_{unit.name}_under_price_{case}"
-                    if case
-                    else f"order_at_{formatted_t}_for_unit_{unit.name}_under_price"
-                )
                 bid_output = OrderDAO(
-                    name=name,
+                    name=self._generic_order_name("inflexible", t, unit.name, case),
                     market_area=market_area,
                     portfolio=portfolio,
                     equipment=unit,
@@ -480,9 +488,8 @@ class ThermalUnitOrders:
                 Q += min_p
 
                 # Check the existence of flexible bids to be linked by a parent-child coupling
-                config_bid_name = f"_at_{formatted_t}_for_unit_{unit.name}{scenario_suffix}"
                 for flex_type in flexible_types:
-                    flexible_bid = orders_by_name.get(flex_type + config_bid_name)
+                    flexible_bid = orders_by_name.get(self._generic_order_name(flex_type, t, unit.name, case))
                     if flexible_bid is not None:
                         # Add parent-children link between the flexible and inflexible parts
                         couplings.append(

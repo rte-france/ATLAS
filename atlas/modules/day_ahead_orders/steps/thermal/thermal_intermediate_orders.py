@@ -80,18 +80,15 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         if overlapping_blocks:
             # time frames are mutually exclusive provided that the unit's minimum power is not null
             if unit.minimum_power.timeseries.filter(pl.col("time").is_in(self.orders_time))["value"].sum() > 0.0:
-                orders_names = [
-                    f"order_at_{ts.first_date()}_for_unit_{unit.name}_under_price_{case}"
-                    for (ts, case), _ in overlapping_blocks
-                ] + [
-                    f"order_at_{ts.first_date()}_for_unit_{unit.name}_under_price_{case}"
-                    for _, (ts, case) in overlapping_blocks
-                ]
-                orders_list = [order for order in orders if order.name in orders_names]
-                sorted_orders = [[o for o in orders_list if case in o.name] for case in cases]
-
-                for orders_a, orders_b in itertools.combinations(sorted_orders, 2):
-                    for order_1, order_2 in itertools.product(orders_a, orders_b):
+                orders_by_name = {order.name: order for order in orders}
+                for (ts_1, case_1), (ts_2, case_2) in overlapping_blocks:
+                    order_1 = orders_by_name.get(
+                        self._generic_order_name("inflexible", ts_1.first_date(), unit.name, case_1)
+                    )
+                    order_2 = orders_by_name.get(
+                        self._generic_order_name("inflexible", ts_2.first_date(), unit.name, case_2)
+                    )
+                    if order_1 is not None and order_2 is not None:
                         couplings.append(
                             OrderCouplingDAO(
                                 name=f"EXCLUSION_link_between_orders_{order_1.name}_and_{order_2.name}",
@@ -334,14 +331,6 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                 )
 
         return results
-
-    @staticmethod
-    def _semi_peak_order_name(kind: str, n: int, time: DateTime, unit_name: str, duration: Duration) -> str:
-        """Build the unique name of a semi-peak order (``kind`` is ``"inflex"`` or ``"flex"``)."""
-        return (
-            f"{kind}_order_n_{n}_start_at_{time.format('DD_MM_YYYY_HH_mm_ss')}"
-            f"_for_unit_{unit_name}_of_duration_{duration.total_hours():g}h"
-        )
 
     def formulate_semi_peak(self, unit: ThermalDAO) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
 

@@ -6,21 +6,15 @@ This file is part of the ATLAS project.
 """
 
 from collections import defaultdict
+from datetime import datetime
+from itertools import combinations
 
 import atlas.config as cfg
-from atlas.enums import CouplingType, Product, ThermalStrategy
+from atlas.enums import CouplingType, Product
 from atlas.math.timeseries import Timeseries
-from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_worker import optimize_single_thermal_unit
 from atlas.objects.equipment.thermal import Thermal
-from atlas.objects.market.order import Order
-
-
-class Coupling:
-    def __init__(self, orders: list[Order], coupling_type: str = ""):
-        self.coupling_type = coupling_type
-        self.orders = orders
 
 
 class ThermalBiddingStep(AbstractOrderStep):
@@ -46,179 +40,138 @@ class ThermalBiddingStep(AbstractOrderStep):
 
         return result
 
+    @staticmethod
+    def _find_block(block_of: dict[str, str], order_name: str) -> str:
+        """
+        Return the name identifying the block of an order (union-find with path halving).
+
+        :param block_of: Link from each order name to another order of its block
+        :type block_of: dict[str, str]
+        :param order_name: Name of the order
+        :type order_name: str
+        :return: Name identifying the block
+        :rtype: str
+        """
+        block_of.setdefault(order_name, order_name)
+        while block_of[order_name] != order_name:
+            block_of[order_name] = block_of[block_of[order_name]]
+            order_name = block_of[order_name]
+        return order_name
+
+    @staticmethod
+    def _max_compatible_volume(block_volumes: dict[str, float], exclusive_blocks: dict[str, set[str]]) -> float:
+        """
+        Return the largest volume reachable at one time step by a set of blocks that do not exclude each other.
+
+        **Example**
+
+            exclusive = {"a": {"b"}, "b": {"a", "c"}, "c": {"b"}}
+            _max_compatible_volume({"a": 100.0, "b": 150.0, "c": 70.0}, exclusive)  # 170.0 (a + c)
+
+        :param block_volumes: Volume of each block active at this time step
+        :type block_volumes: dict[str, float]
+        :param exclusive_blocks: Blocks excluded by each block
+        :type exclusive_blocks: dict[str, set[str]]
+        :return: The largest compatible volume
+        :rtype: float
+        """
+        total = 0.0
+        conflicting: dict[str, float] = {}
+        for block, volume in block_volumes.items():
+            if exclusive_blocks.get(block, set()).isdisjoint(block_volumes):
+                total += volume
+            else:
+                conflicting[block] = volume
+
+        if not conflicting:
+            return total
+
+        block, volume = conflicting.popitem()
+        compatible = {other: q for other, q in conflicting.items() if other not in exclusive_blocks[block]}
+        return total + max(
+            volume + ThermalBiddingStep._max_compatible_volume(compatible, exclusive_blocks),
+            ThermalBiddingStep._max_compatible_volume(conflicting, exclusive_blocks),
+        )
+
     def _compute_da_sell_submitted_volume(self, result: StepResult) -> None:
-        sell_submitted_volumes: dict[str, Timeseries] = {
-            equipment.name: Timeseries.from_index(
-                self.parameters.temporal.start_date,
-                self.parameters.temporal.timestep,
-                self.parameters.temporal.end_date,
-                default_value=0,
-            )
-            for equipment in self.dataset.thermal
-        }
+        """
+        Compute the largest volume that the orders of each thermal unit can sell at each time step.
 
-        relevent_orders_intermediate: list[OrderDAO] = []
-        relevant_orders_names: set[str] = set()
+        Orders linked by PARENT_CHILDREN, IDENTICAL_VOLUME or IDENTICAL_RATIO couplings form a block. At a given
+        time step, a block offers its parents and independent orders, plus the largest child of each parent.
+        Blocks linked by an EXCLUSION coupling cannot be accepted together, the others add up.
 
+        :param result: Orders and couplings formulated for the thermal units
+        :type result: StepResult
+        """
+        temporal = self.parameters.temporal
+        grid = Timeseries.from_index(temporal.start_date, temporal.timestep, temporal.end_date, default_value=0)
+        grid_index = grid.index
+        orders_time = set(self.orders_time)
+
+        # All the couplings of an order are used: blocks are built from every non exclusive link
+        block_of: dict[str, str] = {}
+        parent_of: dict[str, str] = {}
+        exclusive_orders: list[tuple[str, str]] = []
+        for coupling in result.order_couplings:
+            names = [order.name for order in coupling.orders]
+            if coupling.coupling_type == CouplingType.EXCLUSION:
+                exclusive_orders.extend(combinations(names, 2))
+            elif coupling.coupling_type in (
+                CouplingType.PARENT_CHILDREN,
+                CouplingType.IDENTICAL_VOLUME,
+                CouplingType.IDENTICAL_RATIO,
+            ):
+                for name in names[1:]:
+                    block_of[self._find_block(block_of, name)] = self._find_block(block_of, names[0])
+                    if coupling.coupling_type == CouplingType.PARENT_CHILDREN:
+                        parent_of[name] = names[0]
+            else:
+                cfg.logger.warning(f"{coupling.coupling_type} couplings are ignored in the sell submitted volumes")
+
+        exclusive_blocks: dict[str, set[str]] = defaultdict(set)
+        for first, second in exclusive_orders:
+            first_block, second_block = self._find_block(block_of, first), self._find_block(block_of, second)
+            if first_block == second_block:
+                cfg.logger.warning(f"Orders {first} and {second} are both linked and exclusive: exclusion ignored")
+                continue
+            exclusive_blocks[first_block].add(second_block)
+            exclusive_blocks[second_block].add(first_block)
+
+        # At a time step, a parent only adds its largest child
+        volumes_per_block: dict[tuple[str, datetime], dict[str, float]] = defaultdict(lambda: defaultdict(float))
+        largest_children: dict[tuple[str, datetime, str], float] = {}
         for order in result.orders:
             if (
-                order.product == Product.DayAhead
-                and isinstance(order.equipment, Thermal)
-                and order.start_date in self.orders_time
+                order.product != Product.DayAhead
+                or not isinstance(order.equipment, Thermal)
+                or order.start_date not in orders_time
             ):
-                if order.equipment.strategy == ThermalStrategy.PEAK or order.equipment.strategy == ThermalStrategy.BASE:
-                    if order.start_date in sell_submitted_volumes[order.equipment.name]:
-                        sell_submitted_volumes[order.equipment.name].set_value(
-                            order.start_date, order.qmax if order.qmax is not None else 0
-                        )
-                    else:
-                        sell_submitted_volumes[order.equipment.name].add_index(
-                            order.start_date, order.qmax if order.qmax is not None else 0
-                        )
-                else:
-                    relevent_orders_intermediate.append(order)
-                    relevant_orders_names.add(order.name)
-
-        unit_order_coupling_list: dict[str, Coupling] = defaultdict(lambda: Coupling([]))
-        for coupling_instance in result.order_couplings:
-            coupling_type = coupling_instance.coupling_type
-            orders = coupling_instance.orders
-
-            relevant_orders_in_coupling = [o for o in orders if o.name in relevant_orders_names]
-            if not relevant_orders_in_coupling:
                 continue
 
-            for order_index, order_from_coupling in enumerate(orders):
-                if order_from_coupling.name not in relevant_orders_names:
-                    continue
+            qmax = order.qmax if order.qmax is not None else 0.0
+            parent = parent_of.get(order.name)
+            if parent is None:
+                block = self._find_block(block_of, order.name)
+                volumes_per_block[order.equipment.name, order.start_date][block] += qmax
+            else:
+                key = (order.equipment.name, order.start_date, parent)
+                largest_children[key] = max(largest_children.get(key, 0.0), qmax)
 
-                if coupling_type == CouplingType.EXCLUSION:
-                    others = orders[:order_index] + orders[order_index + 1 :]
-                    new_coupling = Coupling(others, CouplingType.EXCLUSION)
-                elif coupling_type == CouplingType.PARENT_CHILDREN:
-                    if order_index == 0:
-                        new_coupling = Coupling(orders[1:], "PARENT")
-                    else:
-                        new_coupling = Coupling(orders[:1], "CHILD")
-                elif coupling_type == CouplingType.IDENTICAL_VOLUME:
-                    others = orders[:order_index] + orders[order_index + 1 :]
-                    new_coupling = Coupling(others, CouplingType.IDENTICAL_VOLUME)
-                else:
-                    cfg.logger.warning(
-                        "COMPLEMENT are not supposed to be connected by EXCLUSION couplings and are ignored"
-                    )
-                    break
+        for (unit_name, t, parent), qmax in largest_children.items():
+            volumes_per_block[unit_name, t][self._find_block(block_of, parent)] += qmax
 
-                unit_order_coupling_list[order_from_coupling.name] = new_coupling
-
-        already_considered_orders = {order.name: False for order in relevent_orders_intermediate}
-        list_of_mutually_exclusive_programms: dict[str, list[Timeseries]] = {
-            equipment.name: [] for equipment in self.dataset.thermal
-        }
-
-        for coupling_instance in result.order_couplings:
-            if coupling_instance.coupling_type != CouplingType.EXCLUSION:
-                continue
-
-            for coupled_order in coupling_instance.orders:
-                if coupled_order.name not in relevant_orders_names:
-                    continue
-                if not already_considered_orders[coupled_order.name]:
-                    programm, list_of_considerer_orders = self.graph_search_of_connected_orders(
-                        coupled_order,
-                        unit_order_coupling_list,
-                        Timeseries.from_index(
-                            self.parameters.temporal.start_date,
-                            self.parameters.temporal.timestep,
-                            self.parameters.temporal.end_date,
-                            default_value=0,
-                        ),
-                        [],
-                    )
-
-                    if coupled_order.equipment is not None:
-                        list_of_mutually_exclusive_programms[coupled_order.equipment.name].append(programm)
-                    for order_name in list_of_considerer_orders:
-                        already_considered_orders[order_name] = True
-
-        for order in relevent_orders_intermediate:
-            if not already_considered_orders[order.name]:
-                if order.start_date in sell_submitted_volumes[order.equipment.name]:
-                    sell_submitted_volumes[order.equipment.name].set_value(
-                        order.start_date, order.qmax if order.qmax is not None else 0
-                    )
-                else:
-                    sell_submitted_volumes[order.equipment.name].add_index(
-                        order.start_date, order.qmax if order.qmax is not None else 0
-                    )
+        sell_submitted_volumes: dict[str, dict[datetime, float]] = defaultdict(dict)
+        for (unit_name, t), block_volumes in volumes_per_block.items():
+            sell_submitted_volumes[unit_name][t] = self._max_compatible_volume(block_volumes, exclusive_blocks)
 
         for equipment in self.dataset.thermal:
-            if equipment.strategy == ThermalStrategy.INTERMEDIATE:
-                cfg.logger.warning(
-                    "Warning : sell_submitted_volumes might not yield the correct result if several internal EXCLUSION are formulated"
-                )
+            volumes = sell_submitted_volumes[equipment.name]
+            sell_submitted_volume = grid.with_values([volumes.get(t, 0.0) for t in grid_index])
 
-                sell_submitted_volume: Timeseries = sell_submitted_volumes[equipment.name]
-                programms: list[Timeseries] = list_of_mutually_exclusive_programms[equipment.name]
-
-                if programms:
-                    for t in self.orders_time:
-                        max_val = max((programm.get_value(t) for programm in programms), default=0)
-                        if t in sell_submitted_volume:
-                            sell_submitted_volume.set_value(t, max_val)
-                        else:
-                            sell_submitted_volume.add_index(t, max_val)
-
-                if equipment.da_sell_submitted_volume is None:
-                    equipment.da_sell_submitted_volume = sell_submitted_volume
-                else:
-                    equipment.da_sell_submitted_volume = equipment.da_sell_submitted_volume.add_on_union(
-                        sell_submitted_volume, inplace=False
-                    )
-
+            if equipment.da_sell_submitted_volume is None:
+                equipment.da_sell_submitted_volume = sell_submitted_volume
             else:
-                if equipment.da_sell_submitted_volume is None:
-                    equipment.da_sell_submitted_volume = sell_submitted_volumes[equipment.name]
-                else:
-                    equipment.da_sell_submitted_volume = equipment.da_sell_submitted_volume.add_on_union(
-                        sell_submitted_volumes[equipment.name], inplace=False
-                    )
-
-    def graph_search_of_connected_orders(
-        self,
-        current_order: Order,
-        unit_order_coupling_list: dict[str, Coupling],
-        current_programm: Timeseries,
-        already_considered_orders_n: list[str],
-    ) -> tuple[Timeseries, list[str]]:
-        """
-        Recursive search to find all possible scenarios in case of internal EXCLUSION couplings.
-        Valid only if at most one internal EXCLUSION order exists.
-        """
-        if current_order.name in already_considered_orders_n:
-            return current_programm, already_considered_orders_n
-
-        coupling = unit_order_coupling_list[current_order.name]
-        if coupling.coupling_type == CouplingType.EXCLUSION:
-            for coupled_order in coupling.orders:
-                if coupled_order.name in already_considered_orders_n:
-                    return current_programm, already_considered_orders_n
-
-        if current_order.start_date is not None:
-            if current_order.start_date in current_programm:
-                current_programm.set_value(
-                    current_order.start_date, current_order.qmax if current_order.qmax is not None else 0
+                equipment.da_sell_submitted_volume = equipment.da_sell_submitted_volume.add_on_union(
+                    sell_submitted_volume, inplace=False
                 )
-            else:
-                current_programm.add_index(
-                    current_order.start_date, current_order.qmax if current_order.qmax is not None else 0
-                )
-        already_considered_orders_n.append(current_order.name)
-
-        if coupling.coupling_type != CouplingType.EXCLUSION:
-            for coupled_order in coupling.orders:
-                if coupled_order.name not in already_considered_orders_n:
-                    current_programm, already_considered_orders_n = self.graph_search_of_connected_orders(
-                        coupled_order, unit_order_coupling_list, current_programm, already_considered_orders_n
-                    )
-        return current_programm, already_considered_orders_n

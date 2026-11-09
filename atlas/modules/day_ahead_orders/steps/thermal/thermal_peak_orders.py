@@ -14,6 +14,7 @@ from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.steps.thermal.thermal_unit_orders import ThermalUnitOrders
 from atlas.objects.equipment.equipment import Equipment
 
 
@@ -133,7 +134,7 @@ class ThermalPeakLoadOrders:
 
                 # Create the instance
                 inflexible_order = OrderDAO(
-                    name=f"inflexible_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
+                    name=ThermalUnitOrders._generic_order_name("inflexible", t, unit.name),
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
@@ -174,7 +175,7 @@ class ThermalPeakLoadOrders:
                     inflexible_order=inflexible_order,
                     t=t,
                     unit=unit,
-                    order_name=f"flexible_order_at_{t.format('DD_MM_YYYY_HH_mm_ss')}_for_unit_{unit.name}",
+                    order_name=ThermalUnitOrders._generic_order_name("flexible", t, unit.name),
                     q_max=q_max,
                     q_min=0,
                     price=unit.variable_cost.get_value(t),
@@ -193,7 +194,7 @@ class ThermalPeakLoadOrders:
                     inflexible_order=inflexible_order,
                     t=t,
                     unit=unit,
-                    order_name=f"automated_downward_reserve_order_at_{t}_for_unit_{unit.name}",
+                    order_name=ThermalUnitOrders._generic_order_name("automated_downward_reserve", t, unit.name),
                     q_max=automated_reserves_down_procured.get_value(t),
                     q_min=(1 - self.parameters.proportional_reserves_penalty)
                     * automated_reserves_down_procured.get_value(t),
@@ -210,7 +211,7 @@ class ThermalPeakLoadOrders:
                     inflexible_order=inflexible_order,
                     t=t,
                     unit=unit,
-                    order_name=f"manual_downward_reserve_order_at_{t}_for_unit_{unit.name}",
+                    order_name=ThermalUnitOrders._generic_order_name("manual_downward_reserve", t, unit.name),
                     q_max=manual_reserves_down_procured.get_value(t),
                     q_min=(1 - self.parameters.proportional_reserves_penalty)
                     * manual_reserves_down_procured.get_value(t),
@@ -227,7 +228,7 @@ class ThermalPeakLoadOrders:
                     inflexible_order=inflexible_order,
                     t=t,
                     unit=unit,
-                    order_name=f"automated_upward_reserve_order_at_{t}_for_unit_{unit.name}",
+                    order_name=ThermalUnitOrders._generic_order_name("automated_upward_reserve", t, unit.name),
                     q_max=automated_reserves_up_procured.get_value(t),
                     q_min=(1 - self.parameters.proportional_reserves_penalty)
                     * automated_reserves_up_procured.get_value(t),
@@ -244,7 +245,7 @@ class ThermalPeakLoadOrders:
                     inflexible_order=inflexible_order,
                     t=t,
                     unit=unit,
-                    order_name=f"manual_upward_reserve_order_at_{t}_for_unit_{unit.name}",
+                    order_name=ThermalUnitOrders._generic_order_name("manual_upward_reserve", t, unit.name),
                     q_max=manual_reserves_up_procured.get_value(t),
                     q_min=(1 - self.parameters.proportional_reserves_penalty)
                     * manual_reserves_up_procured.get_value(t),
