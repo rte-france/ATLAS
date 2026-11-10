@@ -13,11 +13,13 @@ from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.common.optimal_dispatch.dispatch.thermal import ThermalDispatch
 from atlas.common.optimal_dispatch.input_objects.thermal import ThermalDispatchInput
 from atlas.io_utils.parameters import DateParameters
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
 from atlas.objects.network_operator.control_block import ControlBlock
+from atlas.solver.models import SolverStatus
 from atlas.solver.solver_interface import OptimisationModel
 
 
@@ -730,3 +732,288 @@ class TestThermalDispatchDailyEnergyConstraint:
 
         energy_constraints = [c for c in model.constraints if "energy_limit_of" in c]
         assert len(energy_constraints) == 2
+
+
+class TestThermalDispatchFormulationFixes:
+    """Rows and bounds that the day-ahead migration pinned down on the shared dispatch."""
+
+    def _build(self, node, portfolio, power_ts, min_power_ts, parameters, model, **kwargs):
+        eq = _make_equipment(node, portfolio, power_ts, min_power_ts, **REALISTIC_MIN_TIMES, **kwargs)
+        dispatch = ThermalDispatch(eq)
+        dispatch.setup(model, parameters)
+        window = [parameters.temporal.start_date.add(hours=h) for h in range(4)]
+        for time in window:
+            dispatch.add_variables([time])
+        for time in window:
+            dispatch.add_constraints(model, time, parameters)
+            dispatch.add_dd_and_gradient_constraints(model, time, time - parameters.temporal.timestep)
+        return eq, dispatch, window
+
+    def test_ramp_eviction_spans_the_full_ramp(self, node, portfolio, power_ts, min_power_ts, parameters, model):
+        """A unit that stopped at t must have left STOP exactly T_stop steps later."""
+        eq, dispatch, window = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            parameters,
+            model,
+            shutdown_duration=pendulum.duration(hours=2),
+        )
+        time = window[-1]
+        evicted_at = time - dispatch.T_stop * parameters.temporal.timestep
+
+        assert f"eviction_constraint_{time}_{eq.name}" in model.constraints
+        # the evicted turned_off is inside the window, so the row really couples the two
+        assert f"t_off_{eq.name}_{evicted_at}" in model.variables
+
+    def test_down_to_stop_tracks_the_transition_into_stop(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model
+    ):
+        """Without a startup ramp the auxiliary still means "entered STOP from ON_DOWN"."""
+        eq, _, window = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            parameters,
+            model,
+            shutdown_duration=pendulum.duration(hours=2),
+        )
+        time = window[1]
+
+        assert f"down_to_stop_evol_1_{time}_{eq.name}" in model.constraints
+        assert f"t_stop_evol_1_{time}_{eq.name}" not in model.constraints
+
+    def test_gradient_auxiliary_bounds_span_the_whole_series(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model, start_date, timestep
+    ):
+        """The gradient bound must cover every power step, including outside the delivery window."""
+        varying_power = Timeseries.from_index(
+            start_date=start_date.subtract(days=1),
+            frequency=timestep,
+            end_date=start_date.add(days=2),
+            default_value=200.0,
+        )
+        varying_power.set_value(start_date.add(days=1), 900.0)
+        eq, dispatch, window = self._build(
+            node,
+            portfolio,
+            varying_power,
+            min_power_ts,
+            parameters,
+            model,
+            minimum_stable_power_duration=pendulum.duration(hours=3),
+        )
+        bounds = model.get_variable(f"up_grad_{eq.name}_{window[0]}")
+
+        assert bounds.ub() == 900.0
+        assert bounds.lb() == -900.0
+
+    def test_stable_is_barred_when_the_unit_was_already_flat(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model
+    ):
+        """At the boundary, stable is bounded by 1 - on_flat(t-2), as it is inside the window."""
+        eq, _, _ = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            parameters,
+            model,
+            startup_duration=pendulum.duration(hours=2),
+            shutdown_duration=pendulum.duration(hours=2),
+            minimum_stable_power_duration=pendulum.duration(hours=3),
+        )
+        previous = parameters.temporal.start_date - parameters.temporal.timestep
+
+        # the unit enters the window offline, so on_flat(t-2) is 0 and the row leaves
+        # stable free; bounding it by on_flat(t-2) instead would pin it to 0
+        assert model.get_constraint(f"stable_evol_1_{previous}_{eq.name}").ub() == 1
+
+    def test_minimum_time_on_covers_the_step_before_the_window(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model
+    ):
+        """A stable unit puts the previous step in the model, so it has to constrain it."""
+        eq, _, _ = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            parameters,
+            model,
+            minimum_stable_power_duration=pendulum.duration(hours=3),
+        )
+        previous = parameters.temporal.start_date - parameters.temporal.timestep
+
+        assert any(
+            name.startswith(f"minimum_time_on_{eq.name}_") and name.endswith(str(previous))
+            for name in model.constraints
+        )
+
+    def test_dd_variable_only_exists_with_a_shutdown_ramp(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model
+    ):
+        """A start-and-flat unit has no DD row, so it must not carry a DD variable either."""
+        eq, _, window = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            parameters,
+            model,
+            startup_duration=pendulum.duration(hours=2),
+            minimum_stable_power_duration=pendulum.duration(hours=3),
+        )
+        assert not any(name.startswith("dd_grad_") for name in model.variables)
+        assert not any(name.startswith("DD_evol_") for name in model.constraints)
+
+    def test_a_running_unit_without_ramps_enters_the_window_free_to_move(
+        self, node, portfolio, power_ts, min_power_ts, parameters, model, start_date, timestep
+    ):
+        """Both ON states are set before the window, so the first gradient is not one-sided."""
+        history = ForecastingMatrix()
+        history.add(
+            Timeseries.from_index(
+                start_date=start_date.subtract(hours=4),
+                frequency=timestep,
+                end_date=start_date - timestep,
+                default_value=200.0,
+            ),
+            parameters.temporal.execution_date,
+        )
+        eq = _make_equipment(node, portfolio, power_ts, min_power_ts, **REALISTIC_MIN_TIMES, power=history)
+        dispatch = ThermalDispatch(eq)
+        dispatch.setup(model, parameters)
+        previous = start_date - timestep
+
+        assert dispatch.on_up[previous] == 1
+        assert dispatch.on_down[previous] == 1
+
+
+class TestBannedTransitionsTable:
+    """Invariants of the declarative transition table driving _add_transition_constraints."""
+
+    STATES_REQUIRING = {"on_flat": 2, "on_start": 1, "stop": 0}
+    ALWAYS_PRESENT = {"off", "on_up", "on_down"}
+
+    def test_table_covers_exactly_the_eight_combinations(self):
+        assert set(ThermalDispatch._BANNED_TRANSITIONS) == set(ThermalDispatch._COMBINATIONS)
+
+    @pytest.mark.parametrize("flags", sorted(ThermalDispatch._COMBINATIONS))
+    def test_a_combination_only_bans_states_it_owns(self, flags):
+        """A ban naming a state the unit has no variable for would crash at model build."""
+        known = self.ALWAYS_PRESENT | {state for state, position in self.STATES_REQUIRING.items() if flags[position]}
+        for from_state, to_state in ThermalDispatch._BANNED_TRANSITIONS[flags]:
+            assert from_state in known, f"combination {ThermalDispatch._COMBINATIONS[flags]} bans from {from_state}"
+            assert to_state in known, f"combination {ThermalDispatch._COMBINATIONS[flags]} bans to {to_state}"
+
+    @pytest.mark.parametrize("flags", sorted(ThermalDispatch._COMBINATIONS))
+    def test_no_transition_is_banned_twice(self, flags):
+        """A duplicate would emit the same row twice under two different constraint names."""
+        bans = ThermalDispatch._BANNED_TRANSITIONS[flags]
+        assert len(set(bans)) == len(bans)
+
+    @pytest.mark.parametrize("flags", sorted(ThermalDispatch._COMBINATIONS))
+    def test_a_state_is_never_banned_from_holding(self, flags):
+        """`x(t-1) + x(t) <= 1` would forbid a unit from staying where it is."""
+        for from_state, to_state in ThermalDispatch._BANNED_TRANSITIONS[flags]:
+            assert from_state != to_state
+
+
+class TestThermalDispatchSolvedBehaviour:
+    """Solve the model on a forced dispatch: the unit must accept what it can physically do."""
+
+    HOURS = 8
+
+    def _solve(self, node, portfolio, start_date, timestep, maximum_power, forced, history=None, **durations):
+        """Build the unit like the portfolio does, force ``power_level`` at the given hours, and solve."""
+        parameters = AbstractModuleParameters(
+            temporal=DateParameters(
+                start_date=start_date,
+                end_date=start_date.add(hours=self.HOURS),
+                execution_date=start_date.subtract(days=1),
+                timestep=timestep,
+            )
+        )
+        minimum_power = Timeseries.from_index(
+            start_date=start_date.subtract(days=1),
+            frequency=timestep,
+            end_date=start_date.add(days=2),
+            default_value=50.0,
+        )
+        power = None
+        if history is not None:
+            power = ForecastingMatrix()
+            power.add(history, parameters.temporal.execution_date)
+        eq = _make_equipment(node, portfolio, maximum_power, minimum_power, power=power, **durations)
+        model = OptimisationModel("SCIP", "test_thermal_dispatch_solved")
+        dispatch = ThermalDispatch(eq)
+        dispatch.setup(model, parameters)
+        window = [start_date.add(hours=h) for h in range(self.HOURS)]
+        dispatch.add_variables(window)
+        for time in window:
+            dispatch.add_constraints(model, time, parameters)
+            if time in window[:-2]:
+                dispatch.add_dd_and_gradient_constraints(model, time, time - timestep)
+        for hour, value in forced.items():
+            model.add_constraint(dispatch.power_level[window[hour]] == value, f"force_{hour}")
+        model.set_direction("minimize")
+        model.set_objective(dispatch.power_level[window[0]])
+        return model.solve().status
+
+    @staticmethod
+    def _constant(start_date, timestep, value, **overrides):
+        series = Timeseries.from_index(
+            start_date=start_date.subtract(days=1),
+            frequency=timestep,
+            end_date=start_date.add(days=2),
+            default_value=value,
+        )
+        for hour, hour_value in overrides.items():
+            series.set_value(start_date.add(hours=int(hour.removeprefix("h"))), hour_value)
+        return series
+
+    def test_a_power_derating_during_a_ramp_down_stays_feasible(self, node, portfolio, start_date, timestep):
+        """The maximum power falls from 200 to 100 while the unit steps down by 150 (<= its 180 per step)."""
+        maximum_power = self._constant(start_date, timestep, 200.0, **{f"h{h}": 100.0 for h in range(2, 24)})
+        history = self._constant(start_date, timestep, 200.0)
+
+        status = self._solve(
+            node,
+            portfolio,
+            start_date,
+            timestep,
+            maximum_power,
+            {0: 200.0, 1: 200.0, 2: 50.0},
+            history=history,
+            maximum_gradient=3.0,
+            minimum_stable_power_duration=pendulum.duration(hours=2),
+            **REALISTIC_MIN_TIMES,
+        )
+
+        assert status == SolverStatus.OPTIMAL
+
+    @pytest.mark.parametrize("target", [170.0, 150.0, 140.0])
+    def test_a_running_unit_can_step_down_within_its_gradient_at_the_first_step(
+        self, node, portfolio, start_date, timestep, target
+    ):
+        """Running at 200 with 1 MW/min (60 per step), any first power down to 140 is reachable."""
+        flat = self._constant(start_date, timestep, 200.0)
+
+        status = self._solve(
+            node, portfolio, start_date, timestep, flat, {0: target}, history=flat, maximum_gradient=1.0
+        )
+
+        assert status == SolverStatus.OPTIMAL
+
+    def test_a_running_unit_cannot_step_down_beyond_its_gradient_at_the_first_step(
+        self, node, portfolio, start_date, timestep
+    ):
+        flat = self._constant(start_date, timestep, 200.0)
+
+        status = self._solve(
+            node, portfolio, start_date, timestep, flat, {0: 139.0}, history=flat, maximum_gradient=1.0
+        )
+
+        assert status == SolverStatus.INFEASIBLE

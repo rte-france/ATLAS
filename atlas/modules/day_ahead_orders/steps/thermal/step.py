@@ -9,12 +9,60 @@ from collections import defaultdict
 
 import atlas.config as cfg
 from atlas.enums import CouplingType, Product, ThermalStrategy
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
+from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
-from atlas.modules.day_ahead_orders.steps.thermal.thermal_worker import optimize_single_thermal_unit
+from atlas.modules.day_ahead_orders.steps.thermal.base import ThermalBaseLoadOrders
+from atlas.modules.day_ahead_orders.steps.thermal.intermediate import ThermalIntermediateLoadOrders
+from atlas.modules.day_ahead_orders.steps.thermal.optimisation import (
+    ThermalOptimisationResult,
+    build_dispatch_state_sequence,
+    solve_thermal_unit,
+)
+from atlas.modules.day_ahead_orders.steps.thermal.peak import ThermalPeakLoadOrders
 from atlas.objects.equipment.thermal import Thermal
 from atlas.objects.market.order import Order
+
+SolvedScenarios = dict[str, ThermalOptimisationResult]
+
+
+def optimize_single_thermal_unit(
+    thermal: ThermalDAO,
+    parameters: DayAheadOrdersParameters,
+) -> SolvedScenarios | None:
+    """
+    Solve the bidding model of one thermal unit, once per price scenario.
+
+    Runs either in a worker process or in the main process, depending on the
+    multiprocessing parameters — hence the raw solved states as a return value rather than
+    orders, which would drag the whole equipment graph through pickle.
+
+    Only intermediate-load units are optimised: base and peak strategies derive their
+    orders from the unit's own availability, with no LP involved.
+
+    :param thermal: Thermal unit to optimise
+    :type thermal: ThermalDAO
+    :param parameters: Order formulation parameters
+    :type parameters: DayAheadOrdersParameters
+    :return: Solved states keyed by price scenario, or ``None`` when the unit needs no
+        optimisation
+    :rtype: SolvedScenarios | None
+    :raises ValueError: If the unit has no known bidding strategy
+    """
+    if thermal.strategy in (ThermalStrategy.BASE, ThermalStrategy.PEAK):
+        return None
+    if thermal.strategy != ThermalStrategy.INTERMEDIATE:
+        raise ValueError(f"Unknown thermal strategy {thermal.strategy} for unit {thermal.name}")
+
+    cfg.logger.debug(f"Optimizing thermal unit {thermal.name}")
+    return {
+        price_type: solve_thermal_unit(thermal, parameters, price_type)
+        for price_type in parameters.price_forecasts_types
+    }
 
 
 class Coupling:
@@ -27,24 +75,67 @@ class ThermalBiddingStep(AbstractOrderStep):
     def formulate(self) -> StepResult:
         result = StepResult()
 
-        for thermal, unit_result in self.run_units(
+        for thermal, solved in self.run_units(
             self.dataset.thermal,
             optimize_single_thermal_unit,
-            self.orders_time,
             self.parameters,
             label="thermal",
         ):
-            result.orders.extend(unit_result.orders)
-            result.order_couplings.extend(unit_result.order_couplings)
-            cfg.logger.info(
-                f"Completed order formulation for thermal unit: {thermal.name} ({unit_result.strategy.value})"
-            )
+            orders, couplings = self._build_orders(thermal, solved)
+            result.orders.extend(orders)
+            result.order_couplings.extend(couplings)
 
         cfg.logger.info("Computing maximum sell volumes...")
         self._compute_da_sell_submitted_volume(result)
         cfg.logger.info("End of computation.")
 
         return result
+
+    def _build_orders(
+        self, thermal: ThermalDAO, solved: SolvedScenarios | None
+    ) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
+        """
+        Formulate the orders of one unit according to its strategy.
+
+        A unit whose formulation raises is propagated as a ``RuntimeError`` naming the unit:
+        dropping it would leave the step result silently short of orders for that unit.
+
+        :raises RuntimeError: If the formulation of the unit fails
+        """
+        try:
+            orders, couplings = self._formulate_strategy(thermal, solved)
+        except Exception as e:
+            raise RuntimeError(f"Order formulation failed for thermal unit {thermal.name}") from e
+
+        cfg.logger.info(f"Completed order formulation for thermal unit: {thermal.name} ({thermal.strategy})")
+        return orders, couplings
+
+    def _formulate_strategy(
+        self, thermal: ThermalDAO, solved: SolvedScenarios | None
+    ) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
+        if thermal.strategy == ThermalStrategy.BASE:
+            return ThermalBaseLoadOrders(self.orders_time, self.parameters).formulate(thermal)
+
+        if thermal.strategy == ThermalStrategy.PEAK:
+            return ThermalPeakLoadOrders(self.orders_time, self.parameters).formulate(thermal)
+
+        if thermal.strategy == ThermalStrategy.INTERMEDIATE:
+            if solved is None:
+                raise RuntimeError(f"No solved scenario for the intermediate-load thermal unit {thermal.name}")
+            self._store_state_sequences(thermal, solved)
+            return ThermalIntermediateLoadOrders(self.orders_time, self.parameters).formulate(thermal, solved)
+
+        raise ValueError(f"Unknown thermal strategy {thermal.strategy} for unit {thermal.name}")
+
+    def _store_state_sequences(self, thermal: ThermalDAO, solved: SolvedScenarios) -> None:
+        """Record the solved dispatch of every scenario on the unit, for downstream modules."""
+        if thermal.state_sequence is None:
+            thermal.state_sequence = ScenarioMatrix()
+        for price_type, unit_result in solved.items():
+            thermal.state_sequence.add(
+                build_dispatch_state_sequence(unit_result, self.parameters),
+                f"{self.parameters.temporal.execution_date}-{price_type.upper()}_DAO",
+            )
 
     def _compute_da_sell_submitted_volume(self, result: StepResult) -> None:
         sell_submitted_volumes: dict[str, Timeseries] = {
