@@ -36,7 +36,8 @@ class BSPBalancingOrdersModule(
     to the corresponding formulator in the order_formulators package.
     """
 
-    def get_parameters_class(self) -> type[BSPBalancingOrdersParameters]:
+    @classmethod
+    def get_parameters_class(cls) -> type[BSPBalancingOrdersParameters]:
         return BSPBalancingOrdersParameters
 
     def import_data(
