@@ -27,8 +27,8 @@ class BSPBalancingOrdersOutputDataset(ModuleResult[BSPBalancingOrdersParameters]
         self.orders: list[Order] = []
         self.couplings: list[OrderCoupling] = []
 
-    def build_change_sets(self) -> None:
-        for order in self.orders:
-            self.change_sets.append(AddObject.from_object(order))
-        for order_coupling in self.couplings:
-            self.change_sets.append(AddObject.from_object(order_coupling))
+    def build_change_sets(self) -> list[ChangeSet]:
+        return [
+            *(AddObject.from_object(order) for order in self.orders),
+            *(AddObject.from_object(order_coupling) for order_coupling in self.couplings),
+        ]
