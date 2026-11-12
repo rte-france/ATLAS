@@ -125,7 +125,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
 
         last_executed_job = None
         for job_idx, job in enumerate(self.jobs):
-            if self.parameters._skip_until > job_idx:
+            if self.parameters.skip_until > job_idx:
                 logger.info(f"Skipping :'{job.name}' ({job_idx + 1}/{self.jobs_count})")
                 continue
             logger.info(f"Launching :'{job.name}' ({job_idx + 1}/{self.jobs_count})")

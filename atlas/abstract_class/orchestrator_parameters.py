@@ -52,7 +52,7 @@ class AbstractOrchestratorParameters(Parameters):
     create_job_snapshots: bool = False
     export_final_state: bool = True
     context: ContextParameters = ContextParameters()
-    _skip_until: int = 0
+    skip_until: int = 0
 
     @model_validator(mode="after")
     def validate_use_of_relative_path(self) -> AbstractOrchestratorParameters:
