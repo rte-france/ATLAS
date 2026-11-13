@@ -3,7 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Module that implements BSPBalancingOrdersOutputDataset.
+Module that implements BSPBalancingOrdersResult.
 """
 
 from atlas.abstract_class.dataset import ModuleResult
@@ -13,16 +13,14 @@ from atlas.objects.market.order_coupling import OrderCoupling
 from atlas.orchestrator.change_set import AddObject, ChangeSet
 
 
-class BSPBalancingOrdersOutputDataset(ModuleResult[BSPBalancingOrdersParameters]):
-    """Output dataset for the Balancing Orders Formulation module.
+class BSPBalancingOrdersResult(ModuleResult[BSPBalancingOrdersParameters]):
+    """Result of the BSP balancing orders module.
 
-    Holds the formulated orders and their couplings, ready to be exported
+    Holds the formulated orders and their couplings, ready to be applied
     as change sets to the AtlasDataset.
-
-    To be completed when order formulators are implemented.
     """
 
-    def __init__(self) -> None:
+    def __init__(self):
         self.change_sets: list[ChangeSet] = []
         self.orders: list[Order] = []
         self.couplings: list[OrderCoupling] = []

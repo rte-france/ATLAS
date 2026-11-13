@@ -18,8 +18,8 @@ from atlas.modules.balancing_market_bsp_orders.order_formulators.load import Loa
 from atlas.modules.balancing_market_bsp_orders.order_formulators.storage import StorageOrderFormulator
 from atlas.modules.balancing_market_bsp_orders.order_formulators.thermal import ThermalOrderFormulator
 from atlas.modules.balancing_market_bsp_orders.order_formulators.wind_solar import WindPvOrderFormulator
-from atlas.modules.balancing_market_bsp_orders.output_dataset import BSPBalancingOrdersOutputDataset
 from atlas.modules.balancing_market_bsp_orders.parameters import BSPBalancingOrdersParameters
+from atlas.modules.balancing_market_bsp_orders.result import BSPBalancingOrdersResult
 from atlas.objects.equipment.equipment import Equipment
 
 
@@ -27,7 +27,7 @@ class BSPBalancingOrdersModule(
     AbstractModule[
         BSPBalancingOrdersParameters,
         BSPBalancingOrdersInputDataset,
-        BSPBalancingOrdersOutputDataset,
+        BSPBalancingOrdersResult,
     ]
 ):
     """Module that formulates balancing market orders for all eligible BSP equipments.
@@ -65,13 +65,13 @@ class BSPBalancingOrdersModule(
         self,
         parameters: BSPBalancingOrdersParameters,
         input_dataset: BSPBalancingOrdersInputDataset,
-    ) -> BSPBalancingOrdersOutputDataset:
+    ) -> BSPBalancingOrdersResult:
         """Formulate balancing orders for all eligible equipments.
 
         Iterates over each technology group and delegates to the corresponding
-        order formulator. Results are aggregated into the output dataset.
+        order formulator. The orders and couplings are gathered in the result.
         """
-        output_dataset = BSPBalancingOrdersOutputDataset()
+        result = BSPBalancingOrdersResult()
 
         steps: list[tuple[str, type[AbstractOrderFormulator], Iterable[Equipment]]] = [
             ("load", LoadOrderFormulator, input_dataset.load_equipments.values()),
@@ -88,19 +88,19 @@ class BSPBalancingOrdersModule(
         for name, formulator_class, equipments in steps:
             cfg.logger.info(f"Formulation of the {name} orders...")
             for equipment in equipments:
-                result = formulator_class(equipment, input_dataset.target_times, parameters).formulate()
-                output_dataset.orders.extend(result.orders)
-                output_dataset.couplings.extend(result.order_couplings)
+                step_result = formulator_class(equipment, input_dataset.target_times, parameters).formulate()
+                result.orders.extend(step_result.orders)
+                result.couplings.extend(step_result.order_couplings)
             cfg.logger.info(f"{name.capitalize()} orders formulated.")
 
         cfg.logger.info("Formulation of orders successfully completed.")
-        return output_dataset
+        return result
 
     def validates_results(
         self,
         parameters: BSPBalancingOrdersParameters,
         input_dataset: BSPBalancingOrdersInputDataset,
-        output_dataset: BSPBalancingOrdersOutputDataset,
+        result: BSPBalancingOrdersResult,
     ) -> bool:
         return True
 
@@ -108,6 +108,6 @@ class BSPBalancingOrdersModule(
         self,
         parameters: BSPBalancingOrdersParameters,
         input_dataset: BSPBalancingOrdersInputDataset,
-        output_dataset: BSPBalancingOrdersOutputDataset,
+        result: BSPBalancingOrdersResult,
     ) -> None:
         pass
