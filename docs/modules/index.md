@@ -84,6 +84,18 @@ The usual simulation pattern of a **Day-Ahead market** is the following:
 
     [:octicons-arrow-right-24: Architecture](intraday-orders/developer/architecture.md)
 
+-   :material-scale-unbalanced:{ .lg .middle } **BSP Balancing Orders**
+
+    ---
+
+    Generates RR or mFRR balancing energy orders from the flexibility each unit has left around its schedule, net of procured reserves.
+
+    [:octicons-arrow-right-24: Overview](balancing-market-bsp-orders/index.md)
+
+    [:octicons-arrow-right-24: User Guide](balancing-market-bsp-orders/user-guide/overview.md)
+
+    [:octicons-arrow-right-24: Architecture](balancing-market-bsp-orders/developer/architecture.md)
+
 </div>
 
 ## Shared Documentation
