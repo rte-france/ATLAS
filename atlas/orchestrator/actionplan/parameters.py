@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from pendulum import Duration, duration
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_serializer, field_validator, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
@@ -165,6 +165,10 @@ class TaskModule(Task):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     module: ModuleRegistry
     parameters: AbstractModuleParameters | dict[str, Any] | Path
+
+    @field_serializer("module")
+    def serialize_module(self, module: ModuleRegistry) -> str:
+        return module.name
 
     @field_validator("module", mode="before")
     @classmethod

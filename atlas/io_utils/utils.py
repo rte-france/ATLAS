@@ -15,6 +15,7 @@ from typing import Any, Self
 import pandas as pd
 import pendulum
 import polars as pl
+import yaml
 from loguru import logger
 from pydantic import BaseModel, ConfigDict
 
@@ -410,3 +411,10 @@ class FrozenBaseModel(BaseModel):
     def evolve(self, **changes) -> Self:
         """Return a validated copy with the given fields replaced."""
         return type(self).model_validate({**self.__dict__, **changes})
+
+    def parameters_to_yaml(self, file_path: Path = None) -> None:
+        parameters_dict = self.model_dump(mode="json", exclude_unset=True, round_trip=True)
+        parameters_text = yaml.dump(parameters_dict)
+        if file_path is None:
+            file_path = type(self).__name__.removesuffix("Parameters") + "_export_parameters.yaml"
+        Path(file_path).write_text(parameters_text, encoding="utf-8")

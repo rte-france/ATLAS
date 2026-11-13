@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_serializer, field_validator, model_validator
 
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.abstract_class.parameters import AbstractModuleParameters
@@ -34,6 +34,10 @@ class Step(BaseModel):
     name: str
     module: ModuleRegistry
     parameters: AbstractModuleParameters | Path | dict[str, Any]
+
+    @field_serializer("module")
+    def serialize_module(self, module: ModuleRegistry) -> str:
+        return module.name
 
     @field_validator("module", mode="before")
     @classmethod
