@@ -103,8 +103,7 @@ def compute_daily_balancing_energy(equipment: BalancingStorage, parameters: BSPB
     current_day_start = start.start_of("day")
     current_day_end = current_day_start.end_of("day")
 
-    # TODO : the original prometheus implementation integrates at a fixed 5-minute
-    # If timesteps are not equal, there will be an error
+    # import_data puts every series at the module timestep, so they can be added together
     activated_powers = [
         activated.slice(current_day_start, current_day_end)
         for activated in (

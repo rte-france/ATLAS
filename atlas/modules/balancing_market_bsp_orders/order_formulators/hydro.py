@@ -177,8 +177,6 @@ class HydraulicOrderFormulator(AbstractOrderFormulator[BalancingHydro]):
         """
         Compute the total energy produced by the equipment over the current day.
 
-        # TODO : the original prometheus implementation integrates at a fixed 5-minute
-
         :return: Total energy produced over the day, in MWh
         :rtype: float
         """
@@ -190,7 +188,7 @@ class HydraulicOrderFormulator(AbstractOrderFormulator[BalancingHydro]):
         current_day_end = current_day_start.end_of("day")
 
         daily_power = self.equipment.power.get_forecast(execution_date, current_day_start, current_day_end)
-        # timestep may not be needed : use frequency of matrix if 15 -> divide by 4, if 30 divide by 2
+        # import_data puts every series at the module timestep: the energy is the sum of the powers times it
         return daily_power.sum() * timestep.total_hours()
 
     def _build_upward_fragment_orders(
@@ -295,7 +293,8 @@ class HydraulicOrderFormulator(AbstractOrderFormulator[BalancingHydro]):
         fragment_qmax: dict[int, float] = {}
         qmax_sum = 0.0
         for reversed_index, local_volume in enumerate(reversed(hydro_volumes)):
-            # TODO: will there be issue with '- reversed_index' ?
+            # hydro_volumes has one more element than fragment_volumes (the leading 0.0), so this is
+            # the index of local_volume in hydro_volumes, and in down_fragment_prices
             fragment_index = len(self.equipment.fragment_volumes) - reversed_index
             if local_volume > min_power_output:
                 continue
