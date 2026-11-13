@@ -541,6 +541,26 @@ class TestThermalDispatchMinimumTimeConstraints:
         assert d._T_off == 3
         assert any("minimum_time_off" in c for c in model.constraints)
 
+    def test_stable_only_unit_constrains_the_step_before_the_window(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters
+    ):
+        """The stable phase puts the previous step in the model, so the minimum times anchored on it apply."""
+        d = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            model,
+            parameters,
+            **REALISTIC_MIN_TIMES,
+            minimum_stable_power_duration=pendulum.duration(hours=3),
+        )
+        previous = str(parameters.temporal.start_date - parameters.temporal.timestep)
+
+        assert d.combination == 3
+        assert any(c.startswith("minimum_time_on_th_unit_") and c.endswith(previous) for c in model.constraints)
+        assert any(c.startswith("minimum_time_stable_th_unit_") and c.endswith(previous) for c in model.constraints)
+
 
 class TestThermalDispatchSubTimestepDurations:
     """
@@ -730,3 +750,17 @@ class TestThermalDispatchDailyEnergyConstraint:
 
         energy_constraints = [c for c in model.constraints if "energy_limit_of" in c]
         assert len(energy_constraints) == 2
+
+
+@pytest.mark.parametrize("startup_hours", [0, 2], ids=["without_startup_ramp", "with_startup_ramp"])
+def test_down_to_stop_is_defined_by_the_transition_into_stop(build_thermal_dispatch, model, startup_hours):
+    """Whether or not the unit has a startup ramp, the auxiliary means ``stop(t) AND on_down(t-1)``."""
+    equipment, _, window = build_thermal_dispatch(
+        shutdown_duration=pendulum.duration(hours=2),
+        startup_duration=pendulum.duration(hours=startup_hours),
+    )
+    time = window[1]
+
+    for row in (1, 2, 3):
+        assert f"down_to_stop_evol_{row}_{time}_{equipment.name}" in model.constraints
+        assert f"t_stop_evol_{row}_{time}_{equipment.name}" not in model.constraints
