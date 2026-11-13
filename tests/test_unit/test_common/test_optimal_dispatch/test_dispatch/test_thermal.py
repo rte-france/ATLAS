@@ -541,6 +541,26 @@ class TestThermalDispatchMinimumTimeConstraints:
         assert d._T_off == 3
         assert any("minimum_time_off" in c for c in model.constraints)
 
+    def test_stable_only_unit_constrains_the_step_before_the_window(
+        self, node, portfolio, power_ts, min_power_ts, model, parameters
+    ):
+        """The stable phase puts the previous step in the model, so the minimum times anchored on it apply."""
+        d = self._build(
+            node,
+            portfolio,
+            power_ts,
+            min_power_ts,
+            model,
+            parameters,
+            **REALISTIC_MIN_TIMES,
+            minimum_stable_power_duration=pendulum.duration(hours=3),
+        )
+        previous = str(parameters.temporal.start_date - parameters.temporal.timestep)
+
+        assert d.combination == 3
+        assert any(c.startswith("minimum_time_on_th_unit_") and c.endswith(previous) for c in model.constraints)
+        assert any(c.startswith("minimum_time_stable_th_unit_") and c.endswith(previous) for c in model.constraints)
+
 
 class TestThermalDispatchSubTimestepDurations:
     """
