@@ -213,26 +213,6 @@ class TestOptimisationModel:
         with pytest.raises(ValueError, match="Optimization direction must be set before setting objective"):
             model.set_objective(mock_expr)
 
-    def test_add_objective_first_call_maximize(self, model, mock_solver):
-        """Test first call to add_objective with maximize direction."""
-        mock_expr = MagicMock()
-        model.set_direction("maximize")
-        model.add_objective(mock_expr)
-
-        mock_solver.Maximize.assert_called_with(mock_expr)
-        assert model._objective is mock_expr
-        assert model._objective_direction == "maximize"
-
-    def test_add_objective_first_call_minimize(self, model, mock_solver):
-        """Test first call to add_objective with minimize direction."""
-        mock_expr = MagicMock()
-        model.set_direction("minimize")
-        model.add_objective(mock_expr)
-
-        mock_solver.Minimize.assert_called_with(mock_expr)
-        assert model._objective is mock_expr
-        assert model._objective_direction == "minimize"
-
     def test_add_objective_multiple_calls_same_direction(self, model, mock_solver):
         """Test multiple calls to add_objective."""
         mock_expr1 = MagicMock()
@@ -653,6 +633,76 @@ class TestOptimisationModel:
             expected_no_name = "OptimisationModel(name=None,solver=SCIP)"
             assert repr(model_no_name) == expected_no_name
 
+    def test_objective_pending_flag_lifecycle(self, model, mock_solver):
+        """Flag starts False, set by add_objective, reset by solve and clear."""
+        assert model._objective_pending is False
+
+        model.set_direction("minimize")
+        model.add_objective(MagicMock())
+        assert model._objective_pending is True
+
+        model.solve()
+        assert model._objective_pending is False
+
+        model.add_objective(MagicMock())
+        assert model._objective_pending is True
+
+        model.clear()
+        assert model._objective_pending is False
+
+    def test_objective_pending_minimize_called_once_on_solve(self, model, mock_solver):
+        """N calls to add_objective produce exactly 1 Minimize on solve, not N."""
+        model.set_direction("minimize")
+        expr = MagicMock()
+        expr.__add__ = MagicMock(return_value=expr)
+
+        for _ in range(5):
+            model.add_objective(expr)
+
+        mock_solver.Minimize.assert_not_called()
+        model.solve()
+        assert mock_solver.Minimize.call_count == 1
+
+    def test_objective_pending_export_flushes_no_double_flush(self, model, mock_solver):
+        """export_model flushes once; subsequent solve does not flush again."""
+        model.set_direction("minimize")
+        model.add_objective(MagicMock())
+
+        with tempfile.NamedTemporaryFile(suffix=".lp", delete=False) as f:
+            tmp = f.name
+        try:
+            model.export_model(tmp)
+            assert mock_solver.Minimize.call_count == 1
+
+            model.solve()
+            assert mock_solver.Minimize.call_count == 1
+        finally:
+            os.unlink(tmp)
+
+    def test_objective_pending_set_objective_not_deferred(self, model, mock_solver):
+        """set_objective flushes immediately — flag stays False."""
+        model.set_direction("minimize")
+        model.set_objective(MagicMock())
+
+        assert model._objective_pending is False
+        mock_solver.Minimize.assert_called_once()
+
+    def test_objective_pending_set_objective_after_add_resets_flag(self, model, mock_solver):
+        """set_objective after add_objective resets the flag; solve does not double-flush."""
+        model.set_direction("minimize")
+        expr = MagicMock()
+        expr.__add__ = MagicMock(return_value=expr)
+
+        model.add_objective(expr)
+        assert model._objective_pending is True
+
+        model.set_objective(MagicMock())
+        assert model._objective_pending is False
+        assert mock_solver.Minimize.call_count == 1
+
+        model.solve()
+        assert mock_solver.Minimize.call_count == 1
+
 
 class TestIntegrationScenarios:
     """Integration tests for common optimization scenarios."""
@@ -881,3 +931,42 @@ class TestIntegrationScenarios:
         assert integration_model.solution_info is None
         assert integration_model._objective is None
         assert integration_model._objective_direction is None
+
+
+class TestSetVariableBounds:
+    @pytest.fixture
+    def model(self):
+        model = OptimisationModel("SCIP", "test_model")
+        model.add_continuous_variable("x", -1.0, 1.0)
+        return model
+
+    def test_sets_both_bounds(self, model):
+        model.set_variable_bounds("x", 2.0, 3.0)
+
+        assert (model.get_variable("x").lb(), model.get_variable("x").ub()) == (2.0, 3.0)
+
+    @pytest.mark.parametrize(
+        ("bounds", "expected"), [({"lower_bound": 0.0}, (0.0, 1.0)), ({"upper_bound": 0.0}, (-1.0, 0.0))]
+    )
+    def test_omitted_bound_is_kept(self, model, bounds, expected):
+        model.set_variable_bounds("x", **bounds)
+
+        assert (model.get_variable("x").lb(), model.get_variable("x").ub()) == expected
+
+    def test_unknown_variable_raises(self, model):
+        with pytest.raises(ValueError, match="Variable 'y' not found"):
+            model.set_variable_bounds("y", 0.0, 1.0)
+
+
+class TestGetTemporalVariable:
+    def test_returns_registered_variable(self):
+        model = OptimisationModel("SCIP", "test_model")
+        power = model.add_temporal_variable("power")
+
+        assert model.get_temporal_variable("power") is power
+
+    def test_unknown_name_raises(self):
+        model = OptimisationModel("SCIP", "test_model")
+
+        with pytest.raises(ValueError, match="Temporal variable 'power' not found"):
+            model.get_temporal_variable("power")

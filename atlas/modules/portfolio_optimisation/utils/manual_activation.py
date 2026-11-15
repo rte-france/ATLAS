@@ -10,7 +10,7 @@ from pendulum import DateTime
 
 from atlas.enums import MarketType, StorageType, ThermalStrategy
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
@@ -19,7 +19,7 @@ from atlas.modules.portfolio_optimisation.input_objects.load import LoadPO
 from atlas.modules.portfolio_optimisation.input_objects.other_non_dispatchable import OtherNonDispatchablePO
 from atlas.modules.portfolio_optimisation.input_objects.solar import SolarPO
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
-from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
+from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.input_objects.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.objects.equipment.equipment import Equipment
@@ -53,7 +53,7 @@ def is_excluded_technology(excluded_technologies: list[str], equipment: Equipmen
     """
     Check if equipment technology is excluded.
 
-    Supports both friendly names (e.g., 'thermal', 'storage', 'wind') and technical class names (e.g., 'ThermalPO').
+    Supported values: 'thermal', 'storage', 'wind', 'solar', 'hydro', 'load', 'other_non_dispatchable', 'all'.
 
     :param excluded_technologies: List of technologies to exclude
     :type excluded_technologies: list[str]
@@ -154,14 +154,14 @@ def _calculate_new_power(equipment: EquipmentPO, parameters: PortfolioOptimisati
     :rtype: Timeseries
     """
     if equipment.da_cleared_quantity is not None:
-        da_power = equipment.da_cleared_quantity.filter(parameters.target_times, inplace=False)
+        da_power = equipment.da_cleared_quantity.filter(parameters.portfolio_time_window, inplace=False)
         if isinstance(da_power, LazyTimeseries):
             da_power = da_power.collect()
     else:
         da_power = Timeseries.from_index(
             parameters.temporal.start_date,
             parameters.temporal.timestep,
-            parameters.temporal.end_date,
+            parameters.temporal.end_date - parameters.temporal.timestep,
             default_value=0,
         )
 
@@ -170,14 +170,14 @@ def _calculate_new_power(equipment: EquipmentPO, parameters: PortfolioOptimisati
 
     elif parameters.market == MarketType.intraday:
         if equipment.total_id_cleared_quantity is not None:
-            id_power = equipment.total_id_cleared_quantity.filter(parameters.target_times, inplace=False)
+            id_power = equipment.total_id_cleared_quantity.filter(parameters.portfolio_time_window, inplace=False)
             if isinstance(id_power, LazyTimeseries):
                 id_power = id_power.collect()
         else:
             id_power = Timeseries.from_index(
                 parameters.temporal.start_date,
                 parameters.temporal.timestep,
-                parameters.temporal.end_date,
+                parameters.temporal.end_date - parameters.temporal.timestep,
                 default_value=0,
             )
         result = cast(Timeseries, da_power) + cast(Timeseries, id_power)
@@ -199,7 +199,7 @@ def _calculate_activated_power(equipment: Equipment, parameters: PortfolioOptimi
     """
     if parameters.market == MarketType.dayahead:
         if equipment.da_cleared_quantity is not None:
-            da_power = equipment.da_cleared_quantity.filter(parameters.target_times, inplace=False)
+            da_power = equipment.da_cleared_quantity.filter(parameters.portfolio_time_window, inplace=False)
         else:
             da_power = Timeseries.from_index(
                 parameters.temporal.start_date,
@@ -213,7 +213,7 @@ def _calculate_activated_power(equipment: Equipment, parameters: PortfolioOptimi
         if equipment.id_cleared_quantity is not None:
             id_power = equipment.id_cleared_quantity.get_forecast(
                 parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
-            ).filter(parameters.target_times, inplace=False)
+            ).filter(parameters.portfolio_time_window, inplace=False)
             return id_power
         else:
             return Timeseries.from_index(
@@ -377,7 +377,7 @@ def _update_stored_energy(
     initial_stored_energy = _get_initial_stored_energy(equipment, parameters)
     out_of_bounds_corrections = {}
 
-    for index, time in enumerate(parameters.target_times):
+    for index, time in enumerate(parameters.portfolio_time_window):
         previous_energy = (
             initial_stored_energy if index == 0 else new_stored_energy.get_value(time - parameters.temporal.timestep)
         )
@@ -463,7 +463,7 @@ def _calculate_new_energy_value(
     :rtype: float
     """
     power_value = new_power.get_value(time)
-    time_factor_hours = parameters.temporal.timestep.in_hours()
+    time_factor_hours = parameters.temporal.timestep.total_hours()
 
     if isinstance(equipment, StoragePO):
         if equipment.storage_type == StorageType.ELECTRIC_VEHICLE:
@@ -503,10 +503,10 @@ def _apply_energy_bounds(
     timestep_hours = parameters.temporal.timestep.total_hours()
 
     if energy_value > max_energy:
-        correction = (max_energy - energy_value) * timestep_hours
+        correction = (max_energy - energy_value) / timestep_hours
         return max_energy, correction
     elif energy_value < min_energy:
-        correction = (min_energy - energy_value) * timestep_hours
+        correction = (min_energy - energy_value) / timestep_hours
         return min_energy, correction
     else:
         return energy_value, 0.0
@@ -556,23 +556,30 @@ def _finalize_power_update(
     :return: None
     :rtype: None
     """
-    # Add extra timestep for interpolation
-    next_time = parameters.temporal.end_date + parameters.temporal.timestep
+    # Extend new_power to end_date for interpolation
+    end_date = parameters.temporal.end_date
     if equipment.power:
         next_power_value = equipment.power.get_forecast(
-            parameters.temporal.execution_date, next_time, next_time
-        ).get_value(next_time)
-        new_power.set_value(next_time, next_power_value)
+            parameters.temporal.execution_date, end_date, end_date, default_value=0.0
+        ).get_value(end_date)
+    else:
+        next_power_value = 0.0
+    new_power = Timeseries.from_values(
+        start_date=parameters.temporal.start_date,
+        frequency=parameters.temporal.timestep,
+        values=list(new_power.values) + [next_power_value],
+    )
 
     # Update equipment power
     if parameters.use_forecast:
-        if equipment.id_po_for_orders:
-            cast(ForecastingMatrix | LazyForecastingMatrix, equipment.id_po_for_orders).add(
-                new_power, parameters.temporal.execution_date
-            )
+        if not equipment.id_po_for_orders:
+            equipment.id_po_for_orders = ForecastingMatrix()
+        equipment.id_po_for_orders.add(new_power, parameters.temporal.execution_date)
     else:
         if equipment.power:
-            equipment.power.replace(
-                parameters.temporal.execution_date,
-                new_power,
-            )
+            if parameters.temporal.execution_date in equipment.power:
+                equipment.power.replace(parameters.temporal.execution_date, new_power)
+            else:
+                equipment.power.add(new_power, parameters.temporal.execution_date)
+        else:
+            equipment.power = ForecastingMatrix().add(new_power, parameters.temporal.execution_date)

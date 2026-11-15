@@ -91,7 +91,7 @@ def pendulum_to_datetime(fmt: str) -> str:
 
 
 @contextmanager
-def timer() -> Generator[Callable[[], str], None, None]:
+def timer() -> Generator[Callable[[], str]]:
     """Context manager to measure elapsed time with milliseconds precision."""
     start = pendulum.now()
     yield lambda: f"{(pendulum.now() - start).total_seconds():.3f}s"
@@ -145,6 +145,39 @@ def build_datetime(dt: str | datetime | pendulum.DateTime, date_format="YYYY-MM-
     raise TypeError(f"Unsupported type for dt: {type(dt)}. Expected str, datetime, or pendulum.DateTime.")
 
 
+def epoch_key(
+    dt: str | datetime | pendulum.DateTime,
+    date_format: str = "YYYY-MM-DD HH:mm:ss",
+    timezone: str = "UTC",
+) -> int:
+    """
+    Return the instant represented by ``dt`` as microseconds since the Unix epoch (UTC).
+
+    Aware datetimes keep their instant, so two datetimes representing the same instant in
+    different timezones give the same key. Strings and naive datetimes are converted
+    with :func:`build_datetime` then moved to ``timezone``, which is the rule used by
+    ``Timeseries.get_value``.
+
+    :param dt: Datetime to convert
+    :type dt: str or datetime or pendulum.DateTime
+    :param date_format: Date format string used to parse strings, defaults to `YYYY-MM-DD HH:mm:ss`
+    :type date_format: str, optional
+    :param timezone: Timezone applied to strings and naive datetimes, defaults to "UTC"
+    :type timezone: str, optional
+    :return: Microseconds since 1970-01-01T00:00:00 UTC
+    :rtype: int
+
+    Example:
+        >>> epoch_key(pendulum.datetime(2025, 1, 1, 1, tz="Europe/Paris"))
+        1735689600000000
+        >>> epoch_key("2025-01-01 00:00:00")
+        1735689600000000
+    """
+    if not (isinstance(dt, pendulum.DateTime) and dt.tzinfo is not None):
+        dt = build_datetime(dt, date_format).in_tz(timezone)
+    return dt.int_timestamp * 1_000_000 + dt.microsecond
+
+
 def generate_datetimes(
     start: str | datetime,
     end: str | datetime,
@@ -164,7 +197,7 @@ def generate_datetimes(
     :type freq: str
     :param timezone: Timezone string, defaults to "UTC"
     :type timezone: str, optional
-    :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+    :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
     :type date_format: str, optional
     :param closed: Define which sides of the range are closed (inclusive).
     :type closed: {"both", "left", "right", "none"}
@@ -231,28 +264,6 @@ def get_lowest_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
     min_delta_seconds = cast(float, times.diff().dt.total_seconds().drop_nulls().min())
 
     return pendulum.duration(seconds=min_delta_seconds)
-
-
-def get_most_frequent_timestep(timeseries: pl.DataFrame) -> pendulum.Duration:
-    """
-    Compute the most frequent time delta between consecutive timestamps in the timeseries.
-
-    :param timeseries: Polars DataFrame with a 'time' column (datetime or pendulum.DateTime)
-    :return: The most frequent delta as pendulum.Duration
-    :rtype: pendulum.Duration
-
-    If there are multiple modes with the same count, the smallest delta is returned.
-    If the timeseries has fewer than 2 timestamps, returns 0 duration.
-    """
-    times = timeseries["time"]
-    if len(times) < 2:
-        return pendulum.duration()
-
-    mode_result = times.diff().dt.total_seconds().drop_nulls().mode()
-
-    most_common_delta = mode_result.min() if len(mode_result) > 1 else mode_result[0]
-
-    return pendulum.duration(seconds=cast(float, most_common_delta))
 
 
 def check_timezone(timezone: str) -> None:

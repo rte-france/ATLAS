@@ -4,6 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from functools import cached_property
+
 import pendulum
 from pendulum import Duration
 
@@ -22,17 +24,17 @@ class MarketBorderMC(MarketBorder):
     timestep: Duration
     times: list[pendulum.DateTime]
 
-    @property
+    @cached_property
     def max_flow(self) -> AbstractTimeseries:
         if self.maximum_flow:
-            max_flow = self.maximum_flow.set_frequency(self.timestep, False).filter(self.times)
+            max_flow = self.maximum_flow.filter(self.times)
         else:
             max_flow = Timeseries.from_index(self.times[0], self.timestep, self.times[-1], DEFAULT_MAX_FLOW)
         if self.ref_flow:
             max_flow -= self.ref_flow
         return max_flow
 
-    @property
+    @cached_property
     def min_flow(self) -> AbstractTimeseries:
         if self.minimum_flow:
             min_flow = self.minimum_flow.set_frequency(self.timestep, False).filter(self.times)
@@ -42,17 +44,17 @@ class MarketBorderMC(MarketBorder):
             min_flow -= self.ref_flow
         return min_flow
 
-    @property
+    @cached_property
     def ref_flow(self) -> AbstractTimeseries | None:
         if self.reference_flow:
             return self.reference_flow.set_frequency(self.timestep, False).filter(self.times)
         return None
 
-    @property
+    @cached_property
     def has_loss_factor(self) -> bool:
         return True if self.loss_factor > 0 else False
 
-    @property
+    @cached_property
     def resolution_time(self) -> int:
         timestep = self.timestep.total_minutes()
         time_resolution = self.time_resolution if self.time_resolution else timestep

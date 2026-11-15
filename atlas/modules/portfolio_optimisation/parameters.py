@@ -8,15 +8,15 @@ from __future__ import annotations
 
 from functools import cached_property
 
-from pendulum import DateTime, duration
-from pydantic import Field, field_validator
-from pydantic_extra_types.pendulum_dt import Duration
+from pendulum import DateTime, Duration, duration
+from pydantic import Field
 
 from atlas.abstract_class.parameters import AbstractModuleParameters
-from atlas.enums import MarketType, StorageType, ThermalStrategy
+from atlas.enums import MarketType, StorageType
 from atlas.io_utils.parameters import MultiProcessingParameters, SolverParameters
+from atlas.objects.equipment.equipment import Equipment
 from atlas.timing import generate_datetimes
-from atlas.validators import convert_to_duration
+from atlas.validators import DurationField, ExclusionList, ThermalStrategyList
 
 
 class PortfolioOptimisationParameters(AbstractModuleParameters):
@@ -44,10 +44,6 @@ class PortfolioOptimisationParameters(AbstractModuleParameters):
     electric_vehicle_smoothing_factor: float = Field(
         0.2, description="Smoothing factor for EV power offer/demand curve (0-1)."
     )
-    imbalance_penalty_offset: float = Field(
-        10,
-        description="Offset (euros/MWh) applied when forecasting the imbalance settlement price.",
-    )
     isp_forecast_lower_bound: float = Field(
         10,
         description="Lower bound (euro/MWh) of the absolute value of the Imbalance Settlement Price forecast.",
@@ -71,114 +67,76 @@ class PortfolioOptimisationParameters(AbstractModuleParameters):
         0.15,
         description="Quantity (%) of imbalance qualified as small, relative to max portfolio energy.",
     )
-    battery_automated_reserve_duration: Duration = Field(
+    battery_automated_reserve_duration: DurationField = Field(
         default_factory=lambda: duration(minutes=60),
         description="Automated reserve duration for battery equipment.",  # type: ignore[assignment]
     )
-    battery_number_of_fragments: int = Field(
+    battery_nb_fragments: int = Field(
         3, description="Number of power fragments for battery; last fragments are more expensive."
     )
-    battery_reserve_duration: Duration = Field(
+    battery_reserve_duration: DurationField = Field(
         default_factory=lambda: duration(minutes=60),
         description="Manual reserve duration for battery equipment.",  # type: ignore[assignment]
     )
-    electric_vehicle_automated_reserve_duration: Duration = Field(
+    electric_vehicle_automated_reserve_duration: DurationField = Field(
         default_factory=lambda: duration(minutes=1),
         description="Automated reserve duration for electric vehicle equipment.",  # type: ignore[assignment]
     )
-    electric_vehicle_number_of_fragments: int = Field(3, description="Number of power fragments for electric vehicle.")
-    electric_vehicle_reserve_duration: Duration = Field(
+    electric_vehicle_nb_fragments: int = Field(3, description="Number of power fragments for electric vehicle.")
+    electric_vehicle_reserve_duration: DurationField = Field(
         default_factory=lambda: duration(minutes=1),
         description="Manual reserve duration for electric vehicle equipment.",  # type: ignore[assignment]
     )
-    hydraulic_minimal_fragment_size: int = Field(
+    hydraulic_minimal_fragment_size: float = Field(
         100, description="Minimal amount of power for an offer to be formulated for hydraulic."
     )
-    pumped_hydraulic_automated_reserve_duration: Duration = Field(
+    pumped_hydraulic_automated_reserve_duration: DurationField = Field(
         default_factory=lambda: duration(minutes=60),
         description="Automated reserve duration for pumped hydraulic equipment.",  # type: ignore[assignment]
     )
-    pumped_hydraulic_number_of_fragments: int = Field(3, description="Number of power fragments for pumped hydraulic.")
-    pumped_hydraulic_reserve_duration: Duration = Field(
+    pumped_hydraulic_nb_fragments: int = Field(3, description="Number of power fragments for pumped hydraulic.")
+    pumped_hydraulic_reserve_duration: DurationField = Field(
         default_factory=lambda: duration(minutes=60),
         description="Manual reserve duration for pumped hydraulic equipment.",  # type: ignore[assignment]
     )
-    excluded_market_areas_: list[str] | None = Field(
-        None,
+    excluded_market_areas: ExclusionList = Field(
+        default_factory=list,
         description='list of market areas excluded from classic optimization. None and ["all"] are possible values.',
-        alias="excluded_market_areas",
     )
-    excluded_technologies_: list[str] | None = Field(
-        None,
+    excluded_technologies: ExclusionList = Field(
+        default_factory=list,
         description='list of equipment types excluded from classic optimization. None and ["all"] are possible values.',
-        alias="excluded_technologies",
     )
-    excluded_thermal_strategies_: list[str] | None = Field(
-        None,
+    excluded_thermal_strategies: ThermalStrategyList = Field(
+        default_factory=list,
         description='list of thermal strategies for which manual activation is always used. "Peak", "Intermediate", "Base", ["all"], None.',
-        alias="excluded_thermal_strategy",
     )
     market: MarketType = Field(
         MarketType.dayahead,
         description='Market during which the Portfolio Optimization is run. Possible values: "DayAhead", "Intraday", "RRActivation", "MFRRActivation".',
     )
 
-    @field_validator(
-        "battery_automated_reserve_duration",
-        "battery_reserve_duration",
-        "electric_vehicle_automated_reserve_duration",
-        "electric_vehicle_reserve_duration",
-        "pumped_hydraulic_automated_reserve_duration",
-        "pumped_hydraulic_reserve_duration",
-        mode="before",
-    )
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
-
-    @property
-    def excluded_market_areas(self) -> list[str]:
-        """list of market areas excluded from optimization."""
-        val = self.excluded_market_areas_
-        if val is None:
-            return []
-        if len(val) == 1 and val[0].lower() == "none":
-            return []
-        if len(val) == 1 and val[0].lower() == "all":
-            return ["all"]
-        return val
-
-    @property
-    def excluded_technologies(self) -> list[str]:
-        """list of technologies excluded from optimization."""
-        val = self.excluded_technologies_
-        if val is None:
-            return []
-        if len(val) == 1 and val[0].lower() == "none":
-            return []
-        if len(val) == 1 and val[0].lower() == "all":
-            return ["all"]
-        return val
-
-    @property
-    def excluded_thermal_strategies(self) -> list[str]:
-        """list of thermal strategies excluded from optimization."""
-        val = self.excluded_thermal_strategies_
-        if val is None:
-            return []
-        if len(val) == 1 and val[0].lower() == "none":
-            return []
-        if len(val) == 1 and val[0].lower() == "all":
-            return [ThermalStrategy.BASE, ThermalStrategy.INTERMEDIATE, ThermalStrategy.PEAK]
-        return [ThermalStrategy(strat) for strat in val]
-
     @cached_property
-    def target_times(self) -> list[DateTime]:
-        """Datetime index for the main optimization period."""
+    def portfolio_time_window(self) -> list[DateTime]:
+        """Datetime index for the main optimization period (portfolio balance window)."""
         return generate_datetimes(
             self.temporal.start_date, self.temporal.end_date, self.temporal.timestep, closed="left"
         )
+
+    @cached_property
+    def _equipment_time_window_cache(self) -> dict[Duration, list[DateTime]]:
+        return {}
+
+    def equipment_time_window(self, equipment: Equipment) -> list[DateTime]:
+        """Per-equipment dispatch window: portfolio_time_window extended by the equipment's `additional_hours` lookahead."""
+        cache = self._equipment_time_window_cache
+        # the window depends on the equipment only through additional_hours, so units sharing
+        # the same lookahead share a cache entry
+        key = equipment.additional_hours or duration()
+        if key not in cache:
+            end = self.temporal.end_date - self.temporal.timestep + key
+            cache[key] = generate_datetimes(self.temporal.start_date, end, self.temporal.timestep)
+        return cache[key]
 
     @property
     def init_battery_time(self) -> DateTime:
@@ -189,15 +147,15 @@ class PortfolioOptimisationParameters(AbstractModuleParameters):
     def storage_mapping(self):
         storage_mapping: dict[StorageType, dict[str, int | float]] = {
             StorageType.BATTERY: {
-                "nb_fragment": self.battery_number_of_fragments,
+                "nb_fragment": self.battery_nb_fragments,
                 "smoothing_factor": self.battery_smoothing_factor,
             },
             StorageType.PUMPED_HYDRAULIC_STORAGE: {
-                "nb_fragment": self.pumped_hydraulic_number_of_fragments,
+                "nb_fragment": self.pumped_hydraulic_nb_fragments,
                 "smoothing_factor": self.pumped_hydraulic_smoothing_factor,
             },
             StorageType.ELECTRIC_VEHICLE: {
-                "nb_fragment": self.electric_vehicle_number_of_fragments,
+                "nb_fragment": self.electric_vehicle_nb_fragments,
                 "smoothing_factor": self.electric_vehicle_smoothing_factor,
             },
         }

@@ -42,12 +42,12 @@ class DayAheadOrdersParameters(AbstractModuleParameters):
         description="Coefficient multiplied to the delta of DisplacementEnergy to compensate for over the entire EV "
         "optimization time frame, used to generate enough Buy offers.",
     )
-    ev_smoothing_factor: float = Field(
+    electric_vehicle_smoothing_factor: float = Field(
         0.1,
         description="Coefficient used to determine the extra cost of each power fragment in the optimization problem "
         "related to the Storage instances with the type ElectricVehicle.",
     )
-    epsilon: float = Field(
+    allowed_round_off_error: float = Field(
         0.001, description="A slack parameter to avoid infeasibilities due to numerical approximations."
     )
     hydraulic_minimal_fragment_size: float = Field(
@@ -66,7 +66,7 @@ class DayAheadOrdersParameters(AbstractModuleParameters):
         description="A penalty expressed in euros/MW per hour corresponding to the price of not providing the manual "
         "reserves procurement.",
     )
-    phs_smoothing_factor: float = Field(
+    pumped_hydraulic_smoothing_factor: float = Field(
         0.2,
         description="Coefficient used to determine the extra cost of each power fragment in the optimization problem "
         "related to the Storage instances with the type PumpedHydraulicStorage.",
@@ -76,12 +76,12 @@ class DayAheadOrdersParameters(AbstractModuleParameters):
         description="Number of orders that can be formulated at one timestep for the optimization problem related to "
         "the Storage instances with the type Battery.",
     )
-    ev_nb_fragments: int = Field(
+    electric_vehicle_nb_fragments: int = Field(
         3,
         description="Number of orders that can be formulated at one timestep for the optimization problem related to "
         "the Storage instances with the type ElectricVehicle.",
     )
-    phs_nb_fragments: int = Field(
+    pumped_hydraulic_nb_fragments: int = Field(
         3,
         description="Number of orders that can be formulated at one timestep for the optimization problem related to "
         "the Storage instances with the type PumpedHydraulicStorage.",

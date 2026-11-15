@@ -13,8 +13,8 @@ from atlas.modules.intraday_price_forecast.input_objects.market_area import Mark
 from atlas.modules.intraday_price_forecast.input_objects.solar import SolarIDPF
 from atlas.modules.intraday_price_forecast.input_objects.wind import WindIDPF
 from atlas.modules.intraday_price_forecast.module import IntradayPriceForecastModule
-from atlas.modules.intraday_price_forecast.output_dataset import IntradayPriceForecastOutputDataset
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
+from atlas.modules.intraday_price_forecast.result import IntradayPriceForecastResult
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
 from atlas.timing import generate_datetimes
@@ -228,10 +228,6 @@ def test_compute_consumption_delta(module, test_parameters, test_input_dataset):
     market_area = test_input_dataset.market_area[0]
     loads, solars, winds = module._filter_assets_by_market_area(market_area, test_input_dataset)
 
-    time_window = generate_datetimes(
-        test_parameters.temporal.start_date, test_parameters.penultimate_date, test_parameters.temporal.timestep
-    )
-
     delta = module._compute_consumption_delta(loads, solars, winds, test_parameters)
 
     assert isinstance(delta, Timeseries)
@@ -252,29 +248,12 @@ def test_get_baseline_price_da_price(module, test_parameters, test_input_dataset
     assert baseline_price.get_value(test_parameters.temporal.start_date) == 75.0
 
 
-def test_apply_non_negativity_constraint(module, test_parameters, test_input_dataset):
-    """Test applying non-negativity constraint."""
-
-    # Create timeseries with negative values
-    ts = Timeseries.from_index(
-        test_parameters.temporal.start_date, test_parameters.temporal.timestep, test_parameters.temporal.end_date
-    )
-    ts.set_value(test_parameters.temporal.start_date, -10.0)
-    ts.set_value(test_parameters.temporal.start_date + test_parameters.temporal.timestep, 50.0)
-
-    result = module._apply_non_negativity_constraint(ts, test_parameters)
-
-    assert result.get_value(test_parameters.temporal.start_date) == 0.0
-    assert result.get_value(test_parameters.temporal.start_date + test_parameters.temporal.timestep) == 50.0
-
-
 def test_apply_price_caps_upper(module, test_parameters, test_input_dataset):
     """Test applying upper price cap."""
     time_window = generate_datetimes(
         test_parameters.temporal.start_date, test_parameters.penultimate_date, test_parameters.temporal.timestep
     )
 
-    # Create timeseries with values exceeding upper cap
     ts = Timeseries.from_index(
         test_parameters.temporal.start_date, test_parameters.temporal.timestep, test_parameters.temporal.end_date
     )
@@ -312,20 +291,20 @@ def test_apply_price_caps_lower(module, test_parameters, test_input_dataset):
 
 def test_execute(module, test_parameters, test_input_dataset):
     """Test full execution of the module."""
-    output_dataset = module.execute(test_parameters, test_input_dataset)
+    result = module.execute(test_parameters, test_input_dataset)
 
-    assert isinstance(output_dataset, IntradayPriceForecastOutputDataset)
-    assert len(output_dataset.market_area) == 1
+    assert isinstance(result, IntradayPriceForecastResult)
+    assert len(result.market_area) == 1
 
-    market_area = output_dataset.market_area[0]
+    market_area = result.market_area[0]
     assert market_area.id_price_forecast is not None
     assert test_parameters.temporal.execution_date in market_area.id_price_forecast
 
 
 def test_save_price_forecast(module, test_parameters, test_input_dataset):
     """Test saving price forecast to market area."""
-    output_dataset = IntradayPriceForecastOutputDataset(test_parameters, test_input_dataset)
-    market_area = output_dataset.market_area[0]
+    result = IntradayPriceForecastResult(test_parameters, test_input_dataset)
+    market_area = result.market_area[0]
 
     price_forecast = Timeseries.from_index(
         test_parameters.temporal.start_date,

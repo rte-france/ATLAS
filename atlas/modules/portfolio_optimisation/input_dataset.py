@@ -7,8 +7,6 @@ This file is part of the ATLAS project.
 
 from itertools import groupby
 
-from pendulum import DateTime
-
 from atlas.abstract_class.dataset import AbstractDataset
 from atlas.enums import LoadType
 from atlas.io_utils.atlas_dataset import AtlasDataset
@@ -20,7 +18,7 @@ from atlas.modules.portfolio_optimisation.input_objects.portfolio import Portfol
 from atlas.modules.portfolio_optimisation.input_objects.portfolio_equipments import PortfolioEquipments
 from atlas.modules.portfolio_optimisation.input_objects.solar import SolarPO
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
-from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
+from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.input_objects.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.manual_activation import (
@@ -56,28 +54,8 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
 
         self.portfolios: list[PortfolioPO] = []
         self.portfolios_manual_activation: list[PortfolioPO] = []
-        self.time_windows: dict[str, list[DateTime]] = {}
 
         self._create_portfolios()
-        self._set_optimisation_time_window()
-
-    def _set_optimisation_time_window(self) -> None:
-        """Get the longest optimisation time periods across all portfolios."""
-        self.time_windows = {}
-        for p in self.portfolios + self.portfolios_manual_activation:
-            tw = max(
-                (
-                    e.get_optimisation_time_window(
-                        start_date=self.parameters.temporal.start_date,
-                        end_date=self.parameters.temporal.end_date - self.parameters.temporal.timestep,
-                        timestep=self.parameters.temporal.timestep,
-                    )
-                    for e in p.equipments.get_all_equipment()
-                ),
-                key=lambda tw: tw[-1],
-            )
-            if p.name not in self.time_windows or tw[-1] > self.time_windows[p.name][-1]:
-                self.time_windows[p.name] = tw
 
     def _create_portfolios(self):
         """Collect and classify all equipment into PortfolioPO objects with manual activation handling"""

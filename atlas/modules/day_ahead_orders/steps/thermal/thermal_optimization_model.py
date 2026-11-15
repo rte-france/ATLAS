@@ -60,15 +60,12 @@ class ThermalOptimizationModel(OptimisationModel):
     UP_GRAD_AT_KEY = "UP_grad_at_"
     DOWN_GRAD_AT_KEY = "DOWN_grad_at_"
 
-    extended_start_date: DateTime
     q_lower: Timeseries
     q_upper: Timeseries
     reserves_up_procured: Timeseries
     reserves_down_procured: Timeseries
     feasible_automated_reserves_up_procured: Timeseries
     feasible_automated_reserves_down_procured: Timeseries
-    last_power: Timeseries
-    last_date: DateTime | None
     start_date_minus_one: DateTime
     time_frame_union_minus_one: list[DateTime]
     start_time_steps: range
@@ -108,7 +105,6 @@ class ThermalOptimizationModel(OptimisationModel):
         self.prices: Timeseries = prices
         self.price_type: str = price_type
         self.time_frame: list[DateTime] = []
-        self.previous_time_frame: list[DateTime] = []
         self.q = ModelVar(
             lambda t: self.get_variable(self.power_equip_at(t)),
             lambda t: self.add_continuous_variable(self.power_equip_at(t), 0, self.q_upper.get_value(t)),
@@ -328,27 +324,6 @@ class ThermalOptimizationModel(OptimisationModel):
         end_date = temporal.end_date + self.thermal_unit.additional_hours - temporal.timestep
         self.time_frame = generate_datetimes(temporal.start_date, end_date, temporal.timestep)
 
-        T_traceback = int(max(self.T_on + self.T_start, self.T_off + self.T_stop)) + 1
-        for k in range(1, T_traceback + 1):
-            self.previous_time_frame.append(temporal.start_date - k * temporal.timestep)
-        self.extended_start_date = self.previous_time_frame[-1]
-
-        if self.thermal_unit.power:
-            self.last_power = self.thermal_unit.power.get_forecast(
-                temporal.execution_date,
-                self.extended_start_date,
-                temporal.start_date - temporal.timestep,
-                default_value=0.0,
-            )
-        else:
-            self.last_power = Timeseries.from_index(
-                self.extended_start_date,
-                temporal.timestep,
-                temporal.start_date - temporal.timestep,
-                0,
-            )
-        self.last_date = self.last_power.last_date()
-
     def _setup_bounds(self) -> None:
         self.q_lower = Timeseries.from_timeseries(self.thermal_unit.minimum_power)
         self.q_upper = Timeseries.from_timeseries(self.thermal_unit.maximum_power)
@@ -524,16 +499,24 @@ class ThermalOptimizationModel(OptimisationModel):
             ),
         )
 
-    def _solution_ts(self, getter: Callable[[DateTime], float]) -> Timeseries:
+    def _solution_ts(self, variable_name_at: Callable[[DateTime], str]) -> Timeseries:
+        """Read one decision variable's solved values over the time frame.
+
+        :param variable_name_at: Builds the variable name for a given timestep
+        :type variable_name_at: Callable[[DateTime], str]
+        :return: The solved values of that variable
+        :rtype: Timeseries
+        :raises UnsuccessfulSolveError: If the solver did not produce a solution
+        """
         return Timeseries.from_values(
             start_date=self.parameters.temporal.start_date,
             frequency=self.parameters.temporal.timestep,
-            values=[getter(t) for t in self.time_frame],
+            values=[self.get_variable_value(variable_name_at(t)) for t in self.time_frame],
         )
 
     def _export_lp_if_requested(self) -> None:
         if self.parameters.solver.export_lp:
-            output_path = self.parameters.get_output_dir() / "lp_export"
+            output_path = self.parameters.lp_dir
             output_path.mkdir(parents=True, exist_ok=True)
             lp_file_path = output_path / f"{self.thermal_unit.name}_price_{self.price_type}.lp"
             self.export_model(str(lp_file_path))
@@ -541,7 +524,7 @@ class ThermalOptimizationModel(OptimisationModel):
     def _extract_results(self) -> dict[str, Timeseries]:
         results: dict[str, Timeseries] = {}
 
-        q_star = self._solution_ts(lambda t: self.q.get_model_var(t).solution_value())
+        q_star = self._solution_ts(self.power_equip_at)
         if abs(q_star.min() - 0.0) <= 1e-6 and abs(q_star.max() - 0.0) <= 1e-6:
             cfg.logger.debug(
                 f"*** Info *** The optimal solution for the unit {self.thermal_unit.name} is such that "
@@ -549,62 +532,38 @@ class ThermalOptimizationModel(OptimisationModel):
             )
 
         results["q"] = q_star
-        results["contracted_difference_up"] = self._solution_ts(
-            lambda t: self.get_variable(self.contracted_difference_up_at(t)).solution_value()
-        )
-        results["contracted_difference_down"] = self._solution_ts(
-            lambda t: self.get_variable(self.contracted_difference_down_at(t)).solution_value()
-        )
-        results["automated_contracted_difference_up"] = self._solution_ts(
-            lambda t: self.get_variable(self.automated_contracted_difference_up_at(t)).solution_value()
-        )
+        results["contracted_difference_up"] = self._solution_ts(self.contracted_difference_up_at)
+        results["contracted_difference_down"] = self._solution_ts(self.contracted_difference_down_at)
+        results["automated_contracted_difference_up"] = self._solution_ts(self.automated_contracted_difference_up_at)
         results["automated_contracted_difference_down"] = self._solution_ts(
-            lambda t: self.get_variable(self.automated_contracted_difference_down_at(t)).solution_value()
+            self.automated_contracted_difference_down_at
         )
-        results["ON_UP"] = self._solution_ts(lambda t: self.ON_UP.get_model_var(t).solution_value())
-        results["ON_DOWN"] = self._solution_ts(lambda t: self.ON_DOWN.get_model_var(t).solution_value())
-        results["OFF"] = self._solution_ts(lambda t: self.OFF.get_model_var(t).solution_value())
+        results["ON_UP"] = self._solution_ts(self.on_up_equip_at)
+        results["ON_DOWN"] = self._solution_ts(self.on_down_equip_at)
+        results["OFF"] = self._solution_ts(self.off_equip_at)
 
         if self.T_start >= 1:
-            results["START"] = self._solution_ts(lambda t: self.START.get_model_var(t).solution_value())
+            results["START"] = self._solution_ts(self.start_equip_at)
         if self.T_stop >= 1:
-            results["STOP"] = self._solution_ts(lambda t: self.STOP.get_model_var(t).solution_value())
+            results["STOP"] = self._solution_ts(self.stop_equip_at)
         if self.T_stable >= 1:
-            results["ON_FLAT"] = self._solution_ts(lambda t: self.ON_FLAT.get_model_var(t).solution_value())
+            results["ON_FLAT"] = self._solution_ts(self.on_flat_equip_at)
 
         return results
 
     def solve_thermal_optimization(self) -> dict[str, Timeseries]:
+        """Solve the unit's optimisation and extract its solution.
+
+        :return: One timeseries per output variable of the unit
+        :rtype: dict[str, Timeseries]
+        :raises UnsuccessfulSolveError: If the solver did not produce a solution for this unit
+        """
         self._export_lp_if_requested()
 
         cfg.logger.info(f"Optimisation model '{self.name}' with price type '{self.price_type}'")
-        self.solve()
+        solution_info = self.solve()
 
-        status = self.solution_info.status if self.solution_info else None
-        cfg.logger.debug(f"Solver status: {status}")
+        cfg.logger.debug(f"Solver status: {solution_info.status}")
         cfg.logger.debug(f"Objective function value: {self._objective}")
 
         return self._extract_results()
-
-    def is_day_zero(self) -> bool:
-        """
-        See if the program needs to be initialized as DayZero or not
-        :return: if the program needs to be initialized as DayZero or not
-        :rtype: bool
-        """
-        if len(self.last_power) == 0:
-            # Initialization of the program as DayZero and warn the user
-            cfg.logger.info("The program is initialized for the first time.")
-            day_zero = True  # Boolean to keep track of the status
-        elif self.last_date != self.parameters.temporal.start_date - self.parameters.temporal.timestep:
-            # last_date doesn't match start_date - time_step (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
-            cfg.logger.warning(
-                f"The last_date found in Power of equipement {self.thermal_unit.name} "
-                "does not match the start_date of the current program. \n "
-                "The program will be initialized as DayZero."
-            )
-            day_zero = True
-        else:
-            day_zero = False
-            # Setting up the initial conditions of the program
-        return day_zero

@@ -4,25 +4,29 @@ The Atlas data model is built around a set of interconnected **business objects*
 
 ## Object Hierarchy
 
-Objects depend on each other through typed reference fields. The diagram below shows who depends on whom — an arrow means "holds a reference to":
+Objects depend on each other through typed reference fields. An arrow means "holds a reference to" (i.e. the source object depends on the target).
 
-```
-ControlBlock
-    ├── MarketArea         (ControlBlock)
-    │   ├── Node           (ControlBlock + MarketArea)
-    │   │   └── Equipment  (Node + Portfolio)
-    │   │       ├── Thermal
-    │   │       ├── Hydro
-    │   │       ├── Solar
-    │   │       ├── Wind
-    │   │       ├── Storage
-    │   │       ├── Load
-    │   │       └── OtherNonDispatchable
-    │   └── MarketBorder   (2× ControlBlock + 2× MarketArea)
-    └── Portfolio          (ControlBlock + MarketArea)
+```mermaid
+graph BT
+    E[Equipment]  --> P[Portfolio]
+    E             --> N[Node]
+    P             --> MA[MarketArea]
+    P             --> CB[ControlBlock]
+    N             --> CB
+    N             --> MA
+    MA            --> CB
+    MB[MarketBorder] --> CB
+    MB            --> MA
 ```
 
-**Loading order**: when building a dataset from scratch, always create objects in dependency order — `ControlBlock` first, then `MarketArea`, then `Node` and `Portfolio`, then equipment types.
+The model has two natural sides:
+
+- **Network side** — `ControlBlock` → `Node`: physical infrastructure and TSO balancing zones.
+- **Market side** — `ControlBlock` → `MarketArea` → `Portfolio`: bidding zones and market operator portfolios.
+
+`Equipment` sits at the intersection: each asset is located on a `Node` (network) and managed by a `Portfolio` (market). Concrete equipment types (`Thermal`, `Hydro`, `Solar`, `Wind`, `Storage`, `Load`, `OtherNonDispatchable`) all extend `Equipment`.
+
+**Loading order**: when building a dataset from scratch, always create objects in dependency order — `ControlBlock` first, then `MarketArea`, then `Node` and `Portfolio` in parallel, then equipment types.
 
 ---
 

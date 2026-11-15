@@ -93,10 +93,11 @@ def test_container_remove_existing():
     assert c.get("b").name == "b"
 
 
-def test_container_remove_missing_is_noop():
+def test_container_remove_missing_raises():
     c = Container([DummyBM("a")])
 
-    c.remove("missing")
+    with pytest.raises(KeyError, match="'missing' not found"):
+        c.remove("missing")
 
     assert len(c) == 1
 

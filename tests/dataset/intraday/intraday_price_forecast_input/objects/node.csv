@@ -1,0 +1,3 @@
+name;balance_forecast;control_block;da_power_injection;id_power_injection;market_area;reference_balance
+node_a;;cb_a;;;ma_a;
+node_b;;cb_b;;;ma_b;

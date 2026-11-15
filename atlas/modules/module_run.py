@@ -13,26 +13,45 @@ from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
+from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.tracing import model_to_metadata, step
 
 
 class ModuleRun:
     def __init__(
         self,
-        module: AbstractModule,
-        dataset: AtlasDataset,
+        module: type[AbstractModule] | str,
+        dataset: AtlasDataset | Path | str,
         parameters: AbstractModuleParameters | dict[str, Any] | str | Path,
     ):
-        self.module = module
-        self.dataset = dataset
+        self.module = self._resolve_module(module)
+        self.cis = self._resolve_dataset(dataset)
         self.parameters = parameters
+
+    @staticmethod
+    def _resolve_module(module: type[AbstractModule] | str) -> AbstractModule:
+        if isinstance(module, str):
+            return ModuleRegistry.get(module)()
+        if isinstance(module, type):
+            return module()
+        return module
+
+    @staticmethod
+    def _resolve_dataset(dataset: AtlasDataset | Path | str) -> CurrentInputState:
+        if isinstance(dataset, (Path, str)):
+            return CurrentInputState.from_directory(dataset)
+        return CurrentInputState(dataset)
 
     @step(
         name=lambda self: type(self.module).__name__,
         metadata=lambda self: model_to_metadata(self.parameters),
     )
     def run(self) -> AtlasDataset:
-        cis = CurrentInputState(self.dataset)
-        output_dataset = self.module.run(cis.get_data(), self.parameters)
-        CISHandler.apply(output_dataset.change_sets, cis)
-        return cis.get_data(copy=False)
+        """Run the module and return the resulting dataset.
+
+        Change sets are applied on a clone, so ``self.cis`` is left untouched and ``run`` can be called again.
+        """
+        result = self.module.run(self.cis.get_data(), self.parameters)
+        cis = self.cis.clone()
+        CISHandler.apply(result.change_sets, cis)
+        return cis.data

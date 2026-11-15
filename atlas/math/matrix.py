@@ -70,17 +70,22 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         timezone: str = "UTC",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
+        drop_null_columns: bool = False,
     ) -> ScenarioMatrix:
         """
         Load a ScenarioMatrix from a file.
 
         :param file_path: Path to the file (CSV or Parquet).
         :type file_path: str | Path
+        :param drop_null_columns: If True, drop columns that are entirely null once ``filters``
+            is applied. Files stacking several attributes in the same table can leave columns
+            that only belonged to another attribute, all-null after filtering.
+        :type drop_null_columns: bool
         :return: A ScenarioMatrix object.
         :rtype: ScenarioMatrix
         """
 
-        return cls(read_data_file(file_path, filters, separator), timezone)
+        return cls(read_data_file(file_path, filters, separator, drop_null_columns=drop_null_columns), timezone)
 
     def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | ScenarioMatrix | None, timezone: str) -> None:
         """Set matrix attribute"""
@@ -395,7 +400,8 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         :type separator: str, optional
         :param concatenate: If True, concatenate with existing file data, defaults to True
         :type concatenate: bool, optional
-        :raises ValueError: If file extension doesn't match format
+        :raises ValueError: If file extension doesn't match format, or if an existing file to
+            concatenate onto cannot be read (overwriting it would lose the stored scenarios)
         :raises NotImplementedError: If the file format is not supported
         """
         file_format_lower = file_format.lower()
@@ -419,9 +425,9 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
                     elif file_format_lower == "parquet":
                         existing_df = pl.read_parquet(path_str)
 
-                    df_to_write = pl.concat([existing_df, df_to_write])
-                except Exception:
-                    pass
+                    df_to_write = pl.concat([existing_df, df_to_write], how="diagonal_relaxed")
+                except Exception as e:
+                    raise ValueError(f"Could not read existing file for concatenation: {e}") from e
 
         if file_format_lower == "csv":
             df_to_write.write_csv(path_str, separator=separator)

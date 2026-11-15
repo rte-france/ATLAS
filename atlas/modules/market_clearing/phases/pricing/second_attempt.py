@@ -1,0 +1,120 @@
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+See AUTHORS.txt
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+
+Second pricing attempt: run when the first attempt is infeasible. Tightens each price group's bounds
+to the accepted-orders-only range, then relaxes the marginal-order surplus constraint by
+penalizing the worst rejected sale/buy instead of forcing it to zero.
+"""
+
+from atlas.config import logger
+from atlas.modules.market_clearing.phases._helpers import times_by_group
+from atlas.modules.market_clearing.phases.pricing._types import PricingAttempt, RejectionVariables, _PricingPhase
+
+
+def build_variables(pricing: _PricingPhase) -> RejectionVariables:
+    """Create all variables for the second pricing phase model"""
+    return create_worst_rejected_variables(pricing)
+
+
+def build_constraints(pricing: _PricingPhase, rejection: RejectionVariables) -> None:
+    """Create all constraints for the second pricing phase model"""
+    relax_null_marginal_order_constraints(pricing)
+    create_worst_rejected_sale_constraints(pricing, rejection)
+    create_worst_rejected_buy_constraints(pricing, rejection)
+
+
+def build_objective(pricing: _PricingPhase, rejection: RejectionVariables) -> None:
+    """Create objective function for the second pricing phase model"""
+    create_worst_rejected_objective(pricing, rejection)
+
+
+def tighten_price_bounds(pricing: _PricingPhase) -> None:
+    for price_group_list in pricing.price_groups.values():
+        for price_group in price_group_list:
+            price_group.max_price = float("inf")
+            price_group.min_price = -float("inf")
+            pricing.compute_price_bounds(price_group, PricingAttempt.SECOND)
+            logger.debug(
+                f"Updating price variables for group {(price_group.time, price_group.id)} with bounds "
+                f"{price_group.min_price} and {price_group.max_price}"
+            )
+            pricing.variables.price[price_group.id].set_bounds(
+                price_group.time, price_group.min_price, price_group.max_price
+            )
+
+
+def compute_worst_rejected_prices(pricing: _PricingPhase) -> None:
+    for time, price_groups in pricing.price_groups.items():
+        for price_group in price_groups:
+            price_group.min_rejected_sale = float("inf")
+            price_group.max_rejected_buy = -float("inf")
+            for market_area_name in price_group.market_area_names:
+                market_area = pricing.input_dataset.market_areas[market_area_name]
+
+                for order in market_area.orders.values():
+                    # Keep only orders in correct time
+                    if order.start_date != time or order.price is None:
+                        continue
+                    local_acc_power = pricing.clearing_accepted_powers[market_area_name, order.name]
+                    # Keep only rejected orders
+                    if abs(order.qmax - local_acc_power) > pricing.parameters.allowed_round_off_error:
+                        if order.is_sale:
+                            price_group.min_rejected_sale = min(order.price, price_group.min_rejected_sale)
+                        else:
+                            price_group.max_rejected_buy = max(order.price, price_group.max_rejected_buy)
+            logger.debug(f"Worst rejected : {price_group.min_rejected_sale}, {price_group.max_rejected_buy}")
+
+
+def create_worst_rejected_variables(pricing: _PricingPhase) -> RejectionVariables:
+    group_times = times_by_group(pricing.price_groups)
+    return RejectionVariables(
+        worst_rejected_sale={
+            group_id: pricing.model.add_temporal_variable(f"worst_rej_sale_group_{group_id}", times, lower_bound=0.0)
+            for group_id, times in group_times.items()
+        },
+        worst_rejected_buy={
+            group_id: pricing.model.add_temporal_variable(f"worst_rej_buy_group_{group_id}", times, lower_bound=0.0)
+            for group_id, times in group_times.items()
+        },
+    )
+
+
+def relax_null_marginal_order_constraints(pricing: _PricingPhase) -> None:
+    for constraint_name in pricing.relaxable.null_marginal_order:
+        pricing.model.deactivate_constraint(constraint_name)
+
+
+def create_worst_rejected_sale_constraints(pricing: _PricingPhase, rejection: RejectionVariables) -> None:
+    for time, price_groups in pricing.price_groups.items():
+        for price_group in price_groups:
+            current_price = pricing.variables.price[price_group.id][time]
+
+            logger.debug(f"New bounds : {price_group.min_price}, {price_group.max_price}")
+            min_rejected_sale = rejection.worst_rejected_sale[price_group.id][time]
+            pricing.model.add_constraint(
+                min_rejected_sale - (current_price - price_group.min_rejected_sale) >= 0.0,
+                f"pos_min_rej_sale_group_{price_group.id}_at_{time}",
+            )
+
+
+def create_worst_rejected_buy_constraints(pricing: _PricingPhase, rejection: RejectionVariables) -> None:
+    for time, price_groups in pricing.price_groups.items():
+        for price_group in price_groups:
+            current_price = pricing.variables.price[price_group.id][time]
+
+            logger.debug(f"New bounds : {price_group.min_price}, {price_group.max_price}")
+            max_rejected_buy = rejection.worst_rejected_buy[price_group.id][time]
+            pricing.model.add_constraint(
+                max_rejected_buy - (price_group.max_rejected_buy - current_price) >= 0.0,
+                f"pos_max_rej_buy_group_{price_group.id}_at_{time}",
+            )
+
+
+def create_worst_rejected_objective(pricing: _PricingPhase, rejection: RejectionVariables) -> None:
+    worst_rejected = sum(
+        rejection.worst_rejected_sale[group_id].sum() + rejection.worst_rejected_buy[group_id].sum()
+        for group_id in rejection.worst_rejected_sale
+    )
+    pricing.model.add_objective(pricing.parameters.paradoxically_rejected_penalty * worst_rejected)

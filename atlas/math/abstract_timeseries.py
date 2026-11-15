@@ -9,11 +9,12 @@ This module provides AbstractTimeseries base class for Timeseries and LazyTimese
 
 from __future__ import annotations
 
+import copy
 from abc import ABC, abstractmethod
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Generic, Literal, Self, TypeVar
+from typing import Any, Literal, Self
 
 import pandas as pd
 import pendulum
@@ -22,12 +23,11 @@ import plotly.graph_objects
 import polars as pl
 from pydantic_core import core_schema
 
+from atlas.math.copying import deepcopy_sharing_frames
 from atlas.timing import build_datetime, generate_datetimes, get_duration
 
-TBackend = TypeVar("TBackend", pl.DataFrame, pl.LazyFrame)
 
-
-class AbstractTimeseries(ABC, Generic[TBackend]):
+class AbstractTimeseries[TBackend: (pl.DataFrame, pl.LazyFrame)](ABC):
     """
     Abstract base class for Timeseries implementations.
 
@@ -39,7 +39,11 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
     timezone: str
     frequency: pendulum.Duration
     timeseries: TBackend
-    _lookup_cache: dict | None
+    _epoch_lookup_cache: dict[int, float] | None
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        """Deep copy sharing the underlying frame, see :func:`deepcopy_sharing_frames`."""
+        return deepcopy_sharing_frames(self, memo, reset={"_epoch_lookup_cache"})
 
     @abstractmethod
     def _get_data(self) -> TBackend:
@@ -87,7 +91,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         cls,
         start_date: str | datetime | pendulum.DateTime,
         frequency: str | timedelta | pendulum.Duration,
-        values: list[float],
+        values: Sequence[float] | pd.Series | pl.Series,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
         timezone: str = "UTC",
     ) -> Self:
@@ -100,7 +104,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         :type frequency: str or pendulum.Duration
         :param values: List of values corresponding to the time intervals
         :type values: list[float]
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param timezone: Timezone string, defaults to "UTC"
         :type timezone: str, optional
@@ -108,8 +112,11 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         :return: A Timeseries object with the specified parameters
         :rtype: Self
         """
-        if len(values) < 2:
-            raise ValueError("Timeseries must contains at least 2 values")
+        if len(values) == 0:
+            raise ValueError("Timeseries must contains at least 1 value")
+
+        if len(values) == 1:
+            values = [values[0], values[0]]
 
         start = build_datetime(start_date, date_format).in_tz(timezone)
         end = build_datetime(start + (len(values) - 1) * get_duration(frequency)).in_tz(timezone)
@@ -144,7 +151,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         :type end_date: str or datetime or pendulum.DateTime
         :param default_value: A scalar value or a list of values to fill the timeseries
         :type default_value: list[float] or float, optional
-        :param date_format: Format to interpret date strings, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Format to interpret date strings, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param timezone: Timezone string, defaults to "UTC"
         :type timezone: str, optional
@@ -205,6 +212,33 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         :rtype: Self
         """
         ...
+
+    def with_values(self, values: Sequence[float] | pl.Series) -> Self:
+        """
+        Return a new timeseries on the same index, holding *values*.
+
+        The index is reused as it is: nothing is sorted, cast or inferred again. This is the cheap
+        way to build several series sharing a known index.
+
+        **Example**
+
+            index = Timeseries.from_values("2025-01-01 00:00:00", "1h", [0.0, 0.0, 0.0])
+            index.with_values([1.0, 2.0, 3.0]).values  # [1.0, 2.0, 3.0]
+
+        :param values: One value per timestamp, in index order
+        :type values: Sequence[float] | pl.Series
+        :return: A new timeseries, the current one is left unchanged
+        :rtype: Self
+        :raises ValueError: If the number of values differs from the length of the timeseries
+        """
+        if len(values) != len(self):
+            raise ValueError(f"Expected {len(self)} values to match the index, got {len(values)}")
+
+        # the index is already sorted and typed: skip the checks and conversions of __init__
+        result = copy.copy(self)
+        result.timeseries = self.timeseries.with_columns(pl.lit(pl.Series("value", values, dtype=pl.Float64)))
+        result._invalidate_cache()
+        return result
 
     @property
     @abstractmethod
@@ -307,6 +341,64 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         """Return value at the given datetime."""
         ...
 
+    def get_values(
+        self,
+        datetimes: Sequence[str | datetime | pendulum.DateTime],
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+    ) -> list[float]:
+        """
+        Return the values at the given datetimes, in the same order, with a single lookup.
+
+        Equivalent to ``[ts.get_value(dt) for dt in datetimes]``, but resolved by one join on the
+        backend instead of one lookup per datetime, and collected only once for lazy timeseries.
+        Timezone-aware datetimes are matched on the instant they represent, whatever their timezone.
+
+        **Example**
+
+            max_power.get_values(time_window)  # one value per timestamp of the window
+
+        :param datetimes: Datetimes to get values for; duplicates are allowed
+        :type datetimes: Sequence[str | datetime | pendulum.DateTime]
+        :param date_format: Date format string for string datetimes, defaults to `YYYY-MM-DD HH:mm:ss`
+        :type date_format: str, optional
+        :return: The values at the requested datetimes
+        :rtype: list[float]
+        :raises ValueError: If the timeseries is empty
+        :raises KeyError: If a datetime is not found in the timeseries
+        """
+        if len(datetimes) == 0:
+            return []
+        if len(self) == 0:
+            raise ValueError("Can't get values on empty timeseries.")
+
+        backend = self._get_data()
+        time_dtype = backend.collect_schema()["time"]
+        # aware datetimes keep their instant when cast to the timeseries timezone, the others follow get_value
+        requested = [
+            dt
+            if isinstance(dt, datetime) and dt.tzinfo is not None
+            else build_datetime(dt, date_format).in_tz(self.timezone)
+            for dt in datetimes
+        ]
+        query = pl.DataFrame({"time": requested}).select(
+            pl.col("time").dt.convert_time_zone(self.timezone).cast(time_dtype)
+        )
+        query = query.with_row_index("_position")
+        found = backend.select("time", "value").with_columns(pl.lit(True).alias("_found"))
+
+        if isinstance(backend, pl.LazyFrame):
+            joined = query.lazy().join(found, on="time", how="left").sort("_position").collect()
+        else:
+            joined = query.join(found, on="time", how="left").sort("_position")
+
+        missing = joined.filter(pl.col("_found").is_null())
+        if missing.height > 0:
+            first_missing = pendulum.instance(missing["time"][0])
+            raise KeyError(
+                f"{missing.height} datetime(s) not found in the Timeseries, first one: {first_missing.to_datetime_string()}."
+            )
+        return joined["value"].to_list()
+
     def filter(
         self,
         item: list[datetime] | list[pendulum.DateTime] | list[str] | datetime | pendulum.DateTime | str,
@@ -318,7 +410,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
 
         :param item: Datetime to filter the Timeseries
         :type item: list[datetime] or datetime or pendulum.DateTime or str
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -470,7 +562,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
             polars Series of datetimes, or a list of datetime / pendulum.DateTime / str.
         :param default: Value used for rows missing from self, defaults to 0.0
         :param date_format: Date format string for parsing string entries, defaults to
-            "YYYY-MM-DD HH:mm:ss"
+            `YYYY-MM-DD HH:mm:ss`
         :param inplace: Whether to modify the current instance, defaults to True
         :return: Reindexed timeseries
         :rtype: Self
@@ -481,6 +573,27 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
             pl.col("value").fill_null(default)
         )
         return self._return(result, inplace)  # type: ignore [arg-type]
+
+    def add_on_union(self, other: Self, default: float = 0.0, inplace: bool = True) -> Self:
+        """Add `other` after aligning both operands on the union of their time indexes.
+
+        Unlike ``+``, which requires the index of `other` to be contained in self's,
+        this extends the index: timestamps present on only one side are filled with
+        `default` before the addition. Use it to accumulate a series over a time
+        window that only partially overlaps the current one.
+
+        The frequencies must still match and the union must be a regular index.
+
+        :param other: Timeseries to add
+        :param default: Value used for timestamps missing from either side, defaults to 0.0
+        :param inplace: Whether to modify the current instance, defaults to True
+        :raises ValueError: If frequencies don't match or the union index is not regular
+        :return: The sum of both timeseries over the union of their indexes
+        :rtype: Self
+        """
+        times = sorted(set(self.index) | set(other.index))
+        result = self.reindex(times, default, inplace=False) + other.reindex(times, default, inplace=False)
+        return self._return(result._get_data(), inplace)
 
     def _times_to_frame(
         self,
@@ -576,7 +689,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         :type time: datetime or str
         :param value: Value to set
         :type value: float or int
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -617,7 +730,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         :type time: datetime or str
         :param value: Value to add
         :type value: float
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -702,7 +815,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         :type time: datetime or str
         :param value: Value to add to the precedent value
         :type value: float
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -726,7 +839,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         :type time: datetime or str
         :param value: Value to multiply to the precedent value
         :type value: float
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -751,7 +864,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         ...
 
     @abstractmethod
-    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
+    def iter_rows(self) -> Generator[tuple[datetime, float]]:
         """
         Iterate over rows of the Timeseries, yielding (time, value) tuples.
 
@@ -760,19 +873,25 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         """
         ...
 
-    def to_lookup_dict(self) -> dict:
-        """Build a {time: value} dict for O(1) lookups."""
-        return self._get_lookup()
+    def _get_epoch_lookup(self) -> dict[int, float]:
+        """
+        Return cached {epoch microseconds: value} dict, building it on first call.
 
-    def _get_lookup(self) -> dict:
-        """Return cached {time: value} dict, building it on first call."""
-        if not hasattr(self, "_lookup_cache") or self._lookup_cache is None:
-            self._lookup_cache = dict(self.iter_rows())
-        return self._lookup_cache
+        Keys are the instants of the time column in microseconds since the Unix epoch (UTC),
+        see :func:`atlas.timing.epoch_key`. Building it does not create any datetime object,
+        which keeps it cheap on long series.
+        """
+        lookup = getattr(self, "_epoch_lookup_cache", None)
+        if lookup is None:
+            data = self._get_data().select(pl.col("time").dt.epoch("us"), "value")
+            df = data.collect() if isinstance(data, pl.LazyFrame) else data
+            lookup = dict(zip(df["time"].to_list(), df["value"].to_list(), strict=True))
+            self._epoch_lookup_cache = lookup
+        return lookup
 
     def _invalidate_cache(self) -> None:
         """Invalidate the lookup cache. Must be called whenever the underlying data changes."""
-        self._lookup_cache = None
+        self._epoch_lookup_cache = None
 
     @abstractmethod
     def __repr__(self) -> str:
@@ -798,6 +917,15 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
     def __sub__(self, other: Any) -> Self:
         """Subtract all numeric columns by a scalar or timeseries."""
         ...
+
+    def __neg__(self) -> Self:
+        """
+        Negate all numeric values in the Timeseries.
+
+        :return: The Timeseries where all numeric values are negated
+        :rtype: Self
+        """
+        return self * -1
 
     @abstractmethod
     def __truediv__(self, other: Any) -> Self:

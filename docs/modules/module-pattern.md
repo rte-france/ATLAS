@@ -6,15 +6,28 @@ All ATLAS modules follow the `AbstractModule` pattern, providing a consistent in
 
 ## Standard Module Interface
 
-Every ATLAS module can be run using the same simple pattern:
+Every ATLAS module is run through `ModuleRun`, which executes the module lifecycle
+and applies the resulting change sets back onto the dataset:
 
 ```python
-from atlas import AtlasDataset, <ModuleName>Module
+from atlas import AtlasDataset
+from atlas.modules.module_run import ModuleRun
+from atlas.modules.<module_name> import <ModuleName>Module
 
-module = <ModuleName>Module()
 input_data = AtlasDataset.from_directory("path/to/dataset")
-module.run(input_data, "path/to/parameters.yml")
+result = ModuleRun(
+    module=<ModuleName>Module(),
+    dataset=input_data,
+    parameters="path/to/parameters.yml",
+).run()
 ```
+
+!!! warning "Always go through `ModuleRun`"
+    Calling `module.run(...)` directly only executes the lifecycle — it does **not**
+    apply the produced change sets. `ModuleRun.run()` wraps it with the `CISHandler`
+    so results are propagated and returns the updated `AtlasDataset`.
+
+See [Running Modules](running-modules.md) for the full execution guide.
 
 ## Module Lifecycle
 
@@ -25,9 +38,9 @@ The `run()` method executes these standard steps:
 3. **Validate**: Perform data validation (typically timestep consistency checks)
 4. **Execute**: Run the module's core logic
 5. **Validate Results**: Check output validity
-6. **Export**: Update business model objects with results (if `export_result=True`)
+6. **Export**: Run the module's `export_results()` hook. Most modules do nothing there; `MarketClearing` writes its CSV reports when `export.export_results` is true
 
-Results are stored directly in the business model objects.
+The module returns a `ModuleResult` carrying its ChangeSets. They reach the business model objects when the orchestrator (or `ModuleRun`) applies them to the Current Input State, see [Data Flow](../data-flow.md).
 
 ## AbstractModule Methods
 
@@ -38,7 +51,7 @@ All modules implement these core methods:
 - `validate_data()`: Validates input data consistency
 - `execute()`: Runs the module's core logic
 - `validates_results()`: Validates output data
-- `export_results()`: Updates business model objects with results
+- `export_results()`: Optional export hook (e.g. CSV reports)
 
 ## Key Design Patterns
 
@@ -46,7 +59,7 @@ All modules implement these core methods:
 
 **Pydantic Models**: Parameters and datasets validated via Pydantic
 
-**Business Model Integration**: Results stored directly in business objects
+**Business Model Integration**: Results returned as ChangeSets applied to the business objects
 
 **Solver Interface**: Optimization modules use ATLAS `OptimisationModel` for solver abstraction
 

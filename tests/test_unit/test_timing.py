@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 import pendulum
 import polars as pl
@@ -7,8 +7,8 @@ import pytest
 from atlas.timing import (
     build_datetime,
     datetime_to_pendulum,
+    epoch_key,
     generate_datetimes,
-    get_most_frequent_timestep,
     infer_frequency,
     parse_frequency,
     pendulum_to_datetime,
@@ -227,91 +227,54 @@ def test_round_trip_conversion():
     assert back_to_dt == original_fmt
 
 
-def test_get_most_frequent_timestep_regular_hourly():
-    """Test with regular hourly intervals"""
-    times = [pendulum.datetime(2025, 1, 1, hour) for hour in range(5)]
-    df = pl.DataFrame({"time": times, "value": [1, 2, 3, 4, 5]})
-    freq = get_most_frequent_timestep(df)
-    assert freq == pendulum.duration(hours=1)
+JAN_1_2025_UTC_US = 1_735_689_600_000_000
 
 
-def test_get_most_frequent_timestep_regular_minutes():
-    """Test with regular 15-minute intervals"""
-    times = [pendulum.datetime(2025, 1, 1, 0, m) for m in range(0, 60, 15)]
-    df = pl.DataFrame({"time": times, "value": [1, 2, 3, 4]})
-    freq = get_most_frequent_timestep(df)
-    assert freq == pendulum.duration(minutes=15)
+def test_epoch_key_utc_datetime():
+    assert epoch_key(pendulum.datetime(2025, 1, 1, tz="UTC")) == JAN_1_2025_UTC_US
 
 
-def test_get_most_frequent_timestep_irregular_with_mode():
-    """Test with irregular intervals where one timestep is most common"""
-    times = [
-        pendulum.datetime(2025, 1, 1, 0, 0),
-        pendulum.datetime(2025, 1, 1, 1, 0),  # 1h
-        pendulum.datetime(2025, 1, 1, 2, 0),  # 1h
-        pendulum.datetime(2025, 1, 1, 3, 0),  # 1h
-        pendulum.datetime(2025, 1, 1, 5, 0),  # 2h
-    ]
-    df = pl.DataFrame({"time": times, "value": [1, 2, 3, 4, 5]})
-    freq = get_most_frequent_timestep(df)
-    # Most common delta is 1 hour (appears 3 times)
-    assert freq == pendulum.duration(hours=1)
+def test_epoch_key_same_instant_in_other_timezone():
+    paris = pendulum.datetime(2025, 1, 1, 1, tz="Europe/Paris")
+    assert epoch_key(paris) == JAN_1_2025_UTC_US
 
 
-def test_get_most_frequent_timestep_multiple_modes():
-    """Test with multiple modes - should return the smallest delta"""
-    times = [
-        pendulum.datetime(2025, 1, 1, 0, 0),
-        pendulum.datetime(2025, 1, 1, 1, 0),  # 1h
-        pendulum.datetime(2025, 1, 1, 3, 0),  # 2h
-        pendulum.datetime(2025, 1, 1, 4, 0),  # 1h
-        pendulum.datetime(2025, 1, 1, 6, 0),  # 2h
-    ]
-    df = pl.DataFrame({"time": times, "value": [1, 2, 3, 4, 5]})
-    freq = get_most_frequent_timestep(df)
-    # Both 1h and 2h appear twice - should return the smallest (1h)
-    assert freq == pendulum.duration(hours=1)
+def test_epoch_key_stdlib_aware_datetime():
+    assert epoch_key(datetime(2025, 1, 1, tzinfo=UTC)) == JAN_1_2025_UTC_US
 
 
-def test_get_most_frequent_timestep_single_row():
-    """Test with single timestamp - should return zero duration"""
-    times = [pendulum.datetime(2025, 1, 1, 0, 0)]
-    df = pl.DataFrame({"time": times, "value": [1]})
-    freq = get_most_frequent_timestep(df)
-    assert freq == pendulum.duration()
+def test_epoch_key_distinguishes_ambiguous_dst_hour():
+    # 2025-10-26 02:30 happens twice in Europe/Paris: first at UTC+2, then at UTC+1.
+    first = pendulum.datetime(2025, 10, 26, 0, 30, tz="UTC").in_tz("Europe/Paris")
+    second = pendulum.datetime(2025, 10, 26, 1, 30, tz="UTC").in_tz("Europe/Paris")
+    assert epoch_key(second) - epoch_key(first) == 3_600_000_000
 
 
-def test_get_most_frequent_timestep_empty():
-    """Test with empty DataFrame - should return zero duration"""
-    df = pl.DataFrame({"time": [], "value": []})
-    freq = get_most_frequent_timestep(df)
-    assert freq == pendulum.duration()
+def test_epoch_key_is_exact_to_the_microsecond():
+    dt = pendulum.datetime(2025, 1, 1, 0, 0, 0, 123_457, tz="UTC")
+    assert epoch_key(dt) == JAN_1_2025_UTC_US + 123_457
 
 
-def test_get_most_frequent_timestep_mixed_intervals():
-    """Test with mixed intervals"""
-    times = [
-        pendulum.datetime(2025, 1, 1, 0, 0),
-        pendulum.datetime(2025, 1, 1, 0, 15),  # 15m
-        pendulum.datetime(2025, 1, 1, 0, 30),  # 15m
-        pendulum.datetime(2025, 1, 1, 0, 45),  # 15m
-        pendulum.datetime(2025, 1, 1, 1, 0),  # 15m
-        pendulum.datetime(2025, 1, 1, 2, 0),  # 1h
-    ]
-    df = pl.DataFrame({"time": times, "value": [1, 2, 3, 4, 5, 6]})
-    freq = get_most_frequent_timestep(df)
-    # 15 minutes appears 4 times, 1 hour appears 1 time
-    assert freq == pendulum.duration(minutes=15)
+def test_epoch_key_matches_timestamp():
+    dt = pendulum.datetime(2031, 7, 14, 13, 45, tz="Europe/Paris")
+    assert epoch_key(dt) == int(dt.timestamp()) * 1_000_000
 
 
-def test_get_most_frequent_timestep_seconds():
-    """Test with second-level precision"""
-    times = [
-        pendulum.datetime(2025, 1, 1, 0, 0, 0),
-        pendulum.datetime(2025, 1, 1, 0, 0, 30),  # 30s
-        pendulum.datetime(2025, 1, 1, 0, 1, 0),  # 30s
-        pendulum.datetime(2025, 1, 1, 0, 1, 30),  # 30s
-    ]
-    df = pl.DataFrame({"time": times, "value": [1, 2, 3, 4]})
-    freq = get_most_frequent_timestep(df)
-    assert freq == pendulum.duration(seconds=30)
+def test_epoch_key_naive_datetime_follows_build_datetime():
+    naive = datetime(2025, 1, 1)
+    assert epoch_key(naive, timezone="Europe/Paris") == epoch_key(build_datetime(naive).in_tz("Europe/Paris"))
+    assert epoch_key(naive) == JAN_1_2025_UTC_US
+
+
+def test_epoch_key_string():
+    assert epoch_key("2025-01-01 00:00:00") == JAN_1_2025_UTC_US
+    assert epoch_key("01/01/2025 01h", date_format="DD/MM/YYYY HH[h]") == JAN_1_2025_UTC_US + 3_600_000_000
+
+
+def test_epoch_key_before_epoch():
+    assert epoch_key(pendulum.datetime(1969, 12, 31, 23, 59, 59, tz="UTC")) == -1_000_000
+
+
+def test_epoch_key_unsupported_type():
+    with pytest.raises(TypeError):
+        epoch_key(timedelta(hours=1))  # type: ignore[arg-type]

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import copy
 import pickle
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, Literal, cast, get_origin
 
@@ -291,14 +291,15 @@ class AtlasDataset(BaseModel):
         container = self.get_container_by_type(object_type)
         return container.all()
 
-    def get_container_by_type(self, object_type: BusinessModelName | str | type[BusinessModel]) -> Container:
+    @staticmethod
+    def _resolve_type_name(object_type: BusinessModelName | str | type[BusinessModel]) -> BusinessModelName:
         """
-        Get a Container object by type with O(1) lookup.
+        Resolve a type given as a name or as a class to its BusinessModelName.
 
-        :param object_type: The type of object (e.g., "hydro", "node")
+        :param object_type: The type of object (e.g., "hydro", Node, BusinessModelName.NODE)
         :type object_type: str | type[BusinessModel] | BusinessModelName
-        :return: The Container object if found, raise an error otherwise
-        :rtype: Container
+        :return: The matching BusinessModelName
+        :rtype: BusinessModelName
         """
         if isinstance(object_type, type) and issubclass(object_type, BusinessModel):
             # For subclasses, we need to find the base type that's registered in INVERSE_MODEL_MAPPING_NAME
@@ -319,6 +320,18 @@ class AtlasDataset(BaseModel):
             object_type_str = object_type
         else:
             raise TypeError(f"Invalid type for object_type: {object_type!r}")
+        return object_type_str
+
+    def get_container_by_type(self, object_type: BusinessModelName | str | type[BusinessModel]) -> Container:
+        """
+        Get a Container object by type with O(1) lookup.
+
+        :param object_type: The type of object (e.g., "hydro", "node")
+        :type object_type: str | type[BusinessModel] | BusinessModelName
+        :return: The Container object if found, raise an error otherwise
+        :rtype: Container
+        """
+        object_type_str = self._resolve_type_name(object_type)
         container = getattr(self, object_type_str, None)
         if container is None:
             raise ValueError(f"No container found for type {object_type_str}")
@@ -520,35 +533,124 @@ class AtlasDataset(BaseModel):
 
         return result
 
-    def filter_equipments(self, equipment_names: list[str] | None) -> AtlasDataset:
+    def _rebuilt(self, **replacements: Container[Any]) -> AtlasDataset:
         """
-        Filter the dataset to include only specified equipment by name.
+        Build a new dataset with new containers referencing the same objects.
 
-        :param equipment_names: List of equipment names to include. If None or empty, returns a copy of the full dataset.
-        :type equipment_names: list[str] | None
+        Containers named in ``replacements`` are used as given, every other container is
+        copied (a new Container holding the same object references), so that adding to or
+        removing from one dataset's container never affects the other.
 
-        :return: A new AtlasDataset containing only the specified equipment (deep copy)
+        :param replacements: Containers to use instead of a copy of the current ones, by field name
+        :type replacements: Container
+        :return: A new AtlasDataset, sharing the business objects with this one
+        :rtype: AtlasDataset
+        """
+        containers = {
+            name: replacements[name] if name in replacements else Container(getattr(self, name))
+            for name in type(self).model_fields
+        }
+        return type(self)(**containers)
+
+    def _filtered(self, keep: Callable[[BusinessModel], bool], types: Iterable[BusinessModelName]) -> AtlasDataset:
+        """
+        Shallow filter: keep only the objects of the given types for which ``keep`` is True.
+
+        :param keep: Predicate telling whether an object is kept
+        :type keep: Callable[[BusinessModel], bool]
+        :param types: Types whose containers are filtered, the other containers are left as they are
+        :type types: Iterable[BusinessModelName]
+        :return: A new AtlasDataset, sharing the business objects with this one
+        :rtype: AtlasDataset
+        """
+        return self._rebuilt(
+            **{
+                type_name.value: Container(o for o in self.get_items_by_type(type_name) if keep(o))
+                for type_name in types
+            }
+        )
+
+    def include_equipments(self, equipment_names: Iterable[str] | None) -> AtlasDataset:
+        """
+        Keep only the specified equipment, by name.
+
+        The result is shallow: it has its own containers but shares the business objects with
+        this dataset. Chain the filters freely, and call ``model_copy(deep=True)`` at the end
+        when an independent dataset is needed.
+
+        :param equipment_names: Names of the equipment to keep. If None or empty, no equipment is removed.
+        :type equipment_names: Iterable[str] | None
+
+        :return: A new AtlasDataset containing only the specified equipment
         :rtype: AtlasDataset
 
         Example:
             >>> dataset = AtlasDataset(thermal=[plant1, plant2, plant3])
-            >>> filtered = dataset.filter_equipments(["plant1", "plant3"])
+            >>> filtered = dataset.include_equipments(["plant1", "plant3"])
             >>> len(filtered.thermal)
             2
         """
-        copy_dataset = copy.deepcopy(self)
-        if not equipment_names:
-            return copy_dataset
-        for equipment_type in cfg.EQUIPMENT_MODELS:
-            equipments = copy_dataset.get_container_by_type(equipment_type)
-            for equipment in copy_dataset.get_items_by_type(equipment_type):
-                if equipment.name not in equipment_names:
-                    equipments.remove(equipment.name)
-        return copy_dataset
+        selected = set(equipment_names or ())
+        if not selected:
+            return self._rebuilt()
+        return self._filtered(lambda equipment: equipment.name in selected, cfg.EQUIPMENT_MODELS)
 
-    def filter_zones(self, control_block_names: list[str], include_external_borders: bool = False) -> AtlasDataset:
+    def exclude_equipments(self, equipment_names: Iterable[str] | None) -> AtlasDataset:
         """
-        Filter the dataset to include only objects associated with specified control blocks (zones).
+        Remove the specified equipment, by name.
+
+        The result is shallow: it has its own containers but shares the business objects with
+        this dataset. Chain the filters freely, and call ``model_copy(deep=True)`` at the end
+        when an independent dataset is needed.
+
+        :param equipment_names: Names of the equipment to remove. If None or empty, no equipment is removed.
+        :type equipment_names: Iterable[str] | None
+
+        :return: A new AtlasDataset without the specified equipment
+        :rtype: AtlasDataset
+
+        Example:
+            >>> dataset = AtlasDataset(thermal=[plant1, plant2, plant3])
+            >>> filtered = dataset.exclude_equipments(["plant2"])
+            >>> len(filtered.thermal)
+            2
+        """
+        excluded = set(equipment_names or ())
+        return self._filtered(lambda equipment: equipment.name not in excluded, cfg.EQUIPMENT_MODELS)
+
+    def exclude_technologies(
+        self, technologies: Iterable[BusinessModelName | type[BusinessModel]] | None
+    ) -> AtlasDataset:
+        """
+        Remove every equipment of the specified technologies.
+
+        The containers of the excluded technologies are swapped for empty ones. The result is shallow:
+        it has its own containers but shares the business objects with this dataset.
+
+        :param technologies: Technologies to remove, as BusinessModelName (e.g. BusinessModelName.WIND)
+            or as class (e.g. Wind). If None or empty, no equipment is removed.
+        :type technologies: Iterable[BusinessModelName | type[BusinessModel]] | None
+
+        :return: A new AtlasDataset without the equipment of the specified technologies
+        :rtype: AtlasDataset
+
+        :raises ValueError: If a technology is not an equipment type
+
+        Example:
+            >>> dataset = AtlasDataset(thermal=[plant1], wind=[turbine1])
+            >>> filtered = dataset.exclude_technologies([BusinessModelName.THERMAL])
+            >>> len(filtered.thermal)
+            0
+        """
+        excluded = {self._resolve_type_name(technology) for technology in technologies or ()}
+        not_equipment = excluded - set(cfg.EQUIPMENT_MODELS)
+        if not_equipment:
+            raise ValueError(f"Cannot exclude {sorted(name.value for name in not_equipment)}: not equipment types")
+        return self._rebuilt(**{name.value: Container() for name in excluded})
+
+    def include_zones(self, control_block_names: Iterable[str], include_external_borders: bool = False) -> AtlasDataset:
+        """
+        Keep only the objects associated with specified control blocks (zones).
 
         For market borders and critical branches:
         - If include_external_borders is False (default), only includes borders/branches where both endpoints
@@ -556,109 +658,82 @@ class AtlasDataset(BaseModel):
         - If include_external_borders is True, includes borders/branches where at least one endpoint is in
           the filtered zones, allowing connections to external zones
 
-        :param control_block_names: List of control block names to include in the filtered dataset
-        :type control_block_names: list[str]
+        The result is shallow: it has its own containers but shares the business objects with
+        this dataset. Chain the filters freely, and call ``model_copy(deep=True)`` at the end
+        when an independent dataset is needed.
+
+        :param control_block_names: Names of the control blocks to include in the filtered dataset
+        :type control_block_names: Iterable[str]
         :param include_external_borders: Whether to include borders/branches with at least one endpoint in filtered zones
         :type include_external_borders: bool
 
-        :return: A new AtlasDataset containing only the filtered objects (deep copy)
+        :return: A new AtlasDataset containing only the objects of the specified zones
         :rtype: AtlasDataset
 
         :raises ValueError: If any control block name in control_block_names does not exist in the dataset
         """
+        zone_set = set(control_block_names)
 
         # Validate that all control blocks exist
-        existing_cb_names = {cb.name for cb in self.control_block}
-        invalid_zones = set(control_block_names) - existing_cb_names
+        invalid_zones = zone_set - {cb.name for cb in self.control_block}
         if invalid_zones:
             msg = f"Control blocks not found in dataset: {sorted(invalid_zones)}"
             raise ValueError(msg)
 
-        # Convert to set for O(1) lookups
-        zone_set = set(control_block_names)
+        def keeps_link(one_end_in_zone: bool, other_end_in_zone: bool) -> bool:
+            # Both endpoints in the zones, or ANY endpoint when external borders are included
+            return (one_end_in_zone and other_end_in_zone) or (
+                include_external_borders and (one_end_in_zone or other_end_in_zone)
+            )
 
-        dataset = AtlasDataset()
-
-        for cb in self.control_block:
-            if cb.name in zone_set:
-                dataset.control_block.add(cb)
-
-        # Filter market areas
-        for ma in self.market_area:
-            if ma.control_block.name in zone_set:
-                dataset.market_area.add(ma)
-
-        # Filter nodes
-        for node in self.node:
-            if node.control_block.name in zone_set:
-                dataset.node.add(node)
-
-        # Filter market borders (with configurable logic)
-        for border in self.market_border:
-            downhill_in_zone = border.downhill_control_block.name in zone_set
-            uphill_in_zone = border.uphill_control_block.name in zone_set
-
-            if downhill_in_zone and uphill_in_zone:
-                dataset.market_border.add(border)
-            elif include_external_borders:
-                # Include if ANY endpoint is in filtered zones
-                if downhill_in_zone or uphill_in_zone:
-                    dataset.market_border.add(border)
-
-        for ma_ptdf in self.market_area_ptdf:
-            if ma_ptdf.market_area.control_block.name in zone_set:
-                dataset.market_area_ptdf.add(ma_ptdf)
-
-        # Filter node PTDFs
-        for node_ptdf in self.node_ptdf:
-            if node_ptdf.node.control_block.name in zone_set:
-                dataset.node_ptdf.add(node_ptdf)
-
-        # Filter critical branches (with configurable logic)
-        for critical_branch in self.critical_branch:
-            uphill_in_zone = critical_branch.uphill_node.control_block.name in zone_set
-            downhill_in_zone = critical_branch.downhill_node.control_block.name in zone_set
-
-            if downhill_in_zone and uphill_in_zone:
-                dataset.critical_branch.add(critical_branch)
-            elif include_external_borders:
-                # Include if ANY endpoint is in filtered zones
-                if downhill_in_zone or uphill_in_zone:
-                    dataset.critical_branch.add(critical_branch)
-
-        # Filter orders
-        for order in self.order:
-            if order.market_area.control_block.name in zone_set:
-                dataset.order.add(order)
-
-        # Filter order couplings
-        # Note: Includes coupling if ANY order in the coupling belongs to filtered zones
-        for order_coupling in self.order_coupling:
-            if order_coupling.orders is None:
-                continue
-
-            if any(
-                coupled_order.market_area is not None
-                and coupled_order.market_area.control_block is not None
-                and coupled_order.market_area.control_block.name in zone_set
-                for coupled_order in order_coupling.orders
-            ):
-                dataset.order_coupling.add(order_coupling)
-
-        # Filter portfolios
-        for portfolio in self.portfolio:
-            if portfolio.control_block.name in zone_set:
-                dataset.portfolio.add(portfolio)
-
-        # Filter equipment (all types)
-        for equipment_type in cfg.EQUIPMENT_MODELS:
-            equipments = dataset.get_container_by_type(equipment_type)
-            for equipment in self.get_items_by_type(equipment_type):
-                equipment_node = cast(Equipment, equipment).node
-                if equipment_node.control_block.name in zone_set:
-                    equipments.add(equipment)
-
-        return copy.deepcopy(dataset)
+        return self._rebuilt(
+            control_block=Container(cb for cb in self.control_block if cb.name in zone_set),
+            market_area=Container(ma for ma in self.market_area if ma.control_block.name in zone_set),
+            node=Container(node for node in self.node if node.control_block.name in zone_set),
+            market_border=Container(
+                border
+                for border in self.market_border
+                if keeps_link(
+                    border.downhill_control_block.name in zone_set, border.uphill_control_block.name in zone_set
+                )
+            ),
+            market_area_ptdf=Container(
+                ma_ptdf for ma_ptdf in self.market_area_ptdf if ma_ptdf.market_area.control_block.name in zone_set
+            ),
+            node_ptdf=Container(
+                node_ptdf for node_ptdf in self.node_ptdf if node_ptdf.node.control_block.name in zone_set
+            ),
+            critical_branch=Container(
+                branch
+                for branch in self.critical_branch
+                if keeps_link(
+                    branch.downhill_node.control_block.name in zone_set,
+                    branch.uphill_node.control_block.name in zone_set,
+                )
+            ),
+            order=Container(order for order in self.order if order.market_area.control_block.name in zone_set),
+            # A coupling is kept if ANY of its orders belongs to the filtered zones
+            order_coupling=Container(
+                coupling
+                for coupling in self.order_coupling
+                if coupling.orders is not None
+                and any(
+                    coupled_order.market_area is not None
+                    and coupled_order.market_area.control_block is not None
+                    and coupled_order.market_area.control_block.name in zone_set
+                    for coupled_order in coupling.orders
+                )
+            ),
+            portfolio=Container(portfolio for portfolio in self.portfolio if portfolio.control_block.name in zone_set),
+            **{
+                equipment_type.value: Container(
+                    equipment
+                    for equipment in self.get_items_by_type(equipment_type)
+                    if cast(Equipment, equipment).node.control_block.name in zone_set
+                )
+                for equipment_type in cfg.EQUIPMENT_MODELS
+            },
+        )
 
     def set_frequency_all(
         self,

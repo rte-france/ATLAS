@@ -19,8 +19,8 @@ params = {
     "solver": {
         "solver_name": "XPRESS",
     },
-    "output": {
-        "export_result": True,
+    "export": {
+        "export_results": True,
     },
 }
 
@@ -47,8 +47,8 @@ temporal:
   timestep: "PT1H"
 solver:
   solver_name: "XPRESS"
-output:
-  export_result: true
+export:
+  export_results: true
 ```
 
 ```python
@@ -107,7 +107,6 @@ params = {
 ```python
 params = {
     # ... temporal/solver/output ...
-    "imbalance_penalty_offset": 15,
     "small_imbalance_penalty": 0.15,
     "large_imbalance_penalty": 0.25,
     "automated_unprocured_reserves_penalty": 50000,

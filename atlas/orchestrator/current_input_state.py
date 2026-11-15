@@ -8,7 +8,6 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 import copy as copy_module
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Literal
 
@@ -202,28 +201,3 @@ class CurrentInputState:
             >>> # Modify cis_copy without affecting original cis
         """
         return CurrentInputState(copy_module.deepcopy(self.data))
-
-    @contextmanager
-    def transaction(self, model_types):
-        """Context manager for transactional CIS modifications with automatic rollback on error.
-
-        Only the containers listed in *model_types* are backed up and restored on failure,
-        making this much cheaper than a full deepcopy when only a subset of the dataset
-        is modified. The caller is responsible for declaring every container that may be
-        mutated inside the context.
-
-        :param model_types: Iterable of BusinessModelName (or str) values identifying
-            which AtlasDataset attributes to back up.
-
-        Example:
-            >>> with cis.transaction({"order"}):
-            ...     CISHandler.apply(change_sets, cis)
-            ...     # If any error occurs here, only the order container is rolled back
-        """
-        backups = {mt: copy_module.deepcopy(getattr(self.data, mt)) for mt in model_types}
-        try:
-            yield self
-        except Exception:
-            for mt, backup in backups.items():
-                setattr(self.data, mt, backup)
-            raise

@@ -274,6 +274,26 @@ def test_from_file_with_filter(tmp_path):
     assert matrix.matrix.shape[0] == 2
 
 
+def test_from_file_with_filter_drops_null_columns_inherited_from_other_attribute(tmp_path):
+    df = pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=3, freq="D"),
+            "attribute": ["load_a", "load_a", "load_a"],
+            "scenario1": [1.0, 2.0, 3.0],
+            "scenario2": [None, None, None],
+        },
+        schema_overrides={"scenario2": pl.Float64},
+    )
+    file_path = tmp_path / "filtered.parquet"
+    df.write_parquet(file_path)
+
+    matrix = ScenarioMatrix.from_file(file_path, filters=("attribute", "load_a"))
+    assert matrix.matrix.columns == ["time", "scenario1", "scenario2"]
+
+    matrix_dropped = ScenarioMatrix.from_file(file_path, filters=("attribute", "load_a"), drop_null_columns=True)
+    assert matrix_dropped.matrix.columns == ["time", "scenario1"]
+
+
 def test_from_file_with_invalid_schema(tmp_path):
     df = pl.DataFrame(
         {
@@ -371,6 +391,34 @@ def test_to_file_with_attribute_concatenate(tmp_path, sample_polars_df):
 
     # Check total length
     assert len(df_concat) == len(matrix1.dataframe) + len(matrix2.dataframe)
+
+
+@pytest.mark.parametrize("file_format", ["parquet", "csv"])
+def test_to_file_with_attribute_concatenate_different_columns(tmp_path, sample_polars_df, file_format):
+    """Attributes with different columns (e.g. forecast dates) are stacked, missing cells left null."""
+    path = tmp_path / f"test_concat.{file_format}"
+    df2 = pl.DataFrame({"time": pd.date_range(start="2025-01-04", periods=2, freq="D"), "other": [4, 5]})
+
+    ScenarioMatrix(sample_polars_df).to_file_with_attribute(path, attribute="power", file_format=file_format)
+    ScenarioMatrix(df2).to_file_with_attribute(path, attribute="capacity", file_format=file_format)
+
+    df_concat = pl.read_parquet(path) if file_format == "parquet" else pl.read_csv(path, separator=";")
+    assert "other" in df_concat.columns
+    assert len(df_concat) == len(sample_polars_df) + len(df2)
+    assert df_concat.filter(pl.col("attribute") == "capacity")["other"].to_list() == [4, 5]
+
+
+def test_to_file_with_attribute_concatenate_unreadable_file(tmp_path, sample_polars_df):
+    """An unreadable existing file must raise, not be overwritten with the new data only."""
+    path = tmp_path / "corrupted.parquet"
+    path.write_bytes(b"not a parquet file")
+
+    matrix = ScenarioMatrix(sample_polars_df)
+
+    with pytest.raises(ValueError, match="Could not read existing file for concatenation"):
+        matrix.to_file_with_attribute(path, attribute="power", file_format="parquet")
+
+    assert path.read_bytes() == b"not a parquet file"
 
 
 def test_to_lazy(sample_polars_df):

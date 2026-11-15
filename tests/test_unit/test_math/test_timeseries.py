@@ -16,6 +16,7 @@ import pytest
 from pendulum import Timezone
 
 from atlas import Timeseries
+from atlas.timing import build_datetime
 
 
 @pytest.fixture
@@ -280,6 +281,22 @@ class TestTimeseriesInit:
 
         assert ts.timestep == pendulum.duration(hours=1)
 
+    def test_timeseries_from_values_no_values(self):
+        with pytest.raises(ValueError, match="at least 1 value"):
+            Timeseries.from_values("2025-01-01 00:00:00", "1h", [], timezone="UTC")
+
+    def test_timeseries_from_values_single_value(self):
+        ts = Timeseries.from_values("2025-01-01 00:00:00", "1h", [42.0], timezone="UTC")
+        assert isinstance(ts, Timeseries)
+        assert len(ts) == 2
+        assert ts["value"] == [42.0, 42.0]
+        expected_times = [
+            pendulum.datetime(2025, 1, 1, 0, 0, 0, tz="UTC"),
+            pendulum.datetime(2025, 1, 1, 1, 0, 0, tz="UTC"),
+        ]
+        assert ts.index == expected_times
+        assert ts.timestep == pendulum.duration(hours=1)
+
 
 class TestTimeseriesBasicOperations:
     """Test basic operations of the Timeseries class."""
@@ -347,6 +364,42 @@ class TestTimeseriesBasicOperations:
         assert (123 in sample_ts) is False
         assert (None in sample_ts) is False
         assert ([] in sample_ts) is False
+        assert ("not a date" in sample_ts) is False
+
+    @pytest.mark.parametrize(
+        "item",
+        [
+            datetime(2023, 1, 1, 0, 0, 0),
+            datetime(2023, 1, 1, 0, 30, 0),
+            "2023-01-01 03:00:00",
+            "2023-01-01 04:00:00",
+            pendulum.datetime(2023, 1, 1, 2, 0, 0, tz="UTC"),
+            pendulum.datetime(2023, 1, 1, 2, 0, 0, tz="Europe/Paris"),
+            pendulum.datetime(2023, 1, 1, 3, 0, 0, tz="Europe/Paris"),
+        ],
+    )
+    @pytest.mark.parametrize("timezone", ["UTC", "Europe/Paris"])
+    def test_contains_matches_a_search_in_the_frame(self, sample_ts, item, timezone):
+        """__contains__ finds exactly the instants of the time column, whatever the input type and timezones."""
+        sample_ts.set_timezone(timezone)
+        expected = sample_ts.timeseries.filter(pl.col("time") == build_datetime(item).in_tz(timezone)).height > 0
+
+        assert (item in sample_ts) is expected
+
+    def test_contains_follows_inplace_operations(self, sample_ts):
+        """A lookup done before an inplace operation does not hide the indexes it adds or removes."""
+        added, removed = datetime(2023, 1, 1, 4, 0, 0), datetime(2023, 1, 1, 0, 0, 0)
+        assert added not in sample_ts
+
+        sample_ts.add_index(added, 50.0)
+        sample_ts.slice(datetime(2023, 1, 1, 1, 0, 0), added)
+
+        assert added in sample_ts
+        assert removed not in sample_ts
+
+    def test_contains_on_empty_timeseries(self):
+        """An empty timeseries contains no index."""
+        assert (datetime(2023, 1, 1) in Timeseries()) is False
 
     def test_mul_with_value(self, sample_ts):
         """Test multiplication operation between a timeseries and a value."""
@@ -469,7 +522,8 @@ class TestTimeseriesBasicOperations:
         )
         ts_with_wrong_timstamps = Timeseries(df_with_wrong_timstamps)
 
-        with pytest.raises(ValueError):
+        # The error redirects to the methods that do handle non-matching indexes
+        with pytest.raises(ValueError, match="add_on_union"):
             sample_ts + ts_with_wrong_timstamps
 
     def test_sub_with_value(self, sample_ts):
@@ -713,6 +767,64 @@ class TestTimeseriesBasicOperations:
         with pytest.raises(ValueError):
             sample_ts.add_indexes(new_ts)
 
+    def test_add_on_union_with_partial_overlap(self, sample_ts):
+        df = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 2, 0, 0),
+                    datetime(2023, 1, 1, 3, 0, 0),
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 5, 0, 0),
+                ],
+                "value": [1.0, 2.0, 3.0, 4.0],
+            },
+        )
+        result = sample_ts.add_on_union(Timeseries(df), inplace=False)
+        # Overlapping hours are summed, hours present on a single side are kept as-is
+        assert result["value"] == [10.0, 20.0, 31.0, 42.0, 3.0, 4.0]
+        assert sample_ts["value"] == [10.0, 20.0, 30.0, 40.0]
+
+    def test_add_on_union_with_disjoint_indexes(self, sample_ts):
+        df = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 5, 0, 0),
+                ],
+                "value": [50.0, 60.0],
+            },
+        )
+        result = sample_ts.add_on_union(Timeseries(df), inplace=False)
+        assert result["value"] == [10.0, 20.0, 30.0, 40.0, 50.0, 60.0]
+
+    def test_add_on_union_with_same_indexes(self, sample_ts):
+        result = sample_ts.add_on_union(Timeseries.from_timeseries(sample_ts, default_value=1.0), inplace=False)
+        assert result["value"] == [11.0, 21.0, 31.0, 41.0]
+
+    def test_add_on_union_inplace(self, sample_ts):
+        df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1, 4, 0, 0)],
+                "value": [50.0],
+            },
+        )
+        sample_ts.add_on_union(Timeseries(df))
+        assert sample_ts["value"] == [10.0, 20.0, 30.0, 40.0, 50.0]
+
+    def test_add_on_union_with_gap_between_indexes(self, sample_ts):
+        df = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 6, 0, 0),
+                    datetime(2023, 1, 1, 7, 0, 0),
+                ],
+                "value": [50.0, 60.0],
+            },
+        )
+        # The union of both indexes is not a regular index, so it is not a valid Timeseries
+        with pytest.raises(ValueError):
+            sample_ts.add_on_union(Timeseries(df), inplace=False)
+
     def test_add_index(self, sample_ts):
         sample_ts.add_index(datetime(2023, 1, 1, 4, 0, 0), 50.0)
         assert sample_ts["value"] == [10.0, 20.0, 30.0, 40.0, 50.0]
@@ -859,6 +971,62 @@ class TestTimeseriesBasicOperations:
         ts = Timeseries()
         with pytest.raises(ValueError):
             value = ts.get_value(datetime(2023, 1, 1))
+
+    def test_get_value_with_string(self, sample_ts):
+        """Strings are parsed with date_format, as UTC."""
+        assert sample_ts.get_value("2023-01-01 01:00:00") == 20.0
+        assert sample_ts.get_value("01/01/2023 02h", date_format="DD/MM/YYYY HH[h]") == 30.0
+
+    def test_get_value_with_invalid_string(self, sample_ts):
+        with pytest.raises(ValueError):
+            sample_ts.get_value("not a date")
+
+    def test_get_value_matches_instant_in_other_timezone(self, sample_ts):
+        """An aware datetime matches on its instant, whatever its timezone."""
+        assert sample_ts.get_value(pendulum.datetime(2023, 1, 1, 2, tz="Europe/Paris")) == 20.0
+
+    def test_get_value_naive_datetime_is_utc_on_non_utc_series(self):
+        ts = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": [datetime(2023, 1, 1, 0), datetime(2023, 1, 1, 1)],
+                    "value": [1.0, 2.0],
+                }
+            ).with_columns(pl.col("time").dt.replace_time_zone("UTC")),
+            timezone="Europe/Paris",
+        )
+        assert ts.get_value(datetime(2023, 1, 1, 1)) == 2.0
+        assert ts.get_value("2023-01-01 00:00:00") == 1.0
+        assert ts.get_value(pendulum.datetime(2023, 1, 1, 2, tz="Europe/Paris")) == 2.0
+
+    def test_get_value_around_dst_change(self):
+        """Both occurrences of the repeated hour on the autumn DST change are distinct."""
+        times = pl.datetime_range(
+            pl.datetime(2025, 10, 25, 23, time_zone="UTC"),
+            pl.datetime(2025, 10, 26, 2, time_zone="UTC"),
+            "1h",
+            eager=True,
+        )
+        ts = Timeseries(pl.DataFrame({"time": times, "value": [1.0, 2.0, 3.0, 4.0]}), timezone="Europe/Paris")
+        first = pendulum.datetime(2025, 10, 26, 0, tz="UTC").in_tz("Europe/Paris")
+        second = pendulum.datetime(2025, 10, 26, 1, tz="UTC").in_tz("Europe/Paris")
+        assert first.hour == second.hour == 2
+        assert ts.get_value(first) == 2.0
+        assert ts.get_value(second) == 3.0
+        assert ts.get_value(pendulum.datetime(2025, 10, 26, 1, tz="UTC")) == 3.0
+
+    def test_get_value_missing_error_message(self, sample_ts):
+        with pytest.raises(KeyError, match="2023-01-01 05:00:00"):
+            sample_ts.get_value(datetime(2023, 1, 1, 5))
+
+    def test_get_value_after_set_timezone(self, sample_ts):
+        sample_ts.get_value(datetime(2023, 1, 1, 1))
+        sample_ts.set_timezone("Europe/Paris")
+        assert sample_ts.get_value(pendulum.datetime(2023, 1, 1, 2, tz="Europe/Paris")) == 20.0
+
+    def test_get_value_returns_null_value(self, sample_ts):
+        sample_ts.set_value(datetime(2023, 1, 1, 1), None, inplace=True)
+        assert sample_ts.get_value(datetime(2023, 1, 1, 1)) is None
 
     def test_properties_shape(self, sample_ts: Timeseries):
         """Test the shape and index properties of Timeseries."""

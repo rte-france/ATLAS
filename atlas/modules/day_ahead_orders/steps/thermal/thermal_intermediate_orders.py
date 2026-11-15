@@ -327,7 +327,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                 price = self._load_price_forecast(unit, price_type)
                 model = ThermalOptimizationModel(self.parameters, unit, price, price_type, solver_options)
                 model.create_objective_function("maximize")
-                ThermalConstraintBuilder(model).build(model.is_day_zero())
+                ThermalConstraintBuilder(model).build()
 
                 res = model.solve_thermal_optimization()
                 results[unit.name][price_type] = res

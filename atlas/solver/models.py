@@ -1,8 +1,10 @@
-from pendulum import Duration
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from atlas.enums import SolverStatus
-from atlas.validators import convert_to_duration
+from atlas.validators import DurationField
+
+SUCCESSFUL_SOLVER_STATUSES = (SolverStatus.OPTIMAL, SolverStatus.FEASIBLE)
+"""Statuses for which the solver actually holds a solution that can be read back."""
 
 
 class SolverOptions(BaseModel):
@@ -23,16 +25,7 @@ class SolverOptions(BaseModel):
     duality_gap: float | None = Field(
         default=None, ge=0.0, le=1.0, description="Relative MIP gap tolerance (e.g., 0.01 for 1%)"
     )
-    time_limit: Duration | None = Field(default=None, description="Time limit in seconds for the solver")
-
-    @field_validator(
-        "time_limit",
-        mode="before",
-    )
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
+    time_limit: DurationField | None = Field(default=None, description="Time limit in seconds for the solver")
 
 
 class ConstraintBounds(BaseModel):
@@ -65,3 +58,15 @@ class SolutionInfo(BaseModel):
     objective_value: float | None = None
     solve_time: str | None = None
     num_iterations: int | None = None
+
+    @property
+    def is_successful(self) -> bool:
+        """Whether the solve produced a usable solution.
+
+        Only ``OPTIMAL`` and ``FEASIBLE`` carry variable values: for every other status the solver
+        leaves its variables at their default ``0.0``, which reads like a valid solution but is not.
+
+        :return: True if the solution can be read, False otherwise
+        :rtype: bool
+        """
+        return self.status in SUCCESSFUL_SOLVER_STATUSES

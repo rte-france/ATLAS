@@ -6,7 +6,6 @@ This file is part of the ATLAS project.
 """
 
 from collections import defaultdict
-from concurrent.futures import as_completed
 
 import atlas.config as cfg
 from atlas.enums import CouplingType, Product, ThermalStrategy
@@ -16,7 +15,6 @@ from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_worker import optimize_single_thermal_unit
 from atlas.objects.equipment.thermal import Thermal
 from atlas.objects.market.order import Order
-from atlas.tracing import ProcessPoolExecutor
 
 
 class Coupling:
@@ -27,10 +25,20 @@ class Coupling:
 
 class ThermalBiddingStep(AbstractOrderStep):
     def formulate(self) -> StepResult:
-        if self.parameters.multiprocessing.enable:
-            result = self._formulate_parallel()
-        else:
-            result = self._formulate_sequential()
+        result = StepResult()
+
+        for thermal, unit_result in self.run_units(
+            self.dataset.thermal,
+            optimize_single_thermal_unit,
+            self.orders_time,
+            self.parameters,
+            label="thermal",
+        ):
+            result.orders.extend(unit_result.orders)
+            result.order_couplings.extend(unit_result.order_couplings)
+            cfg.logger.info(
+                f"Completed order formulation for thermal unit: {thermal.name} ({unit_result.strategy.value})"
+            )
 
         cfg.logger.info("Computing maximum sell volumes...")
         self._compute_da_sell_submitted_volume(result)
@@ -38,55 +46,8 @@ class ThermalBiddingStep(AbstractOrderStep):
 
         return result
 
-    def _formulate_parallel(self) -> StepResult:
-        cfg.logger.info(f"Starting parallel thermal optimization for {len(self.dataset.thermal)} units")
-        result = StepResult()
-
-        with ProcessPoolExecutor(max_workers=self.parameters.multiprocessing.max_workers) as executor:
-            future_to_thermal = {
-                executor.submit(optimize_single_thermal_unit, thermal, self.orders_time, self.parameters): thermal.name
-                for thermal in self.dataset.thermal
-            }
-
-            for future in as_completed(future_to_thermal):
-                thermal_name = future_to_thermal[future]
-                try:
-                    unit_result = future.result()
-
-                    if unit_result.success:
-                        result.orders.extend(unit_result.orders)
-                        result.order_couplings.extend(unit_result.order_couplings)
-                        cfg.logger.info(
-                            f"Completed order formulation for thermal unit: {thermal_name} ({unit_result.strategy.value})"
-                        )
-                    else:
-                        cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal_name}")
-
-                except Exception as e:
-                    cfg.logger.error(f"Error processing thermal unit {thermal_name}: {e}")
-
-        return result
-
-    def _formulate_sequential(self) -> StepResult:
-        cfg.logger.info(f"Starting sequential thermal optimization for {len(self.dataset.thermal)} units")
-        result = StepResult()
-
-        for thermal in self.dataset.thermal:
-            unit_result = optimize_single_thermal_unit(thermal, self.orders_time, self.parameters)
-
-            if unit_result.success:
-                result.orders.extend(unit_result.orders)
-                result.order_couplings.extend(unit_result.order_couplings)
-                cfg.logger.info(
-                    f"Completed order formulation for thermal unit: {thermal.name} ({unit_result.strategy.value})"
-                )
-            else:
-                cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal.name}")
-
-        return result
-
     def _compute_da_sell_submitted_volume(self, result: StepResult) -> None:
-        da_sell_submitted_volumes: dict[str, Timeseries] = {
+        sell_submitted_volumes: dict[str, Timeseries] = {
             equipment.name: Timeseries.from_index(
                 self.parameters.temporal.start_date,
                 self.parameters.temporal.timestep,
@@ -106,12 +67,12 @@ class ThermalBiddingStep(AbstractOrderStep):
                 and order.start_date in self.orders_time
             ):
                 if order.equipment.strategy == ThermalStrategy.PEAK or order.equipment.strategy == ThermalStrategy.BASE:
-                    if order.start_date in da_sell_submitted_volumes[order.equipment.name]:
-                        da_sell_submitted_volumes[order.equipment.name].set_value(
+                    if order.start_date in sell_submitted_volumes[order.equipment.name]:
+                        sell_submitted_volumes[order.equipment.name].set_value(
                             order.start_date, order.qmax if order.qmax is not None else 0
                         )
                     else:
-                        da_sell_submitted_volumes[order.equipment.name].add_index(
+                        sell_submitted_volumes[order.equipment.name].add_index(
                             order.start_date, order.qmax if order.qmax is not None else 0
                         )
                 else:
@@ -182,35 +143,46 @@ class ThermalBiddingStep(AbstractOrderStep):
 
         for order in relevent_orders_intermediate:
             if not already_considered_orders[order.name]:
-                if order.start_date in da_sell_submitted_volumes[order.equipment.name]:
-                    da_sell_submitted_volumes[order.equipment.name].set_value(
+                if order.start_date in sell_submitted_volumes[order.equipment.name]:
+                    sell_submitted_volumes[order.equipment.name].set_value(
                         order.start_date, order.qmax if order.qmax is not None else 0
                     )
                 else:
-                    da_sell_submitted_volumes[order.equipment.name].add_index(
+                    sell_submitted_volumes[order.equipment.name].add_index(
                         order.start_date, order.qmax if order.qmax is not None else 0
                     )
 
         for equipment in self.dataset.thermal:
             if equipment.strategy == ThermalStrategy.INTERMEDIATE:
                 cfg.logger.warning(
-                    "Warning : da_sell_submitted_volumes might not yield the correct result if several internal EXCLUSION are formulated"
+                    "Warning : sell_submitted_volumes might not yield the correct result if several internal EXCLUSION are formulated"
                 )
 
-                da_sell_submitted_volume: Timeseries = da_sell_submitted_volumes[equipment.name]
+                sell_submitted_volume: Timeseries = sell_submitted_volumes[equipment.name]
                 programms: list[Timeseries] = list_of_mutually_exclusive_programms[equipment.name]
 
                 if programms:
                     for t in self.orders_time:
                         max_val = max((programm.get_value(t) for programm in programms), default=0)
-                        if t in da_sell_submitted_volume:
-                            da_sell_submitted_volume.set_value(t, max_val)
+                        if t in sell_submitted_volume:
+                            sell_submitted_volume.set_value(t, max_val)
                         else:
-                            da_sell_submitted_volume.add_index(t, max_val)
-                equipment.da_sell_submitted_volume = da_sell_submitted_volume
+                            sell_submitted_volume.add_index(t, max_val)
+
+                if equipment.da_sell_submitted_volume is None:
+                    equipment.da_sell_submitted_volume = sell_submitted_volume
+                else:
+                    equipment.da_sell_submitted_volume = equipment.da_sell_submitted_volume.add_on_union(
+                        sell_submitted_volume, inplace=False
+                    )
 
             else:
-                equipment.da_sell_submitted_volume = da_sell_submitted_volumes[equipment.name]
+                if equipment.da_sell_submitted_volume is None:
+                    equipment.da_sell_submitted_volume = sell_submitted_volumes[equipment.name]
+                else:
+                    equipment.da_sell_submitted_volume = equipment.da_sell_submitted_volume.add_on_union(
+                        sell_submitted_volumes[equipment.name], inplace=False
+                    )
 
     def graph_search_of_connected_orders(
         self,

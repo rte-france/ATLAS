@@ -1,6 +1,5 @@
 from typing import cast
 
-import polars as pl
 from loguru import logger
 from pendulum import DateTime
 
@@ -16,17 +15,16 @@ from atlas.modules.intraday_price_forecast.input_objects.load import LoadIDPF
 from atlas.modules.intraday_price_forecast.input_objects.market_area import MarketAreaIDPF
 from atlas.modules.intraday_price_forecast.input_objects.solar import SolarIDPF
 from atlas.modules.intraday_price_forecast.input_objects.wind import WindIDPF
-from atlas.modules.intraday_price_forecast.output_dataset import IntradayPriceForecastOutputDataset
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
+from atlas.modules.intraday_price_forecast.result import IntradayPriceForecastResult
 from atlas.timing import generate_datetimes
 
 
 class IntradayPriceForecastModule(
-    AbstractModule[
-        IntradayPriceForecastParameters, IntradayPriceForecastInputDataset, IntradayPriceForecastOutputDataset
-    ]
+    AbstractModule[IntradayPriceForecastParameters, IntradayPriceForecastInputDataset, IntradayPriceForecastResult]
 ):
-    def get_parameters_class(self):
+    @classmethod
+    def get_parameters_class(cls) -> type[IntradayPriceForecastParameters]:
         return IntradayPriceForecastParameters
 
     def import_data(
@@ -41,7 +39,7 @@ class IntradayPriceForecastModule(
 
     def execute(
         self, parameters: IntradayPriceForecastParameters, input_dataset: IntradayPriceForecastInputDataset
-    ) -> IntradayPriceForecastOutputDataset:
+    ) -> IntradayPriceForecastResult:
         """
         Execute the intraday price forecast computation for all market areas.
 
@@ -53,15 +51,15 @@ class IntradayPriceForecastModule(
         5. Apply price caps and store results
 
         :return: Output dataset with updated price forecasts
-        :rtype: IntradayPriceForecastOutputDataset
+        :rtype: IntradayPriceForecastResult
         """
-        output_dataset = IntradayPriceForecastOutputDataset(parameters, input_dataset)
+        result = IntradayPriceForecastResult(parameters, input_dataset)
 
         time_window = generate_datetimes(
             parameters.temporal.start_date, parameters.penultimate_date, parameters.temporal.timestep
         )
 
-        for market_area in output_dataset.market_area:
+        for market_area in result.market_area:
             cfg.logger.info(f"Computing intraday price forecast for market area: '{market_area.name}'")
 
             loads, solars, winds = self._filter_assets_by_market_area(market_area, input_dataset)
@@ -71,7 +69,10 @@ class IntradayPriceForecastModule(
             baseline_price, price_source_label = self._get_baseline_price(market_area, parameters)
 
             intraday_price_forecast = baseline_price + price_sensitivity_ratio * consumption_delta
-            intraday_price_forecast = self._apply_non_negativity_constraint(intraday_price_forecast, parameters)
+            intraday_price_forecast = intraday_price_forecast.slice(
+                parameters.temporal.start_date, parameters.penultimate_date, inplace=False
+            ).clip(lower_bound=0.0)
+
             intraday_price_forecast = self._apply_price_caps(
                 intraday_price_forecast, market_area, time_window, parameters
             )
@@ -82,15 +83,15 @@ class IntradayPriceForecastModule(
                 f"Intraday price for market area '{market_area.name}' has been done using {price_source_label}"
             )
 
-        return output_dataset
+        return result
 
     def validates_results(
         self,
         parameters: IntradayPriceForecastParameters,
         input_dataset: IntradayPriceForecastInputDataset,
-        output_dataset: IntradayPriceForecastOutputDataset,
+        result: IntradayPriceForecastResult,
     ) -> bool:
-        for market_area in output_dataset.market_area:
+        for market_area in result.market_area:
             if market_area.id_price_forecast is None:
                 logger.error(
                     f"intraday price forecast missing for Market area {market_area.name} doesn't have negative price cap isn't negative: {parameters.intraday_negative_price_cap}"
@@ -107,7 +108,7 @@ class IntradayPriceForecastModule(
         self,
         parameters: IntradayPriceForecastParameters,
         input_dataset: IntradayPriceForecastInputDataset,
-        output_dataset: IntradayPriceForecastOutputDataset,
+        result: IntradayPriceForecastResult,
     ) -> None:
         return
 
@@ -275,29 +276,6 @@ class IntradayPriceForecastModule(
             da_price.collect() if isinstance(da_price, LazyTimeseries) else cast(Timeseries, da_price)
         ), "Day Ahead price"
 
-    def _apply_non_negativity_constraint(
-        self, price_forecast: Timeseries, parameters: IntradayPriceForecastParameters
-    ) -> Timeseries:
-        """
-        Ensure all price values are non-negative.
-
-        :param price_forecast: The price forecast timeseries
-        :type price_forecast: Timeseries
-        :param parameters: Module Parameters
-        :type parameters: IntradayPriceForecastParameters
-        :return: Price forecast with non-negative values
-        :rtype: Timeseries
-        """
-        df = price_forecast.slice(
-            parameters.temporal.start_date, parameters.penultimate_date, inplace=False
-        ).dataframe.with_columns(pl.when(pl.col("value") < 0.0).then(0.0).otherwise(pl.col("value")).alias("value"))
-
-        if isinstance(price_forecast, pl.LazyFrame):
-            df = df.collect()
-        price_forecast = Timeseries(cast(pl.DataFrame, df))
-
-        return price_forecast
-
     def _apply_price_caps(
         self,
         price_forecast: Timeseries,
@@ -403,8 +381,6 @@ class IntradayPriceForecastModule(
         :type price_forecast: Timeseries
         """
         if market_area.id_price_forecast is None:
-            market_area.id_price_forecast = ForecastingMatrix(
-                price_forecast.dataframe.rename({"value": parameters.temporal.execution_date.to_datetime_string()})
-            )
+            market_area.id_price_forecast = ForecastingMatrix().add(price_forecast, parameters.temporal.execution_date)
         else:
             market_area.id_price_forecast.add(price_forecast, parameters.temporal.execution_date)

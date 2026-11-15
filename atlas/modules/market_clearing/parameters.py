@@ -4,11 +4,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import Field, field_validator
+from pydantic import Field
 
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.enums import Enum, Product
 from atlas.io_utils.parameters import SolverParameters
+from atlas.validators import InclusionList
 
 
 class ExchangeConstraintsType(str, Enum):
@@ -49,7 +50,7 @@ class MarketClearingParameters(AbstractModuleParameters):
     Typical values: 0.001, 0.0001 or 0.00001 : default value is 0.001
     :type allowed_round_off_error: float
     :param fb_branch_load_slack_penalty: Penalty coefficient favoring the minimization of slacks on flow-based branch
-    load constraints during the pricing phase : default value is 200
+    load constraints during the pricing phase : default value is 1
     :type fb_branch_load_slack_penalty: float
     :param market_price_penalty_alpha: Penalty coefficient favoring the minimization of individual market prices during
     the pricing phase : default value is 10
@@ -57,26 +58,23 @@ class MarketClearingParameters(AbstractModuleParameters):
     :param market_price_penalty_beta: Penalty coefficient favoring the minimization of individual market prices in
     absolute values during the pricing phase : default value is 20
     :type market_price_penalty_beta: float
-    :param paradoxically_accepted_penalty_M: Very big penalty coefficient used to minimize first the paradoxical values
+    :param paradoxically_accepted_penalty: Very big penalty coefficient used to minimize first the paradoxical values
     during the fixing of market prices : default value is 10000
-    :type paradoxically_accepted_penalty_M: float
-    :param paradoxically_rejected_penalty_N: Very big penalty coefficient used to minimize paradoxically rejected bids
+    :type paradoxically_accepted_penalty: float
+    :param paradoxically_rejected_penalty: Very big penalty coefficient used to minimize paradoxically rejected bids
     during the fixing of market prices : default value is 1000
-    :type paradoxically_rejected_penalty_N: float
+    :type paradoxically_rejected_penalty: float
     :param execution_datetime_tolerance: Time (in minutes) associated with the execution date tolerance band.
-    Required to simulated overlapping markets (Intraday, or Balancing). Needs to be greater than the difference between
+    Required to simulate overlapping markets (Intraday, or Balancing). Needs to be greater than the difference between
     execution dates of consecutive order formulation module and Clearing, but less than between the order formulation
-    of the previous market and the current Clearing : must be superior to 0, default value is 5
+    of the previous market and the current Clearing : must be greater than 0, default value is 5
     :type execution_datetime_tolerance: int
-    :param control_block_names: Custom selection of control blocks to be included in the computation or string 'All' to
-    select all control block. the default value is 'All'
-    :type control_block_names: str | list[str]
     :param exchange_constraints_type: Type of constraints to apply on exchanges between market areas: ATC or
     FB (Flow-based): Default value is 'ATC'
     :type exchange_constraints_type: ExchangeConstraintsType
-    :param exchange_constraints_type: Name of the market to be considered. Only orders matching the entered market name
+    :param market: Name of the market to be considered. Only orders matching the entered market name
     will be considered : Default value is 'DayAhead'
-    :type exchange_constraints_type: Product
+    :type market: Product
     :param market_area_names: Custom selection of market areas to be included in the computation or string 'All' to
     select all market area. the default value is 'All'
     :type market_area_names: str | list[str]
@@ -133,12 +131,12 @@ class MarketClearingParameters(AbstractModuleParameters):
         description="Penalty coefficient favoring the minimization of individual market prices in absolute values "
         "during the pricing phase : default value is 20",
     )
-    paradoxically_accepted_penalty_M: float = Field(
+    paradoxically_accepted_penalty: float = Field(
         10000,
         description="Very big penalty coefficient used to minimize first the paradoxical values during the fixing of "
         "market prices : default value is 10000",
     )
-    paradoxically_rejected_penalty_N: float = Field(
+    paradoxically_rejected_penalty: float = Field(
         1000,
         description="Very big penalty coefficient used to minimize paradoxically rejected bids during the fixing of "
         "market prices : default value is 1000",
@@ -146,16 +144,11 @@ class MarketClearingParameters(AbstractModuleParameters):
     execution_datetime_tolerance: int = Field(
         5,
         ge=1,
-        description="Time (in minutes) associated with the execution date tolerance band. Required to simulated "
+        description="Time (in minutes) associated with the execution date tolerance band. Required to simulate "
         "overlapping markets (Intraday, or Balancing). Needs to be greater than the difference between "
         "execution dates of consecutive order formulation module and Clearing, but less than between "
-        "the order formulation of the previous market and the current Clearing : must be superior to 0, "
+        "the order formulation of the previous market and the current Clearing : must be greater than 0, "
         "default value is 5",
-    )
-    control_block_names: str | list[str] = Field(
-        "All",
-        description="Custom selection of control blocks to be included in the computation or string 'All' to select "
-        "all control block. the default value is 'All'",
     )
     exchange_constraints_type: ExchangeConstraintsType = Field(
         ExchangeConstraintsType.ATC,
@@ -167,42 +160,16 @@ class MarketClearingParameters(AbstractModuleParameters):
         description="Name of the market to be considered. Only orders matching the entered market name will be "
         "considered (not case sensitive) : Default value is 'DayAhead'",
     )
-    market_area_names: str | list[str] = Field(
-        "All",
+    market_area_names: InclusionList = Field(
+        "all",
         description="Custom selection of market areas to be included in the computation or string 'All' to select all "
         "market area. the default value is 'All'",
     )
     initial_max_price: int = Field(
         int(1e8),
-        description=" Max price : default value is 100 000 000",
+        description="Max price : default value is 100 000 000",
     )
     initial_min_price: int = Field(
         -int(1e8),
         description="Min price : default value is - 100 000 000",
     )
-
-    @field_validator("market_area_names", "control_block_names", mode="before")
-    @classmethod
-    def parse_included_objects(cls, v):
-        # case default
-        if isinstance(v, str) and v.lower() == "all":
-            return v.lower()
-
-        # already a list
-        if isinstance(v, list):
-            return v
-
-        # string like "[es, fr]"
-        if isinstance(v, str):
-            v = v.strip()
-
-            if not (v.startswith("[") and v.endswith("]")):
-                raise ValueError("market_area_names must be 'All' or a list like [es, fr]")
-
-            content = v[1:-1].strip()
-            if not content:
-                return []
-
-            return [item.strip() for item in content.split(",")]
-
-        raise ValueError("Invalid value for market_area_names")

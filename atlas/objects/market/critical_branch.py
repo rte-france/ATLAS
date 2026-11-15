@@ -4,15 +4,13 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import field_serializer
-
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.market.market_area_ptdf import MarketAreaPtdf
 from atlas.objects.market.node_ptdf import NodePtdf
 from atlas.objects.network.node import Node
-from atlas.validators import serializer_business_model, serializer_list_business_model
+from atlas.validators import BusinessModelListRef, BusinessModelRef
 
 
 class CriticalBranch(BusinessModel):
@@ -44,10 +42,10 @@ class CriticalBranch(BusinessModel):
 
     """
 
-    downhill_node: Node
-    uphill_node: Node
-    market_area_ptdf: list[MarketAreaPtdf]
-    node_ptdf: list[NodePtdf]
+    downhill_node: BusinessModelRef[Node]
+    uphill_node: BusinessModelRef[Node]
+    market_area_ptdf: BusinessModelListRef[MarketAreaPtdf]
+    node_ptdf: BusinessModelListRef[NodePtdf]
     id_flow: ForecastingMatrix | LazyForecastingMatrix | None = None
     id_shadow_price: ForecastingMatrix | LazyForecastingMatrix | None = None
     da_flow: AbstractTimeseries | None = None
@@ -56,12 +54,3 @@ class CriticalBranch(BusinessModel):
     maximum_flow: AbstractTimeseries | None = None
     reference_flow: AbstractTimeseries | None = None
     total_id_flow: AbstractTimeseries | None = None
-
-    @field_serializer("downhill_node", "uphill_node", mode="plain")
-    def serializer_bmo(self, value: BusinessModel | None) -> str | None:
-        """Serialize BusinessModel attributes to string."""
-        return serializer_business_model(value)
-
-    @field_serializer("market_area_ptdf", "node_ptdf", mode="plain")
-    def serializer_list_bmo(self, value: list[BusinessModel] | None) -> str | None:
-        return serializer_list_business_model(value)

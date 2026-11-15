@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
+from atlas.custom_errors import ObjectInstantiationError
 from atlas.io_utils import input_loader
 from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.models import InputLoaderConfig
@@ -21,6 +22,7 @@ from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.equipment.equipment import Equipment
+from atlas.validators import BusinessModelListRef, BusinessModelRef
 
 
 @pytest.fixture
@@ -64,9 +66,9 @@ class DummyEquipment(Equipment):
 
 class DummyReferencing(BusinessModel):
     name: str
-    ref: DummyReferenced | None = None
-    equipment: DummyEquipment | None = None
-    refs: list[DummyReferenced] | None = None
+    ref: BusinessModelRef[DummyReferenced] | None = None
+    equipment: BusinessModelRef[Equipment] | None = None
+    refs: BusinessModelListRef[DummyReferenced] | None = None
     list_field: list[str] | None = None
     start_date: DateTime | None = None
 
@@ -164,63 +166,49 @@ def test_from_directory_success(mock_matrix, mock_ts, temp_input_dir, mock_model
 
 
 def test_instantiate_model_object_with_equipment_reference(monkeypatch):
-    # Patch MODEL_MAPPING_NAME and EQUIPMENT_MODELS temporarily
     monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "my_object", DummyReferencing)
-    monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "equipment", DummyEquipment)
-    monkeypatch.setitem(cfg.INVERSE_MODEL_MAPPING_NAME, DummyEquipment, "equipment")
-    monkeypatch.setattr(cfg, "EQUIPMENT_MODELS", ["equipment"])
 
-    # Simulate already-instantiated equipment
+    # Simulate already-instantiated equipment: a subclass, referenced through the Equipment annotation
     equipment1 = DummyEquipment(name="eq1")
-    objects_instantiated = {
-        "equipment": [equipment1],
-    }
+    registry = {"eq1": [equipment1]}
 
-    # Object to instantiate, referencing the equipment
-    object_dict = {"name": "obj1", "equipment": "eq1"}
+    result = input_loader._build_business_models([{"name": "obj1", "equipment": "eq1"}], "my_object", registry)
 
-    # Build indices like the actual method does
-    object_indices = input_loader._build_object_indices(objects_instantiated)
-
-    result = input_loader._build_single_business_model(object_dict.copy(), "my_object", object_indices)
-
-    assert isinstance(result, DummyReferencing)
-    assert result.name == "obj1"
-    assert result.equipment == equipment1
+    assert isinstance(result[0], DummyReferencing)
+    assert result[0].name == "obj1"
+    assert result[0].equipment == equipment1
 
 
 def test_instantiate_model_object_with_cross_reference(monkeypatch):
-    # Simulate mapping configuration
     monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "dummy_referencing", DummyReferencing)
-    monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "ref", DummyReferenced)
-    monkeypatch.setattr(cfg, "EQUIPMENT_MODELS", [])
-    monkeypatch.setitem(cfg.INVERSE_MODEL_MAPPING_NAME, DummyReferenced, "ref")
 
-    # Already instantiated object
     referenced_obj = DummyReferenced(name="ref1")
     referenced_obj_2 = DummyReferenced(name="ref2")
-    objects_instantiated = {
-        "ref": [referenced_obj, referenced_obj_2],
-    }
+    registry = {"ref1": [referenced_obj], "ref2": [referenced_obj_2]}
 
-    # Object to instantiate, referencing the above
     object_dict = {
         "name": "obj1",
         "ref": "ref1",
-        "refs": ["ref1", "ref2"],
+        "refs": "ref1|ref2",
         "list_field": ["a", "b"],
     }
 
-    # Build indices like the actual method does
-    object_indices = input_loader._build_object_indices(objects_instantiated)
+    result = input_loader._build_business_models([object_dict], "dummy_referencing", registry)
 
-    result = input_loader._build_single_business_model(object_dict.copy(), "dummy_referencing", object_indices)
+    assert isinstance(result[0], DummyReferencing)
+    assert result[0].name == "obj1"
+    assert result[0].ref == referenced_obj
+    assert result[0].refs == [referenced_obj, referenced_obj_2]
+    assert result[0].list_field == ["a", "b"]
 
-    assert isinstance(result, DummyReferencing)
-    assert result.name == "obj1"
-    assert result.ref == referenced_obj
-    assert result.refs == [referenced_obj, referenced_obj_2]
-    assert result.list_field == ["a", "b"]
+
+def test_instantiate_model_object_with_missing_reference(monkeypatch):
+    monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "dummy_referencing", DummyReferencing)
+
+    registry = {"ref1": [DummyReferenced(name="ref1")]}
+
+    with pytest.raises(ObjectInstantiationError, match="obj1"):
+        input_loader._build_business_models([{"name": "obj1", "ref": "typo"}], "dummy_referencing", registry)
 
 
 def test_load_matrix(tmp_path):

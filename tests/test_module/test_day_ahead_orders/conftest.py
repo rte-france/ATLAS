@@ -12,13 +12,13 @@ import pytest
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.container import Container
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.result import DayAheadOrdersResult
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
-DAY_AHEAD_INPUT_DIR = Path("tests/dataset/day_ahead_input")
-MARKET_CLEARING_INPUT_DIR = Path("tests/dataset/market_clearing_input")
+DAY_AHEAD_INPUT_DIR = Path("tests/dataset/day_ahead/day_ahead_input")
+MARKET_CLEARING_INPUT_DIR = Path("tests/dataset/day_ahead/market_clearing_input")
 
 STEPS_PARAMS_DICT = {
     "temporal": {
@@ -62,8 +62,8 @@ def steps_input_dataset(day_ahead_atlas_data, steps_parameters) -> DayAheadOrder
 
 
 @pytest.fixture(scope="class")
-def steps_output_dataset(steps_input_dataset) -> DayAheadOrdersOutput:
-    return DayAheadOrdersOutput(steps_input_dataset)
+def steps_result(steps_input_dataset) -> DayAheadOrdersResult:
+    return DayAheadOrdersResult(steps_input_dataset)
 
 
 @pytest.fixture(scope="session")

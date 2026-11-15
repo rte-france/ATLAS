@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pickle
 from collections.abc import Generator
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -24,7 +24,7 @@ import polars as pl
 
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
+from atlas.timing import build_datetime, check_timezone, epoch_key, get_duration, infer_frequency
 from atlas.type import TimeseriesDict
 
 
@@ -80,98 +80,6 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         """
 
         return cls(read_data_file(file_path, filters, separator), timezone)
-
-    @classmethod
-    def from_values(
-        cls,
-        start_date: str | datetime | pendulum.DateTime,
-        frequency: str | timedelta | pendulum.Duration,
-        values: list[float],
-        date_format="YYYY-MM-DD HH:mm:ss",
-        timezone: str = "UTC",
-    ) -> Timeseries:
-        """
-        Create a Timeseries from start date, frequency and a list of values.
-
-        :param start_date: Start date of the timeseries
-        :type start_date: str or datetime or pendulum.DateTime
-        :param frequency: Frequency of the timeseries (e.g., "1h", "15m")
-        :type frequency: str or pendulum.Duration
-        :param values: List of values corresponding to the time intervals
-        :type values: list[float]
-        :param timezone: Timezone string, defaults to "UTC"
-        :type timezone: str, optional
-        :raises ValueError: If file there is no value to insert in the Timeseries
-        :return: A Timeseries object with the specified parameters
-        :rtype: Timeseries
-        """
-        if len(values) < 2:
-            raise ValueError("Timeseries must contains at least 2 values")
-
-        start = build_datetime(start_date, date_format).in_tz(timezone)
-        end = build_datetime(start + (len(values) - 1) * get_duration(frequency)).in_tz(timezone)
-
-        datetimes = generate_datetimes(start, end, frequency, timezone)
-
-        df = pl.DataFrame(
-            {"time": datetimes, "value": values},
-            schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
-        )
-
-        return cls(df, timezone)
-
-    @classmethod
-    def from_index(
-        cls,
-        start_date: str | datetime | pendulum.DateTime,
-        frequency: str | timedelta | pendulum.Duration,
-        end_date: str | datetime | pendulum.DateTime,
-        default_value: list[float] | float = 0,
-        date_format="YYYY-MM-DD HH:mm:ss",
-        timezone: str = "UTC",
-    ) -> Timeseries:
-        """
-        Create a Timeseries from a time range and a default value or list of values.
-
-        :param start_date: Start date of the timeseries
-        :type start_date: str or datetime or pendulum.DateTime
-        :param frequency: Frequency of the timeseries (e.g., "1h", "15m")
-        :type frequency: str or pendulum.Duration
-        :param end_date: End date of the timeseries
-        :type end_date: str or datetime or pendulum.DateTime
-        :param default_value: A scalar value or a list of values to fill the timeseries
-        :type default_value: list[float] or float, optional
-        :param date_format: Format to interpret date strings, defaults to "YYYY-MM-DD HH:mm:ss"
-        :type date_format: str, optional
-        :param timezone: Timezone string, defaults to "UTC"
-        :type timezone: str, optional
-        :raises ValueError: If default_value is a list with length mismatch
-        :return: A Timeseries object with the specified index and values
-        :rtype: Timeseries
-        """
-
-        start = build_datetime(start_date, date_format).in_tz(timezone)
-        end = build_datetime(end_date, date_format).in_tz(timezone)
-
-        datetimes = generate_datetimes(start, end, frequency, timezone)
-
-        if isinstance(default_value, list):
-            if len(default_value) != len(datetimes):
-                raise ValueError(
-                    f"Values  passed is of size {len(default_value)} when datetimes generated is of size {len(datetimes)}"
-                )
-            else:
-                df = pl.DataFrame(
-                    {"time": datetimes, "value": default_value},
-                    schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
-                )
-        elif isinstance(default_value, float | int):
-            df = pl.DataFrame(
-                {"time": datetimes, "value": [default_value] * len(datetimes)},
-                schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
-            )
-
-        return cls(df, timezone)
 
     @classmethod
     def from_timeseries(cls, timeseries: AbstractTimeseries, default_value: float | None = None) -> Timeseries:
@@ -314,8 +222,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :rtype: bool
         """
         try:
-            dt = build_datetime(item).in_tz(self.timezone)
-            return self.timeseries.filter(pl.col("time") == dt).height > 0
+            return epoch_key(item, timezone=self.timezone) in self._get_epoch_lookup()
         except Exception:
             return False
 
@@ -334,7 +241,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         elif isinstance(other, Timeseries):
             if self.frequency != other.frequency:
                 raise ValueError("Could not perform multiplication on Timeseries because frequencies don't match")
-            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+            elif not other.dataframe["time"].is_in(self.dataframe["time"].implode()).all():
                 raise ValueError(
                     "Could not perform multiplication on Timeseries because indexes of Timeseries to add "
                     "are not in current Timeseries"
@@ -359,6 +266,10 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
     def __add__(self, other: float | Timeseries) -> Timeseries:
         """Add all numeric columns by a scalar or timeseries.
 
+        Addition requires the index of `other` to be contained in self's, so that the join
+        and the frequency involved are never implicit. To add two timeseries whose windows
+        only partially overlap, use :meth:`add_on_union`.
+
         :param other: Other timeseries or scalar to add to value of the current Timeseries
         :type other: float | Timeseries
         :raises TypeError: If the object is not a timeseries or a float
@@ -371,10 +282,13 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         elif isinstance(other, Timeseries):
             if self.frequency != other.frequency:
                 raise ValueError("Could not perform addition on Timeseries because frequencies don't match")
-            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+            elif not other.dataframe["time"].is_in(self.dataframe["time"].implode()).all():
                 raise ValueError(
                     "Could not perform addition on Timeseries because indexes of Timeseries to add are "
-                    "not in current Timeseries"
+                    "not in current Timeseries. Addition is deliberately restrictive: use 'add_on_union' "
+                    "to sum over the union of both indexes (timestamps missing on one side count as 0), "
+                    "'add_indexes' to append the missing indexes without adding values, or 'reindex' to "
+                    "align on an explicit index before adding."
                 )
             else:
                 my_ts = Timeseries(self)
@@ -408,7 +322,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         elif isinstance(other, Timeseries):
             if self.frequency != other.frequency:
                 raise ValueError("Could not perform subtraction on Timeseries because frequencies don't match")
-            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+            elif not other.dataframe["time"].is_in(self.dataframe["time"].implode()).all():
                 raise ValueError(
                     "Could not perform subtraction on Timeseries because indexes of Timeseries to add are "
                     "not in current Timeseries"
@@ -447,7 +361,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         elif isinstance(other, Timeseries):
             if self.frequency != other.frequency:
                 raise ValueError("Could not perform division on Timeseries because frequencies don't match")
-            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+            elif not other.dataframe["time"].is_in(self.dataframe["time"].implode()).all():
                 raise ValueError(
                     "Could not perform division on Timeseries because indexes of Timeseries to add are "
                     "not in current Timeseries"
@@ -581,7 +495,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :type time: datetime or str
         :param value: Value to set
         :type value: float or int
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -625,12 +539,12 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         other_ts = Timeseries(other)
         if self.frequency != other_ts.frequency:
             raise ValueError("Could not perform set values on Timeseries because frequencies don't match")
-        if not other_ts.dataframe["time"].is_in(self.dataframe["time"]).all():
+        if not other_ts.dataframe["time"].is_in(self.dataframe["time"].implode()).all():
             raise ValueError(
                 "Could not set values on Timeseries because indexes to set are not all present in Timeseries"
             )
 
-        df = self.timeseries.filter(~pl.col("time").is_in(other_ts.dataframe["time"]))
+        df = self.timeseries.filter(~pl.col("time").is_in(other_ts.dataframe["time"].implode()))
         df = pl.concat([df, other_ts.dataframe])
 
         return self._return(df, inplace)
@@ -649,7 +563,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :type time: datetime or str
         :param value: Value to add to the precedent value
         :type value: float
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -660,15 +574,11 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
 
         if dt not in self.dataframe["time"]:
-            raise ValueError(f"Could not add value at {dt} because timestamp is not in the Timeseries")
+            raise ValueError(f"Could not set value at {dt} because timestamp is not in the Timeseries")
 
-        old_value = self.get_value(dt)
-        df = self.timeseries.filter(pl.col("time") != dt)
-        new_row = pl.DataFrame({"time": [dt], "value": [old_value + value]}).with_columns(
-            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
-            pl.col("value").cast(pl.Float64()),
+        df = self.timeseries.with_columns(
+            pl.when(pl.col("time") == dt).then(pl.col("value") + value).otherwise(pl.col("value")).alias("value")
         )
-        df = pl.concat([df, new_row])
 
         return self._return(df, inplace)
 
@@ -686,7 +596,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :type time: datetime or str
         :param value: Value to multiply to the precedent value
         :type value: float
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -697,15 +607,11 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
 
         if dt not in self.dataframe["time"]:
-            raise ValueError(f"Could not add value at {dt} because timestamp is not in the Timeseries")
+            raise ValueError(f"Could not set value at {dt} because timestamp is not in the Timeseries")
 
-        old_value = self.get_value(dt)
-        df = self.timeseries.filter(pl.col("time") != dt)
-        new_row = pl.DataFrame({"time": [dt], "value": [old_value * value]}).with_columns(
-            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
-            pl.col("value").cast(pl.Float64()),
+        df = self.timeseries.with_columns(
+            pl.when(pl.col("time") == dt).then(pl.col("value") * value).otherwise(pl.col("value")).alias("value")
         )
-        df = pl.concat([df, new_row])
 
         return self._return(df, inplace)
 
@@ -726,15 +632,14 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :return: Timeseries with the added indexes
         :rtype: Timeseries
         """
-        other = Timeseries(other)
+        other_ts = Timeseries(other)
         if len(self.timeseries) == 0:
-            other_df = other.dataframe
+            other_df = other_ts.dataframe
             return self._return(other_df, inplace)
 
-        other_ts = Timeseries(other)
         if self.frequency != other_ts.frequency:
             raise ValueError("Could not perform add indexes on Timeseries because frequency does not match")
-        if other_ts.dataframe["time"].is_in(self.dataframe["time"]).any():
+        if other_ts.dataframe["time"].is_in(self.dataframe["time"].implode()).any():
             raise ValueError(
                 "Could not add indexes on Timeseries because some indexes to add are not present in Timeseries"
             )
@@ -757,7 +662,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :type time: datetime or str
         :param value: Value to add
         :type value: float
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -997,6 +902,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
                     raise ValueError(f"Could not read existing file for concatenation: {e}") from e
 
         # Write the file
+        Path(path_str).parent.mkdir(parents=True, exist_ok=True)
         if file_format_lower == "csv":
             df_to_write.write_csv(path_str, separator=separator)
         elif file_format_lower == "parquet":
@@ -1071,18 +977,19 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
 
         :param datetime: Datetime to get value for
         :type datetime: str or datetime
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :return: The value at the timestamp requested
         :rtype: float
         """
         if len(self.timeseries) == 0:
             raise ValueError("Can't get value on empty timeseries.")
-        dt = build_datetime(datetime, date_format).in_tz(self.timezone)
-        lookup = self._get_lookup()
-        if dt not in lookup:
+        key = epoch_key(datetime, date_format, self.timezone)
+        lookup = self._get_epoch_lookup()
+        if key not in lookup:
+            dt = build_datetime(datetime, date_format).in_tz(self.timezone)
             raise KeyError(f"Value for {dt.to_datetime_string()} not found in the Timeseries.")
-        return lookup[dt]
+        return lookup[key]
 
     def plot(
         self,
@@ -1170,7 +1077,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
             raise IndexError(f"index {index} is out of bounds for timeseries of length {n}")
         return cast(pendulum.DateTime, pendulum.instance(self.timeseries.row(index, named=True)["time"]))
 
-    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
+    def iter_rows(self) -> Generator[tuple[datetime, float]]:
         """
         Iterate over rows of the Timeseries, yielding (time, value) tuples.
 
