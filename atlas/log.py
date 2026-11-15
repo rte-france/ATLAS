@@ -26,7 +26,7 @@ def format_context_prefix(extra: dict) -> str:
 
 def with_context(fmt: str) -> str:
     """Insert the precomputed ``{extra[ctx]}`` prefix right before ``{message}`` in *fmt*."""
-    return fmt.replace("{message}", "{extra[ctx]}{message}", 1) + "\n"
+    return fmt.replace("{message}", "{extra[ctx]}{message}", 1)
 
 
 # Default so ``{extra[ctx]}`` resolves outside any step.

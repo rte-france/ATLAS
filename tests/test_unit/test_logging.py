@@ -124,4 +124,4 @@ class TestConfigureLoggingIntegration(unittest.TestCase):
         run_id = root.run_record.run_id
         lines = buf.getvalue().splitlines()
         self.assertEqual(lines[0], "outside")
-        self.assertIn(f"{run_id} | root | child | hello", lines)
+        self.assertEqual(lines[1], f"{run_id} | root | child | hello")
