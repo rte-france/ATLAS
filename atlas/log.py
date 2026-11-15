@@ -7,44 +7,30 @@ Module that configures the Atlas stdout logger sink.
 """
 
 import sys
-from collections.abc import Callable
 
 from loguru import logger
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-def format_context_prefix(extra: dict, decorate: Callable[[str, str], str] | None = None) -> str:
+def format_context_prefix(extra: dict) -> str:
     """Return a ``" | "``-joined prefix from ``extra['run_id']`` and ``extra['step']``.
 
-    Both values are populated by ``atlas.tracing`` via ``logger.contextualize(...)``.
-    Pass ``decorate(kind, value) -> str`` to wrap each part (e.g. with loguru tags
-    for colored console output). Returns ``""`` when neither key is set.
+    Computed once per step by ``atlas.tracing`` and stored in ``extra['ctx']``, so sinks
+    use a static format string (parsed once by loguru) instead of a per-message callable.
+    Returns ``""`` when neither key is set.
     """
-    wrap = decorate or (lambda _kind, val: val)
-    parts: list[str] = []
-    run_id = extra.get("run_id", "")
-    if run_id:
-        parts.append(wrap("run_id", run_id))
-    step = extra.get("step", "")
-    if step:
-        parts.append(wrap("step", step))
+    parts = [v for v in (extra.get("run_id"), extra.get("step")) if v]
     return " | ".join(parts) + " | " if parts else ""
 
 
-def _make_context_format(base: str) -> Callable[[dict], str]:
-    """Wrap a loguru format string to inject run_id and step path as pipe-separated columns."""
+def with_context(fmt: str) -> str:
+    """Insert the precomputed ``{extra[ctx]}`` prefix right before ``{message}`` in *fmt*."""
+    return fmt.replace("{message}", "{extra[ctx]}{message}", 1) + "\n"
 
-    def _decorate(kind: str, value: str) -> str:
-        return f"<dim>{value}</dim>" if kind == "run_id" else f"<bold>{value}</bold>"
 
-    def format_record(record: dict) -> str:
-        ctx = format_context_prefix(record["extra"], _decorate)
-        if "<level>{message}</level>" in base:
-            return base.replace("<level>{message}</level>", f"{ctx}<level>{{message}}</level>") + "\n"
-        return base.replace("{message}", ctx + "{message}") + "\n"
-
-    return format_record
+# Default so ``{extra[ctx]}`` resolves outside any step.
+logger.configure(extra={"ctx": ""})
 
 
 class LoggerSettings(BaseSettings):
@@ -87,6 +73,6 @@ def configure_logging(settings: LoggerSettings | None = None) -> None:
     logger.add(
         sys.stdout,
         level=settings.level,
-        format=_make_context_format(settings.format),
+        format=with_context(settings.format),
         enqueue=True,
     )

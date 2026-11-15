@@ -22,7 +22,7 @@ from loguru import logger
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from atlas.log import format_context_prefix
+from atlas.log import format_context_prefix, with_context
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -40,6 +40,12 @@ def model_to_metadata(model: Any) -> dict[str, Any]:
     if not hasattr(model, "model_dump"):
         return {}
     return json.loads(json.dumps(model.model_dump(), default=str))
+
+
+def _contextualize(run_id: str = "", step: str = "") -> Any:
+    """``logger.contextualize`` with the log prefix precomputed once (not per message)."""
+    ctx = format_context_prefix({"run_id": run_id, "step": step})
+    return logger.contextualize(run_id=run_id, step=step, ctx=ctx)
 
 
 def get_log_context() -> dict[str, str]:
@@ -138,7 +144,7 @@ class _ContextualWorker:
                 node = StepRecord(name=name, run_id=run_id, parent=node)
             token = _step_context.set(node)
         try:
-            with logger.contextualize(**self.log_ctx):
+            with _contextualize(**self.log_ctx):
                 return self.fn(*args, **kwargs)
         finally:
             if token is not None:
@@ -190,9 +196,6 @@ class _StepDescriptor:
         self.run_record: StepRecord | None = None
         functools.update_wrapper(self, func)
 
-    def __set_name__(self, owner: type, attr_name: str) -> None:
-        pass  # presence of this method is enough for Python to call it on class body
-
     def __get__(self, obj: Any, objtype: Any = None) -> Any:
         if obj is None:
             return self
@@ -221,7 +224,7 @@ class _StepDescriptor:
         record.started_at = pendulum.now()
         ctx_token = _step_context.set(record)
 
-        with logger.contextualize(step=record.path, run_id=record.run_id):
+        with _contextualize(run_id=record.run_id, step=record.path):
             sink_id = _run_store.open_log(record) if record.is_root else None
             try:
                 result = self._func(*all_args, **kwargs)
@@ -319,7 +322,7 @@ class RunStore(BaseSettings):
     enabled: bool = Field(default=True)
     dir: Path = Field(default=Path("runs"))
     log: bool = Field(default=True)
-    log_level: str = Field(default="DEBUG")
+    log_level: str = Field(default="INFO")
 
     def _run_dir(self, record: StepRecord) -> Path:
         ts = record.started_at.format("YYYYMMDD_HHmmss") if record.started_at else "unknown"
@@ -332,11 +335,8 @@ class RunStore(BaseSettings):
         if not self.enabled or not self.log:
             return None
         path = self._run_dir(record) / "run.log"
-
-        def fmt(r: dict) -> str:
-            return "{time:YYYY-MM-DD HH:mm:ss} | {level:<8} | " + format_context_prefix(r["extra"]) + "{message}\n"
-
-        return logger.add(str(path), level=self.log_level.upper(), format=fmt, colorize=False)
+        fmt = with_context("{time:YYYY-MM-DD HH:mm:ss} | {level:<8} | {message}")
+        return logger.add(str(path), level=self.log_level.upper(), format=fmt, colorize=False, enqueue=True)
 
     def close_log(self, sink_id: int | None) -> None:
         """Remove the per-run log sink opened by :meth:`open_log`."""

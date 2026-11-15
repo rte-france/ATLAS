@@ -7,10 +7,12 @@ This file is part of the ATLAS project.
 import io
 import os
 import unittest
+from unittest.mock import patch
 
 from loguru import logger
 
-from atlas.log import LoggerSettings, configure_logging, format_context_prefix
+from atlas.log import LoggerSettings, configure_logging, format_context_prefix, with_context
+from atlas.tracing import step
 
 
 class TestLoggerSettings(unittest.TestCase):
@@ -87,13 +89,6 @@ class TestFormatContextPrefix(unittest.TestCase):
             "abc | outer | ",
         )
 
-    def test_decorate(self):
-        decorate = lambda kind, val: f"[{kind}={val}]"
-        self.assertEqual(
-            format_context_prefix({"run_id": "abc", "step": "x"}, decorate),
-            "[run_id=abc] | [step=x] | ",
-        )
-
 
 class TestConfigureLoggingIntegration(unittest.TestCase):
     """End-to-end: configure_logging + logger.contextualize produces expected prefix."""
@@ -107,14 +102,26 @@ class TestConfigureLoggingIntegration(unittest.TestCase):
         os.environ.clear()
         os.environ.update(self.original_env)
 
+    @patch("atlas.tracing._run_store.enabled", False)
     def test_context_prefix_in_output(self):
         os.environ["LOG_LEVEL"] = "DEBUG"
         os.environ["LOG_FORMAT"] = "{level} | {message}"
         configure_logging()
 
         buf = io.StringIO()
-        logger.add(buf, level="DEBUG", format=lambda r: f"{format_context_prefix(r['extra'])}{r['message']}\n")
-        with logger.contextualize(run_id="abc", step="root | child"):
+        logger.add(buf, level="DEBUG", format=with_context("{message}"))
+
+        @step(name="root")
+        def root() -> str:
+            return child()
+
+        @step(name="child")
+        def child() -> None:
             logger.info("hello")
 
-        self.assertIn("abc | root | child | hello", buf.getvalue())
+        logger.info("outside")
+        root()
+        run_id = root.run_record.run_id
+        lines = buf.getvalue().splitlines()
+        self.assertEqual(lines[0], "outside")
+        self.assertIn(f"{run_id} | root | child | hello", lines)
