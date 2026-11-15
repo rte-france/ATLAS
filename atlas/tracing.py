@@ -15,7 +15,7 @@ from collections.abc import Callable
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal
 
 import pendulum
 from loguru import logger
@@ -23,8 +23,6 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from atlas.log import format_context_prefix, with_context
-
-F = TypeVar("F", bound=Callable[..., Any])
 
 STEP_PATH_SEPARATOR = " | "
 
@@ -257,7 +255,7 @@ class _StepDescriptor:
             )
 
 
-def step(
+def step[F: Callable[..., Any]](
     _func: F | None = None,
     *,
     name: str | Callable[..., str] | None = None,
