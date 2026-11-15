@@ -178,8 +178,8 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
         return cis
 
     @step(
-        name=lambda *args: args[1].name,
-        metadata=lambda *args: model_to_metadata(args[1].parameters),
+        name=lambda self, job, cis: job.name,
+        metadata=lambda self, job, cis: model_to_metadata(job.parameters),
     )
     def _execute_job(self, job: AbstractJob, cis: CurrentInputState):
         """Execute a single job.
