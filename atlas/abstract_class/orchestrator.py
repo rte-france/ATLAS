@@ -22,6 +22,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
 
     parameters: PO
     final_result: AbstractDataset | None = None
+    run_record: StepRecord | None = None
 
     def __init__(self, parameters: PO):
         """Initialize a Orchestrator instance.
@@ -103,8 +104,6 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
         :type attempted_context: ContextParameters
         """
         pass
-
-    run_record: StepRecord | None = None
 
     @step(name=lambda self: self.parameters.name)
     def execute(self) -> CurrentInputState:
