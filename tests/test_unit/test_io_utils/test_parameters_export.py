@@ -56,25 +56,8 @@ def test_dummy_tree(tmp_path):
     tree = DummyTree.from_dict({"branch": {"leaf": {"value": 5}}})
 
     file_path = tmp_path / "exported.yaml"
-    tree.parameters_to_yaml(file_path)
+    tree.to_file(file_path)
     assert DummyTree.from_file(file_path).branch.leaf.value == 5
-
-
-def test_module_parameters_round_trip_from_parameter(tmp_path):
-    """Test the dummy module parameters reload into the same parameters"""
-    parameters = DummyModuleParameters(
-        temporal=TEMPORAL,
-        ratio=1,
-        count=3,
-        name="dummy",
-        output=Path("output/"),
-        optional_value=None,
-        export=ExportParameters(export_results=True, export_dataset=True),
-    )
-    file_path = tmp_path / "exported.yaml"
-    parameters.parameters_to_yaml(file_path)
-
-    assert DummyModuleParameters.from_file(file_path) == parameters
 
 
 @pytest.mark.parametrize(
@@ -96,7 +79,7 @@ def test_module_parameters_round_trip_from_file(parameters_file, module_name, tm
     parameters_class = ModuleRegistry.get(module_name).get_parameters_class()
     parameters = parameters_class.from_file(Path(__file__).parents[3] / PARAMETERS_DIR / parameters_file)
     file_path = tmp_path / "exported.yaml"
-    parameters.parameters_to_yaml(file_path)
+    parameters.to_file(file_path)
     assert parameters_class.from_file(file_path) == parameters
 
 
@@ -107,23 +90,7 @@ def test_workflow_parameters_round_trip_from_file(tmp_path):
 
     # parameters=ActionPlanParameters.from_file(Path(__file__).parents[3] / PARAMETERS_DIR / parameters_file)
     file_path = tmp_path / "exported.yaml"
-    parameters.parameters_to_yaml(file_path)
-    assert WorkflowParameters.from_file(file_path) == parameters
-
-
-def test_workflow_parameters_round_trip_from_parameter(tmp_path):
-    """Test the dummy workflow parameters reload into the same parameters"""
-    parameters = WorkflowParameters(
-        name="workflow",
-        dataset_path=DATASET_PATH,
-        export_final_state=False,
-        steps=[
-            Step(name="DayAheadOrders", module=ModuleRegistry.DayAheadOrders, parameters=DAY_AHEAD_ORDERS_PARAMETERS),
-            Step(name="MarketClearing", module=ModuleRegistry.MarketClearing, parameters=MARKET_CLEARING_PARAMETERS),
-        ],
-    )
-    file_path = tmp_path / "exported.yaml"
-    parameters.parameters_to_yaml(file_path)
+    parameters.to_file(file_path)
     assert WorkflowParameters.from_file(file_path) == parameters
 
 
@@ -134,11 +101,47 @@ def test_actionplan_parameters_round_trip_from_file(tmp_path):
         Path(__file__).parents[3] / PARAMETERS_DIR / "day_ahead/action_plan.yml"
     )
     file_path = tmp_path / "exported.yaml"
-    parameters.parameters_to_yaml(file_path)
+    parameters.to_file(file_path)
     assert ActionPlanParameters.from_file(file_path) == parameters
 
 
-def test_actionplan_parameters_round_trip_from_parameter(tmp_path):
+@pytest.mark.parametrize("extension", [".yaml", ".json"])
+def test_module_parameters_round_trip_from_parameter(tmp_path, extension):
+    """Test the dummy module parameters reload into the same parameters"""
+    parameters = DummyModuleParameters(
+        temporal=TEMPORAL,
+        ratio=1,
+        count=3,
+        name="dummy",
+        output=Path("output/"),
+        optional_value=None,
+        export=ExportParameters(export_results=True, export_dataset=True),
+    )
+    file_path = tmp_path / "exported.yaml"
+    parameters.to_file(file_path)
+
+    assert DummyModuleParameters.from_file(file_path) == parameters
+
+
+@pytest.mark.parametrize("extension", [".yaml", ".json"])
+def test_workflow_parameters_round_trip_from_parameter(tmp_path, extension):
+    """Test the dummy workflow parameters reload into the same parameters"""
+    parameters = WorkflowParameters(
+        name="workflow",
+        dataset_path=DATASET_PATH,
+        export_final_state=False,
+        steps=[
+            Step(name="DayAheadOrders", module=ModuleRegistry.DayAheadOrders, parameters=DAY_AHEAD_ORDERS_PARAMETERS),
+            Step(name="MarketClearing", module=ModuleRegistry.MarketClearing, parameters=MARKET_CLEARING_PARAMETERS),
+        ],
+    )
+    file_path = tmp_path / f"exported{extension}"
+    parameters.to_file(file_path)
+    assert WorkflowParameters.from_file(file_path) == parameters
+
+
+@pytest.mark.parametrize("extension", [".yaml", ".json"])
+def test_actionplan_parameters_round_trip_from_parameter(tmp_path, extension):
     """Test the dummy action plan parameters reload into the same parameters"""
     parameters = ActionPlanParameters(
         name="action_plan",
@@ -165,6 +168,6 @@ def test_actionplan_parameters_round_trip_from_parameter(tmp_path):
             ),
         ],
     )
-    file_path = tmp_path / "exported.yaml"
-    parameters.parameters_to_yaml(file_path)
+    file_path = tmp_path / f"exported.yaml{extension}"
+    parameters.to_file(file_path)
     assert ActionPlanParameters.from_file(file_path) == parameters
