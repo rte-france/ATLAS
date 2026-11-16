@@ -756,3 +756,17 @@ def test_dd_grad_exists_only_with_a_stable_phase_and_a_shutdown_ramp(
 
     assert any(name.startswith("dd_grad_") for name in model.variables) is has_dd
     assert any(name.startswith("DD_evol_") for name in model.constraints) is has_dd
+
+
+@pytest.mark.parametrize("startup_hours", [0, 2], ids=["without_startup_ramp", "with_startup_ramp"])
+def test_down_to_stop_is_defined_by_the_transition_into_stop(build_thermal_dispatch, model, startup_hours):
+    """Whether or not the unit has a startup ramp, the auxiliary means ``stop(t) AND on_down(t-1)``."""
+    equipment, _, window = build_thermal_dispatch(
+        shutdown_duration=pendulum.duration(hours=2),
+        startup_duration=pendulum.duration(hours=startup_hours),
+    )
+    time = window[1]
+
+    for row in (1, 2, 3):
+        assert f"down_to_stop_evol_{row}_{time}_{equipment.name}" in model.constraints
+        assert f"t_stop_evol_{row}_{time}_{equipment.name}" not in model.constraints
