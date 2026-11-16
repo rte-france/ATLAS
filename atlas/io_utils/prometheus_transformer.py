@@ -375,8 +375,7 @@ class PrometheusToAtlasDataParser:
     def _find_timeseries_file(self, object_type: str, instance: str, file_name: str) -> str | None:
         """Find the CSV file of an attribute in the timeseries tree.
 
-        The tree is walked once and its paths indexed by each of their parts. Walking it again for every attribute
-        of every instance made the conversion of large datasets take hours.
+        The tree is walked once and its paths indexed by each of their parts.
 
         Args:
             object_type: Original object type name from HDF5
