@@ -88,6 +88,7 @@ class PrometheusToAtlasDataParser:
         self.date_format_input_files = date_format_input_files
         self.date_format_timestep = date_format_timestep
         self.default_value = default_value
+        self._timeseries_index: dict[str, list[str]] | None = None
 
         tmp_dir = tempfile.mkdtemp()
         self.tmp_dir = Path(tmp_dir)
@@ -117,6 +118,9 @@ class PrometheusToAtlasDataParser:
             n_workers: Number of worker processes. If None, uses os.cpu_count()
         """
         logger.info("Starting the parsing process.")
+
+        # Built once here, so that the processes of the pool receive it instead of each building their own
+        self._timeseries_index = _index_paths_by_part(_list_all_files(self.timeseries_path))
 
         with h5py.File(self.hdf5_path, "r") as hdf5_file:
             object_types = list(hdf5_file.keys())
@@ -358,12 +362,7 @@ class PrometheusToAtlasDataParser:
 
         # Check if this is a timeseries/matrix file
         # Use original object_type name from HDF5 for file lookup
-        csv_file = _find_file_with_subpaths(
-            _list_all_files(self.timeseries_path),
-            object_type,
-            instance,
-            f"{attr_name}.csv",
-        )
+        csv_file = self._find_timeseries_file(object_type, instance, f"{attr_name}.csv")
 
         if csv_file:
             self._process_matrix_file(csv_file, attrs, attr_name_snake, object_type_snake, instance_snake)
@@ -372,6 +371,23 @@ class PrometheusToAtlasDataParser:
             item = instance_group[attr_name]
             if isinstance(item, h5py.Dataset):
                 self._process_dataset(item, attrs, attr_name_snake, object_type_snake)
+
+    def _find_timeseries_file(self, object_type: str, instance: str, file_name: str) -> str | None:
+        """Find the CSV file of an attribute in the timeseries tree.
+
+        The tree is walked once and its paths indexed by each of their parts.
+
+        Args:
+            object_type: Original object type name from HDF5
+            instance: Name of the instance
+            file_name: Name of the CSV file of the attribute
+
+        Returns:
+            Matching file path or None if not found
+        """
+        if self._timeseries_index is None:
+            self._timeseries_index = _index_paths_by_part(_list_all_files(self.timeseries_path))
+        return _find_in_index(self._timeseries_index, object_type, instance, file_name)
 
     def _process_matrix_file(
         self,
@@ -799,6 +815,44 @@ def _find_file_with_subpaths(file_paths: list[str], str1: str, str2: str, str3: 
     for full_path in file_paths:
         path_parts = full_path.split(os.sep)
         if {str1, str2, str3}.issubset(path_parts):
+            return full_path
+    return None
+
+
+def _index_paths_by_part(file_paths: list[str]) -> dict[str, list[str]]:
+    """Index file paths by each of their parts, folder and file names, keeping the order of file_paths.
+
+    Args:
+        file_paths: List of file paths to index
+
+    Returns:
+        For each part, the paths that contain it, in the order of file_paths
+    """
+    index: dict[str, list[str]] = {}
+    for full_path in file_paths:
+        for part in set(full_path.split(os.sep)):
+            index.setdefault(part, []).append(full_path)
+    return index
+
+
+def _find_in_index(index: dict[str, list[str]], str1: str, str2: str, str3: str) -> str | None:
+    """Find a file whose path contains all three specified parts, using an index built by _index_paths_by_part.
+
+    Returns the same path as _find_file_with_subpaths on the indexed paths: the first one, in their order, that
+    contains the three parts. Only the paths that contain the rarest of the three are looked at.
+
+    Args:
+        index: Index built by _index_paths_by_part
+        str1: First part to match
+        str2: Second part to match
+        str3: Third part to match
+
+    Returns:
+        Matching file path or None if not found
+    """
+    candidates = min((index.get(part, []) for part in (str1, str2, str3)), key=len)
+    for full_path in candidates:
+        if {str1, str2, str3}.issubset(full_path.split(os.sep)):
             return full_path
     return None
 
