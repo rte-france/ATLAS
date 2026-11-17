@@ -270,7 +270,7 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
 
         :param datetime: Datetime to get value for
         :type datetime: str or datetime
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :return: The value at the timestamp requested
         :rtype: float
@@ -485,7 +485,7 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         :type time: datetime or str
         :param value: Value to set
         :type value: float or int
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -534,7 +534,7 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         :type time: datetime or str
         :param value: Value to add
         :type value: float
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -583,7 +583,7 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         :type time: datetime or str
         :param value: Value to add to the precedent value
         :type value: float
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -610,7 +610,7 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         :type time: datetime or str
         :param value: Value to multiply to the precedent value
         :type value: float
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
