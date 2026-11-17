@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Sequence
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from dataclasses import dataclass, field
 from typing import Any, TypeVar
 
@@ -19,6 +19,7 @@ from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCou
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.result import DayAheadOrdersResult
 from atlas.objects.equipment.equipment import Equipment
+from atlas.tracing import ProcessPoolExecutor
 
 U = TypeVar("U", bound=Equipment)
 R = TypeVar("R")

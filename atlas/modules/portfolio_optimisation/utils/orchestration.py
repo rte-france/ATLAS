@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from dataclasses import dataclass, field
 
 import atlas.config as cfg
@@ -17,6 +17,7 @@ from atlas.modules.portfolio_optimisation.optim import PortfolioOptimisationMode
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.manual_activation import set_manual_activation
 from atlas.solver.models import SolutionInfo, SolverOptions
+from atlas.tracing import ProcessPoolExecutor
 
 
 @dataclass

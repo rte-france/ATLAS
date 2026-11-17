@@ -3,7 +3,6 @@ from importlib.metadata import version
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import Parameters
 from atlas.io_utils.utils import get_metadata_from_file, get_metadata_from_frame
-from atlas.log import Logger
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
@@ -45,6 +44,7 @@ from atlas.orchestrator.workflow.workflow import Workflow
 from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions, SolverStatus
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
+from atlas.tracing import RunStore, StepRecord, get_log_context, step
 
 __all__ = [
     "AntaresToAtlas",
@@ -78,7 +78,7 @@ __all__ = [
     "MarketBorder",
     "OptimisationModel",
     "Node",
-    "Logger",
+    "Parameters",
     "get_metadata_from_file",
     "get_metadata_from_frame",
     "NodePtdf",
@@ -100,6 +100,10 @@ __all__ = [
     "MarketClearingModule",
     "IntradayPriceForecastModule",
     "ModuleRun",
+    "step",
+    "get_log_context",
+    "StepRecord",
+    "RunStore",
 ]
 
 __version__ = version("atlas-model")

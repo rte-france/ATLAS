@@ -48,7 +48,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         """
         for resolved_step in self._resolved_steps:
             parameters = resolved_step.parameters.model_copy(deep=True)
-            yield WorkflowJob(f"{resolved_step.name!r}", resolved_step.module.value, parameters)
+            yield WorkflowJob(resolved_step.name, resolved_step.module.value, parameters)
 
     @property
     def jobs_count(self) -> int:

@@ -48,7 +48,7 @@ class TestWorkflowAddStep:
         empty_workflow.add_step(step)
 
         assert empty_workflow.jobs_count == 1
-        assert next(empty_workflow.jobs).name == repr("s1")
+        assert next(empty_workflow.jobs).name == "s1"
 
     def test_add_list_of_steps(self, tmp_path, empty_workflow):
         steps = [TestWorkflowAddStep.step_builder(f"s{i}") for i in range(3)]
@@ -56,7 +56,7 @@ class TestWorkflowAddStep:
 
         assert empty_workflow.jobs_count == 3
         for original, stored in zip(steps, empty_workflow.jobs):
-            assert stored.name == repr(str(original.name))
+            assert stored.name == str(original.name)
 
     def test_add_invalid_type_raises_type_error(self, tmp_path, empty_workflow):
         with pytest.raises(TypeError):
@@ -75,8 +75,8 @@ class TestWorkflowAddStep:
         empty_workflow.add_step(s2)
 
         jobs = empty_workflow.jobs
-        assert next(jobs).name == repr("first")
-        assert next(jobs).name == repr("second")
+        assert next(jobs).name == "first"
+        assert next(jobs).name == "second"
 
 
 class TestWorkflowFromFile:
@@ -435,7 +435,7 @@ class TestWorkflowPathFromWorkflow:
         workflow = Workflow(WorkflowParameters.from_file(config), prefix)
         step = next(workflow.jobs)
 
-        assert step.name == repr(f"{prefix} MarketClearing")
+        assert step.name == f"{prefix} MarketClearing"
         assert step.parameters.export.run_dir == tmp_path / "results" / "MarketClearing"
 
 

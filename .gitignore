@@ -190,6 +190,9 @@ data/
 !.readthedocs.yaml
 *.txt
 
+# Logging
+runs/
+
 # Notebooks
 test.ipynb
 

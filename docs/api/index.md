@@ -51,3 +51,4 @@ Pydantic models for equipment assets, market entities, and network objects.
 
 - [:lucide-list: **Enum**](enum.md) — Enumeration types used across Atlas
 - [:lucide-file-text: **Logging**](logging.md) — Logging configuration and utilities
+- [:lucide-route: **Tracing**](tracing.md) — `@step` decorator, run records, and per-run persistence
