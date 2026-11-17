@@ -48,7 +48,7 @@ LOG_FORMAT=<green>{time:HH:mm:ss}</green> | <level>{level}</level> | <level>{mes
 # ---------------------------------------------------------------------------
 
 # Enable/disable writing record.json + run.log per @step root call.
-RUN_RECORD_ENABLED=true
+RUN_RECORD_ENABLED=false
 
 # Directory where each run is persisted (one subfolder per run).
 RUN_RECORD_DIR=runs
@@ -57,5 +57,5 @@ RUN_RECORD_DIR=runs
 RUN_RECORD_LOG=true
 
 # Level for the per-run log file (independent of LOG_LEVEL).
-RUN_RECORD_LOG_LEVEL=DEBUG
+RUN_RECORD_LOG_LEVEL=INFO
 ```

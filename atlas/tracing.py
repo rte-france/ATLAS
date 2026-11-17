@@ -223,8 +223,10 @@ class _StepDescriptor:
         ctx_token = _step_context.set(record)
 
         with _contextualize(run_id=record.run_id, step=record.path):
-            sink_id = _run_store.open_log(record) if record.is_root else None
+            sink_id: int | None = None
             try:
+                if record.is_root:
+                    sink_id = _run_store.open_log(record)
                 result = self._func(*all_args, **kwargs)
                 record.status = "success"
                 return result
@@ -304,7 +306,7 @@ class RunStore(BaseSettings):
 
     Controlled via environment variables with ``RUN_RECORD_`` prefix:
 
-    - ``RUN_RECORD_ENABLED`` — enable/disable persistence (default: ``true``)
+    - ``RUN_RECORD_ENABLED`` — enable/disable persistence (default: ``false``)
     - ``RUN_RECORD_DIR``     — directory for run files (default: ``runs``)
     - ``RUN_RECORD_LOG``     — also write a ``run.log`` file per run (default: ``true``)
     """
@@ -317,7 +319,7 @@ class RunStore(BaseSettings):
         extra="ignore",
     )
 
-    enabled: bool = Field(default=True)
+    enabled: bool = Field(default=False)
     dir: Path = Field(default=Path("runs"))
     log: bool = Field(default=True)
     log_level: str = Field(default="INFO")

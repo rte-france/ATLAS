@@ -432,6 +432,26 @@ class TestRunStore:
             assert data["name"] == "test-step"
             assert "children" in data
 
+    def test_disabled_by_default(self, monkeypatch):
+        monkeypatch.delenv("RUN_RECORD_ENABLED", raising=False)
+        assert RunStore(_env_file=None).enabled is False
+
+    def test_open_log_failure_marks_failed_and_resets_context(self):
+        store = MagicMock()
+        store.open_log.side_effect = OSError("disk full")
+
+        @step(name="root")
+        def root():
+            pass
+
+        with patch("atlas.tracing._run_store", store), pytest.raises(OSError, match="disk full"):
+            root()
+
+        assert root.run_record.status == "failed"
+        assert _step_context.get() is None
+        store.close_log.assert_called_once_with(None)
+        store.save.assert_called_once_with(root.run_record)
+
     def test_save_disabled_returns_none(self):
         store = RunStore(enabled=False)
         record = StepRecord(name="noop")
