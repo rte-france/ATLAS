@@ -15,6 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from atlas.config import logger
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.input_objects.market_border import DEFAULT_MAX_FLOW, DEFAULT_MIN_FLOW
 from atlas.solver.solver_interface import OptimisationModel
@@ -84,15 +85,42 @@ def add_absolute_exchanges(model: OptimisationModel, input_dataset: MarketCleari
     :return: Positive and negative parts of the exchanges
     :rtype: AbsoluteExchanges
     """
+
     is_atc = input_dataset.is_atc
     borders = input_dataset.market_borders
+    # In the current version, the optimization can crash in the rare corner case when
+    # border.max_flow takes a nagative value and loss_factor is different from 0.
+    # This will be corrected in later versions. For now, we raise an explicit error to
+    # guide the user if this case happens
+    if is_atc:
+        for name, border in borders.items():
+            if not border.loss_factor or border.loss_factor <= 0.0:
+                continue
+
+            if border.max_flow.min() < 0.0:
+                logger.warning(
+                    f"The exchange fixing problem may crash because of border {name}."
+                    "maximum_flow takes negative values (which is fine), but also has a "
+                    "non 0 loss factor. This combination is currently not supported"
+                )
+
+            if border.min_flow.max() > 0.0:
+                logger.warning(
+                    f"The exchange fixing problem may crash because of border {name}."
+                    "minimum_flow takes positive values (which is fine), but also has a "
+                    "non 0 loss factor. This combination is currently not supported"
+                )
+
     return AbsoluteExchanges(
         positive={
             name: model.add_temporal_variable(
                 f"positive_exchange_on_{name}",
                 input_dataset.times,
                 lower_bound=0.0,
-                upper_bound=border.max_flow if is_atc else DEFAULT_MAX_FLOW,
+                # In ATC, the positive part is bounded by ``max(max_flow, 0)``:
+                # a border may have a negative maximum flow, in which case the unclipped bound
+                # would conflict with the 0 bound of the part and make the model infeasible.
+                upper_bound=border.max_flow.clip(lower_bound=0.0, inplace=False) if is_atc else DEFAULT_MAX_FLOW,
             )
             for name, border in borders.items()
         },
@@ -100,7 +128,8 @@ def add_absolute_exchanges(model: OptimisationModel, input_dataset: MarketCleari
             name: model.add_temporal_variable(
                 f"negative_exchange_on_{name}",
                 input_dataset.times,
-                lower_bound=border.min_flow if is_atc else DEFAULT_MIN_FLOW,
+                # Symmetrical bounding
+                lower_bound=border.min_flow.clip(upper_bound=0.0, inplace=False) if is_atc else DEFAULT_MIN_FLOW,
                 upper_bound=0.0,
             )
             for name, border in borders.items()
