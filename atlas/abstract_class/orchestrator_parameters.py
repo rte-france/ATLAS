@@ -52,7 +52,7 @@ class AbstractOrchestratorParameters(Parameters):
     create_job_snapshots: bool = False
     export_final_state: bool = True
     context: ContextParameters = ContextParameters()
-    skip_until: int = 0
+    first_job_index: int = 0
 
     @model_validator(mode="after")
     def validate_use_of_relative_path(self) -> AbstractOrchestratorParameters:
@@ -103,3 +103,17 @@ class AbstractOrchestratorParameters(Parameters):
         if path.is_absolute():
             return path
         return self.base_path / path
+
+    def compute_first_job_index(self, jobs_count: int) -> int:
+        """Return the index of the first job to execute, computed from ``skip_until``.
+        matches python negative indexing: if ``skip_until``=-1, the last job is started.
+        A positive value skips that many jobs from the start unless it's greater than the job count
+
+        :param jobs_count: Total number of jobs of the orchestrator.
+        :type jobs_count: int
+        :return: Index of the first job to execute, between 0 and ``jobs_count``.
+        :rtype: int
+        """
+        if self.first_job_index >= 0:
+            return min(self.first_job_index, jobs_count)
+        return max(jobs_count + self.first_job_index, 0)
