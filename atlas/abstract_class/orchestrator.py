@@ -124,7 +124,11 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
             logger.debug(f"Created initial {self.__class__.__name__} snapshot")
 
         last_executed_job = None
+        computed_first_job_index = self.parameters.compute_first_job_index(self.jobs_count)
         for job_idx, job in enumerate(self.jobs):
+            if computed_first_job_index > job_idx:
+                logger.info(f"Skipping :'{job.name}' ({job_idx + 1}/{self.jobs_count})")
+                continue
             logger.info(f"Launching :'{job.name}' ({job_idx + 1}/{self.jobs_count})")
 
             # Create snapshot before job if requested
