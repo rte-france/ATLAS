@@ -127,6 +127,33 @@ class TestTaskWorkflowDefaultName:
         assert action_plan.parameters.tasks[0].name == "my_workflow"
 
 
+class TestTaskWorkflowRelativePaths:
+    """Documented rule: with `path_from_workflow: true`, relative paths of a workflow are resolved from the directory
+    of the workflow file, also when that workflow is run by an action plan."""
+
+    def test_workflow_file_paths_are_resolved_from_its_directory(self, tmp_path):
+        workflow_dir = tmp_path / "workflow_folder"
+        (workflow_dir / "dataset").mkdir(parents=True)
+        (workflow_dir / "task_workflow_parameters").mkdir()
+        _write_yaml(
+            workflow_dir / "task_workflow_parameters" / "module.yml",
+            {**MODULE_PARAMETERS, "solver": {"timeout": "PT7M"}},
+        )
+        workflow_file = _write_yaml(
+            workflow_dir / "workflow.yml",
+            {
+                "path_from_workflow": True,
+                "dataset_path": "dataset",
+                "steps": [{"module": "MarketClearing", "parameters": "task_workflow_parameters/module.yml"}],
+            },
+        )
+        action_plan = _action_plan(tmp_path, {"name": "relative", "workflow": str(workflow_file)})
+
+        (job,) = list(action_plan.jobs)
+
+        assert job.parameters.solver.timeout == duration(minutes=7)
+
+
 class TestActionPlanContextOnTaskWorkflow:
     """Documented rule: the action plan `context` applies to *every* task's parameters, modules and workflows alike."""
 

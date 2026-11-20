@@ -139,8 +139,11 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         :type root_run_dir: Path
         """
         if isinstance(task.workflow, (str, Path)):
-            task_parameters = WorkflowParameters.from_file(
-                self.parameters.resolve_path(Path(task.workflow)), self.parameters.context
+            workflow_file = self.parameters.resolve_path(Path(task.workflow))
+            # As in `Workflow.from_file`, relative paths of the workflow are resolved from its own directory
+            # (when `path_from_workflow` is set), not from the current working directory.
+            task_parameters = WorkflowParameters.from_file(workflow_file, self.parameters.context).evolve(
+                orchestrator_path=workflow_file.parent.absolute()
             )
         elif isinstance(task.workflow, dict):
             task_parameters = WorkflowParameters.from_dict(task.workflow, self.parameters.context)
