@@ -96,7 +96,7 @@ class Parameters(FrozenBaseModel):
         :param file_path: Path to the YAML file to write.
         :type file_path: str or pathlib.Path
         """
-        parameters_dict = self.model_dump(mode="json", round_trip=True)
+        parameters_dict = self.model_dump(mode="json", round_trip=True, serialize_as_any=True)
         parameters_text = yaml.dump(parameters_dict, sort_keys=False)
         Path(file_path).write_text(parameters_text, encoding="utf-8")
 
@@ -105,7 +105,7 @@ class Parameters(FrozenBaseModel):
         :param file_path: Path to the JSON file to write.
         :type file_path: str or pathlib.Path
         """
-        parameters_text = self.model_dump_json(round_trip=True)
+        parameters_text = self.model_dump_json(round_trip=True, serialize_as_any=True)
         Path(file_path).write_text(parameters_text, encoding="utf-8")
 
     def to_file(self, file_path: Path | str) -> None:

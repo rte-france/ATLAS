@@ -171,3 +171,45 @@ def test_actionplan_parameters_round_trip_from_parameter(tmp_path, extension):
     file_path = tmp_path / f"exported.yaml{extension}"
     parameters.to_file(file_path)
     assert ActionPlanParameters.from_file(file_path) == parameters
+
+
+def test_module_parameters_exported_inside_a_workflow_step(tmp_path):
+    parameters_class = ModuleRegistry.get("PortfolioOptimisation").get_parameters_class()
+    parameters = parameters_class.from_file(
+        Path(__file__).parents[3] / PARAMETERS_DIR / "day_ahead/portfolio_optimisation.yml"
+    )
+    workflow = WorkflowParameters(
+        name="workflow",
+        dataset_path=Path(__file__).parents[3] / PARAMETERS_DIR / "day_ahead/day_ahead_input",
+        steps=[Step(name="PortfolioOptimisation", module=ModuleRegistry.PortfolioOptimisation, parameters=parameters)],
+    )
+    workflow.to_file(tmp_path / "exported.yaml")
+    reloaded = WorkflowParameters.from_file(tmp_path / "exported.yaml")
+    reloaded_step = reloaded.steps[0].parameters
+    assert reloaded_step == parameters.model_dump(mode="json", round_trip=True)
+
+
+def test_module_parameters_exported_inside_an_actionplan_task(tmp_path):
+    parameters_class = ModuleRegistry.get("PortfolioOptimisation").get_parameters_class()
+    parameters = parameters_class.from_file(
+        Path(__file__).parents[3] / PARAMETERS_DIR / "day_ahead/day_ahead_orders.yml"
+    )
+    actionplan = ActionPlanParameters(
+        name="actionplan",
+        dataset_path=Path(__file__).parents[3] / PARAMETERS_DIR / "day_ahead/day_ahead_input",
+        tasks=[
+            TaskModule(
+                name="DayAheadOrders",
+                module=ModuleRegistry.DayAheadOrders,
+                parameters=parameters,
+                from_=EXECUTION_DATE,
+                until=EXECUTION_DATE,
+                frequency=pendulum.duration(days=1),
+                priority=1,
+            ),
+        ],
+    )
+    actionplan.to_file(tmp_path / "exported.yaml")
+    reloaded = ActionPlanParameters.from_file(tmp_path / "exported.yaml")
+    reloaded_step = reloaded.tasks[0].parameters
+    assert reloaded_step == parameters.model_dump(mode="json", round_trip=True)
