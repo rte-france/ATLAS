@@ -91,6 +91,40 @@ class Parameters(FrozenBaseModel):
         with open(Path(file_path)) as file:
             return json.load(file)
 
+    def _write_yaml(self, file_path: Path | str) -> None:
+        """Write every parameter, default values included, to a YAML file.
+        :param file_path: Path to the YAML file to write.
+        :type file_path: str or pathlib.Path
+        """
+        parameters_dict = self.model_dump(mode="json", round_trip=True, serialize_as_any=True)
+        parameters_text = yaml.dump(parameters_dict, sort_keys=False)
+        Path(file_path).write_text(parameters_text, encoding="utf-8")
+
+    def _write_json(self, file_path: Path | str) -> None:
+        """Write every parameter, default values included, to a JSON file.
+        :param file_path: Path to the JSON file to write.
+        :type file_path: str or pathlib.Path
+        """
+        parameters_text = self.model_dump_json(round_trip=True, serialize_as_any=True)
+        Path(file_path).write_text(parameters_text, encoding="utf-8")
+
+    def to_file(self, file_path: Path | str) -> None:
+        """Write the parameters to a YAML or JSON file, depending on the file_path extension.
+        :param file_path: Path to the parameters file to write, with a .yaml, .yml or .json extension.
+        :type file_path: str or pathlib.Path
+        :raises ValueError: If the file extension is not supported.
+
+        .. note:
+            Path values are not modified: relative paths stay relative and are not resolved.
+        """
+        file_extension = Path(file_path).suffix
+        if file_extension in (".yaml", ".yml"):
+            self._write_yaml(file_path)
+        elif file_extension == ".json":
+            self._write_json(file_path)
+        else:
+            raise ValueError(f"Unsupported file extension: {file_extension}")
+
 
 class DateParameters(FrozenBaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
