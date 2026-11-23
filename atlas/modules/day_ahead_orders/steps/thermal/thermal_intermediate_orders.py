@@ -358,6 +358,20 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         )
 
     def formulate_semi_peak(self, unit: ThermalDAO) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
+        """
+        Create semi peak orders for Intermediate units that went through the entire intermediate
+        formulation process without creating any order. This can happen when all price scenarios
+        are too low for the variable cost of the unit, as the optimisation only yields "off" states.
+
+        In practice, this unit would likely still formulate orders, without considering the unit
+        commitment problem, based on heuristic computations. Indeed, the MarketClearing only
+        accepts orders that are profitable, so there is no risk for the unit.
+
+        This function then creates orders linked across "logical" timeframe, whose duration
+        are multiple of minimum_time_on/off constraints. Startup costs are amortized across
+        the total duration of each time frame.
+
+        """
 
         # Here, we store orders in a dict since we have to extract them later on based on their name
         orders_dict: dict[str, OrderDAO] = {}
@@ -386,7 +400,6 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
             cfg.logger.warning(f"Equipment {unit.name} is unavailable for semi-peak (offline).")
             return orders, couplings
 
-        # Define if the unit was started before
         if not unit.power:
             started_before = False
         else:
@@ -501,7 +514,6 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                             overlapping_orders[previous_order_duration].append(local_order)
 
                     # Create all exclusion links
-
                     current_order_name = self._semi_peak_order_name(
                         kind="inflex", n=0, time=time, unit_name=unit.name, duration=order_duration
                     )
@@ -558,7 +570,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
             # We only formulate the order if its maximal power is positive
             if q_max <= 0.0:
-                cfg.logger.info(
+                cfg.logger.warning(
                     "*** WARNING ***\n No capacity available for the "
                     "flexible part of semi peak orders for "
                     f"unit {unit.name} at time {time}. The order will therefore not be created."
