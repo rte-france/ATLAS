@@ -387,6 +387,11 @@ class ThermalUnitOrders:
                     else:
                         q_sell = round(i * q_step_up)
 
+                    # In some cases, notably the first order of a startup ramp,
+                    # the process may yield q_sell == 0, which should be avoided
+                    if q_sell <= 0:
+                        continue
+
                     bid_output = OrderDAO(
                         name=f"startup_ramp_order_at_{t}_for_unit_{unit.name}{scenario_suffix}",
                         market_area=market_area,
@@ -417,6 +422,11 @@ class ThermalUnitOrders:
                         q_sell = round((T_stop - i) * q_step_down)
                     else:
                         q_sell = round(q_min - (T_stop - K_stop + i) * q_step_down)
+
+                    # In some cases, notably the last order of a shutdown ramp,
+                    # the process may yield q_sell == 0, which should be avoided
+                    if q_sell <= 0:
+                        continue
 
                     bid_output = OrderDAO(
                         name=f"shutdown_ramp_order_at_{t}_for_unit_{unit.name}{scenario_suffix}",
@@ -494,17 +504,17 @@ class ThermalUnitOrders:
                         )
 
             # Part 4: configure the identical_ratio link between all inflexible orders
-            date = pendulum.DateTime.instance(inflexible_time_frame[0])
+            block_start = pendulum.DateTime.instance(inflexible_time_frame[0])
             couplings.append(
                 OrderCouplingDAO(
-                    name=f"identical_ratio_inflexible_orders_for_unit_{unit.name}_starting_at_{date.format('DD_MM_YYYY_HH_mm_ss')}{scenario_suffix}",
+                    name=f"identical_ratio_inflexible_orders_for_unit_{unit.name}_starting_at_{block_start.format('DD_MM_YYYY_HH_mm_ss')}{scenario_suffix}",
                     coupling_type=CouplingType.IDENTICAL_RATIO,
                     orders=inflexible_orders,  # type: ignore [arg-type]
                 )
             )
 
             # Part 5 : if startup, amortise startup cost on all inflexible layer
-            amortized_cost = round(unit.startup_cost.get_value(t) / Q, 2)
+            amortized_cost = round(unit.startup_cost.get_value(block_start) / Q, 2)
             for order in inflexible_orders:
                 # Add the spreading of start up cost only if the startup is complete within the sequence
                 if startup and T_endSU_in_sim:
