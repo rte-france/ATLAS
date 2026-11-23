@@ -125,7 +125,9 @@ class TestStorageBids:
 
         assert all(volume >= 0 for volume in result.buy_volumes.values())
         assert all(volume >= 0 for volume in result.sell_volumes.values())
-        assert len(bids.orders) == len(result.buy_volumes) + len(result.sell_volumes)
+        n_active = sum(v > 0 for v in result.buy_volumes.values()) + sum(v > 0 for v in result.sell_volumes.values())
+        assert len(bids.orders) == n_active
+        assert all(order.qmax > 0 for order in bids.orders)
         assert len(bids.order_couplings) == 1
         assert bids.order_couplings[0].orders == bids.orders
 

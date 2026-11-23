@@ -80,9 +80,11 @@ def build_storage_bids(
     orders = [
         _create_spot_order(OrderType.Buy, storage, time, volume, purchase_price, parameters)
         for time, volume in result.buy_volumes.items()
+        if volume > 0
     ] + [
         _create_spot_order(OrderType.Sell, storage, time, volume, sale_price, parameters)
         for time, volume in result.sell_volumes.items()
+        if volume > 0
     ]
 
     # efficiencies are validated strictly positive on StorageDispatchInput, so no zero guard here
@@ -96,7 +98,9 @@ def build_storage_bids(
         orders=orders,
         order_couplings=[
             _create_coupling(storage, result, buy_submitted_volume, sell_submitted_volume, orders, parameters)
-        ],
+        ]
+        if orders
+        else [],
         buy_submitted_volume=buy_submitted_volume,
         sell_submitted_volume=sell_submitted_volume,
         variable_cost=Timeseries.from_values(
