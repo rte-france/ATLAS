@@ -17,6 +17,7 @@ from atlas.tracing import (
     _ContextualWorker,
     _step_context,
     get_log_context,
+    run_record_of,
     step,
 )
 
@@ -554,3 +555,15 @@ class TestGetLogContext:
             outer()
 
         assert captured["ctx"]["step"] == "root"
+
+
+def test_run_record_of_returns_the_record_of_the_last_run():
+    @step
+    def computes():
+        return 42
+
+    assert run_record_of(computes) is None
+    computes()
+    record = run_record_of(computes)
+    assert record is not None
+    assert record.status == "success"

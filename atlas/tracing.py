@@ -15,7 +15,7 @@ from collections.abc import Callable
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast, overload
 
 import pendulum
 from loguru import logger
@@ -257,12 +257,30 @@ class _StepDescriptor:
             )
 
 
+@overload
+def step[F: Callable[..., Any]](
+    _func: F,
+    *,
+    name: str | Callable[..., str] | None = None,
+    metadata: dict[str, Any] | Callable[..., dict[str, Any]] | None = None,
+) -> F: ...
+
+
+@overload
+def step[F: Callable[..., Any]](
+    _func: None = None,
+    *,
+    name: str | Callable[..., str] | None = None,
+    metadata: dict[str, Any] | Callable[..., dict[str, Any]] | None = None,
+) -> Callable[[F], F]: ...
+
+
 def step[F: Callable[..., Any]](
     _func: F | None = None,
     *,
     name: str | Callable[..., str] | None = None,
     metadata: dict[str, Any] | Callable[..., dict[str, Any]] | None = None,
-) -> Any:
+) -> F | Callable[[F], F]:
     """Trace a step's execution: timing, status, metadata, and hierarchical nesting.
 
     A step with no parent in context becomes the **root**: it opens a per-run log sink
@@ -287,18 +305,31 @@ def step[F: Callable[..., Any]](
         workflow.execute()
         workflow.run_record  # StepRecord
 
-    When used on a **standalone function**, the record is on the function itself::
+    When used on a **standalone function**, the record is on the function itself; read it with
+    :func:`run_record_of`, which mypy can type::
 
         my_step()
-        my_step.run_record  # StepRecord
+        run_record_of(my_step)  # StepRecord
     """
+    # The descriptor behaves like the function it wraps (same arguments, same result, bound on an instance),
+    # so the decorated callable keeps its own type: mypy checks its calls and names it in its messages.
     if _func is not None:
-        return _StepDescriptor(_func, name=name, metadata=metadata)
+        return cast(F, _StepDescriptor(_func, name=name, metadata=metadata))
 
-    def decorator(func: F) -> _StepDescriptor:
-        return _StepDescriptor(func, name=name, metadata=metadata)
+    def decorator(func: F) -> F:
+        return cast(F, _StepDescriptor(func, name=name, metadata=metadata))
 
     return decorator
+
+
+def run_record_of(func: Callable[..., Any]) -> StepRecord | None:
+    """Return the record of the last run of a function decorated with :func:`step`, or None if it never ran.
+
+    Equivalent to ``func.run_record``, which mypy cannot type: :func:`step` keeps the type of the function so that
+    mypy checks its calls, and a function type has no ``run_record`` attribute. On a method, read the record on the
+    instance instead (``workflow.run_record``).
+    """
+    return getattr(func, "run_record", None)
 
 
 class RunStore(BaseSettings):
