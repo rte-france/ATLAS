@@ -83,33 +83,45 @@ class PortfolioPO(Portfolio):
 
         return None
 
-    def _compute_residual_energy(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float:
+    def compute_residual_energy(self, parameters: PortfolioOptimisationParameters) -> dict[DateTime, float]:
         """
-        Compute residual energy metrics for all times.
+        Compute, over the portfolio time window, the energy the dispatchable equipments must deliver.
 
-        :param time: Current time period
-        :type time: DateTime
+        It is the upstream commitment (cleared or activated energy) of every equipment, minus
+        what the non-dispatchable equipments deliver on their own according to their forecast:
+
+        * non-dispatchable load: ``upstream - forecast``. Both are negative when consuming, so a
+          load consuming more than it bought adds a deficit (positive residual energy),
+          and a load consuming less than it bought adds a surplus (negative residual energy);
+        * other non-dispatchable: ``upstream - forecast``, without any implicit curtailment. A
+          unit producing less than it sold adds a deficit, and a unit producing more adds a surplus;
+        * dispatchable equipment: its whole upstream commitment.
+
+        The forecasts are read once over the window. A positive value means the portfolio is
+        short, a negative one that it is long.
+
         :param parameters: Optimization parameters
         :type parameters: PortfolioOptimisationParameters
-        :return: Residual energy value
-        :rtype: float
+        :return: Residual energy per time of the portfolio time window
+        :rtype: dict[DateTime, float]
         """
-        residual_energy = 0.0
+        window = parameters.portfolio_time_window
+        residual_energy = dict.fromkeys(window, 0.0)
+        if not window:
+            return residual_energy
 
-        forecast_based_equipment: list[LoadPO | OtherNonDispatchablePO] = [
+        non_dispatchable_equipment: list[LoadPO | OtherNonDispatchablePO] = [
             *self.equipments.non_dispatchable_load,
             *self.equipments.other_non_dispatchable,
         ]
 
-        for equipment in forecast_based_equipment:
-            upstream_energy = self._get_upstream_energy(equipment, time, parameters)
-            forecast_t = equipment.maximum_power_forecast.get_forecast(
-                parameters.temporal.execution_date, time, time, default_value=0
-            ).get_value(time)
+        for equipment in non_dispatchable_equipment:
+            forecast = self._get_window_forecast(equipment, parameters)
+            for time in window:
+                upstream_energy = self._get_upstream_energy(equipment, time, parameters)
+                residual_energy[time] += upstream_energy - forecast.get_value(time)
 
-            residual_energy += upstream_energy - min(forecast_t, upstream_energy)
-
-        other_equipment = [
+        dispatchable_equipment = [
             *self.equipments.thermal,
             *self.equipments.storage,
             *self.equipments.hydro,
@@ -118,10 +130,30 @@ class PortfolioPO(Portfolio):
             *self.equipments.dispatchable_load,
         ]
 
-        for equipment in other_equipment:  # type: ignore [assignment]
-            residual_energy += self._get_upstream_energy(equipment, time, parameters)  # type:ignore [arg-type]
+        for dispatchable in dispatchable_equipment:
+            for time in window:
+                residual_energy[time] += self._get_upstream_energy(dispatchable, time, parameters)  # type: ignore[arg-type]
 
         return residual_energy
+
+    @staticmethod
+    def _get_window_forecast(
+        equipment: LoadPO | OtherNonDispatchablePO, parameters: PortfolioOptimisationParameters
+    ) -> AbstractTimeseries:
+        """
+        Read the maximum power forecast of a non-dispatchable equipment once over the portfolio time window.
+
+        :param equipment: Non-dispatchable equipment
+        :type equipment: LoadPO | OtherNonDispatchablePO
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        :return: Forecast at the execution date, 0 where no value is available
+        :rtype: AbstractTimeseries
+        """
+        window = parameters.portfolio_time_window
+        return equipment.maximum_power_forecast.get_forecast(
+            parameters.temporal.execution_date, min(window), max(window), default_value=0
+        )
 
     def _compute_maximum_power(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float:
         """

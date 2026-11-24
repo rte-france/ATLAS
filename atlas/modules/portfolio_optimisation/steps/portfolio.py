@@ -51,6 +51,28 @@ class PortfolioStep:
         self.large_imbalance_up: TemporalVariable = None  # type: ignore[assignment]
         self.large_imbalance_down: TemporalVariable = None  # type: ignore[assignment]
         self.contract_differences: dict[str, TemporalVariable] = {}
+        self._residual_energy: dict[DateTime, float] | None = None
+        self._overall_imbalance_limit: dict[DateTime, float] | None = None
+
+    def _get_residual_energy(self, parameters: PortfolioOptimisationParameters) -> dict[DateTime, float]:
+        """Residual energy of the portfolio per time, computed once then reused by every constraint."""
+        if self._residual_energy is None:
+            self._residual_energy = self.portfolio.compute_residual_energy(parameters)
+        return self._residual_energy
+
+    def _get_overall_imbalance_limit(self, parameters: PortfolioOptimisationParameters) -> dict[DateTime, float]:
+        """
+        Upper bound of the up and down imbalances per time.
+
+        It covers the residual energy in absolute value, so a long portfolio (negative residual
+        energy, e.g. a load consuming less than it bought) stays feasible.
+        """
+        if self._overall_imbalance_limit is None:
+            self._overall_imbalance_limit = {
+                time: max(abs(residual), parameters.maximum_imbalance)
+                for time, residual in self._get_residual_energy(parameters).items()
+            }
+        return self._overall_imbalance_limit
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters) -> None:
         portfolio = self.portfolio
@@ -137,9 +159,8 @@ class PortfolioStep:
     def _add_global_constraints(
         self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
     ) -> None:
-        portfolio = self.portfolio
-        residual_energy = portfolio._compute_residual_energy(time, parameters)
-        max_overall_imbal = max(residual_energy, parameters.maximum_imbalance)
+        residual_energy = self._get_residual_energy(parameters)[time]
+        max_overall_imbal = self._get_overall_imbalance_limit(parameters)[time]
         sum_power_variables = self._get_sum_power_level_variables(time, parameters)
         small_imbalance_up_var = self.small_imbalance_up[time]
         large_imbalance_up_var = self.large_imbalance_up[time]
@@ -169,10 +190,7 @@ class PortfolioStep:
         portfolio = self.portfolio
         window = parameters.portfolio_time_window
         small_limit = {time: maximum_power[time] * parameters.small_imbalance_size for time in window}
-        overall_limit = {
-            time: max(portfolio._compute_residual_energy(time, parameters), parameters.maximum_imbalance)
-            for time in window
-        }
+        overall_limit = self._get_overall_imbalance_limit(parameters)
 
         def imbalance(name: str, limit: dict[DateTime, float]) -> TemporalVariable:
             return model.add_temporal_variable(

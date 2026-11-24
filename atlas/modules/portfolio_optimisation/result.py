@@ -22,6 +22,8 @@ from atlas.orchestrator.change_set import ChangeSet, UpdateObject
 
 if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
+    from atlas.modules.portfolio_optimisation.input_objects.load import LoadPO
+    from atlas.modules.portfolio_optimisation.input_objects.other_non_dispatchable import OtherNonDispatchablePO
     from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
     from atlas.modules.portfolio_optimisation.utils.orchestration import SinglePortfolioResult
 
@@ -86,7 +88,8 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
 
     def update_equipments(self) -> None:
         """
-        Write the optimised schedule of every equipment onto the equipment itself.
+        Write the optimised schedule of every equipment onto the equipment itself, and the
+        forecasted power of every non-dispatchable equipment.
 
         Manually activated portfolios are skipped: their schedules are already set by
         :func:`atlas.modules.portfolio_optimisation.utils.manual_activation.set_manual_activation`.
@@ -98,6 +101,36 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
             for _, equipment_list in optimisation_result.portfolio.equipments.iter_by_type_for_optimisation():
                 for equipment in equipment_list:
                     self._write_equipment_schedule(equipment, optimisation_result)
+
+            equipments = optimisation_result.portfolio.equipments
+            non_dispatchable_equipment: list[LoadPO | OtherNonDispatchablePO] = [
+                *equipments.non_dispatchable_load,
+                *equipments.other_non_dispatchable,
+            ]
+            for non_dispatchable in non_dispatchable_equipment:
+                self._write_forecasted_power(non_dispatchable)
+
+    def _write_forecasted_power(self, equipment: LoadPO | OtherNonDispatchablePO) -> None:
+        """
+        Store the forecasted power of a non-dispatchable equipment as its schedule.
+
+        Such an equipment has no variable in the optimisation: it delivers its maximum power
+        forecast at the execution date whatever it sold or bought, the gap being carried by the
+        portfolio imbalance. Like the optimised schedules, it feeds ``id_po_for_orders`` in
+        forecast mode.
+
+        :param equipment: Non-dispatchable load or other non-dispatchable equipment to update.
+        :type equipment: LoadPO | OtherNonDispatchablePO
+        """
+        window = self.parameters.portfolio_time_window
+        forecasted_power = equipment.maximum_power_forecast.get_forecast(
+            self.parameters.temporal.execution_date, min(window), max(window), default_value=0
+        )
+
+        if self.parameters.use_forecast:
+            equipment.id_po_for_orders = self._upsert_forecast(equipment.id_po_for_orders, forecasted_power)
+        else:
+            equipment.power = self._upsert_forecast(equipment.power, forecasted_power)
 
     def update_portfolios(self) -> None:
         """
