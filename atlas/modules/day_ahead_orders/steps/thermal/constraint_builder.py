@@ -18,6 +18,9 @@ if TYPE_CHECKING:
     from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
     from atlas.modules.day_ahead_orders.steps.thermal.thermal_optimization_model import ThermalOptimizationModel
 
+# Number of decimals kept on the previous power trajectory used to build the initial conditions
+POWER_ROUNDING_PRECISION = 2
+
 
 class ThermalConstraintBuilder:
     """
@@ -81,6 +84,10 @@ class ThermalConstraintBuilder:
 
         day_zero = power_ts is None
         if power_ts is not None:
+            # The previous power trajectory usually comes from an upstream optimisation (e.g. PortfolioOptimisation)
+            # and carries solver noise (4e-14 instead of 0, 199.999... instead of 200). Rounding it prevents a
+            # wrong state classification (OFF seen as ramping, ONLINE seen as ramping) leading to infeasibility.
+            power_ts = power_ts.round(POWER_ROUNDING_PRECISION, inplace=False)
             if parameters.temporal.start_date - parameters.temporal.timestep != power_ts.last_date():
                 day_zero = True
 
