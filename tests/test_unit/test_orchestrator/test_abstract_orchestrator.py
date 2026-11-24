@@ -7,8 +7,7 @@ This file is part of the ATLAS project.
 Unit tests for Orchestrator.
 """
 
-import heapq
-from typing import cast
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -18,9 +17,8 @@ from atlas import AtlasDataset, WorkflowParameters
 from atlas.custom_errors import WorkflowJobError
 from atlas.io_utils.parameters import ContextParameters
 from atlas.orchestrator.actionplan.action_plan import ActionPlan
-from atlas.orchestrator.actionplan.job import TaskIterationPriority, TaskJobsGenerator
+from atlas.orchestrator.actionplan.job import TaskJobsGenerator
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters
-from atlas.orchestrator.workflow.parameters import ResolvedStep
 from atlas.orchestrator.workflow.workflow import Workflow
 from tests.test_unit.test_orchestrator.orchestrator_factory import (
     ConcreteOrchestrator,
@@ -227,3 +225,60 @@ class TestOrchestratorUseContext:
 
         assert orchestrator.parameters.context.default == {"kept": 1, "overridden": 2, "added": 3}
         assert orchestrator.parameters.context.forced == {"kept_forced": 1}
+
+
+class TestOrchestratorFirstJob:
+    @pytest.mark.parametrize(
+        ("first_job_idx", "expected_first_job_index"),
+        [
+            pytest.param(-1, 2, id="last_job"),
+            pytest.param(-2, 1, id="last_two_jobs"),
+            pytest.param(-3, 0, id="all_jobs"),
+            pytest.param(-4, 0, id="more_than_jobs_count"),
+        ],
+    )
+    def test_negative_first_job_index(self, first_job_idx, expected_first_job_index):
+        parameters = ConcreteOrchestratorParameters(dataset_path=Path("dataset"), first_job_index=first_job_idx)
+
+        assert parameters.compute_first_job_index(jobs_count=3) == expected_first_job_index
+
+    @pytest.mark.parametrize("first_job_idx", [4, 10])
+    def test_first_job_index_is_capped_to_jobs_count(self, first_job_idx):
+        parameters = ConcreteOrchestratorParameters(dataset_path=Path("dataset"), first_job_index=first_job_idx)
+
+        assert parameters.compute_first_job_index(jobs_count=3) == 3
+
+    @pytest.mark.parametrize("first_job_idx", [0, 1, 2])
+    def test_execute_skips_exactly_the_first_jobs(self, tmp_path, orchestrator_builder, first_job_idx):
+        job_names = ["job1", "job2", "job3"]
+        call_order = []
+        jobs = []
+
+        def job_called(name):
+            def run1(ds, params):
+                output1 = MockOutPutBuilder().build()
+                call_order.append(name)
+                return output1
+
+            return run1
+
+        for name in job_names:
+            job = MockJobBuilder().with_name(name).build()
+            job.module.run = MagicMock(side_effect=job_called(job.name))
+            jobs.append(job)
+
+        orchestrator = orchestrator_builder(tmp_path, jobs)
+        orchestrator.parameters = orchestrator.parameters.evolve(first_job_index=first_job_idx)
+        with (
+            patch("atlas.io_utils.atlas_dataset.AtlasDataset.from_directory", return_value=AtlasDataset()),
+            patch("atlas.orchestrator.handler.cis_handler.CISHandler.apply"),
+            patch("atlas.orchestrator.current_input_state.CurrentInputState") as MockCIS,
+            patch.object(AtlasDataset, "to_directory"),
+        ):
+            mock_cis_instance = MagicMock()
+            mock_cis_instance.filter_dataset.return_value = AtlasDataset()
+            mock_cis_instance.data = AtlasDataset()
+            MockCIS.return_value = mock_cis_instance
+
+            orchestrator.execute()
+        assert call_order == job_names[first_job_idx:]
