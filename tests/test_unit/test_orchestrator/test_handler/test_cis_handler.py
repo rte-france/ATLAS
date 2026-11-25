@@ -10,7 +10,7 @@ from atlas.objects.market.order import Order
 from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.orchestrator.change_set import AddObject, DeleteObject, UpdateObject
 from atlas.orchestrator.current_input_state import CurrentInputState
-from atlas.orchestrator.handler.cis_handler import CISHandler
+from atlas.orchestrator.handler.cis_handler import CISHandler, UndoLog
 
 
 @pytest.fixture
@@ -242,3 +242,46 @@ class TestCISHandlerRollback:
 
         with pytest.raises(ChangeSetApplicationError, match="unknown fields"):
             CISHandler.apply([update], cis_with_orders)
+
+
+class TestCISHandlerSharedUndoLog:
+    @pytest.fixture
+    def cis_with_orders(self, cis):
+        ma = cis.data.market_area.get("ma1")
+        cis.data.order.add([Order(name=f"order_{i}", price=10.0, market_area=ma) for i in (1, 2)])
+        return cis
+
+    def test_rolling_back_a_shared_log_undoes_every_batch(self, cis_with_orders):
+        cis = cis_with_orders
+        order_1 = cis.data.order.get("order_1")
+        undo_log = UndoLog(cis)
+
+        CISHandler.apply([UpdateObject({"name": "order_1", "price": 50.0}, model_type=Order)], cis, undo_log=undo_log)
+        CISHandler.apply(
+            [
+                UpdateObject({"name": "order_1", "price": 99.0}, model_type=Order),
+                AddObject({"name": "order_3", "market_area": "ma1"}, model_type=Order),
+            ],
+            cis,
+            undo_log=undo_log,
+        )
+        undo_log.rollback()
+
+        assert cis.data.order.get("order_1") is order_1
+        assert order_1.price == 10.0
+        assert [order.name for order in cis.data.order] == ["order_1", "order_2"]
+
+    def test_failing_batch_with_a_shared_log_is_not_rolled_back_by_apply(self, cis_with_orders):
+        cis = cis_with_orders
+        undo_log = UndoLog(cis)
+        change_sets = [
+            UpdateObject({"name": "order_1", "price": 50.0}, model_type=Order),
+            UpdateObject({"name": "order_999", "price": 1.0}, model_type=Order),
+        ]
+
+        with pytest.raises(ChangeSetApplicationError):
+            CISHandler.apply(change_sets, cis, undo_log=undo_log)
+
+        assert cis.data.order.get("order_1").price == 50.0  # left to the caller owning the log
+        undo_log.rollback()
+        assert cis.data.order.get("order_1").price == 10.0

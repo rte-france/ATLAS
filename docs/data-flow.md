@@ -78,7 +78,7 @@ diff = cis.diff(label="before_module_3")
 print(diff["thermal"]["modified"])  # ['thermal_1', 'thermal_2']
 ```
 
-For transactional safety within a single batch, `CISHandler` keeps an undo log: before each change set, the touched container is copied shallowly (references only, once per batch) and an updated object keeps its previous field values. On any error the very same instances are put back, so references between objects stay valid. An `UpdateObject` is also atomic on its own: the whole object is validated before any field is written.
+For transactional safety within a single batch, `CISHandler` keeps an undo log: before each change set, the touched container is copied shallowly (references only, once per batch) and an updated object keeps its previous field values. On any error the very same instances are put back, so references between objects stay valid. An `UpdateObject` is also atomic on its own: the whole object is validated before any field is written. A caller can also pass its own `UndoLog` to several `CISHandler.apply` calls, to undo them together: the log is then rolled back by the caller, never by `apply`.
 
 ### Copy cost
 

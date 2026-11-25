@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from atlas.objects.business_model import BusinessModel
 
 
-class _UndoLog:
+class UndoLog:
     """Record what a batch of change sets touches, so that a failed batch can be undone.
 
     Nothing is deep copied: a container is copied shallowly (references only) the first time it is
@@ -53,16 +53,26 @@ class _UndoLog:
 
 class CISHandler:
     @staticmethod
-    def apply(change_sets: list[ChangeSet], cis: CurrentInputState, rollback_on_error: bool = True):
+    def apply(
+        change_sets: list[ChangeSet],
+        cis: CurrentInputState,
+        rollback_on_error: bool = True,
+        undo_log: UndoLog | None = None,
+    ):
         """Apply a list of change sets to the current input state.
 
+        Several batches can be undone together by passing them the same *undo_log*: the change sets are then
+        recorded into it and nothing is rolled back here, the caller owning the log decides when to roll back.
 
         :param change_sets: List of change sets to apply
         :type change_set: list[ChangeSet]
         :param cis: Current input state to modify
         :type cis: CurrentInputState
-        :param rollback_on_error: If True, rollback all changes if any change set fails (default: True)
+        :param rollback_on_error: If True, rollback all changes if any change set fails (default: True).
+            Ignored when *undo_log* is given.
         :type rollback_on_error: bool
+        :param undo_log: Undo log owned by the caller, to record the change sets into
+        :type undo_log: UndoLog | None
         """
         if not change_sets:
             logger.debug("No change sets to apply")
@@ -72,11 +82,15 @@ class CISHandler:
         CISHandler._validate_no_duplicates(change_sets)
         logger.debug(f"Applying {len(change_sets)} change sets to Current Input State")
 
+        if undo_log is not None:
+            CISHandler._apply_change_sets(change_sets, cis, undo_log)
+            return
+
         if not rollback_on_error:
             CISHandler._apply_change_sets(change_sets, cis)
             return
 
-        undo_log = _UndoLog(cis)
+        undo_log = UndoLog(cis)
         try:
             CISHandler._apply_change_sets(change_sets, cis, undo_log)
         except Exception:
@@ -85,7 +99,7 @@ class CISHandler:
 
     @staticmethod
     def _apply_change_sets(
-        change_sets: list[ChangeSet], cis: CurrentInputState, undo_log: _UndoLog | None = None
+        change_sets: list[ChangeSet], cis: CurrentInputState, undo_log: UndoLog | None = None
     ) -> None:
         """Internal method to apply change sets, recording them in *undo_log* if given.
 
@@ -94,7 +108,7 @@ class CISHandler:
         :param cis: Current input state to modify
         :type cis: CurrentInputState
         :param undo_log: Undo log recording the state before each change set
-        :type undo_log: _UndoLog | None
+        :type undo_log: UndoLog | None
         :raises ChangeSetApplicationError: If any change set fails to apply
         """
         for idx, change_set in enumerate(change_sets):
