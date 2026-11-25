@@ -60,6 +60,16 @@ def test_dummy_tree(tmp_path):
     assert DummyTree.from_file(file_path).branch.leaf.value == 5
 
 
+@pytest.mark.parametrize("extension", [".yaml", ".json"])
+def test_missing_parent_directories(tmp_path, extension):
+    """to_file creates the missing parent folder"""
+    tree = DummyTree.from_dict({"branch": {"leaf": {"value": 5}}})
+    file_path = Path(tmp_path / "missing_parent" / "nested" / f"exported{extension}")
+    assert not file_path.parent.exists()
+    tree.to_file(file_path)
+    assert file_path.parent.exists()
+
+
 @pytest.mark.parametrize(
     ("parameters_file", "module_name"),
     [

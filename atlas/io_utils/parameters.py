@@ -17,6 +17,7 @@ from pendulum import duration
 from pydantic import ConfigDict, Field, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 
+from atlas.config import logger
 from atlas.enums import SolverEnum
 from atlas.io_utils.utils import FrozenBaseModel, deep_update
 from atlas.validators import DurationField
@@ -118,6 +119,13 @@ class Parameters(FrozenBaseModel):
             Path values are not modified: relative paths stay relative and are not resolved.
         """
         file_extension = Path(file_path).suffix
+        parent_path = Path(file_path).parent
+        if not parent_path.is_dir():
+            try:
+                parent_path.mkdir(parents=True, exist_ok=True)
+            except PermissionError:
+                logger.error(f"Permission denied: unable to create {parent_path}")
+                raise
         if file_extension in (".yaml", ".yml"):
             self._write_yaml(file_path)
         elif file_extension == ".json":
