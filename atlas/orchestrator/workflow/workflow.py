@@ -14,6 +14,7 @@ from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.custom_errors import UseContextError
 from atlas.io_utils.parameters import ContextParameters
+from atlas.orchestrator.job_reference import StepRef
 from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.orchestrator.workflow.parameters import ResolvedStep, Step, WorkflowParameters
 
@@ -46,9 +47,11 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
         :return: The list of WorkflowJob instances.
         """
-        for resolved_step in self._resolved_steps:
+        last_index = len(self._resolved_steps) - 1
+        for index, ((raw_step, _), resolved_step) in enumerate(zip(self._raw_steps, self._resolved_steps, strict=True)):
             parameters = resolved_step.parameters.model_copy(deep=True)
-            yield WorkflowJob(f"{resolved_step.name!r}", resolved_step.module.value, parameters)
+            step = StepRef(raw_step.name, is_first=index == 0, is_last=index == last_index)
+            yield WorkflowJob(f"{resolved_step.name!r}", resolved_step.module.value, parameters, step=step)
 
     @property
     def jobs_count(self) -> int:

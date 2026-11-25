@@ -57,6 +57,7 @@ class _OrchestratorBuilder:
         workflow = Workflow.__new__(Workflow)
         workflow.parameters = params
         workflow._resolved_steps = [generate_step_from_job(job) for job in jobs]
+        workflow._raw_steps = [(step, None) for step in workflow._resolved_steps]
         return workflow
 
     @staticmethod
