@@ -19,6 +19,7 @@ from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.io_utils.parameters import DateParameters
 from atlas.io_utils.utils import deep_update
 from atlas.orchestrator.actionplan.parameters import Task, TaskModule, TaskWorkflow
+from atlas.orchestrator.job_reference import TaskRef
 from atlas.orchestrator.workflow.workflow import Workflow, WorkflowParameters
 
 
@@ -132,6 +133,7 @@ class ModuleTaskJobsGenerator(TaskJobsGenerator):
                 f"task {self._task.name!r} iteration {iteration}",
                 self.module,
                 self._build_parameters(iteration),
+                task=TaskRef(self._task.name, iteration),
             )
         ]
 
@@ -168,7 +170,10 @@ class WorkflowTaskJobsGenerator(TaskJobsGenerator):
     def _build_jobs(self, iteration) -> list[AbstractJob]:
         """Build and return the list of ActionPlanJob for the given iteration."""
         workflow = Workflow(self._build_parameters(iteration), f"task {self._task.name!r} iteration {iteration}")
-        return list(workflow.jobs)
+        jobs: list[AbstractJob] = list(workflow.jobs)
+        for job in jobs:
+            job.task = TaskRef(self._task.name, iteration)
+        return jobs
 
     @property
     def _jobs_by_iteration(self) -> int:

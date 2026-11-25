@@ -14,9 +14,12 @@ from pathlib import Path
 import pytest
 import yaml
 
+from atlas.orchestrator.actionplan.action_plan import ActionPlan
 from atlas.orchestrator.job_reference import StepRef, TaskRef
 from atlas.orchestrator.workflow.workflow import Workflow
 
+# dates are overwritten per iteration by the action plan, only the timestep is kept
+MODULE_PARAMETERS = {"temporal": {"timestep": "PT1H"}}
 # a standalone workflow receives no dates from an action plan: its steps need complete parameters
 MODULE_PARAMETERS_WITH_DATES = {
     "temporal": {
@@ -45,6 +48,27 @@ def _workflow_config(tmp_path: Path, module_parameters: dict) -> dict:
     }
 
 
+# two iterations, one day apart
+SCHEDULE = {"from_": "2028-01-01 00:00:00", "until": "2028-01-02 00:00:00", "frequency": "1d"}
+
+
+@pytest.fixture
+def action_plan(tmp_path: Path) -> ActionPlan:
+    """Action plan with a module task then a two-step workflow task, both over two iterations."""
+    workflow_file = _write_yaml(tmp_path / "workflow.yml", _workflow_config(tmp_path, MODULE_PARAMETERS))
+    module_parameters_file = str(tmp_path / "module_parameters.yml")
+    config = {
+        "name": "test_action_plan",
+        "dataset_path": str(tmp_path / "dataset"),
+        "output_dir": str(tmp_path / "results"),
+        "tasks": [
+            {**SCHEDULE, "name": "day_ahead", "module": "MarketClearing", "parameters": module_parameters_file},
+            {**SCHEDULE, "name": "intraday", "workflow": str(workflow_file), "priority": 1},
+        ],
+    }
+    return ActionPlan.from_file(_write_yaml(tmp_path / "action_plan.yaml", config))
+
+
 def test_task_and_step_refs_are_immutable():
     with pytest.raises(FrozenInstanceError):
         TaskRef("day_ahead", 1).iteration = 2  # type: ignore[misc]
@@ -59,4 +83,15 @@ def test_standalone_workflow_jobs_have_a_step_but_no_task(tmp_path: Path):
     assert [(job.task, job.step) for job in workflow.jobs] == [
         (None, StepRef("first", is_first=True, is_last=False)),
         (None, StepRef("second", is_first=False, is_last=True)),
+    ]
+
+
+def test_action_plan_jobs_have_their_task_and_step(action_plan: ActionPlan):
+    assert [(job.task, job.step) for job in action_plan.jobs] == [
+        (TaskRef("day_ahead", 1), None),
+        (TaskRef("intraday", 1), StepRef("first", is_first=True, is_last=False)),
+        (TaskRef("intraday", 1), StepRef("second", is_first=False, is_last=True)),
+        (TaskRef("day_ahead", 2), None),
+        (TaskRef("intraday", 2), StepRef("first", is_first=True, is_last=False)),
+        (TaskRef("intraday", 2), StepRef("second", is_first=False, is_last=True)),
     ]
