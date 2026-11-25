@@ -8,5 +8,6 @@
   "MarketClearing": {"execution_max_seconds": 2},
   "MarketClearingId": {"execution_max_seconds": 1.3},
   "IntradayOrders": {"execution_max_seconds": 1.3},
-  "IntradayPriceForecast": {"execution_max_seconds": 0.4}
+  "IntradayPriceForecast": {"execution_max_seconds": 0.4},
+  "BSPBalancingOrders": {"execution_max_seconds": 4}
 }

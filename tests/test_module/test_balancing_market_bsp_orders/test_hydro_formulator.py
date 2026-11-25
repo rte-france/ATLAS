@@ -1,0 +1,207 @@
+"""
+Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+import pytest
+
+from atlas.math.matrix import ScenarioMatrix
+from atlas.enums import OrderType
+from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.modules.balancing_market_bsp_orders.input_objects.hydro import BalancingHydro
+from atlas.modules.balancing_market_bsp_orders.order_formulators.hydro import HydraulicOrderFormulator
+from tests.test_module.test_balancing_market_bsp_orders.conftest import make_forecasting_matrix, make_timeseries
+
+def make_scenario_matrix(parameters, value: float) -> ScenarioMatrix:
+    """
+    Build a ScenarioMatrix with a single scenario covering the full time frame.
+
+    :param parameters: Module parameters providing temporal context
+    :type parameters: BSPBalancingOrdersParameters
+    :param value: Constant value for all scenario entries
+    :type value: float
+    :return: A ScenarioMatrix with one scenario column
+    :rtype: ScenarioMatrix
+    """
+    ts = make_timeseries(parameters, value)
+    sm = ScenarioMatrix()
+    sm.add(ts, "0")
+    return sm
+
+
+def make_stored_energy(parameters, value: float) -> ForecastingMatrix:
+    """Build a ForecastingMatrix for stored_energy with a constant value."""
+    return make_forecasting_matrix(parameters, value)
+
+
+def _make_hydro_equipment(parameters, real_market_objects, **kwargs):
+    """Build a BalancingHydro with model_construct, accepting field overrides"""
+    defaults = dict(
+        name="test_hydro",
+        node=real_market_objects["node"],
+        portfolio=real_market_objects["portfolio"],
+        setup_delay=0.0,
+        maximum_gradient=0.0,
+        has_daily_energy_constraint=False,
+        maximum_daily_energy=None,
+        minimum_daily_energy=None,
+        power=make_forecasting_matrix(parameters, 50.0),
+        maximum_power=make_timeseries(parameters, 100.0),
+        minimum_power=make_timeseries(parameters, 0.0),
+        stored_energy=make_stored_energy(parameters, 500.0),
+        storage_marginal_value=make_scenario_matrix(parameters, 10.0),
+        fragment_prices=[5.0, 10.0],
+        fragment_volumes=[0.5, 0.5],
+    )
+    defaults.update(kwargs)
+    return BalancingHydro.model_construct(**defaults)
+
+
+def _make_formulator(equipment, time_index, parameters) -> HydraulicOrderFormulator:
+    return HydraulicOrderFormulator(equipment, time_index, parameters)
+
+
+class TestHydraulicOrderFormulatorOrders:
+    def test_no_orders_when_setup_delay_not_elapsed(self, time_index, parameters, real_market_objects):
+        """No orders are formulated when setup_delay exceeds the entire time frame"""
+        equipment = _make_hydro_equipment(parameters, real_market_objects, setup_delay=24.0)
+
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
+        assert orders == []
+
+    def test_upward_orders_formulated_when_available(self, time_index, parameters, real_market_objects):
+        """Sell orders are formulated when upward power is available.
+
+        max_power = 100, forecasted_power = 50 -> upward_available = 50 >= 1
+        """
+        equipment = _make_hydro_equipment(
+            parameters, real_market_objects,
+            power=make_forecasting_matrix(parameters, 50.0),
+            maximum_power=make_timeseries(parameters, 100.0),
+            minimum_power=make_timeseries(parameters, 0.0),
+        )
+
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
+        upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
+        assert len(upward_orders) > 0
+
+    def test_no_upward_orders_when_not_available(self, time_index, parameters, real_market_objects):
+        """No Sell orders when forecasted_power == max_power.
+
+        upward_available = 100 - 100 = 0 < 1
+        """
+        equipment = _make_hydro_equipment(
+            parameters, real_market_objects,
+            power=make_forecasting_matrix(parameters, 100.0),
+            maximum_power=make_timeseries(parameters, 100.0),
+            minimum_power=make_timeseries(parameters, 0.0),
+        )
+
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
+        upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
+        assert upward_orders == []
+
+    def test_downward_orders_formulated_when_available(self, time_index, parameters, real_market_objects):
+        """Buy orders are formulated when downward power is available.
+
+        forecasted_power = 50, min_power = 0 -> downward_available = 50 >= 1
+        """
+        equipment = _make_hydro_equipment(
+            parameters, real_market_objects,
+            power=make_forecasting_matrix(parameters, 50.0),
+            maximum_power=make_timeseries(parameters, 100.0),
+            minimum_power=make_timeseries(parameters, 0.0),
+        )
+
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
+        downward_orders = [o for o in orders if o.order_type == OrderType.Buy]
+        assert len(downward_orders) > 0
+
+    def test_no_downward_orders_when_not_available(self, time_index, parameters, real_market_objects):
+        """No Buy orders when forecasted_power == min_power.
+
+        downward_available = 50 - 50 = 0 < 1
+        """
+        equipment = _make_hydro_equipment(
+            parameters, real_market_objects,
+            power=make_forecasting_matrix(parameters, 50.0),
+            maximum_power=make_timeseries(parameters, 100.0),
+            minimum_power=make_timeseries(parameters, 50.0),
+        )
+
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
+        downward_orders = [o for o in orders if o.order_type == OrderType.Buy]
+        assert downward_orders == []
+
+    def test_fragment_suffix_in_order_names(self, time_index, parameters, real_market_objects):
+        """Orders have fragment suffixes in their names."""
+        equipment = _make_hydro_equipment(
+            parameters, real_market_objects,
+            power=make_forecasting_matrix(parameters, 50.0),
+            maximum_power=make_timeseries(parameters, 100.0),
+            minimum_power=make_timeseries(parameters, 0.0),
+        )
+
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
+        assert all("_frag_" in o.name for o in orders)
+
+    def test_no_order_couplings_returned(self, time_index, parameters, real_market_objects):
+        """Hydraulic formulator never returns order couplings."""
+        equipment = _make_hydro_equipment(parameters, real_market_objects)
+
+        couplings = _make_formulator(equipment, time_index, parameters).formulate().order_couplings
+        assert couplings == []
+
+    def test_order_price_includes_water_value(self, time_index, parameters, real_market_objects):
+        """Order price = water_value + fragment_price.
+
+        scenario_matrix value = 10.0, fragment_prices = [5.0, 10.0]
+        -> first fragment price >= 15.0
+        """
+        equipment = _make_hydro_equipment(
+            parameters, real_market_objects,
+            power=make_forecasting_matrix(parameters, 50.0),
+            maximum_power=make_timeseries(parameters, 100.0),
+            minimum_power=make_timeseries(parameters, 0.0),
+            storage_marginal_value=make_scenario_matrix(parameters, 10.0),
+            fragment_prices=[5.0, 10.0],
+        )
+
+        orders = _make_formulator(equipment, time_index, parameters).formulate().orders
+        upward_orders = [o for o in orders if o.order_type == OrderType.Sell]
+        assert all(o.price >= 15.0 for o in upward_orders)
+
+
+class TestBalancingHydroValidation:
+    """The module validates its equipments with ``model_validate``, which ``model_construct`` above skips."""
+
+    def test_daily_energies_are_optional_without_the_daily_energy_constraint(self, parameters, real_market_objects):
+        equipment = _make_hydro_equipment(parameters, real_market_objects)
+
+        validated = BalancingHydro.model_validate(dict(equipment))
+
+        assert validated.maximum_daily_energy is None
+        assert validated.minimum_daily_energy is None
+
+    def test_daily_energies_are_required_with_the_daily_energy_constraint(self, parameters, real_market_objects):
+        equipment = _make_hydro_equipment(parameters, real_market_objects, has_daily_energy_constraint=True)
+
+        with pytest.raises(ValueError, match="maximum_daily_energy must be provided"):
+            BalancingHydro.model_validate(dict(equipment))
+
+
+
+class TestHydraulicQuantityPercentage:
+    def test_volumes_scaled_by_hydro_storage_quantity_percentage(
+        self, time_index, parameters, real_market_objects
+    ):
+        equipment = _make_hydro_equipment(parameters, real_market_objects)
+        parameters = parameters.model_copy(update={"hydro_storage_quantity_percentage": 0.5})
+        formulator = _make_formulator(equipment, time_index, parameters)
+        start = parameters.temporal.start_date
+
+        result = formulator.build_order(OrderType.Sell, start, start.add(minutes=15), price=10.0, qmin=10.0, qmax=50.0)
+
+        assert result.qmin == 5
+        assert result.qmax == 25
