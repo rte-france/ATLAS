@@ -8,12 +8,15 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from atlas.abstract_class.dataset import ModuleResult
 from atlas.abstract_class.module import AbstractModule
 from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.io_utils.atlas_dataset import AtlasDataset
+
+if TYPE_CHECKING:
+    from atlas.orchestrator.job_reference import StepRef, TaskRef
 
 
 class AbstractJob:
@@ -27,6 +30,8 @@ class AbstractJob:
         name: str,
         module: type[AbstractModule],
         parameters: dict[str, Any] | str | Path | AbstractModuleParameters,
+        task: TaskRef | None = None,
+        step: StepRef | None = None,
     ):
         """
         Initialize an AbstractJob.
@@ -37,8 +42,14 @@ class AbstractJob:
         :type module: AbstractModule
         :param parameters: Typed parameters ; raw dict ; path to parameter file ; will be validated via the module's parameters class.
         :type parameters: dict or str or Path or AbstractModuleParameters
+        :param task: Action plan task the job belongs to, ``None`` outside an action plan.
+        :type task: TaskRef or None
+        :param step: Workflow step the job runs, ``None`` for an action plan module task.
+        :type step: StepRef or None
         """
         self.name: str = name
+        self.task: TaskRef | None = task
+        self.step: StepRef | None = step
         self.module = module()
         if isinstance(parameters, AbstractModuleParameters):
             self.parameters = parameters
