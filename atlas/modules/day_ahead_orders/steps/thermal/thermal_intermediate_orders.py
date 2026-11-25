@@ -545,12 +545,9 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                     kind="inflex", n=0, time=time, unit_name=unit.name, duration=order_duration
                 )
 
-                if wanted_name not in orders_dict.keys():
-                    continue
-
-                added_order = orders_dict[wanted_name]
-
-                exclusion_order_list.append(added_order)
+                added_order = orders_dict.get(wanted_name)
+                if added_order:
+                    exclusion_order_list.append(added_order)
 
             if exclusion_order_list:
                 couplings.append(
