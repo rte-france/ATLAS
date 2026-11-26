@@ -111,21 +111,20 @@ class Parameters(FrozenBaseModel):
 
     def to_file(self, file_path: Path | str) -> None:
         """Write the parameters to a YAML or JSON file, depending on the file_path extension.
+
+        Path values are not modified: relative paths stay relative and are not resolved.
+
         :param file_path: Path to the parameters file to write, with a .yaml, .yml or .json extension.
         :type file_path: str or pathlib.Path
         :raises ValueError: If the file extension is not supported.
-
-        .. note:
-            Path values are not modified: relative paths stay relative and are not resolved.
         """
         file_extension = Path(file_path).suffix
         parent_path = Path(file_path).parent
-        if not parent_path.is_dir():
-            try:
-                parent_path.mkdir(parents=True, exist_ok=True)
-            except PermissionError:
-                logger.error(f"Permission denied: unable to create {parent_path}")
-                raise
+        try:
+            parent_path.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            logger.error(f"Permission denied: unable to create {parent_path}")
+            raise
         if file_extension in (".yaml", ".yml"):
             self._write_yaml(file_path)
         elif file_extension == ".json":
