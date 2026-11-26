@@ -36,6 +36,6 @@ The forecast is stored as a `ForecastingMatrix` on each `MarketArea`. Each colum
 
 ## Troubleshooting
 
-**No forecast generated**: Check that the market area has `price_forecast_high`, `price_forecast_low`, and `da_price` data at the configured `execution_date_scenarios` and `execution_date_day_ahead`.
+**No forecast generated**: Check that the market area has `price_forecast_high`, `price_forecast_low`, and `da_price` data at the configured `execution_date_scenarios` and at the Day-Ahead execution date derived from `day_ahead_execution_offset`.
 
 **Forecast capped at price limits**: The module applies proportional scaling when forecasts exceed `intraday_positive_price_cap` or `intraday_negative_price_cap`. This is expected behaviour.

@@ -45,7 +45,8 @@ Pydantic model inheriting from `AbstractModuleParameters`. Defines configuration
 - `output`: Output configuration (inherited)
 - `intraday_negative_price_cap`: Lower price limit
 - `intraday_positive_price_cap`: Upper price limit
-- `execution_date_day_ahead`: Day-ahead reference date
+- `day_ahead_execution_offset`: Duration before the start of the delivery day at which the Day-Ahead market is executed
+- `execution_date_day_ahead`: Cached property for `start_date.start_of("day") - day_ahead_execution_offset`
 - `execution_date_scenarios`: Scenarios reference date
 - `penultimate_date`: Cached property for `end_date - timestep`
 
