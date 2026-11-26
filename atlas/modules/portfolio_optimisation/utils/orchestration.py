@@ -10,7 +10,6 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
 import atlas.config as cfg
-from atlas.enums import SolverStatus
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.optim import PortfolioOptimisationModel
@@ -59,6 +58,10 @@ def optimise_single_portfolio(
     Builds and solves the optimization model, then extracts results into a picklable
     SinglePortfolioResult object (avoiding SWIG solver objects).
 
+    Only an unsuccessful solve (status other than ``OPTIMAL`` / ``FEASIBLE``) falls back to manual
+    activation, so that one infeasible portfolio does not stop the simulation. Any other failure
+    (model building, LP export, result extraction) is a code or data error and is raised.
+
     :param portfolio: Portfolio to optimize
     :type portfolio: PortfolioPO
     :param parameters: Optimization parameters
@@ -73,43 +76,31 @@ def optimise_single_portfolio(
     )
     model = PortfolioOptimisationModel(portfolio, parameters, solver_options=solver_options)
 
-    try:
-        model.set_direction("minimize")
-        model.build()
+    model.set_direction("minimize")
+    model.build()
 
-        if parameters.solver.export_lp:
-            output_path = parameters.lp_dir
-            output_path.mkdir(parents=True, exist_ok=True)
-            model.export_model(output_path / f"po_{portfolio.name}.lp")
+    if parameters.solver.export_lp:
+        output_path = parameters.lp_dir
+        output_path.mkdir(parents=True, exist_ok=True)
+        model.export_model(output_path / f"po_{portfolio.name}.lp")
 
-        solution_info = model.solve()
-        model.require_solution()
+    solution_info = model.solve()
 
-        start, end = min(parameters.portfolio_time_window), max(parameters.portfolio_time_window)
-        result = SinglePortfolioResult(
-            portfolio=model.portfolio,
-            solution={name: values.slice(start, end, inplace=False) for name, values in model.solution().items()},
-            solution_info=solution_info,
-            is_manual_activation=False,
-        )
-
-        return result
-
-    except Exception as e:
+    if not solution_info.is_successful:
         cfg.logger.warning(
-            f"Optimisation failed for portfolio {portfolio.name}, falling back to heuristic computation "
-            f"(degraded result, workflow continues):{e}"
+            f"Optimisation failed for portfolio {portfolio.name} (solver status: {solution_info.status}), "
+            "falling back to manual activation (degraded result, workflow continues)"
         )
-
         set_manual_activation(portfolio.equipments.get_all_equipment(), parameters)
+        return SinglePortfolioResult(portfolio=portfolio, solution_info=solution_info, is_manual_activation=True)
 
-        result = SinglePortfolioResult(
-            portfolio=portfolio,
-            solution_info=SolutionInfo(status=SolverStatus.NOT_SOLVED),
-            is_manual_activation=True,
-        )
-
-        return result
+    start, end = min(parameters.portfolio_time_window), max(parameters.portfolio_time_window)
+    return SinglePortfolioResult(
+        portfolio=model.portfolio,
+        solution={name: values.slice(start, end, inplace=False) for name, values in model.solution().items()},
+        solution_info=solution_info,
+        is_manual_activation=False,
+    )
 
 
 def run_parallel(
@@ -138,12 +129,12 @@ def run_parallel(
 
         for future in as_completed(future_to_portfolio):
             portfolio_name = future_to_portfolio[future]
-            # Solver failures are already handled in optimise_single_portfolio (degraded result);
-            # anything reaching here is a worker crash and must not silently shrink the result list.
+            # Unsuccessful solves are already handled in optimise_single_portfolio (degraded result);
+            # anything reaching here is a code/data error and must not silently shrink the result list.
             try:
                 result = future.result()
             except Exception as e:
-                raise RuntimeError(f"Optimisation failed for portfolio {portfolio_name}") from e
+                raise RuntimeError(f"Error for portfolio {portfolio_name}") from e
             optimisation_results.append(result)
             cfg.logger.info(f"Completed optimization for: {portfolio_name}")
 
@@ -172,7 +163,7 @@ def run_sequential(
         try:
             result = optimise_single_portfolio(portfolio, parameters)
         except Exception as e:
-            raise RuntimeError(f"Optimisation failed for portfolio {portfolio.name}") from e
+            raise RuntimeError(f"Error for portfolio {portfolio.name}") from e
         optimisation_results.append(result)
         cfg.logger.info(f"Completed optimization for: {result.name}")
 

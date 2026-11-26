@@ -18,7 +18,7 @@ def valid_parameters_dict():
         },
         "intraday_negative_price_cap": -500,
         "intraday_positive_price_cap": 4000,
-        "execution_date_day_ahead": "2024-01-01T10:00:00+00:00",
+        "day_ahead_execution_offset": "12h",
         "execution_date_scenarios": "2024-01-01T08:00:00+00:00",
     }
 
@@ -32,6 +32,25 @@ def test_parameters_initialization(valid_parameters_dict):
     assert isinstance(params.temporal, DateParameters)
     assert isinstance(params.execution_date_day_ahead, pendulum.DateTime)
     assert isinstance(params.execution_date_scenarios, pendulum.DateTime)
+
+
+def test_execution_date_day_ahead_from_offset(valid_parameters_dict):
+    """The Day-Ahead execution date is the offset before the start of the delivery day."""
+    params_dict = valid_parameters_dict | {
+        "temporal": valid_parameters_dict["temporal"] | {"start_date": "2024-01-01T05:00:00+00:00"}
+    }
+    params = IntradayPriceForecastParameters(**params_dict)
+
+    assert params.execution_date_day_ahead == pendulum.datetime(2023, 12, 31, 12)
+
+
+def test_missing_day_ahead_execution_offset_raises(valid_parameters_dict):
+    """The offset is required: no default Day-Ahead gate closure is assumed."""
+    params_dict = valid_parameters_dict.copy()
+    params_dict.pop("day_ahead_execution_offset")
+
+    with pytest.raises(ValidationError, match="day_ahead_execution_offset"):
+        IntradayPriceForecastParameters(**params_dict)
 
 
 def test_penultimate_date_property(valid_parameters_dict):
@@ -53,7 +72,7 @@ def test_negative_price_cap_validation():
         },
         "intraday_negative_price_cap": 100,  # Invalid: should be negative
         "intraday_positive_price_cap": 4000,
-        "execution_date_day_ahead": "2024-01-01T10:00:00+00:00",
+        "day_ahead_execution_offset": "12h",
         "execution_date_scenarios": "2024-01-01T08:00:00+00:00",
     }
 
@@ -72,7 +91,7 @@ def test_positive_price_cap_validation():
         },
         "intraday_negative_price_cap": -500,
         "intraday_positive_price_cap": -1000,  # Invalid: should be positive
-        "execution_date_day_ahead": "2024-01-01T10:00:00+00:00",
+        "day_ahead_execution_offset": "12h",
         "execution_date_scenarios": "2024-01-01T08:00:00+00:00",
     }
 

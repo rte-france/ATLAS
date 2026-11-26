@@ -60,6 +60,7 @@ class TestOptimiseSinglePortfolio:
         params.solver.timeout = pendulum.duration(seconds=300)
         params.market = MarketType.dayahead
         params.solver.export_lp = False
+        params.portfolio_time_window = TIMES
         return params
 
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.PortfolioOptimisationModel")
@@ -88,14 +89,17 @@ class TestOptimiseSinglePortfolio:
         mock_model.build.assert_called_once_with()
         mock_model.solve.assert_called_once()
 
+    @pytest.mark.parametrize(
+        "status", [SolverStatus.INFEASIBLE, SolverStatus.UNBOUNDED, SolverStatus.ABNORMAL, SolverStatus.NOT_SOLVED]
+    )
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.set_manual_activation")
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.PortfolioOptimisationModel")
-    def test_optimization_failure_fallback(
-        self, mock_model_class, mock_set_manual_activation, mock_portfolio, mock_parameters
+    def test_unsuccessful_solve_falls_back_to_manual_activation(
+        self, mock_model_class, mock_set_manual_activation, mock_portfolio, mock_parameters, status
     ):
-        """Test that optimization failure falls back to manual activation."""
+        """An unsuccessful solve falls back to manual activation and keeps the solver status."""
         mock_model = Mock()
-        mock_model.solve.side_effect = Exception("Solver failed")
+        mock_model.solve.return_value = SolutionInfo(status=status)
         mock_model_class.return_value = mock_model
 
         mock_equipments = Mock()
@@ -105,11 +109,43 @@ class TestOptimiseSinglePortfolio:
         result = optimise_single_portfolio(mock_portfolio, mock_parameters)
 
         assert result.name == "test_portfolio"
-        assert isinstance(result, SinglePortfolioResult)
         assert result.portfolio == mock_portfolio
         assert result.solution == {}
-        assert result.solution_info.status == SolverStatus.NOT_SOLVED
+        assert result.is_manual_activation is True
+        assert result.solution_info.status == status
         mock_set_manual_activation.assert_called_once()
+        mock_model.solution.assert_not_called()
+
+    @patch("atlas.modules.portfolio_optimisation.utils.orchestration.set_manual_activation")
+    @patch("atlas.modules.portfolio_optimisation.utils.orchestration.PortfolioOptimisationModel")
+    def test_build_error_is_raised_without_fallback(
+        self, mock_model_class, mock_set_manual_activation, mock_portfolio, mock_parameters
+    ):
+        """A failure while building the model is a code/data error: it is raised, not degraded."""
+        mock_model = Mock()
+        mock_model.build.side_effect = KeyError("missing timestep")
+        mock_model_class.return_value = mock_model
+
+        with pytest.raises(KeyError, match="missing timestep"):
+            optimise_single_portfolio(mock_portfolio, mock_parameters)
+
+        mock_model.solve.assert_not_called()
+        mock_set_manual_activation.assert_not_called()
+
+    @patch("atlas.modules.portfolio_optimisation.utils.orchestration.set_manual_activation")
+    @patch("atlas.modules.portfolio_optimisation.utils.orchestration.PortfolioOptimisationModel")
+    def test_solver_exception_is_raised_without_fallback(
+        self, mock_model_class, mock_set_manual_activation, mock_portfolio, mock_parameters
+    ):
+        """An exception raised by the solver call itself is not mistaken for an unsuccessful solve."""
+        mock_model = Mock()
+        mock_model.solve.side_effect = RuntimeError("Solver crashed")
+        mock_model_class.return_value = mock_model
+
+        with pytest.raises(RuntimeError, match="Solver crashed"):
+            optimise_single_portfolio(mock_portfolio, mock_parameters)
+
+        mock_set_manual_activation.assert_not_called()
 
     @patch("atlas.modules.portfolio_optimisation.utils.orchestration.PortfolioOptimisationModel")
     def test_solver_options_applied(self, mock_model_class, mock_portfolio, mock_parameters):
@@ -123,7 +159,7 @@ class TestOptimiseSinglePortfolio:
 
         mock_model = Mock()
         mock_model.portfolio = mock_portfolio
-        mock_model._variables_name = []
+        mock_model.solution.return_value = {}
         mock_model.solve.return_value = SolutionInfo(status=SolverStatus.OPTIMAL)
         mock_model_class.return_value = mock_model
 
@@ -150,7 +186,7 @@ class TestOptimiseSinglePortfolio:
 
         mock_model = Mock()
         mock_model.portfolio = test_portfolio
-        mock_model._variables_name = []
+        mock_model.solution.return_value = {}
         mock_model.solve.return_value = SolutionInfo(status=SolverStatus.OPTIMAL)
         mock_model_class.return_value = mock_model
 
@@ -170,7 +206,7 @@ class TestOptimiseSinglePortfolio:
 
         mock_model = Mock()
         mock_model.portfolio = mock_portfolio
-        mock_model._variables_name = []
+        mock_model.solution.return_value = {}
         mock_model.solve.return_value = SolutionInfo(status=SolverStatus.OPTIMAL)
         mock_model_class.return_value = mock_model
 

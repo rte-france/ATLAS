@@ -301,6 +301,17 @@ class TestTimeseriesInit:
 class TestTimeseriesBasicOperations:
     """Test basic operations of the Timeseries class."""
 
+    def test_max_empty_raises(self):
+        with pytest.raises(RuntimeError, match="(?i)empty"):
+            Timeseries().max()
+
+    def test_min_empty_raises(self):
+        with pytest.raises(RuntimeError, match="(?i)empty"):
+            Timeseries().min()
+
+    def test_sum_empty_returns_zero(self):
+        assert Timeseries().sum() == 0.0
+
     def test_eq(self, sample_ts: Timeseries):
         """Test equality comparison."""
         ts1 = sample_ts
@@ -864,25 +875,13 @@ class TestTimeseriesBasicOperations:
         """Test min methods."""
         assert sample_ts.min() == 10.0
 
-        # Test with empty Timeseries
-        empty_ts = Timeseries()
-        assert empty_ts.min() is None
-
     def test_max_methods(self, sample_ts):
         """Test max methods."""
         assert sample_ts.max() == 40.0
 
-        # Test with empty Timeseries
-        empty_ts = Timeseries()
-        assert empty_ts.max() is None
-
     def test_sum_methods(self, sample_ts):
         """Test sum methods."""
         assert sample_ts.sum() == 100.0
-
-        # Test with empty Timeseries
-        empty_ts = Timeseries()
-        assert empty_ts.sum() is None
 
     def test_interpolate_method(self, sample_df_with_nulls):
         """Test interpolation methods."""

@@ -36,7 +36,7 @@ def test_parameters():
         temporal=temporal,
         intraday_negative_price_cap=-500,
         intraday_positive_price_cap=4000,
-        execution_date_day_ahead=pendulum.datetime(2024, 1, 1, 6, 0, 0),
+        day_ahead_execution_offset="12h",
         execution_date_scenarios=pendulum.datetime(2024, 1, 1, 0, 0, 0),
     )
     return params

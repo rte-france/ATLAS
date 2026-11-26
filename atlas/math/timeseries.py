@@ -913,38 +913,35 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         else:
             raise NotImplementedError("Format not supported")
 
-    def max(self) -> float:  # type:ignore[return]
+    def max(self) -> float:
         """Return the max value in the 'value' column.
 
         :return: The Timeseries max value
-        :rtype: float or None
+        :rtype: float
+        :raises RuntimeError: if the Timeseries is empty
         """
-        if len(self.timeseries) > 0:
-            return cast("float", self.timeseries["value"].max())
-        else:
-            RuntimeError("Timeseries is empty, can't get the maximum value")
+        if len(self.timeseries) == 0:
+            raise RuntimeError("Timeseries is empty, can't get the maximum value")
+        return cast("float", self.timeseries["value"].max())
 
-    def min(self) -> float:  # type:ignore[return]
+    def min(self) -> float:
         """Return the min value in the 'value' column.
 
         :return: The Timeseries min value
-        :rtype: float or None
+        :rtype: float
+        :raises RuntimeError: if the Timeseries is empty
         """
-        if len(self.timeseries) > 0:
-            return cast("float", self.timeseries["value"].min())
-        else:
-            RuntimeError("Timeseries is empty, can't get the minimum value")
+        if len(self.timeseries) == 0:
+            raise RuntimeError("Timeseries is empty, can't get the minimum value")
+        return cast("float", self.timeseries["value"].min())
 
-    def sum(self) -> float:  # type:ignore[return]
-        """Return the sum of the 'value' column.
+    def sum(self) -> float:
+        """Return the sum of the 'value' column. Returns 0.0 for an empty Timeseries.
 
         :return: The Timeseries sum value
-        :rtype: float or None
+        :rtype: float
         """
-        if len(self.timeseries) > 0:
-            return cast("float", self.timeseries["value"].sum())
-        else:
-            RuntimeError("Timeseries is empty, can't perform the sum")
+        return cast("float", self.timeseries["value"].sum())
 
     def interpolate(
         self, interpolation_method: Literal["linear", "constant"] = "constant", inplace: bool = True

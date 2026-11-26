@@ -254,3 +254,8 @@ class TestShouldSkipEquipment:
         # abs().min() > threshold → non-zero → don't skip
         negative_power = _ts([-5.0, -5.0, -5.0])
         assert _should_skip_equipment(_mock(StoragePO), negative_power, params) is False
+
+    def test_empty_activated_power_is_skipped(self):
+        params = _mock_params(use_forecast=False, allowed_round_off_error=0.01)
+        for cls in (StoragePO, HydroPO, LoadPO, OtherNonDispatchablePO):
+            assert _should_skip_equipment(_mock(cls), Timeseries(), params) is True
