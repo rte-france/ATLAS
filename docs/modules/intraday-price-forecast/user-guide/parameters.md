@@ -15,7 +15,7 @@ The Intraday Price Forecast module is configured through `IntradayPriceForecastP
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `execution_date_day_ahead` | `DateTime` | Yes | Reference date from the Day-Ahead market. Used to retrieve day-ahead consumption forecasts. |
+| `day_ahead_execution_offset` | `Duration` | Yes | Duration before the start of the delivery day at which the Day-Ahead market is executed (e.g. `12h` → D-1 12:00). The resulting Day-Ahead execution date is used to retrieve day-ahead consumption forecasts. |
 | `execution_date_scenarios` | `DateTime` | Yes | Reference date for scenario retrieval from the price forecast matrix (high/low prices and consumption). |
 
 ---
@@ -33,7 +33,7 @@ export:
   export_dataset: true
 intraday_negative_price_cap: -500
 intraday_positive_price_cap: 4000
-execution_date_day_ahead: "2024-01-01 06:00:00"
+day_ahead_execution_offset: "12h"
 execution_date_scenarios: "2024-01-01 00:00:00"
 ```
 
