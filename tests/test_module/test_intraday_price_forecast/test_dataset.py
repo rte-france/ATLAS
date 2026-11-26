@@ -25,7 +25,7 @@ PARAMS_DICT = {
         "end_date": "2028-09-28 00:00:00",
         "timestep": "PT1H",
     },
-    "execution_date_day_ahead": "2028-09-26 12:00:00",
+    "day_ahead_execution_offset": "12h",
     "execution_date_scenarios": "2028-07-01 00:00:00",
     "intraday_negative_price_cap": -500,
     "intraday_positive_price_cap": 4000,
