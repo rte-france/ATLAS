@@ -495,7 +495,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :type time: datetime or str
         :param value: Value to set
         :type value: float or int
-        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -563,7 +563,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :type time: datetime or str
         :param value: Value to add to the precedent value
         :type value: float
-        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -596,7 +596,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :type time: datetime or str
         :param value: Value to multiply to the precedent value
         :type value: float
-        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -662,7 +662,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         :type time: datetime or str
         :param value: Value to add
         :type value: float
-        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -913,38 +913,38 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         else:
             raise NotImplementedError("Format not supported")
 
-    def max(self) -> float:  # type:ignore[return]
+    def max(self) -> float:
         """Return the max value in the 'value' column.
 
         :return: The Timeseries max value
-        :rtype: float or None
+        :rtype: float
+        :raises RuntimeError: if the Timeseries is empty
         """
-        if len(self.timeseries) > 0:
-            return cast("float", self.timeseries["value"].max())
-        else:
-            RuntimeError("Timeseries is empty, can't get the maximum value")
+        if len(self.timeseries) == 0:
+            raise RuntimeError("Timeseries is empty, can't get the maximum value")
+        return cast("float", self.timeseries["value"].max())
 
-    def min(self) -> float:  # type:ignore[return]
+    def min(self) -> float:
         """Return the min value in the 'value' column.
 
         :return: The Timeseries min value
-        :rtype: float or None
+        :rtype: float
+        :raises RuntimeError: if the Timeseries is empty
         """
-        if len(self.timeseries) > 0:
-            return cast("float", self.timeseries["value"].min())
-        else:
-            RuntimeError("Timeseries is empty, can't get the minimum value")
+        if len(self.timeseries) == 0:
+            raise RuntimeError("Timeseries is empty, can't get the minimum value")
+        return cast("float", self.timeseries["value"].min())
 
-    def sum(self) -> float:  # type:ignore[return]
+    def sum(self) -> float:
         """Return the sum of the 'value' column.
 
         :return: The Timeseries sum value
-        :rtype: float or None
+        :rtype: float
+        :raises RuntimeError: if the Timeseries is empty
         """
-        if len(self.timeseries) > 0:
-            return cast("float", self.timeseries["value"].sum())
-        else:
-            RuntimeError("Timeseries is empty, can't perform the sum")
+        if len(self.timeseries) == 0:
+            raise RuntimeError("Timeseries is empty, can't get the sum")
+        return cast("float", self.timeseries["value"].sum())
 
     def interpolate(
         self, interpolation_method: Literal["linear", "constant"] = "constant", inplace: bool = True
@@ -977,7 +977,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
 
         :param datetime: Datetime to get value for
         :type datetime: str or datetime
-        :param date_format: Date format string, defaults to `YYYY-MM-DD HH:mm:ss`
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
         :return: The value at the timestamp requested
         :rtype: float
