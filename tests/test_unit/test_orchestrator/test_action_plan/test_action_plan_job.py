@@ -9,6 +9,7 @@ import copy
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pendulum
 import pytest
 from pendulum import DateTime, Duration
 
@@ -78,6 +79,30 @@ class TestTaskIterator:
 
         for index, expected_result in enumerate(expected_end_date):
             assert task_iterator.end_date(index + 1) == expected_result
+
+    def test_execution_dir_name_has_no_colon(self, task):
+        task.from_ = build_datetime("2023-09-26 22:00:00")
+        task.until = build_datetime("2023-09-28 22:00:00")
+        task_iterator = ConcreteTaskGenerator(task)
+        expected_dir_names = [
+            "2023-09-26T220000+0000",
+            "2023-09-27T220000+0000",
+            "2023-09-28T220000+0000",
+        ]
+
+        for index, expected_result in enumerate(expected_dir_names):
+            dir_name = task_iterator.execution_dir_name(index + 1)
+            assert ":" not in dir_name
+            assert dir_name == expected_result
+
+    def test_execution_dir_name_has_no_colon_with_non_utc_offset(self, task):
+        task.from_ = pendulum.datetime(2023, 9, 27, 0, 0, 0, tz="Europe/Paris")
+        task.until = task.from_
+        task_iterator = ConcreteTaskGenerator(task)
+
+        dir_name = task_iterator.execution_dir_name(1)
+        assert ":" not in dir_name
+        assert dir_name == "2023-09-27T000000+0200"
 
     def test_lesser_than_different_execution_date(self, tmp_path):
         task1 = TaskModule(
@@ -188,6 +213,26 @@ class TestModuleTaskIterator:
         assert generated_parameters.temporal.execution_date == build_datetime("2000-01-01 00:00:00")
         assert generated_parameters.temporal.start_date == build_datetime("2000-01-01 12:00:00")
         assert generated_parameters.temporal.end_date == build_datetime("2000-01-02 00:00:00")
+
+    def test_build_parameters_run_dir_has_no_colon(self, tmp_path):
+        parameters_path = ModuleConfigBuilder().build(tmp_path)
+        parameters = PortfolioOptimisationParameters.from_file(parameters_path)
+        task = TaskModule(
+            module="PortfolioOptimisation",
+            parameters=parameters_path,
+            priority=1,
+            from_=build_datetime("2023-09-26 22:00:00"),
+            until=build_datetime("2023-09-27 22:00:00"),
+            frequency=Duration(days=1),
+        )
+        root_run_dir = tmp_path / "action_plan_out" / "my_task"
+
+        itr = ModuleTaskJobsGenerator(task, parameters, root_run_dir)
+        run_dir = itr._build_parameters(1).export.run_dir
+
+        # Only the generated folder name is checked: on Windows the full path holds the drive colon ("C:").
+        assert run_dir == root_run_dir / "2023-09-26T220000+0000"
+        assert ":" not in run_dir.name
 
     def test_raise_task_has_no_module(self):
         task = (
@@ -315,7 +360,7 @@ class TestWorkflowTaskIterator:
         root_run_dir = tmp_path / "action_plan_out" / "my_task"
 
         itr = WorkflowTaskJobsGenerator(task, workflow.parameters, root_run_dir)
-        iteration_dir = root_run_dir / build_datetime("2000-01-01 00:00:00").isoformat()
+        iteration_dir = root_run_dir / "2000-01-01T000000+0000"
         jobs = itr.build_jobs(1)
         assert jobs
         for job in jobs:

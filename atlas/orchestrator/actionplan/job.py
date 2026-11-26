@@ -68,6 +68,15 @@ class TaskJobsGenerator(ABC):
         """Return the execution date associated to the given iteration for the task"""
         return self._task.from_ + (iteration - 1) * self._task.frequency
 
+    def execution_dir_name(self, iteration: int) -> str:
+        """
+        Return the folder name of the given iteration's run tree, derived from its execution date.
+        Colons are left out because Windows forbids them in paths.
+
+        Example: ``2023-09-26T22:00:00+00:00`` -> ``2023-09-26T220000+0000``
+        """
+        return self.execution_date(iteration).strftime("%Y-%m-%dT%H%M%S%z")
+
     def end_date(self, iteration: int):
         """Return the end date associated to the given iteration for the task"""
         return self.execution_date(iteration) + self._task.offset_end_date
@@ -152,7 +161,7 @@ class ModuleTaskJobsGenerator(TaskJobsGenerator):
         }
         if self.parameters.export is not None:
             updates["export"] = self.parameters.export.model_copy(
-                update={"run_dir": self.root_run_dir / str(self.execution_date(iteration).isoformat())}
+                update={"run_dir": self.root_run_dir / self.execution_dir_name(iteration)}
             )
         return self.parameters.model_copy(update=updates, deep=True)
 
@@ -179,7 +188,7 @@ class WorkflowTaskJobsGenerator(TaskJobsGenerator):
         """Build and return parameters to use for the workflow for the given iteration."""
         # The workflow derives each step's run_dir from its own output_dir, so redirect that rather than export.run_dir.
         parameters = self.parameters.model_copy(
-            update={"output_dir": self.root_run_dir / str(self.execution_date(iteration).isoformat())}, deep=True
+            update={"output_dir": self.root_run_dir / self.execution_dir_name(iteration)}, deep=True
         )
         deep_update(  # Update only the forced context of parameters
             parameters.context.forced,
