@@ -248,6 +248,10 @@ def _should_skip_equipment(
     if isinstance(equipment, WindPO | SolarPO | ThermalPO):
         return False
 
+    # Nothing activated on the window: nothing to apply
+    if len(activated_power) == 0:
+        return True
+
     # Skip if power is effectively zero
     max_power = activated_power.max()
     min_power = activated_power.abs().min()
