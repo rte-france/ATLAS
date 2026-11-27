@@ -25,3 +25,9 @@ class TSOOrdersInputDataset(AbstractDataset[TSOOrdersParameters]):
         self.bsp_order: list[Order] = input_data.order.all()
         self.nodes: list[Node] = input_data.node.all()
         # self.equipment: list[Equipment] = input_data.equipment.all()
+
+    def get_market_area_from_control_block(self, control_block: ControlBlock) -> MarketArea:
+        for market_area in self.market_area:
+            if market_area.control_block == control_block:
+                return market_area
+        raise Exception("No market_area found for control block " + control_block.name)

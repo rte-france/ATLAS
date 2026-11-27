@@ -6,12 +6,14 @@ This file is part of the ATLAS project.
 """
 
 import atlas.config as cfg
-from atlas import ControlBlock, MarketArea, Node, Order, Timeseries, generate_datetimes
+from atlas import AbstractTimeseries, Node, Order, Timeseries, generate_datetimes
 from atlas.abstract_class.module import AbstractModule
 from atlas.enums import BusinessModelName, CouplingType, LoadType, OrderType, Product, ReservesTypes
 from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.modules.balancing_markets_tso_orders import utils
 from atlas.modules.balancing_markets_tso_orders.input_dataset import TSOOrdersInputDataset
 from atlas.modules.balancing_markets_tso_orders.parameters import TSOOrdersParameters
+from atlas.modules.balancing_markets_tso_orders.Pricings import mfrr_alt_pricing
 from atlas.modules.balancing_markets_tso_orders.result import TSOOrdersResult
 
 
@@ -58,13 +60,13 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
 
         for control_block in input_dataset.control_block:
             if control_block.name in parameters.included_control_blocks:
-                market_area = self.get_market_area_from_control_block(control_block, input_dataset)
+                market_area = input_dataset.get_market_area_from_control_block(control_block)
 
                 if parameters.verbose:
                     cfg.logger.info("Studied ControlBlock: " + str(control_block))
                     cfg.logger.info("*** Needs computation phase ***")
 
-                total_needs_timeseries = Timeseries.from_index(
+                total_needs_timeseries: AbstractTimeseries = Timeseries.from_index(
                     parameters.temporal.start_date, parameters.temporal.timestep, end_date, default_value=0
                 )
 
@@ -268,7 +270,7 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
                         total_need = total_needs_timeseries.get_value(time)
 
                         if total_need > 1:
-                            market_area = self.get_market_area_from_control_block(control_block, input_dataset)
+                            market_area = input_dataset.get_market_area_from_control_block(control_block)
 
                             # Compute the price and the order type, and other useful information for the order
                             order_price = parameters.market_price_cap
@@ -287,9 +289,9 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
                                 + "_"
                                 + complete_market_type
                                 + "_"
-                                + self.datetime_to_instance_name_string(time)[11:16]
+                                + utils.datetime_to_instance_name_string(time)[11:16]
                                 + "_"
-                                + self.datetime_to_instance_name_string(time + parameters.temporal.timestep)[11:16]
+                                + utils.datetime_to_instance_name_string(time + parameters.temporal.timestep)[11:16]
                             )
 
                             if order_qmax > parameters.allowed_round_off_error:
@@ -309,7 +311,7 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
                                 input_dataset.bsp_order.append(order)
 
                         elif total_need < 0:
-                            market_area = self.get_market_area_from_control_block(control_block, input_dataset)
+                            market_area = input_dataset.get_market_area_from_control_block(control_block)
 
                             order_price = -parameters.market_price_cap
                             order_type = OrderType.Sell
@@ -328,9 +330,9 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
                                 + "_"
                                 + complete_market_type
                                 + "_"
-                                + self.datetime_to_instance_name_string(time)[11:16]
+                                + utils.datetime_to_instance_name_string(time)[11:16]
                                 + "_"
-                                + self.datetime_to_instance_name_string(time + parameters.temporal.timestep)[11:16]
+                                + utils.datetime_to_instance_name_string(time + parameters.temporal.timestep)[11:16]
                             )
 
                             if order_qmax > parameters.allowed_round_off_error:
@@ -350,37 +352,9 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
                                 input_dataset.bsp_order.append(order)
 
                 if control_block.alternative_type == ReservesTypes.mFRR:
-                    # TODO
-                    print("TODO")
-                    # mfrr_alt_pricing.compute_mfrr_alt_pricing(output_marker, control_block, total_needs_timeseries, p)
+                    mfrr_alt_pricing.compute_mfrr_alt_pricing(
+                        input_dataset, control_block, total_needs_timeseries, parameters
+                    )
 
                 if control_block.alternative_type == ReservesTypes.aFRR:
                     cfg.logger.error("aFRR market alternative is not implemented yet")
-
-    def datetime_to_instance_name_string(self, datetime):
-        """
-        Takes a DateTime as input and returns a string with no special character, that can be used within an instance name
-
-        Example : If the input is DateTime(2028, 01, 01, 10, 30, 00), i.e. "01/01/2028 10:30:00", the string output will be 2028_01_01_10_30_00
-        """
-        return (
-            str(datetime)[6:10]
-            + "_"
-            + str(datetime)[3:5]
-            + "_"
-            + str(datetime)[0:2]
-            + "_"
-            + str(datetime)[11:13]
-            + "_"
-            + str(datetime)[14:16]
-            + "_"
-            + str(datetime)[17:19]
-        )
-
-    def get_market_area_from_control_block(
-        self, control_block: ControlBlock, dataset: TSOOrdersInputDataset
-    ) -> MarketArea:
-        for market_area in dataset.market_area:
-            if market_area.control_block == control_block:
-                return market_area
-        raise Exception("No market_area found for control block " + control_block.name)
