@@ -10,32 +10,15 @@ from pathlib import Path
 from pydantic import Field
 
 from atlas.abstract_class.parameters import AbstractModuleParameters
+from atlas.io_utils.parameters import DateParameters
 
 
 class TSOOrdersParameters(AbstractModuleParameters):
-    start_date: str = Field(
-        "2028/09/02 00:00:00",
-        description="Task start date parameter.",
-    )
-
-    end_date: str = Field(
-        "2028/09/02 01:00:00",
-        description="Task end date parameter.",
-    )
-
-    execution_date: str = Field(
-        "2028/09/01 23:30:00",
-        description="Task execution date parameter.",
-    )
+    temporal = DateParameters
 
     market_price_cap: int = Field(
         15000,
         description="Price cap of the market (€/MW).",
-    )
-
-    time_step: int = Field(
-        15,
-        description="Time step of the process (minutes).",
     )
 
     market: str = Field(
