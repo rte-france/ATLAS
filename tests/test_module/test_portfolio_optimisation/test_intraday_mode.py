@@ -195,12 +195,12 @@ class TestUpstreamEnergyIntraday:
         [(10.0, 2.5, 12.5), (None, 3.0, 3.0), (7.0, None, 7.0), (None, None, 0.0)],
     )
     def test_cumulates_day_ahead_and_intraday(self, da, total_id, expected):
-        assert PortfolioPO._get_upstream_energy(_equipment(da, total_id), TIME, _parameters()) == expected
+        assert PortfolioPO.get_upstream_energy(_equipment(da, total_id), TIME, _parameters()) == expected
 
     def test_day_ahead_ignores_cumulated_intraday(self):
         parameters = _parameters(market=MarketType.dayahead, use_forecast=False)
 
-        assert PortfolioPO._get_upstream_energy(_equipment(da=10.0, total_id=2.5), TIME, parameters) == 10.0
+        assert PortfolioPO.get_upstream_energy(_equipment(da=10.0, total_id=2.5), TIME, parameters) == 10.0
 
 
 # ── Imbalance prices ──────────────────────────────────────────────────────────

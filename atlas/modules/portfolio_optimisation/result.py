@@ -14,6 +14,7 @@ from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatr
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
+from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
 from atlas.modules.portfolio_optimisation.input_objects.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
@@ -24,7 +25,6 @@ if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
     from atlas.modules.portfolio_optimisation.input_objects.load import LoadPO
     from atlas.modules.portfolio_optimisation.input_objects.other_non_dispatchable import OtherNonDispatchablePO
-    from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
     from atlas.modules.portfolio_optimisation.utils.orchestration import SinglePortfolioResult
 
 
@@ -50,10 +50,8 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
         self.update_equipments()
         self.update_portfolios()
 
-        for optimisation_result in self.optimisation_results:
-            portfolio = optimisation_result.portfolio
-
-            if self.parameters.is_portfolio_bidding and not optimisation_result.is_manual_activation:
+        if self._writes_portfolio_level:
+            for portfolio, _ in self._group_by_portfolio().values():
                 portfolio_data: dict = {
                     "name": portfolio.name,
                     "imbalance": portfolio.imbalance,
@@ -61,10 +59,40 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
                 }
                 change_sets.append(UpdateObject(portfolio_data, type(portfolio)))
 
-            for _, equipment_list in portfolio.equipments.iter_by_type():
+        for optimisation_result in self.optimisation_results:
+            for _, equipment_list in optimisation_result.portfolio.equipments.iter_by_type():
                 for equipment in equipment_list:
                     change_sets.append(UpdateObject(self._equipment_data(equipment), type(equipment)))
         return change_sets
+
+    @property
+    def _writes_portfolio_level(self) -> bool:
+        """
+        Whether the portfolio power and imbalance are computed and exported.
+
+        Only in portfolio bidding mode (in individual equipment mode the portfolio is a synthetic
+        single-equipment wrapper), and not in forecast mode, where the optimisation only builds
+        orders and leaves the committed schedules untouched.
+        """
+        return self.parameters.is_portfolio_bidding and not self.parameters.use_forecast
+
+    def _group_by_portfolio(self) -> dict[str, tuple[PortfolioPO, list[EquipmentPO]]]:
+        """
+        Gather the results of a same portfolio, keyed by its name.
+
+        A portfolio whose equipments are partly excluded from the optimisation is split into an
+        optimised part and a manually activated part sharing the same name. The first part met
+        carries the portfolio-level results; the equipments of every part are gathered.
+
+        :return: For each portfolio name, the portfolio carrying the results and all its equipments.
+        :rtype: dict[str, tuple[PortfolioPO, list[EquipmentPO]]]
+        """
+        groups: dict[str, tuple[PortfolioPO, list[EquipmentPO]]] = {}
+        for optimisation_result in self.optimisation_results:
+            portfolio = optimisation_result.portfolio
+            _, equipments = groups.setdefault(portfolio.name, (portfolio, []))
+            equipments.extend(portfolio.equipments.get_all_equipment())
+        return groups
 
     def _equipment_data(self, equipment: EquipmentPO) -> dict:
         """
@@ -134,22 +162,25 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
 
     def update_portfolios(self) -> None:
         """
-        Write the imbalance and the aggregated power onto every optimised portfolio.
+        Write the aggregated power and the imbalance onto every portfolio.
 
-        Must run after :meth:`update_equipments`, since the portfolio power is the sum of the
-        equipment schedules. Does nothing in individual equipment mode, where the portfolio is a
-        synthetic single-equipment wrapper: portfolio-level results are neither meaningful there
-        nor exported as changesets.
+        Every portfolio is processed, whether optimised, manually activated (by configuration or
+        after an unsuccessful solve) or split between both. Its power is the sum of the power of
+        all its equipments, and its imbalance the gap between that power and the quantities
+        cleared (or activated) upstream, positive for excess production.
+
+        Must run after :meth:`update_equipments`, since it reads back the equipment schedules.
+        Does nothing when :attr:`_writes_portfolio_level` is false.
         """
-        if not self.parameters.is_portfolio_bidding:
+        if not self._writes_portfolio_level:
             return
 
-        for optimisation_result in self.optimisation_results:
-            if optimisation_result.is_manual_activation:
-                continue
+        for portfolio, equipments in self._group_by_portfolio().values():
+            power_ts = self._sum_equipment_power(equipments)
+            imbalance_ts = power_ts - self._sum_upstream_energy(equipments)
 
-            self._write_portfolio_imbalance(optimisation_result.portfolio, optimisation_result)
-            self._write_portfolio_power(optimisation_result.portfolio)
+            portfolio.power = self._upsert_forecast(portfolio.power, power_ts)
+            portfolio.imbalance = self._upsert_forecast(portfolio.imbalance, imbalance_ts)
 
     def _write_equipment_schedule(self, equipment: EquipmentPO, optimisation_result: SinglePortfolioResult) -> None:
         """
@@ -194,46 +225,50 @@ class PortfolioOptimisationResult(ModuleResult[PortfolioOptimisationParameters])
             equipment.state_sequence = ScenarioMatrix()
         equipment.state_sequence.upsert(execution_date, schedule.state_sequence)
 
-    def _write_portfolio_imbalance(self, portfolio: PortfolioPO, optimisation_result: SinglePortfolioResult) -> None:
+    def _empty_window_timeseries(self) -> Timeseries:
+        """Zero-valued timeseries over the portfolio time window."""
+        window = self.parameters.portfolio_time_window
+        return Timeseries.from_index(min(window), self.parameters.temporal.timestep, max(window), default_value=0.0)
+
+    def _sum_equipment_power(self, equipments: list[EquipmentPO]) -> Timeseries:
         """
-        Store the net imbalance of a portfolio, counted positively when the portfolio is short.
+        Sum the power of the given equipments over the portfolio time window.
 
-        :param portfolio: Portfolio to update.
-        :type portfolio: PortfolioPO
-        :param optimisation_result: Solved optimisation holding the variable values.
-        :type optimisation_result: SinglePortfolioResult
-        """
-
-        solution = optimisation_result.solution
-        imbalance_ts = (
-            solution[f"{portfolio.name}_large_imbalance_down"]
-            + solution[f"{portfolio.name}_small_imbalance_down"]
-            - solution[f"{portfolio.name}_large_imbalance_up"]
-            - solution[f"{portfolio.name}_small_imbalance_up"]
-        )
-
-        portfolio.imbalance = self._upsert_forecast(portfolio.imbalance, imbalance_ts)
-
-    def _write_portfolio_power(self, portfolio: PortfolioPO) -> None:
-        """
-        Store the portfolio power as the sum of the power of its equipments.
-
-        Must run after the equipments have been updated, since it reads back their schedules.
-
-        :param portfolio: Portfolio to update.
-        :type portfolio: PortfolioPO
+        :param equipments: Every equipment of the portfolio, optimised or manually activated.
+        :type equipments: list[EquipmentPO]
+        :return: Aggregated power, zero where no equipment has a schedule.
+        :rtype: Timeseries
         """
         start, end = min(self.parameters.portfolio_time_window), max(self.parameters.portfolio_time_window)
-        power_ts = Timeseries.from_index(start, self.parameters.temporal.timestep, end, default_value=0.0)
+        power_ts = self._empty_window_timeseries()
 
-        for _, equipment_list in portfolio.equipments.iter_by_type():
-            for equipment in equipment_list:
-                if equipment.power:
-                    power_ts = power_ts + equipment.power.get_forecast(
-                        self.parameters.temporal.execution_date, start, end
-                    )
+        for equipment in equipments:
+            if equipment.power:
+                power_ts = power_ts + equipment.power.get_forecast(self.parameters.temporal.execution_date, start, end)
 
-        portfolio.power = self._upsert_forecast(portfolio.power, power_ts)
+        return power_ts
+
+    def _sum_upstream_energy(self, equipments: list[EquipmentPO]) -> Timeseries:
+        """
+        Sum the quantities cleared (or activated) upstream by the given equipments.
+
+        Uses the same definition as the optimisation balance, see
+        :meth:`~atlas.modules.portfolio_optimisation.input_objects.portfolio.PortfolioPO.get_upstream_energy`.
+
+        :param equipments: Every equipment of the portfolio, optimised or manually activated.
+        :type equipments: list[EquipmentPO]
+        :return: Aggregated upstream commitment over the portfolio time window.
+        :rtype: Timeseries
+        """
+        upstream_ts = self._empty_window_timeseries()
+
+        for time in self.parameters.portfolio_time_window:
+            upstream_ts.set_value(
+                time,
+                sum(PortfolioPO.get_upstream_energy(equipment, time, self.parameters) for equipment in equipments),
+            )
+
+        return upstream_ts
 
     def _upsert_forecast(
         self, matrix: ForecastingMatrix | LazyForecastingMatrix | None, timeseries: Timeseries

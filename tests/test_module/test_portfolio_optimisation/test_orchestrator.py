@@ -382,3 +382,18 @@ class TestOptimisePortfolioManualActivated:
         assert result.solution == {}
         assert result.solution_info is None
         mock_set_manual.assert_called_once_with([], mock_parameters)
+
+    @patch("atlas.modules.portfolio_optimisation.utils.orchestration.set_manual_activation")
+    def test_log_names_the_number_of_excluded_equipments(self, mock_set_manual, mock_parameters):
+        """The log must not read as an optimisation fallback: it states how many equipments are excluded."""
+        portfolio = Mock(spec=PortfolioPO)
+        portfolio.name = "generator_fr"
+        portfolio.equipments = Mock()
+        portfolio.equipments.get_all_equipment.return_value = [Mock(), Mock()]
+
+        with patch("atlas.modules.portfolio_optimisation.utils.orchestration.cfg.logger") as mock_logger:
+            optimise_portfolio_manual_activated(portfolio, mock_parameters)
+
+        message = mock_logger.info.call_args.args[0]
+        assert "2 equipment(s) of portfolio generator_fr" in message
+        assert "excluded" in message

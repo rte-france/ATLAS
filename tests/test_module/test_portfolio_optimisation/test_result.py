@@ -12,7 +12,7 @@ from unittest.mock import Mock
 import pendulum
 import pytest
 
-from atlas.enums import BusinessModelName, ThermalDispatchState
+from atlas.enums import BusinessModelName, MarketType, ThermalDispatchState
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_objects.market_area import MarketAreaPO
@@ -41,6 +41,7 @@ def _parameters(*, is_portfolio_bidding: bool = True, use_forecast: bool = False
     parameters = Mock()
     parameters.is_portfolio_bidding = is_portfolio_bidding
     parameters.use_forecast = use_forecast
+    parameters.market = MarketType.dayahead
     parameters.allowed_round_off_error = 0.01
     parameters.portfolio_time_window = TARGET_TIMES
     parameters.temporal.timestep = TIMESTEP
@@ -196,12 +197,34 @@ class TestForecastMode:
         assert _equipment_by_name(portfolio, "th").state_sequence is not None
 
 
+def _manual_part(portfolio: PortfolioPO, power: float, da_cleared: float) -> PortfolioPO:
+    """Manually activated part of *portfolio* (same name), holding a thermal unit already scheduled."""
+    manual_thermal = _equipment_by_name(portfolio, "th").model_copy(
+        update={
+            "name": "th_base",
+            "power": ForecastingMatrix().add(_timeseries([power] * len(TARGET_TIMES)), EXECUTION_DATE),
+            "da_cleared_quantity": _timeseries([da_cleared] * len(TARGET_TIMES)),
+        }
+    )
+    manual_portfolio = PortfolioPO(
+        name=portfolio.name,
+        control_block=portfolio.control_block,
+        market_area=portfolio.market_area,
+        equipments=PortfolioEquipments(),
+    )
+    manual_portfolio.equipments.add("thermal", manual_thermal)
+    return manual_portfolio
+
+
 class TestPortfolioLevel:
-    def test_imbalance_is_positive_when_short(self, portfolio):
-        values = {"pf_large_imbalance_down": _timeseries([10.0] * len(TARGET_TIMES))}
-        values |= {"pf_small_imbalance_up": _timeseries([4.0] * len(TARGET_TIMES))}
+    def test_imbalance_is_power_minus_cleared_quantities(self, portfolio):
+        """Positive for excess production: 50 produced for 44 sold."""
+        _equipment_by_name(portfolio, "th").da_cleared_quantity = _timeseries([40.0] * len(TARGET_TIMES))
+        _equipment_by_name(portfolio, "so").da_cleared_quantity = _timeseries([4.0] * len(TARGET_TIMES))
+        values = {"th_power_level": _timeseries([50.0] * len(TARGET_TIMES))}
         dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values)])
 
+        dataset.update_equipments()
         dataset.update_portfolios()
 
         assert _forecast_values(portfolio.imbalance) == [6.0, 6.0, 6.0]
@@ -216,6 +239,34 @@ class TestPortfolioLevel:
         dataset.update_portfolios()
 
         assert _forecast_values(portfolio.power) == [75.0, 75.0, 75.0]
+
+    def test_split_portfolio_includes_its_manually_activated_part(self, portfolio):
+        """Optimised part (50 produced, 40 sold) + manual part (30 produced, 35 sold), one changeset."""
+        _equipment_by_name(portfolio, "th").da_cleared_quantity = _timeseries([40.0] * len(TARGET_TIMES))
+        manual_portfolio = _manual_part(portfolio, power=30.0, da_cleared=35.0)
+        values = {"th_power_level": _timeseries([50.0] * len(TARGET_TIMES))}
+        dataset = PortfolioOptimisationResult(
+            _parameters(),
+            [_result(portfolio, values), _result(manual_portfolio, {}, is_manual_activation=True)],
+        )
+
+        change_sets = dataset.build_change_sets()
+
+        assert _forecast_values(portfolio.power) == [80.0, 80.0, 80.0]
+        assert _forecast_values(portfolio.imbalance) == [5.0, 5.0, 5.0]
+        portfolio_change_sets = [cs for cs in change_sets if cs.model_type == BusinessModelName.PORTFOLIO]
+        assert len(portfolio_change_sets) == 1
+        assert _forecast_values(portfolio_change_sets[0].data["power"]) == [80.0, 80.0, 80.0]
+
+    def test_forecast_mode_writes_nothing_at_portfolio_level(self, portfolio):
+        values = {"th_power_level": _timeseries([50.0] * len(TARGET_TIMES))}
+        dataset = PortfolioOptimisationResult(_parameters(use_forecast=True), [_result(portfolio, values)])
+
+        change_sets = dataset.build_change_sets()
+
+        assert portfolio.power is None
+        assert portfolio.imbalance is None
+        assert BusinessModelName.PORTFOLIO not in [change_set.model_type for change_set in change_sets]
 
 
 class TestIndividualEquipmentMode:
@@ -235,15 +286,21 @@ class TestIndividualEquipmentMode:
 
 
 class TestManualActivation:
-    def test_leaves_schedules_alone_and_emits_no_portfolio_changeset(self, portfolio):
+    def test_fully_manual_portfolio_still_gets_power_imbalance_and_changeset(self, portfolio):
+        """Manual by configuration or after a failed solve: schedules come from manual activation."""
+        thermal = _equipment_by_name(portfolio, "th")
+        thermal.power = ForecastingMatrix().add(_timeseries([30.0] * len(TARGET_TIMES)), EXECUTION_DATE)
+        thermal.da_cleared_quantity = _timeseries([35.0] * len(TARGET_TIMES))
         values = {"so_power_level": _timeseries([12.0] * len(TARGET_TIMES))}
         dataset = PortfolioOptimisationResult(_parameters(), [_result(portfolio, values, is_manual_activation=True)])
 
         change_sets = dataset.build_change_sets()
 
-        assert _equipment_by_name(portfolio, "so").power is None
+        assert _equipment_by_name(portfolio, "so").power is None  # solution ignored
+        assert _forecast_values(portfolio.power) == [30.0, 30.0, 30.0]
+        assert _forecast_values(portfolio.imbalance) == [-5.0, -5.0, -5.0]
         model_types = [change_set.model_type for change_set in change_sets]
-        assert BusinessModelName.PORTFOLIO not in model_types
+        assert model_types.count(BusinessModelName.PORTFOLIO) == 1
         assert BusinessModelName.THERMAL in model_types
 
 

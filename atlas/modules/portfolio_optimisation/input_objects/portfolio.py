@@ -118,7 +118,7 @@ class PortfolioPO(Portfolio):
         for equipment in non_dispatchable_equipment:
             forecast = self._get_window_forecast(equipment, parameters)
             for time in window:
-                upstream_energy = self._get_upstream_energy(equipment, time, parameters)
+                upstream_energy = self.get_upstream_energy(equipment, time, parameters)
                 residual_energy[time] += upstream_energy - forecast.get_value(time)
 
         dispatchable_equipment = [
@@ -132,7 +132,7 @@ class PortfolioPO(Portfolio):
 
         for dispatchable in dispatchable_equipment:
             for time in window:
-                residual_energy[time] += self._get_upstream_energy(dispatchable, time, parameters)  # type: ignore[arg-type]
+                residual_energy[time] += self.get_upstream_energy(dispatchable, time, parameters)  # type: ignore[arg-type]
 
         return residual_energy
 
@@ -194,7 +194,7 @@ class PortfolioPO(Portfolio):
         return tuple(sum(values) for values in zip(*all_reserves)) if all_reserves else (0.0, 0.0, 0.0, 0.0)  # noqa: B905
 
     @staticmethod
-    def _get_upstream_energy(
+    def get_upstream_energy(
         obj: EquipmentPO,
         time: DateTime,
         parameters: PortfolioOptimisationParameters,

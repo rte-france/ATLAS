@@ -176,14 +176,23 @@ def optimise_portfolio_manual_activated(
     """
     Create a result object for manually activated portfolios.
 
+    The portfolio only holds the equipments excluded from the optimisation (excluded technologies,
+    thermal strategies or market areas); it shares its name with the optimised part of the same
+    portfolio, if any.
+
     :param portfolio: Portfolio to manually activate
     :type portfolio: PortfolioPO
+    :param parameters: Optimization parameters
+    :type parameters: PortfolioOptimisationParameters
     :return: SinglePortfolioResult with manual activation applied
     :rtype: SinglePortfolioResult
     """
-    cfg.logger.info(f"Manual activation for portfolio: {portfolio.name}")
-    cfg.logger.debug("Manual activation optimisation not yet implemented")
+    equipments = portfolio.equipments.get_all_equipment()
+    cfg.logger.info(
+        f"Manual activation for {len(equipments)} equipment(s) of portfolio {portfolio.name} "
+        "(excluded technologies, thermal strategies or market areas)"
+    )
 
-    set_manual_activation(portfolio.equipments.get_all_equipment(), parameters)
+    set_manual_activation(equipments, parameters)
 
     return SinglePortfolioResult(portfolio=portfolio, solution_info=None, is_manual_activation=True)
