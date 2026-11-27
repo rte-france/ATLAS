@@ -194,6 +194,7 @@ nav = [
         { "Utilities" = [
             { "Enum" = "api/enum.md" },
             { "Logging" = "api/logging.md" },
+            { "Tracing" = "api/tracing.md" },
         ]},
     ]},
     { "Changelog" = "changelog.md" },

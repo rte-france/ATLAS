@@ -14,6 +14,7 @@ from atlas.io_utils.parameters import ContextParameters, RunPaths
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.timing import timer
+from atlas.tracing import StepRecord, model_to_metadata, step
 
 
 class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](ABC):
@@ -21,6 +22,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
 
     parameters: PO
     final_result: AbstractDataset | None = None
+    run_record: StepRecord | None = None
 
     def __init__(self, parameters: PO):
         """Initialize a Orchestrator instance.
@@ -103,6 +105,7 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
         """
         pass
 
+    @step(name=lambda self: self.parameters.name)
     def execute(self) -> CurrentInputState:
         """
         Execute the orchestrator
@@ -173,6 +176,10 @@ class AbstractOrchestrator[PO: AbstractOrchestratorParameters, J: AbstractJob](A
 
         return cis
 
+    @step(
+        name=lambda self, job, cis: job.name,
+        metadata=lambda self, job, cis: model_to_metadata(job.parameters),
+    )
     def _execute_job(self, job: AbstractJob, cis: CurrentInputState):
         """Execute a single job.
 

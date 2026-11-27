@@ -3,31 +3,43 @@
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Module that implements the Atlas logger.
+Module that configures the Atlas stdout logger sink.
 """
 
 import sys
-from pathlib import Path
 
-import pendulum
 from loguru import logger
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class Logger(BaseSettings):
+def format_context_prefix(extra: dict) -> str:
+    """Return a ``" | "``-joined prefix from ``extra['run_id']`` and ``extra['step']``.
+
+    Computed once per step by ``atlas.tracing`` and stored in ``extra['ctx']``, so sinks
+    use a static format string (parsed once by loguru) instead of a per-message callable.
+    Returns ``""`` when neither key is set.
     """
-    A configurable logger using Loguru, suitable for project-wide use.
+    parts = [v for v in (extra.get("run_id"), extra.get("step")) if v]
+    return " | ".join(parts) + " | " if parts else ""
 
-    Logging configuration can be controlled via environment variables with LOG_ prefix:
 
-    - LOG_LEVEL: logging level (e.g., DEBUG, INFO, WARNING)
-    - LOG_TO_FILE: enable file logging (true/false)
-    - LOG_DIR: directory to store logs
-    - LOG_ROTATION: log rotation policy (e.g., "10 MB", "1 week")
-    - LOG_RETENTION: log retention policy (e.g., "7 days", "1 month")
-    - LOG_FORMAT: log message format string
-    - LOG_NAME: name of the logger (default: "atlas")
+def with_context(fmt: str) -> str:
+    """Insert the precomputed ``{extra[ctx]}`` prefix right before ``{message}`` in *fmt*."""
+    return fmt.replace("{message}", "{extra[ctx]}{message}", 1)
+
+
+# Default so ``{extra[ctx]}`` resolves outside any step.
+logger.configure(extra={"ctx": ""})
+
+
+class LoggerSettings(BaseSettings):
+    """Env-driven logging configuration.
+
+    Read from environment variables with ``LOG_`` prefix:
+
+    - ``LOG_LEVEL``  — logging level (default: ``INFO``)
+    - ``LOG_FORMAT`` — loguru format string for the stdout sink
     """
 
     model_config = SettingsConfigDict(
@@ -35,55 +47,32 @@ class Logger(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",
     )
 
-    name: str = Field(default="atlas", description="Name of the logger")
     level: str = Field(default="INFO", description="Logging level (DEBUG, INFO, WARNING, ERROR)")
-    to_file: bool = Field(default=False, description="Enable file logging")
-    dir: Path = Field(default=Path("logs"), description="Directory to store log files")
-    rotation: str = Field(default="10 MB", description="Log rotation policy")
-    retention: str = Field(default="2 days", description="Log retention policy")
     format: str = Field(
         default="<green>{time:HH:mm:ss}</green> | <level>{level}</level> | <level>{message}</level>",
         description="Log message format string",
     )
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Normalize level to uppercase for consistency with loguru
-        self.level = self.level.upper()
-        self._configure_logger()
+    @field_validator("level")
+    @classmethod
+    def _upper(cls, v: str) -> str:
+        return v.upper()
 
-    def _configure_logger(self) -> None:
-        logger.remove()
 
-        if not self.to_file:
-            logger.add(
-                sys.stdout,
-                level=self.level,
-                format=self.format,
-                enqueue=True,
-            )
-        else:
-            self.dir.mkdir(parents=True, exist_ok=True)
-            timestamp = pendulum.now().format("YYYY-MM-DD-HH-mm-ss")
+def configure_logging(settings: LoggerSettings | None = None) -> None:
+    """Install the stdout sink. Call once at app startup.
 
-            log_file = self.dir / f"{self.name}-{timestamp}.log"
-
-            logger.add(
-                log_file,
-                level=self.level,
-                format=self.format,
-                rotation=self.rotation,
-                retention=self.retention,
-                enqueue=True,
-            )
-
-    def get_logger(self):  # noqa: ANN201
-        """
-        Returns a bound logger instance, pre-configured.
-
-        :return: A Loguru logger instance.
-        :rtype: loguru.logger
-        """
-        return logger.bind(logger_name=self.name)
+    Replaces all existing loguru handlers, so call this **before** any per-run sinks
+    (e.g. those added by :class:`atlas.tracing.RunStore`).
+    """
+    settings = settings or LoggerSettings()
+    logger.remove()
+    logger.add(
+        sys.stdout,
+        level=settings.level,
+        format=with_context(settings.format),
+        enqueue=True,
+    )

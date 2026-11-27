@@ -14,6 +14,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.orchestrator.module_registry import ModuleRegistry
+from atlas.tracing import model_to_metadata, step
 
 
 class ModuleRun:
@@ -41,6 +42,10 @@ class ModuleRun:
             return CurrentInputState.from_directory(dataset)
         return CurrentInputState(dataset)
 
+    @step(
+        name=lambda self: type(self.module).__name__,
+        metadata=lambda self: model_to_metadata(self.parameters),
+    )
     def run(self) -> AtlasDataset:
         """Run the module and return the resulting dataset.
 
