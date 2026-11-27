@@ -6,9 +6,9 @@ This file is part of the ATLAS project.
 """
 
 import atlas.config as cfg
-from atlas import Order, Timeseries, generate_datetimes
+from atlas import ControlBlock, MarketArea, Node, Order, Timeseries, generate_datetimes
 from atlas.abstract_class.module import AbstractModule
-from atlas.enums import BusinessModelName, LoadType, OrderType, Product, ReservesTypes
+from atlas.enums import BusinessModelName, CouplingType, LoadType, OrderType, Product, ReservesTypes
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.balancing_markets_tso_orders.input_dataset import TSOOrdersInputDataset
 from atlas.modules.balancing_markets_tso_orders.parameters import TSOOrdersParameters
@@ -58,16 +58,12 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
 
         for control_block in input_dataset.control_block:
             if control_block.name in parameters.included_control_blocks:
-                # TODO
-                # Identify the TSO and MarketArea related to the ControlBlock.
-                market_area = control_block.GetChildren("MarketArea")[0]
-                market_area = input_dataset.market_area[0]
+                market_area = self.get_market_area_from_control_block(control_block, input_dataset)
 
                 if parameters.verbose:
                     cfg.logger.info("Studied ControlBlock: " + str(control_block))
                     cfg.logger.info("*** Needs computation phase ***")
 
-                # TODO : cette timeseries était déclarée avec l'unit "MW"
                 total_needs_timeseries = Timeseries.from_index(
                     parameters.temporal.start_date, parameters.temporal.timestep, end_date, default_value=0
                 )
@@ -88,7 +84,7 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
                         pc_orders = []
                         pc_orders_dict = {}
                         for coupling_instance in input_dataset.order_coupling:
-                            if coupling_instance.coupling_type != "PARENT_CHILDREN":
+                            if coupling_instance.coupling_type == CouplingType.PARENT_CHILDREN:
                                 continue
 
                             for order_enum, order in enumerate(coupling_instance.orders):
@@ -147,7 +143,6 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
                             # Do not consider parent children orders anymore
                             if bsp_order in pc_orders:
                                 continue
-                            # For other orders
                             else:
                                 if bsp_order.order_type == OrderType.Sell:
                                     if bsp_order.equipment.name in equipment_already_included_upward.keys():
@@ -182,8 +177,9 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
                     total_load = 0
 
                     # Find all Nodes that are within the ControlBlock
-                    # TODO
-                    nodes_in_control_block = control_block.GetChildren("Node")
+                    nodes_in_control_block: list[Node] = [
+                        n for n in input_dataset.nodes if n.control_block == control_block
+                    ]
 
                     # Third loop, on Nodes, to identify the Equipments within the ControlBlock
                     for node in nodes_in_control_block:
@@ -194,7 +190,7 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
                         for equipment in equipments_in_node:
                             # Compute the projected power of the equipment for the studied time
                             # The MaximumPowerForecast is only taken as reference for the main load equipment of each node
-                            if equipment.Class == "Load":
+                            if equipment.Class == BusinessModelName.LOAD:
                                 if equipment.LoadType in [LoadType.POWER_TO_GAS, LoadType.OTHER_NON_DISPATCHABLE_LOAD]:
                                     forecasted_power = Timeseries.from_values(
                                         parameters.temporal.start_date, parameters.temporal.timestep, equipment.power
@@ -227,7 +223,7 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
                                     ).get_value(time)
 
                             # Add the forecasted_power_timeseries to the corresponding total timeseries (that can either be load or production)
-                            if str(equipment.Class) == "Load":
+                            if str(equipment.Class) == BusinessModelName.LOAD:
                                 total_load = total_load + forecasted_power
                             else:
                                 total_production = total_production + forecasted_power
@@ -273,14 +269,11 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
                         total_need = total_needs_timeseries.get_value(time)
 
                         if total_need > 1:
-                            # Identify the MarketArea and the Portfolio related with the ControlBlock.
-                            # TODO
-                            market_area = control_block.GetChildren("MarketArea")[0]
-                            market_area = input_dataset.market_area[0]
+                            market_area = self.get_market_area_from_control_block(control_block, input_dataset)
 
-                            # Compute the price and the order type, and other useful informations for the order
+                            # Compute the price and the order type, and other useful information for the order
                             order_price = parameters.market_price_cap
-                            order_type = "Buy"
+                            order_type = OrderType.Buy
                             order_qmax = round(total_need)
                             order_qmin = 0
                             if parameters.market == Product.RRActivation:
@@ -300,7 +293,6 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
                                 + self.datetime_to_instance_name_string(time + parameters.temporal.timestep)[11:16]
                             )
 
-                            # Store results in the output_marker
                             if order_qmax > parameters.allowed_round_off_error:
                                 order = Order(
                                     name=order_name,
@@ -318,14 +310,10 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
                                 input_dataset.bsp_order.append(order)
 
                         elif total_need < 0:
-                            # Identify the MarketArea and the Portfolio related with the ControlBlock.
-                            # TODO
-                            market_area = control_block.GetChildren("MarketArea")[0]
-                            market_area = input_dataset.market_area[0]
+                            market_area = self.get_market_area_from_control_block(control_block, input_dataset)
 
-                            # Compute the price and the order type, and other useful informations for the order
                             order_price = -parameters.market_price_cap
-                            order_type = "Sell"
+                            order_type = OrderType.Sell
                             order_qmax = abs(total_need)
                             order_qmin = 0
                             if parameters.market == Product.RRActivation:
@@ -346,7 +334,6 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
                                 + self.datetime_to_instance_name_string(time + parameters.temporal.timestep)[11:16]
                             )
 
-                            # Store results in the output_marker
                             if order_qmax > parameters.allowed_round_off_error:
                                 order = Order(
                                     name=order_name,
@@ -390,3 +377,11 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
             + "_"
             + str(datetime)[17:19]
         )
+
+    def get_market_area_from_control_block(
+        self, control_block: ControlBlock, dataset: TSOOrdersInputDataset
+    ) -> MarketArea:
+        for market_area in dataset.market_area:
+            if market_area.control_block == control_block:
+                return market_area
+        raise Exception("No market_area found for control block " + control_block.name)

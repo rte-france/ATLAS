@@ -10,12 +10,9 @@ from pathlib import Path
 from pydantic import Field
 
 from atlas.abstract_class.parameters import AbstractModuleParameters
-from atlas.io_utils.parameters import DateParameters
 
 
 class TSOOrdersParameters(AbstractModuleParameters):
-    temporal = DateParameters
-
     market_price_cap: int = Field(
         15000,
         description="Price cap of the market (€/MW).",
@@ -39,16 +36,6 @@ class TSOOrdersParameters(AbstractModuleParameters):
     pricing_slices_size: float = Field(
         200.0,
         description="Size (MW) of pricing slices used during pricing computation.",
-    )
-
-    use_presolve: bool = Field(
-        True,
-        description="Whether a presolve step is applied before clearing optimization.",
-    )
-
-    solver: str = Field(
-        "XPRESS",
-        description="Optimization solver.",
     )
 
     voll: int = Field(
@@ -109,16 +96,6 @@ class TSOOrdersParameters(AbstractModuleParameters):
     lp_output_folder: str = Field(
         "TSO_orders",
         description="Output folder for LP files in debug mode.",
-    )
-
-    solver_timeout: int = Field(
-        240,
-        description="Optimization timeout (seconds).",
-    )
-
-    solver_duality_gap: float = Field(
-        0.001,
-        description="Duality gap used for FrBM optimizations.",
     )
 
     allowed_round_off_error: float = Field(
