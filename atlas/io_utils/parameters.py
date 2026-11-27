@@ -17,6 +17,7 @@ from pendulum import duration
 from pydantic import ConfigDict, Field, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 
+from atlas.config import logger
 from atlas.enums import SolverEnum
 from atlas.io_utils.utils import FrozenBaseModel, deep_update
 from atlas.validators import DurationField
@@ -90,6 +91,46 @@ class Parameters(FrozenBaseModel):
         """
         with open(Path(file_path)) as file:
             return json.load(file)
+
+    def _write_yaml(self, file_path: Path | str) -> None:
+        """Write every parameter, default values included, to a YAML file.
+        :param file_path: Path to the YAML file to write.
+        :type file_path: str or pathlib.Path
+        """
+        parameters_dict = self.model_dump(mode="json", round_trip=True, serialize_as_any=True)
+        parameters_text = yaml.dump(parameters_dict, sort_keys=False)
+        Path(file_path).write_text(parameters_text, encoding="utf-8")
+
+    def _write_json(self, file_path: Path | str) -> None:
+        """Write every parameter, default values included, to a JSON file.
+        :param file_path: Path to the JSON file to write.
+        :type file_path: str or pathlib.Path
+        """
+        parameters_text = self.model_dump_json(round_trip=True, serialize_as_any=True)
+        Path(file_path).write_text(parameters_text, encoding="utf-8")
+
+    def to_file(self, file_path: Path | str) -> None:
+        """Write the parameters to a YAML or JSON file, depending on the file_path extension.
+
+        Path values are not modified: relative paths stay relative and are not resolved.
+
+        :param file_path: Path to the parameters file to write, with a .yaml, .yml or .json extension.
+        :type file_path: str or pathlib.Path
+        :raises ValueError: If the file extension is not supported.
+        """
+        file_extension = Path(file_path).suffix
+        parent_path = Path(file_path).parent
+        try:
+            parent_path.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            logger.error(f"Permission denied: unable to create {parent_path}")
+            raise
+        if file_extension in (".yaml", ".yml"):
+            self._write_yaml(file_path)
+        elif file_extension == ".json":
+            self._write_json(file_path)
+        else:
+            raise ValueError(f"Unsupported file extension: {file_extension}")
 
 
 class DateParameters(FrozenBaseModel):
