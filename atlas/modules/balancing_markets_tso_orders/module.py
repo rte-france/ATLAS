@@ -85,93 +85,92 @@ class TSOOrdersModule(AbstractModule[TSOOrdersParameters, TSOOrdersInputDataset,
                         pc_orders_dict = {}
                         for coupling_instance in input_dataset.order_coupling:
                             if coupling_instance.coupling_type == CouplingType.PARENT_CHILDREN:
-                                continue
+                                for order_enum, order in enumerate(coupling_instance.orders):
+                                    parent_order_name = order.name
+                                    if order_enum == 0:
+                                        pc_orders.append(order)
+                                        pc_orders_dict[parent_order_name] = []
 
-                            for order_enum, order in enumerate(coupling_instance.orders):
-                                parent_order_name = order.name
-                                if order_enum == 0:
-                                    pc_orders.append(order)
-                                    pc_orders_dict[parent_order_name] = []
-
-                                else:
-                                    pc_orders.append(order)
-                                    pc_orders_dict[parent_order_name].append(order)
+                                    else:
+                                        pc_orders.append(order)
+                                        pc_orders_dict[parent_order_name].append(order)
 
                         for bsp_order in input_dataset.bsp_order:
-                            if bsp_order.is_agent_tso:
-                                continue
+                            if (
+                                not bsp_order.is_agent_tso
+                                and bsp_order.market_area.name == market_area.name
+                                and bsp_order.product == parameters.market
+                                and bsp_order.start_date == parameters.temporal.start_date
+                            ):
+                                # First, deal with parent children orders, by spotting the parent
+                                if bsp_order in pc_orders_dict.keys():
+                                    qmax_maximum_in_children = max(
+                                        [child_order.qmax for child_order in pc_orders_dict[bsp_order.name]]
+                                    )
 
-                            if bsp_order.market_area.name != market_area.name:
-                                continue
-
-                            if bsp_order.product != parameters.market:
-                                continue
-
-                            if bsp_order.start_date != parameters.temporal.start_date:
-                                continue
-
-                            # First, deal with parent children orders, by spotting the parent
-                            if bsp_order in pc_orders_dict.keys():
-                                qmax_maximum_in_children = max(
-                                    [child_order.qmax for child_order in pc_orders_dict[bsp_order.name]]
-                                )
-
-                                if bsp_order.order_type == OrderType.Sell:
-                                    if bsp_order.equipment.name in equipment_already_included_upward.keys():
-                                        bsp_orders_upward_sum += (
-                                            bsp_order.qmax + qmax_maximum_in_children
-                                        ) - equipment_already_included_upward[bsp_order.equipment.name]
-
-                                    else:
-                                        equipment_already_included_upward[bsp_order.equipment.name] = (
-                                            bsp_order.qmax + qmax_maximum_in_children
-                                        )
-                                        bsp_orders_upward_sum += bsp_order.qmax + qmax_maximum_in_children
-
-                                if bsp_order.order_type == OrderType.Buy:
-                                    if bsp_order.equipment.name in equipment_already_included_downward.keys():
-                                        bsp_orders_downward_sum += (
-                                            bsp_order.qmax + qmax_maximum_in_children
-                                        ) - equipment_already_included_downward[bsp_order.equipment.name]
-
-                                    else:
-                                        equipment_already_included_downward[bsp_order.equipment.name] = (
-                                            bsp_order.qmax + qmax_maximum_in_children
-                                        )
-                                        bsp_orders_downward_sum += bsp_order.qmax + qmax_maximum_in_children
-
-                            # Do not consider parent children orders anymore
-                            if bsp_order in pc_orders:
-                                continue
-                            else:
-                                if bsp_order.order_type == OrderType.Sell:
-                                    if bsp_order.equipment.name in equipment_already_included_upward.keys():
-                                        if bsp_order.qmax > equipment_already_included_upward[bsp_order.equipment.name]:
+                                    if bsp_order.order_type == OrderType.Sell:
+                                        if bsp_order.equipment.name in equipment_already_included_upward.keys():
                                             bsp_orders_upward_sum += (
-                                                bsp_order.qmax
-                                                - equipment_already_included_upward[bsp_order.equipment.name]
-                                            )
-                                            equipment_already_included_upward[bsp_order.equipment.name] = bsp_order.qmax
-                                    else:
-                                        equipment_already_included_upward[bsp_order.equipment.name] = bsp_order.qmax
-                                        bsp_orders_upward_sum += bsp_order.qmax
+                                                bsp_order.qmax + qmax_maximum_in_children
+                                            ) - equipment_already_included_upward[bsp_order.equipment.name]
 
-                                if bsp_order.order_type == OrderType.Buy:
-                                    if bsp_order.equipment.name in equipment_already_included_downward.keys():
-                                        if (
-                                            bsp_order.qmax
-                                            > equipment_already_included_downward[bsp_order.equipment.name]
-                                        ):
-                                            bsp_orders_downward_sum += (
-                                                bsp_order.qmax
-                                                - equipment_already_included_downward[bsp_order.equipment.name]
+                                        else:
+                                            equipment_already_included_upward[bsp_order.equipment.name] = (
+                                                bsp_order.qmax + qmax_maximum_in_children
                                             )
+                                            bsp_orders_upward_sum += bsp_order.qmax + qmax_maximum_in_children
+
+                                    if bsp_order.order_type == OrderType.Buy:
+                                        if bsp_order.equipment.name in equipment_already_included_downward.keys():
+                                            bsp_orders_downward_sum += (
+                                                bsp_order.qmax + qmax_maximum_in_children
+                                            ) - equipment_already_included_downward[bsp_order.equipment.name]
+
+                                        else:
+                                            equipment_already_included_downward[bsp_order.equipment.name] = (
+                                                bsp_order.qmax + qmax_maximum_in_children
+                                            )
+                                            bsp_orders_downward_sum += bsp_order.qmax + qmax_maximum_in_children
+
+                                # Do not consider parent children orders anymore
+                                if bsp_order in pc_orders:
+                                    continue
+                                else:
+                                    if bsp_order.order_type == OrderType.Sell:
+                                        if bsp_order.equipment.name in equipment_already_included_upward.keys():
+                                            if (
+                                                bsp_order.qmax
+                                                > equipment_already_included_upward[bsp_order.equipment.name]
+                                            ):
+                                                bsp_orders_upward_sum += (
+                                                    bsp_order.qmax
+                                                    - equipment_already_included_upward[bsp_order.equipment.name]
+                                                )
+                                                equipment_already_included_upward[bsp_order.equipment.name] = (
+                                                    bsp_order.qmax
+                                                )
+                                        else:
+                                            equipment_already_included_upward[bsp_order.equipment.name] = bsp_order.qmax
+                                            bsp_orders_upward_sum += bsp_order.qmax
+
+                                    if bsp_order.order_type == OrderType.Buy:
+                                        if bsp_order.equipment.name in equipment_already_included_downward.keys():
+                                            if (
+                                                bsp_order.qmax
+                                                > equipment_already_included_downward[bsp_order.equipment.name]
+                                            ):
+                                                bsp_orders_downward_sum += (
+                                                    bsp_order.qmax
+                                                    - equipment_already_included_downward[bsp_order.equipment.name]
+                                                )
+                                                equipment_already_included_downward[bsp_order.equipment.name] = (
+                                                    bsp_order.qmax
+                                                )
+                                        else:
                                             equipment_already_included_downward[bsp_order.equipment.name] = (
                                                 bsp_order.qmax
                                             )
-                                    else:
-                                        equipment_already_included_downward[bsp_order.equipment.name] = bsp_order.qmax
-                                        bsp_orders_downward_sum += bsp_order.qmax
+                                            bsp_orders_downward_sum += bsp_order.qmax
                     # Creating empty variables to store the total load and total production of all Equipments in the ControlBlock
                     total_production = 0
                     total_load = 0
